@@ -25,9 +25,18 @@ static long long eval_user_function_call(struct ASTNode* fn, struct ASTNode* arg
 // ERR: Specific error code
 
 // Severity levels
+//    Info - Probably a log or something lmao
 #define SEV_INFO    0x00
+//    Warning - You have something wrong with the program but it ain't super bad
+//    Current Functionality: Continue
 #define SEV_WARNING 0x01
+//    Error - Current Functionality:
+//    On Interpret: Continue
+//    On Build&Run: It'll just break
 #define SEV_ERROR   0x02
+//    Fatal Error - Current Functionality:
+//    On Interpret: Continue TODO must exit program
+//    On Build&Run: It'll just break
 #define SEV_FATAL   0x0F
 
 // Modules

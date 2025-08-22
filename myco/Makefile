@@ -1,7 +1,8 @@
 CC = gcc
-CFLAGS_DEV = -O2 -std=c99 -Iinclude -g -Wall -Wextra
-CFLAGS_REL = -O3 -std=c99 -Iinclude -DNDEBUG -fomit-frame-pointer -flto -march=native -mtune=native
+CFLAGS_DEV  = -O2 -std=c99 -Iinclude -g -Wall -Wextra 
+CFLAGS_REL  = -O3 -std=c99 -Iinclude -DNDEBUG -fomit-frame-pointer -flto -march=native -mtune=native
 CFLAGS_PROD = -O3 -std=c99 -Iinclude -DNDEBUG -fomit-frame-pointer -flto -s -march=native -mtune=native
+CLINK = -lm
 
 # Platform-specific production flags
 ifeq ($(shell uname),Darwin)
@@ -21,15 +22,15 @@ WINOUT = myco.exe
 all: $(OUT)
 
 $(OUT): $(SRC)
-	$(CC) $(CFLAGS_DEV) -o $(OUT) $(SRC)
+	$(CC) $(CFLAGS_DEV) -o $(OUT) $(SRC) $(CLINK)
 
 # Release build - optimized for speed and size
 release: $(SRC)
-	$(CC) $(CFLAGS_REL) -o $(OUT)_release $(SRC)
+	$(CC) $(CFLAGS_REL) -o $(OUT)_release $(SRC) $(CLINK)
 
 # Production build - maximum optimization, stripped
 prod: $(SRC)
-	$(CC) $(CFLAGS_PROD) -o $(OUT)_prod $(SRC)
+	$(CC) $(CFLAGS_PROD) -o $(OUT)_prod $(SRC) $(CLINK)
 
 # Profile-guided optimization (PGO) - maximum performance
 pgo: profile_gen profile_use

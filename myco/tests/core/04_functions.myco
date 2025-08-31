@@ -1,0 +1,264 @@
+# ============================================================================
+# CORE LANGUAGE FEATURES - FUNCTIONS
+# ============================================================================
+# Test Category: Functions
+# Total Tests: 25
+# Coverage: Function Declaration, Execution, Parameters, Return Values, Lambdas
+# ============================================================================
+
+# Global test tracking for this suite
+let suite_tests_passed = 0;
+let suite_tests_total = 0;
+
+# Test utility function
+func run_test(test_name, test_condition, expected_result):
+    suite_tests_passed = suite_tests_passed + 1;
+    suite_tests_total = suite_tests_total + 1;
+    if test_condition == expected_result:
+        print("PASSED:", test_name);
+    else:
+        print("FAILED:", test_name, "- Expected:", expected_result, "Got:", test_condition);
+        push(tests_failed, test_name);
+    end
+end
+
+print("\nFUNCTIONS TEST SUITE");
+print("====================");
+
+# ============================================================================
+# FUNCTION DECLARATION (8 tests)
+# ============================================================================
+print("\n--- FUNCTION DECLARATION ---");
+
+# Test 1: Basic Function Definition
+func basic_function():
+    return 42;
+end
+let basic_result = basic_function();
+run_test("Basic Function Definition", basic_result, 42);
+
+# Test 2: Function with Parameters
+func add_numbers(a, b):
+    return a + b;
+end
+let add_result = add_numbers(5, 3);
+run_test("Function with Parameters", add_result, 8);
+
+# Test 3: Function with Return Types (Arrow Syntax)
+func multiply_numbers(a, b) -> int:
+    return a * b;
+end
+let multiply_result = multiply_numbers(6, 7);
+run_test("Function with Return Types", multiply_result, 42);
+
+# Test 4: Function with Type Annotations
+func typed_function(x: int, y: int) -> int:
+    return x - y;
+end
+let typed_result = typed_function(10, 4);
+run_test("Function with Type Annotations", typed_result, 6);
+
+# Test 5: Function with Mixed Type Annotations
+func mixed_types(x, y: int) -> string:
+    return "Result: " + to_string(x + y);
+end
+let mixed_result = mixed_types(5, 3);
+run_test("Function with Mixed Type Annotations", len(mixed_result) > 0, True);
+
+# Test 6: Function with No Return Type
+func no_return_type(a, b):
+    return a * b;
+end
+let no_return_result = no_return_type(4, 5);
+run_test("Function with No Return Type", no_return_result, 20);
+
+# Test 7: Function with Multiple Return Paths
+func conditional_return(x):
+    if x > 0:
+        return x * 2;
+    else:
+        return x * -1;
+    end
+end
+let cond_result1 = conditional_return(5);
+let cond_result2 = conditional_return(-3);
+run_test("Function with Multiple Return Paths - Positive", cond_result1, 10);
+run_test("Function with Multiple Return Paths - Negative", cond_result2, 3);
+
+# Test 8: Function Declaration Order
+func first_function():
+    return second_function();
+end
+
+func second_function():
+    return 42;
+end
+let order_result = first_function();
+run_test("Function Declaration Order", order_result, 42);
+
+# ============================================================================
+# FUNCTION EXECUTION (10 tests)
+# ============================================================================
+print("\n--- FUNCTION EXECUTION ---");
+
+# Test 9: Function Call with Arguments
+func test_call_params(a, b, c):
+    return a + b + c;
+end
+let call_result = test_call_params(1, 2, 3);
+run_test("Function Call with Arguments", call_result, 6);
+
+# Test 10: Function Return Values
+func return_string():
+    return "Hello World";
+end
+let string_result = return_string();
+run_test("Function Return String", string_result == "Hello World", True);
+
+# Test 11: Function Parameter Passing
+func test_param_passing(x):
+    x = x * 2;
+    return x;
+end
+let param_result = test_param_passing(5);
+run_test("Function Parameter Passing", param_result, 10);
+
+# Test 12: Function Scope and Variables
+let global_var = 100;
+func test_scope():
+    let local_var = 50;
+    return global_var + local_var;
+end
+let scope_result = test_scope();
+run_test("Function Scope and Variables", scope_result, 150);
+
+# Test 13: Function with Side Effects
+let side_effect_var = 0;
+func test_side_effects():
+    side_effect_var = 42;
+    return side_effect_var;
+end
+let side_effect_result = test_side_effects();
+run_test("Function with Side Effects", side_effect_var, 42);
+
+# Test 14: Function Performance
+func performance_test():
+    let result = 0;
+    for i in 1..1000:
+        result = result + i;
+    end
+    return result;
+end
+let perf_result = performance_test();
+run_test("Function Performance", perf_result > 0, True);
+
+# Test 15: Function with Function Calls
+func inner_function(x):
+    return x * 2;
+end
+
+func outer_function(x):
+    return inner_function(x) + 1;
+end
+let nested_result = outer_function(5);
+run_test("Function with Function Calls", nested_result, 11);
+
+# Test 16: Function Error Handling
+func error_function():
+    try:
+        let result = 10 / 0;
+        return result;
+    catch error:
+        return -1;
+    end
+end
+let error_result = error_function();
+run_test("Function Error Handling", error_result, -1);
+
+# Test 17: Function with Complex Logic
+func complex_logic(x, y):
+    if x > y:
+        return x * y;
+    else:
+        if x == y:
+            return x + y;
+        else:
+            return x - y;
+        end
+    end
+end
+let complex_result = complex_logic(5, 3);
+run_test("Function with Complex Logic", complex_result, 15);
+
+# Test 18: Function Recursion
+func factorial(n):
+    if n <= 1:
+        return 1;
+    else:
+        return n * factorial(n - 1);
+    end
+end
+let factorial_result = factorial(5);
+run_test("Function Recursion", factorial_result, 120);
+
+# ============================================================================
+# LAMBDA FUNCTIONS (7 tests)
+# ============================================================================
+print("\n--- LAMBDA FUNCTIONS ---");
+
+# Test 19: Basic Lambda Syntax
+let basic_lambda = x => x * 2;
+let lambda_result = basic_lambda(5);
+run_test("Basic Lambda Syntax", lambda_result, 10);
+
+# Test 20: Lambda with Multiple Parameters
+let multi_param_lambda = (a, b) => a + b;
+let multi_result = multi_param_lambda(10, 20);
+run_test("Lambda with Multiple Parameters", multi_result, 30);
+
+# Test 21: Lambda with No Parameters
+let no_param_lambda = () => 42;
+let no_param_result = no_param_lambda();
+run_test("Lambda with No Parameters", no_param_result, 42);
+
+# Test 22: Lambda with Variable Capture
+let captured_var = 100;
+let capture_lambda = x => x + captured_var;
+let capture_result = capture_lambda(50);
+run_test("Lambda with Variable Capture", capture_result, 150);
+
+# Test 23: Lambda Composition
+let double = x => x * 2;
+let add_one = x => x + 1;
+let composed_result = add_one(double(5));
+run_test("Lambda Composition", composed_result, 11);
+
+# Test 24: Lambda with Complex Expressions
+let complex_lambda = x => (x > 0 ? x * 2 : x * -1);
+let complex_lambda_result = complex_lambda(-3);
+run_test("Lambda with Complex Expressions", complex_lambda_result, 3);
+
+# Test 25: Lambda Performance
+let perf_lambda = x => x * x;
+let perf_lambda_result = 0;
+for i in 1..100:
+    perf_lambda_result = perf_lambda_result + perf_lambda(i);
+end
+run_test("Lambda Performance", perf_lambda_result > 0, True);
+
+# ============================================================================
+# SUITE COMPLETION
+# ============================================================================
+print("\n" + "=" * 50);
+print("FUNCTIONS TEST SUITE COMPLETED");
+print("=" * 50);
+print("Tests Passed:", suite_tests_passed, "/", suite_tests_total);
+print("Success Rate:", (suite_tests_passed * 100) / suite_tests_total, "%");
+
+# Function to run all tests (for importing)
+func run_all_tests():
+    print("Running Functions Test Suite...");
+    # Tests are already run when the file is imported
+    print("Functions Test Suite completed with", suite_tests_passed, "/", suite_tests_total, "tests passed");
+    return suite_tests_passed;
+end

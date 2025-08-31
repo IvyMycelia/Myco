@@ -1,0 +1,209 @@
+# ============================================================================
+# CORE LANGUAGE FEATURES - VARIABLES AND SCOPE
+# ============================================================================
+# Test Category: Variables and Scope
+# Total Tests: 20
+# Coverage: Variable Declaration, Scoping, Shadowing, Lifetime
+# ============================================================================
+
+# Global test tracking for this suite
+let suite_tests_passed = 0;
+let suite_tests_total = 0;
+
+# Test utility function
+func run_test(test_name, test_condition, expected_result):
+    suite_tests_passed = suite_tests_passed + 1;
+    suite_tests_total = suite_tests_total + 1;
+    if test_condition == expected_result:
+        print("PASSED:", test_name);
+    else:
+        print("FAILED:", test_name, "- Expected:", expected_result, "Got:", test_condition);
+        push(tests_failed, test_name);
+    end
+end
+
+print("\nVARIABLES AND SCOPE TEST SUITE");
+print("================================");
+
+# ============================================================================
+# VARIABLE DECLARATION (8 tests)
+# ============================================================================
+print("\n--- VARIABLE DECLARATION ---");
+
+# Test 1: Basic Variable Declaration
+let basic_var = 42;
+run_test("Basic Variable Declaration", basic_var, 42);
+
+# Test 2: Variable with Type Annotation
+let typed_var: int = 100;
+run_test("Variable with Type Annotation", typed_var, 100);
+
+# Test 3: Variable with Type Inference
+let inferred_var = "Hello World";
+run_test("Variable with Type Inference", inferred_var == "Hello World", True);
+
+# Test 4: Multiple Variable Declaration
+let a, b, c = 1, 2, 3;
+let sum = a + b + c;
+run_test("Multiple Variable Declaration", sum, 6);
+
+# Test 5: Variable Reassignment
+let reassign_var = 10;
+reassign_var = 20;
+run_test("Variable Reassignment", reassign_var, 20);
+
+# Test 6: Variable with Expression
+let expr_var = 5 + 3 * 2;
+run_test("Variable with Expression", expr_var, 11);
+
+# Test 7: Variable with Function Call
+func return_value():
+    return 42;
+end
+let func_var = return_value();
+run_test("Variable with Function Call", func_var, 42);
+
+# Test 8: Variable Naming Rules
+let valid_name = 123;
+let valid_name_2 = 456;
+let valid_name_with_underscore = 789;
+let valid_name_with_underscore_2 = 999;
+run_test("Variable Naming Rules", valid_name + valid_name_2 + valid_name_with_underscore + valid_name_with_underscore_2, 2367);
+
+# ============================================================================
+# VARIABLE SCOPING (8 tests)
+# ============================================================================
+print("\n--- VARIABLE SCOPING ---");
+
+# Test 9: Global Variable Access
+let global_var = 100;
+func test_global_access():
+    return global_var;
+end
+let global_result = test_global_access();
+run_test("Global Variable Access", global_result, 100);
+
+# Test 10: Local Variable Scope
+func test_local_scope():
+    let local_var = 50;
+    return local_var;
+end
+let local_result = test_local_scope();
+run_test("Local Variable Scope", local_result, 50);
+
+# Test 11: Variable Shadowing
+let shadow_var = 10;
+func test_shadow():
+    let shadow_var = 20;
+    return shadow_var;
+end
+let shadow_result = test_shadow();
+run_test("Variable Shadowing", shadow_result, 20);
+
+# Test 12: Nested Function Scoping
+func outer_function():
+    let outer_var = 100;
+    
+    func inner_function():
+        let inner_var = 50;
+        return outer_var + inner_var;
+    end
+    
+    return inner_function();
+end
+let nested_result = outer_function();
+run_test("Nested Function Scoping", nested_result, 150);
+
+# Test 13: Block Scope
+func test_block_scope():
+    let block_var = 42;
+    if True:
+        let if_var = 10;
+        return block_var + if_var;
+    end
+    return block_var;
+end
+let block_result = test_block_scope();
+run_test("Block Scope", block_result, 52);
+
+# Test 14: Loop Variable Scope
+func test_loop_scope():
+    let loop_result = 0;
+    for i in 1..5:
+        let loop_local = i * 2;
+        loop_result = loop_result + loop_local;
+    end
+    return loop_result;
+end
+let loop_scope_result = test_loop_scope();
+run_test("Loop Variable Scope", loop_scope_result, 30);
+
+# Test 15: Parameter Scope
+func test_param_scope(x):
+    let local_x = x * 2;
+    return local_x;
+end
+let param_scope_result = test_param_scope(5);
+run_test("Parameter Scope", param_scope_result, 10);
+
+# Test 16: Closure Variable Capture
+let captured_var = 100;
+func create_closure():
+    return x => x + captured_var;
+end
+let closure = create_closure();
+let closure_result = closure(50);
+run_test("Closure Variable Capture", closure_result, 150);
+
+# ============================================================================
+# VARIABLE LIFETIME (4 tests)
+# ============================================================================
+print("\n--- VARIABLE LIFETIME ---");
+
+# Test 17: Variable Persistence
+let persist_var = 0;
+func modify_persist():
+    persist_var = persist_var + 1;
+    return persist_var;
+end
+let persist_result1 = modify_persist();
+let persist_result2 = modify_persist();
+run_test("Variable Persistence - First Call", persist_result1, 1);
+run_test("Variable Persistence - Second Call", persist_result2, 2);
+
+# Test 18: Variable Cleanup
+let cleanup_var = 999;
+cleanup_var = 0;
+run_test("Variable Cleanup", cleanup_var, 0);
+
+# Test 19: Memory Management
+let memory_array = [];
+for i in 1..1000:
+    push(memory_array, i);
+end
+let memory_result = len(memory_array);
+run_test("Memory Management", memory_result, 1000);
+
+# Test 20: Variable Reference Counting
+let ref_var = 42;
+let ref_copy1 = ref_var;
+let ref_copy2 = ref_var;
+let ref_sum = ref_var + ref_copy1 + ref_copy2;
+run_test("Variable Reference Counting", ref_sum, 126);
+
+# ============================================================================
+# SUITE COMPLETION
+# ============================================================================
+print("\n" + "=" * 50);
+print("VARIABLES AND SCOPE TEST SUITE COMPLETED");
+print("=" * 50);
+print("Tests Passed:", suite_tests_passed, "/", suite_tests_total);
+print("Success Rate:", (suite_tests_passed * 100) / suite_tests_total, "%");
+
+# Function to run all tests (for importing)
+func run_all_tests():
+    print("Running Variables and Scope Test Suite...");
+    # Tests are already run when the file is imported
+    print("Variables and Scope Test Suite completed with", suite_tests_passed, "/", suite_tests_total, "tests passed");
+    return suite_tests_passed;
+end

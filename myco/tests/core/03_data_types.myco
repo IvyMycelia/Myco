@@ -1,0 +1,257 @@
+# ============================================================================
+# CORE LANGUAGE FEATURES - DATA TYPES
+# ============================================================================
+# Test Category: Data Types
+# Total Tests: 25
+# Coverage: Numbers, Strings, Booleans, Arrays, Objects
+# ============================================================================
+
+# Global test tracking for this suite
+let suite_tests_passed = 0;
+let suite_tests_total = 0;
+
+# Test utility function
+func run_test(test_name, test_condition, expected_result):
+    suite_tests_total = suite_tests_total + 1;
+    if test_condition == expected_result:
+        suite_tests_passed = suite_tests_passed + 1;
+        print("PASSED:", test_name);
+    else:
+        print("FAILED:", test_name, "- Expected:", expected_result, "Got:", test_condition);
+        push(tests_failed, test_name);
+    end
+end
+
+print("\nDATA TYPES TEST SUITE");
+print("======================");
+
+# ============================================================================
+# NUMBERS (8 tests)
+# ============================================================================
+print("\n--- NUMBERS ---");
+
+# Test 1: Integer Literals
+let positive_int = 42;
+let negative_int = -17;
+let zero_int = 0;
+run_test("Positive Integer Literal", positive_int, 42);
+run_test("Negative Integer Literal", negative_int, -17);
+run_test("Zero Integer Literal", zero_int, 0);
+
+# Test 2: Float Literals
+let positive_float = 3.14159;
+let negative_float = -2.71828;
+let leading_decimal = .25;
+run_test("Positive Float Literal", positive_float > 3, True);
+run_test("Negative Float Literal", negative_float < -2, True);
+run_test("Leading Decimal Float", leading_decimal > 0, True);
+
+# Test 3: Number Parsing and Validation
+let parsed_int = 123;
+let parsed_float = 456.789;
+run_test("Integer Parsing", parsed_int == 123, True);
+run_test("Float Parsing", parsed_float > 456, True);
+
+# Test 4: Number Type Conversion
+let int_to_float = 42;
+let float_to_int = 3.14;
+run_test("Integer Type", int_to_float == 42, True);
+run_test("Float Type", float_to_int > 3, True);
+
+# Test 5: Number Precision Limits
+let large_int = 999999999;
+let small_float = 0.000001;
+run_test("Large Integer Handling", large_int > 999999998, True);
+run_test("Small Float Handling", small_float > 0, True);
+
+# Test 6: Number Overflow Handling
+let overflow_test = 2147483647;  # Max 32-bit int
+overflow_test = overflow_test + 1;
+run_test("Number Overflow Handling", overflow_test > 0, True);
+
+# Test 7: Number Underflow Handling
+let underflow_test = -2147483648;  # Min 32-bit int
+underflow_test = underflow_test - 1;
+run_test("Number Underflow Handling", underflow_test < 0, True);
+
+# Test 8: Number Comparison Edge Cases
+let nan_test = 0;
+let infinity_test = 0;
+try:
+    nan_test = 0 / 0;
+    infinity_test = 1 / 0;
+catch error:
+    nan_test = -1;
+    infinity_test = -1;
+end
+run_test("NaN Handling", nan_test == -1, True);
+run_test("Infinity Handling", infinity_test == -1, True);
+
+# ============================================================================
+# STRINGS (8 tests)
+# ============================================================================
+print("\n--- STRINGS ---");
+
+# Test 9: String Literals and Escaping
+let basic_string = "Hello, World!";
+let empty_string = "";
+let quoted_string = "He said \"Hello World!\"";
+run_test("Basic String Literal", basic_string == "Hello, World!", True);
+run_test("Empty String", empty_string == "", True);
+run_test("Quoted String", quoted_string == "He said \"Hello World!\"", True);
+
+# Test 10: String Concatenation
+let str1 = "Hello";
+let str2 = "World";
+let concatenated = str1 + " " + str2;
+run_test("String Concatenation", concatenated == "Hello World", True);
+
+# Test 11: String Length and Indexing
+let test_string = "Myco";
+let string_length = len(test_string);
+let first_char = test_string[0];
+run_test("String Length", string_length, 4);
+run_test("String Indexing", first_char == "M", True);
+
+# Test 12: String Escape Sequences
+let escape_string = "Line 1\nLine 2\tTabbed";
+let newline_count = 0;
+let tab_count = 0;
+for i in 0..len(escape_string):
+    if escape_string[i] == "\n":
+        newline_count = newline_count + 1;
+    end
+    if escape_string[i] == "\t":
+        tab_count = tab_count + 1;
+    end
+end
+run_test("Newline Escape Sequence", newline_count, 1);
+run_test("Tab Escape Sequence", tab_count, 1);
+
+# Test 13: String Type Conversion
+let num_string = "42";
+let bool_string = "True";
+let float_string = "3.14";
+run_test("String Type Conversion", num_string == "42", True);
+run_test("Boolean String", bool_string == "True", True);
+run_test("Float String", float_string == "3.14", True);
+
+# Test 14: String Comparison
+let str_a = "apple";
+let str_b = "banana";
+let str_c = "apple";
+run_test("String Equality", str_a == str_c, True);
+run_test("String Inequality", str_a != str_b, True);
+run_test("String Less Than", str_a < str_b, True);
+
+# Test 15: String with Special Characters
+let unicode_string = "Hello 世界 🌍";
+let special_chars = "!@#$%^&*()";
+run_test("Unicode String", len(unicode_string) > 0, True);
+run_test("Special Characters", special_chars == "!@#$%^&*()", True);
+
+# Test 16: String Memory Management
+let large_string = "";
+for i in 1..1000:
+    large_string = large_string + "x";
+end
+run_test("Large String Creation", len(large_string), 1000);
+
+# ============================================================================
+# BOOLEANS (4 tests)
+# ============================================================================
+print("\n--- BOOLEANS ---");
+
+# Test 17: True/False Keywords
+let true_value = True;
+let false_value = False;
+run_test("True Keyword", true_value, True);
+run_test("False Keyword", false_value, False);
+
+# Test 18: Boolean Conversion from Other Types
+let bool_from_int = 42;
+let bool_from_zero = 0;
+let bool_from_string = "hello";
+let bool_from_empty = "";
+run_test("Boolean from Non-Zero Int", bool_from_int == True, True);
+run_test("Boolean from Zero", bool_from_zero == False, False);
+run_test("Boolean from Non-Empty String", bool_from_string == True, True);
+run_test("Boolean from Empty String", bool_from_empty == False, False);
+
+# Test 19: Boolean Operations
+let bool_and = True and True;
+let bool_or = False or True;
+let bool_not = !False;
+run_test("Boolean AND", bool_and, True);
+run_test("Boolean OR", bool_or, True);
+run_test("Boolean NOT", bool_not, True);
+
+# Test 20: Boolean in Expressions
+let bool_expr = (5 > 3) and (10 < 20);
+let bool_complex = (True or False) and True;
+run_test("Boolean in Expressions", bool_expr, True);
+run_test("Complex Boolean Expression", bool_complex, True);
+
+# ============================================================================
+# ARRAYS (5 tests)
+# ============================================================================
+print("\n--- ARRAYS ---");
+
+# Test 21: Array Creation and Initialization
+let empty_array = [];
+let number_array = [1, 2, 3, 4, 5];
+let mixed_array = [1, "hello", True, 3.14];
+run_test("Empty Array Creation", len(empty_array), 0);
+run_test("Number Array Creation", len(number_array), 5);
+run_test("Mixed Array Creation", len(mixed_array), 4);
+
+# Test 22: Array Access and Modification
+let test_array = [10, 20, 30, 40, 50];
+let first_element = test_array[0];
+let last_element = test_array[4];
+test_array[2] = 35;
+run_test("Array First Element", first_element, 10);
+run_test("Array Last Element", last_element, 50);
+run_test("Array Modification", test_array[2], 35);
+
+# Test 23: Array Length and Bounds
+let bounds_array = [1, 2, 3];
+let array_length = len(bounds_array);
+let valid_index = bounds_array[1];
+run_test("Array Length", array_length, 3);
+run_test("Valid Array Index", valid_index, 2);
+
+# Test 24: Array Type Handling
+let type_array = [42, "string", True, 3.14];
+let int_element = type_array[0];
+let string_element = type_array[1];
+let bool_element = type_array[2];
+let float_element = type_array[3];
+run_test("Array Integer Element", int_element, 42);
+run_test("Array String Element", string_element == "string", True);
+run_test("Array Boolean Element", bool_element, True);
+run_test("Array Float Element", float_element > 3, True);
+
+# Test 25: Array Memory Management
+let memory_array = [];
+for i in 1..1000:
+    push(memory_array, i);
+end
+run_test("Large Array Creation", len(memory_array), 1000);
+
+# ============================================================================
+# SUITE COMPLETION
+# ============================================================================
+print("\n" + "=" * 50);
+print("DATA TYPES TEST SUITE COMPLETED");
+print("=" * 50);
+print("Tests Passed:", suite_tests_passed, "/", suite_tests_total);
+print("Success Rate:", (suite_tests_passed * 100) / suite_tests_total, "%");
+
+# Function to run all tests (for importing)
+func run_all_tests():
+    print("Running Data Types Test Suite...");
+    # Tests are already run when the file is imported
+    print("Data Types Test Suite completed with", suite_tests_passed, "/", suite_tests_total, "tests passed");
+    return suite_tests_passed;
+end

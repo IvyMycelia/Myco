@@ -29,6 +29,7 @@ typedef enum {
     TOKEN_TRY,
     TOKEN_CATCH,
     TOKEN_PRINT,
+    TOKEN_UPRINT,
     TOKEN_TYPE_MARKER,
     TOKEN_STRING_TYPE,
     TOKEN_IN,
@@ -43,7 +44,33 @@ typedef enum {
     TOKEN_LAMBDA,
     TOKEN_ARROW,
     TOKEN_TRUE,
-    TOKEN_FALSE
+    TOKEN_FALSE,
+    
+    // NEW: v2.0 Type System Tokens
+    TOKEN_TYPE_INT,           // int
+    TOKEN_TYPE_FLOAT,         // float  
+    TOKEN_TYPE_BOOL,          // bool
+    TOKEN_TYPE_STRING,        // string
+    TOKEN_TYPE_ARRAY,         // array
+    TOKEN_TYPE_TUPLE,         // tuple
+    TOKEN_TYPE_DICT,          // dict
+    TOKEN_TYPE_SET,           // set
+    TOKEN_TYPE_NULL,          // null
+    TOKEN_TYPE_ANY,           // any
+    TOKEN_TYPE_FUNCTION,      // function
+    TOKEN_TYPE_OBJECT,        // object
+    TOKEN_TYPE_CLASS,         // class
+    TOKEN_TYPE_ENUM,          // enum
+    TOKEN_TYPE_BYTE,          // byte
+    TOKEN_TYPE_BYTES,         // bytes
+    
+    // NEW: Generic Type Tokens
+    TOKEN_LT,                 // <
+    TOKEN_GT,                 // >
+    TOKEN_UNION,              // |
+    TOKEN_INTERSECTION,       // &
+    TOKEN_OPTIONAL,           // ?
+    TOKEN_DOT_DOT,            // ..
 } MycoTokenType;
 
 typedef struct {

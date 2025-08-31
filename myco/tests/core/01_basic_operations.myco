@@ -1,0 +1,187 @@
+# ============================================================================
+# CORE LANGUAGE FEATURES - BASIC OPERATIONS
+# ============================================================================
+# Test Category: Basic Operations
+# Total Tests: 25
+# Coverage: Arithmetic, Comparison, Logic, Assignment, Variables
+# ============================================================================
+
+# Global test tracking for this suite
+let suite_tests_passed = 0;
+let suite_tests_total = 0;
+
+# Test utility function
+func run_test(test_name, test_condition, expected_result):
+    suite_tests_total = suite_tests_total + 1;
+    if test_condition == expected_result:
+        suite_tests_passed = suite_tests_passed + 1;
+        print("PASSED:", test_name);
+    else:
+        print("FAILED:", test_name, "- Expected:", expected_result, "Got:", test_condition);
+        push(tests_failed, test_name);
+    end
+end
+
+print("\nBASIC OPERATIONS TEST SUITE");
+print("============================");
+
+# ============================================================================
+# ARITHMETIC OPERATIONS (8 tests)
+# ============================================================================
+print("\n--- ARITHMETIC OPERATIONS ---");
+
+# Test 1: Basic Addition
+let add_result = 5 + 3;
+run_test("Basic Addition", add_result, 8);
+
+# Test 2: Basic Subtraction
+let sub_result = 10 - 4;
+run_test("Basic Subtraction", sub_result, 6);
+
+# Test 3: Basic Multiplication
+let mul_result = 7 * 6;
+run_test("Basic Multiplication", mul_result, 42);
+
+# Test 4: Basic Division
+let div_result = 15 / 3;
+run_test("Basic Division", div_result, 5);
+
+# Test 5: Modulo Operator
+let modulo_result = 17 % 5;
+run_test("Modulo Operator", modulo_result, 2);
+
+# Test 6: Unary Negation
+let neg_result = -42;
+run_test("Unary Negation", neg_result, -42);
+
+# Test 7: Division by Zero (should handle gracefully)
+let div_by_zero = 0;
+try:
+    div_by_zero = 10 / 0;
+catch error:
+    div_by_zero = -1;  # Error caught
+end
+run_test("Division by Zero Handling", div_by_zero, -1);
+
+# Test 8: Mixed Type Arithmetic
+let mixed_result = 10 + 3.14;
+run_test("Mixed Type Arithmetic", mixed_result > 13, True);
+
+# ============================================================================
+# COMPARISON & LOGIC OPERATORS (8 tests)
+# ============================================================================
+print("\n--- COMPARISON & LOGIC OPERATORS ---");
+
+# Test 9: Equality Operators
+let eq_result = (5 == 5);
+run_test("Equality Operator", eq_result, True);
+
+# Test 10: Inequality Operators
+let neq_result = (5 != 3);
+run_test("Inequality Operator", neq_result, True);
+
+# Test 11: Less Than
+let lt_result = (3 < 5);
+run_test("Less Than Operator", lt_result, True);
+
+# Test 12: Greater Than
+let gt_result = (7 > 3);
+run_test("Greater Than Operator", gt_result, True);
+
+# Test 13: Less Than or Equal
+let lte_result = (5 <= 5);
+run_test("Less Than or Equal", lte_result, True);
+
+# Test 14: Greater Than or Equal
+let gte_result = (5 >= 5);
+run_test("Greater Than or Equal", gte_result, True);
+
+# Test 15: Logical AND
+let and_result = (True and True);
+run_test("Logical AND", and_result, True);
+
+# Test 16: Logical OR
+let or_result = (False or True);
+run_test("Logical OR", or_result, True);
+
+# ============================================================================
+# ASSIGNMENT & VARIABLES (9 tests)
+# ============================================================================
+print("\n--- ASSIGNMENT & VARIABLES ---");
+
+# Test 17: Variable Declaration
+let test_var = 42;
+run_test("Variable Declaration", test_var, 42);
+
+# Test 18: Variable Reassignment
+test_var = 100;
+run_test("Variable Reassignment", test_var, 100);
+
+# Test 19: Multiple Assignment
+let a = 1;
+let b = 2;
+let c = 3;
+let sum = a + b + c;
+run_test("Multiple Assignment", sum, 6);
+
+# Test 20: Dynamic Variable Creation
+let dynamic_var_name = "test_dynamic";
+let dynamic_value = 42;
+# Note: Myco may not support dynamic variable creation, so test basic functionality
+run_test("Dynamic Variable Test", dynamic_value, 42);
+
+# Test 21: Variable Type Inference
+let inferred_int = 42;
+let inferred_float = 3.14;
+let inferred_string = "hello";
+let inferred_bool = True;
+run_test("Integer Type Inference", inferred_int == 42, True);
+run_test("Float Type Inference", inferred_float > 3, True);
+run_test("String Type Inference", inferred_string == "hello", True);
+run_test("Boolean Type Inference", inferred_bool, True);
+
+# Test 22: Variable Naming Rules
+let valid_name = 123;
+let valid_name_2 = 456;
+let valid_name_with_underscore = 789;
+run_test("Valid Variable Names", valid_name + valid_name_2 + valid_name_with_underscore, 1368);
+
+# Test 23: Variable Scoping (Basic)
+let global_var = 42;
+func test_scope():
+    let local_var = 100;
+    return local_var + global_var;
+end
+let scope_result = test_scope();
+run_test("Variable Scoping", scope_result, 142);
+
+# Test 24: Variable Shadowing
+let shadow_var = 10;
+func test_shadow():
+    let shadow_var = 20;
+    return shadow_var;
+end
+let shadow_result = test_shadow();
+run_test("Variable Shadowing", shadow_result, 20);
+
+# Test 25: Variable Cleanup
+let cleanup_test = 999;
+cleanup_test = 0;
+run_test("Variable Cleanup", cleanup_test, 0);
+
+# ============================================================================
+# SUITE COMPLETION
+# ============================================================================
+print("\n" + "=" * 50);
+print("BASIC OPERATIONS TEST SUITE COMPLETED");
+print("=" * 50);
+print("Tests Passed:", suite_tests_passed, "/", suite_tests_total);
+print("Success Rate:", (suite_tests_passed * 100) / suite_tests_total, "%");
+
+# Function to run all tests (for importing)
+func run_all_tests():
+    print("Running Basic Operations Test Suite...");
+    # Tests are already run when the file is imported
+    print("Basic Operations Test Suite completed with", suite_tests_passed, "/", suite_tests_total, "tests passed");
+    return suite_tests_passed;
+end

@@ -1,0 +1,371 @@
+# ============================================================================
+# CORE LANGUAGE FEATURES - CONTROL FLOW
+# ============================================================================
+# Test Category: Control Flow
+# Total Tests: 30
+# Coverage: Conditional Statements, Loops, Switch Statements
+# ============================================================================
+
+# Global test tracking for this suite
+let suite_tests_passed = 0;
+let suite_tests_total = 0;
+
+# Test utility function
+func run_test(test_name, test_condition, expected_result):
+    suite_tests_total = suite_tests_total + 1;
+    if test_condition == expected_result:
+        suite_tests_passed = suite_tests_passed + 1;
+        print("PASSED:", test_name);
+    else:
+        print("FAILED:", test_name, "- Expected:", expected_result, "Got:", test_condition);
+        push(tests_failed, test_name);
+    end
+end
+
+print("\nCONTROL FLOW TEST SUITE");
+print("========================");
+
+# ============================================================================
+# CONDITIONAL STATEMENTS (10 tests)
+# ============================================================================
+print("\n--- CONDITIONAL STATEMENTS ---");
+
+# Test 1: Basic If Statement
+let if_result = 0;
+if True:
+    if_result = 1;
+end
+run_test("Basic If Statement", if_result, 1);
+
+# Test 2: If-Else Statement
+let if_else_result = 0;
+if False:
+    if_else_result = 1;
+else:
+    if_else_result = 2;
+end
+run_test("If-Else Statement", if_else_result, 2);
+
+# Test 3: If-Else If Chain
+let if_else_if_result = 0;
+if False:
+    if_else_if_result = 1;
+else:
+    if True:
+        if_else_if_result = 2;
+    else:
+        if_else_if_result = 3;
+    end
+end
+run_test("If-Else If Chain", if_else_if_result, 2);
+
+# Test 4: Nested Conditionals
+let nested_result = 0;
+if True:
+    if True:
+        if True:
+            nested_result = 42;
+        end
+    end
+end
+run_test("Nested Conditionals", nested_result, 42);
+
+# Test 5: Boolean Condition Evaluation
+let bool_condition_result = 0;
+if True and True:
+    bool_condition_result = 1;
+end
+run_test("Boolean Condition Evaluation", bool_condition_result, 1);
+
+# Test 6: Truthy/Falsy Value Handling
+let truthy_result = 0;
+if 42:  # Non-zero number should be truthy
+    truthy_result = 1;
+end
+run_test("Truthy Value Handling", truthy_result, 1);
+
+# Test 7: Complex Condition Expressions
+let complex_condition_result = 0;
+if (5 > 3) and (10 < 20) or (False):
+    complex_condition_result = 1;
+end
+run_test("Complex Condition Expressions", complex_condition_result, 1);
+
+# Test 8: Short-Circuit Condition Evaluation
+let short_circuit_result = 0;
+let short_circuit_flag = False;
+if False and (short_circuit_flag == True):  # Should not execute second part
+    short_circuit_result = 1;
+end
+run_test("Short-Circuit Evaluation", short_circuit_flag, False);
+
+# Test 9: Condition with Function Calls
+func return_true():
+    return True;
+end
+
+func return_false():
+    return False;
+end
+
+let func_condition_result = 0;
+if return_true():
+    func_condition_result = 1;
+end
+run_test("Condition with Function Calls", func_condition_result, 1);
+
+# Test 10: Edge Case Conditions
+let edge_condition_result = 0;
+if 0:  # Zero should be falsy
+    edge_condition_result = 1;
+else:
+    edge_condition_result = 2;
+end
+run_test("Edge Case Conditions", edge_condition_result, 2);
+
+# ============================================================================
+# LOOPS (12 tests)
+# ============================================================================
+print("\n--- LOOPS ---");
+
+# Test 11: For Loop with Range Syntax
+let for_loop_result = 0;
+for i in 1..5:
+    for_loop_result = for_loop_result + i;
+end
+run_test("For Loop with Range", for_loop_result, 15);
+
+# Test 12: While Loop
+let while_loop_result = 0;
+let while_counter = 0;
+while while_counter < 5:
+    while_loop_result = while_loop_result + while_counter;
+    while_counter = while_counter + 1;
+end
+run_test("While Loop", while_loop_result, 10);
+
+# Test 13: Loop Condition Evaluation
+let loop_condition_result = 0;
+let loop_condition_counter = 0;
+while loop_condition_counter < 3:
+    loop_condition_result = loop_condition_result + 1;
+    loop_condition_counter = loop_condition_counter + 1;
+end
+run_test("Loop Condition Evaluation", loop_condition_result, 3);
+
+# Test 14: Loop Variable Scoping
+let loop_scope_result = 0;
+for i in 1..3:
+    let loop_local = i * 2;
+    loop_scope_result = loop_scope_result + loop_local;
+end
+run_test("Loop Variable Scoping", loop_scope_result, 12);
+
+# Test 15: Nested Loops
+let nested_loop_result = 0;
+for i in 1..3:
+    for j in 1..2:
+        nested_loop_result = nested_loop_result + (i * j);
+    end
+end
+run_test("Nested Loops", nested_loop_result, 18);
+
+# Test 16: Loop with Dynamic Conditions
+let dynamic_loop_result = 0;
+let dynamic_limit = 3;
+for i in 1..dynamic_limit:
+    dynamic_loop_result = dynamic_loop_result + i;
+end
+run_test("Loop with Dynamic Conditions", dynamic_loop_result, 6);
+
+# Test 17: Loop with Function Calls
+func get_loop_limit():
+    return 4;
+end
+
+let func_loop_result = 0;
+for i in 1..get_loop_limit():
+    func_loop_result = func_loop_result + i;
+end
+run_test("Loop with Function Calls", func_loop_result, 10);
+
+# Test 18: Loop Variable Mutation
+let mutation_loop_result = 0;
+for i in 1..5:
+    if i == 3:
+        i = 10;  # Try to mutate loop variable
+    end
+    mutation_loop_result = mutation_loop_result + i;
+end
+run_test("Loop Variable Mutation", mutation_loop_result > 0, True);
+
+# Test 19: Loop Termination Conditions
+let termination_loop_result = 0;
+let termination_counter = 0;
+while termination_counter < 10:
+    termination_loop_result = termination_loop_result + 1;
+    termination_counter = termination_counter + 1;
+    if termination_counter >= 5:
+        break;  # Exit early if supported
+    end
+end
+run_test("Loop Termination Conditions", termination_loop_result > 0, True);
+
+# Test 20: Loop Performance with Large Ranges
+let large_loop_result = 0;
+for i in 1..100:  # Test with larger range
+    large_loop_result = large_loop_result + 1;
+end
+run_test("Loop Performance with Large Ranges", large_loop_result, 100);
+
+# Test 21: Loop with Continue (if supported)
+let continue_loop_result = 0;
+for i in 1..5:
+    if i == 3:
+        continue;  # Skip iteration if supported
+    end
+    continue_loop_result = continue_loop_result + i;
+end
+run_test("Loop with Continue", continue_loop_result > 0, True);
+
+# Test 22: Infinite Loop Prevention
+let infinite_loop_result = 0;
+let infinite_counter = 0;
+while infinite_counter < 10:  # Limit to prevent infinite loop
+    infinite_loop_result = infinite_loop_result + 1;
+    infinite_counter = infinite_counter + 1;
+end
+run_test("Infinite Loop Prevention", infinite_loop_result, 10);
+
+# ============================================================================
+# SWITCH STATEMENTS (8 tests)
+# ============================================================================
+print("\n--- SWITCH STATEMENTS ---");
+
+# Test 23: Basic Switch with Cases
+let basic_switch_result = 0;
+let basic_switch_value = 2;
+switch basic_switch_value:
+    case 1:
+        basic_switch_result = 10;
+    case 2:
+        basic_switch_result = 20;
+    case 3:
+        basic_switch_result = 30;
+    default:
+        basic_switch_result = 0;
+end
+run_test("Basic Switch with Cases", basic_switch_result, 20);
+
+# Test 24: Switch with Default Case
+let default_switch_result = 0;
+let default_switch_value = 99;
+switch default_switch_value:
+    case 1:
+        default_switch_result = 10;
+    case 2:
+        default_switch_result = 20;
+    default:
+        default_switch_result = 100;
+end
+run_test("Switch with Default Case", default_switch_result, 100);
+
+# Test 25: Switch with Expressions
+let expr_switch_result = 0;
+let expr_switch_value = 5 + 2;
+switch expr_switch_value:
+    case 7:
+        expr_switch_result = 70;
+    case 8:
+        expr_switch_result = 80;
+    default:
+        expr_switch_result = 0;
+end
+run_test("Switch with Expressions", expr_switch_result, 70);
+
+# Test 26: Switch Fall-Through Behavior
+let fallthrough_switch_result = 0;
+let fallthrough_switch_value = 1;
+switch fallthrough_switch_value:
+    case 1:
+        fallthrough_switch_result = fallthrough_switch_result + 10;
+    case 2:
+        fallthrough_switch_result = fallthrough_switch_result + 20;
+    default:
+        fallthrough_switch_result = fallthrough_switch_result + 30;
+end
+run_test("Switch Fall-Through Behavior", fallthrough_switch_result > 0, True);
+
+# Test 27: Switch with Different Types
+let type_switch_result = 0;
+let type_switch_value = "hello";
+switch type_switch_value:
+    case "hello":
+        type_switch_result = 1;
+    case "world":
+        type_switch_result = 2;
+    default:
+        type_switch_result = 0;
+end
+run_test("Switch with Different Types", type_switch_result, 1);
+
+# Test 28: Nested Switch Statements
+let nested_switch_result = 0;
+let nested_switch_outer = 1;
+let nested_switch_inner = 2;
+switch nested_switch_outer:
+    case 1:
+        switch nested_switch_inner:
+            case 2:
+                nested_switch_result = 42;
+            default:
+                nested_switch_result = 0;
+        end
+    default:
+        nested_switch_result = 0;
+end
+run_test("Nested Switch Statements", nested_switch_result, 42);
+
+# Test 29: Switch with Function Calls
+func get_switch_value():
+    return 3;
+end
+
+let func_switch_result = 0;
+switch get_switch_value():
+    case 3:
+        func_switch_result = 30;
+    default:
+        func_switch_result = 0;
+end
+run_test("Switch with Function Calls", func_switch_result, 30);
+
+# Test 30: Switch Edge Cases
+let edge_switch_result = 0;
+let edge_switch_value = 0;
+switch edge_switch_value:
+    case 0:
+        edge_switch_result = 1;
+    case -1:
+        edge_switch_result = 2;
+    default:
+        edge_switch_result = 0;
+end
+run_test("Switch Edge Cases", edge_switch_result, 1);
+
+# ============================================================================
+# SUITE COMPLETION
+# ============================================================================
+print("\n" + "=" * 50);
+print("CONTROL FLOW TEST SUITE COMPLETED");
+print("=" * 50);
+print("Tests Passed:", suite_tests_passed, "/", suite_tests_total);
+print("Success Rate:", (suite_tests_passed * 100) / suite_tests_total, "%");
+
+# Function to run all tests (for importing)
+func run_all_tests():
+    print("Running Control Flow Test Suite...");
+    # Tests are already run when the file is imported
+    print("Control Flow Test Suite completed with", suite_tests_passed, "/", suite_tests_total, "tests passed");
+    return suite_tests_passed;
+end

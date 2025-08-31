@@ -52,17 +52,33 @@ static MycoTokenType get_keyword_type(const char* text) {
     if (strcmp(text, "try") == 0) return TOKEN_TRY;
     if (strcmp(text, "catch") == 0) return TOKEN_CATCH;
     if (strcmp(text, "print") == 0) return TOKEN_PRINT;
+    if (strcmp(text, "uprint") == 0) return TOKEN_UPRINT;
     if (strcmp(text, "in") == 0) return TOKEN_IN;
     if (strcmp(text, "use") == 0) return TOKEN_USE;
     if (strcmp(text, "as") == 0) return TOKEN_AS;
-    if (strcmp(text, "int") == 0) return TOKEN_TYPE_MARKER;
+    
+    // NEW: v2.0 Type System Keywords
+    if (strcmp(text, "int") == 0) return TOKEN_TYPE_INT;
+    if (strcmp(text, "float") == 0) return TOKEN_TYPE_FLOAT;
+    if (strcmp(text, "bool") == 0) return TOKEN_TYPE_BOOL;
+    if (strcmp(text, "string") == 0) return TOKEN_TYPE_STRING;
+    if (strcmp(text, "array") == 0) return TOKEN_TYPE_ARRAY;
+    if (strcmp(text, "tuple") == 0) return TOKEN_TYPE_TUPLE;
+    if (strcmp(text, "dict") == 0) return TOKEN_TYPE_DICT;
+    if (strcmp(text, "set") == 0) return TOKEN_TYPE_SET;
+    if (strcmp(text, "null") == 0) return TOKEN_TYPE_NULL;
+    if (strcmp(text, "any") == 0) return TOKEN_TYPE_ANY;
+    if (strcmp(text, "function") == 0) return TOKEN_TYPE_FUNCTION;
+    if (strcmp(text, "object") == 0) return TOKEN_TYPE_OBJECT;
+    if (strcmp(text, "class") == 0) return TOKEN_TYPE_CLASS;
+    if (strcmp(text, "enum") == 0) return TOKEN_TYPE_ENUM;
+    if (strcmp(text, "byte") == 0) return TOKEN_TYPE_BYTE;
+    if (strcmp(text, "bytes") == 0) return TOKEN_TYPE_BYTES;
+    
+    // Legacy type support (for backward compatibility)
     if (strcmp(text, "str") == 0) return TOKEN_STRING_TYPE;
-    if (strcmp(text, "float") == 0) return TOKEN_TYPE_MARKER;
-    if (strcmp(text, "double") == 0) return TOKEN_TYPE_MARKER;
-    if (strcmp(text, "bool") == 0) return TOKEN_TYPE_MARKER;
-    if (strcmp(text, "arr") == 0) return TOKEN_TYPE_MARKER;
-    if (strcmp(text, "obj") == 0) return TOKEN_TYPE_MARKER;
-    if (strcmp(text, "string") == 0) return TOKEN_STRING_TYPE;
+    if (strcmp(text, "obj") == 0) return TOKEN_TYPE_OBJECT;
+    
     return TOKEN_IDENTIFIER;
 }
 
@@ -168,6 +184,30 @@ Token* lexer_tokenize(const char* source) {
             continue;
         }
 
+        // PATH starting with identifier followed by / (relative path)
+        if (isalpha(*p) || *p == '_') {
+            const char* start = p;
+            // Check if this looks like a path (identifier followed by /)
+            while (isalnum(*p) || *p == '_') p++;
+            if (*p == '/') {
+                // This is a path, consume the entire path
+                while (*p && !isspace(*p)) p++;
+                int len = p - start;
+                char* text = (char*)tracked_malloc(len + 1, __FILE__, __LINE__, "lexer_path_token");
+                strncpy(text, start, len); text[len] = '\0';
+                
+                GROW_TOKENS_IF_NEEDED();
+                tokens[token_count].type = TOKEN_PATH;
+                tokens[token_count].text = text;
+                tokens[token_count].line = line;
+                token_count++;
+                continue;
+            } else {
+                // Not a path, reset to start and handle as regular identifier
+                p = start;
+            }
+        }
+
         // Dot: member access or float literal starting with decimal point
         if (*p == '.' && *(p + 1) != '/' && *(p + 1) != '.') {
             // Check if this is a float literal starting with decimal point
@@ -189,14 +229,24 @@ Token* lexer_tokenize(const char* source) {
                 token_count++;
                 continue;
             } else {
-                // Regular dot for member access
-                GROW_TOKENS_IF_NEEDED();
-                tokens[token_count].type = TOKEN_DOT;
-                tokens[token_count].text = tracked_strdup(".", __FILE__, __LINE__, "lexer_dot");
-                tokens[token_count].line = line;
-                token_count++;
-                p++;
-                continue;
+                // Check for dot-dot operator (range operator)
+                if (*(p + 1) == '.') {
+                    // NEW: v2.0 Range Operator
+                    tokens[token_count].type = TOKEN_DOT_DOT;
+                    tokens[token_count].text = tracked_strdup("..", __FILE__, __LINE__, "lexer_dot_dot");
+                    p += 2; // Skip both dots
+                    tokens[token_count].line = line;
+                    token_count++;
+                    continue;
+                } else {
+                    // Regular dot for member access
+                    tokens[token_count].type = TOKEN_DOT;
+                    tokens[token_count].text = tracked_strdup(".", __FILE__, __LINE__, "lexer_dot");
+                    tokens[token_count].line = line;
+                    token_count++;
+                    p++;
+                    continue;
+                }
             }
         }
 
@@ -231,29 +281,8 @@ Token* lexer_tokenize(const char* source) {
             
 
 
-            // Check for keywords
-            if (strcmp(text, "func") == 0) tokens[token_count].type = TOKEN_FUNC;
-            else if (strcmp(text, "let") == 0) tokens[token_count].type = TOKEN_LET;
-            else if (strcmp(text, "if") == 0) tokens[token_count].type = TOKEN_IF;
-            else if (strcmp(text, "else") == 0) tokens[token_count].type = TOKEN_ELSE;
-            else if (strcmp(text, "for") == 0) tokens[token_count].type = TOKEN_FOR;
-            else if (strcmp(text, "while") == 0) tokens[token_count].type = TOKEN_WHILE;
-            else if (strcmp(text, "end") == 0) tokens[token_count].type = TOKEN_END;
-            else if (strcmp(text, "return") == 0) tokens[token_count].type = TOKEN_RETURN;
-            else if (strcmp(text, "switch") == 0) tokens[token_count].type = TOKEN_SWITCH;
-            else if (strcmp(text, "case") == 0) tokens[token_count].type = TOKEN_CASE;
-            else if (strcmp(text, "default") == 0) tokens[token_count].type = TOKEN_DEFAULT;
-            else if (strcmp(text, "try") == 0) tokens[token_count].type = TOKEN_TRY;
-            else if (strcmp(text, "catch") == 0) tokens[token_count].type = TOKEN_CATCH;
-            else if (strcmp(text, "print") == 0) tokens[token_count].type = TOKEN_PRINT;
-            else if (strcmp(text, "int") == 0) tokens[token_count].type = TOKEN_TYPE_MARKER;
-            else if (strcmp(text, "string") == 0) tokens[token_count].type = TOKEN_STRING_TYPE;
-            else if (strcmp(text, "in") == 0) tokens[token_count].type = TOKEN_IN;
-            else if (strcmp(text, "use") == 0) tokens[token_count].type = TOKEN_USE;
-            else if (strcmp(text, "as") == 0) tokens[token_count].type = TOKEN_AS;
-            else if (strcmp(text, "True") == 0) tokens[token_count].type = TOKEN_TRUE;
-            else if (strcmp(text, "False") == 0) tokens[token_count].type = TOKEN_FALSE;
-            else tokens[token_count].type = TOKEN_IDENTIFIER;
+            // Use the centralized keyword recognition function
+            tokens[token_count].type = get_keyword_type(text);
 
             tokens[token_count].text = text;
             tokens[token_count].line = line;
@@ -355,7 +384,7 @@ Token* lexer_tokenize(const char* source) {
                     p++;
                 } else {
                     tokens[token_count].type = TOKEN_OPERATOR;
-                    tokens[token_count].text = tracked_strdup("<", __FILE__, __LINE__, "lexer_lt");
+                    tokens[token_count].text = tracked_strdup("<", __FILE__, __LINE__, "lexer_operator");
                 }
                 break;
             case '>':
@@ -365,7 +394,7 @@ Token* lexer_tokenize(const char* source) {
                     p++;
                 } else {
                     tokens[token_count].type = TOKEN_OPERATOR;
-                    tokens[token_count].text = tracked_strdup(">", __FILE__, __LINE__, "lexer_gt");
+                    tokens[token_count].text = tracked_strdup(">", __FILE__, __LINE__, "lexer_operator");
                 }
                 break;
             case '!':
@@ -392,6 +421,16 @@ Token* lexer_tokenize(const char* source) {
                     tokens[token_count].type = TOKEN_ASSIGN;
                     tokens[token_count].text = tracked_strdup("=", __FILE__, __LINE__, "lexer_operator");
                 }
+                break;
+            case '|':
+                // NEW: v2.0 Union Type Operator
+                tokens[token_count].type = TOKEN_UNION;
+                tokens[token_count].text = tracked_strdup("|", __FILE__, __LINE__, "lexer_union");
+                break;
+            case '&':
+                // NEW: v2.0 Intersection Type Operator
+                tokens[token_count].type = TOKEN_INTERSECTION;
+                tokens[token_count].text = tracked_strdup("&", __FILE__, __LINE__, "lexer_intersection");
                 break;
             case '-':
                 if (*(p + 1) == '>') {

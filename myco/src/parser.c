@@ -45,6 +45,114 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count);
 static ASTNode* parse_block(Token* tokens, int* current, int token_count);
 static void deep_copy_ast_node(ASTNode* dest, ASTNode* src);
 
+// NEW: v2.0 Type System Helper Functions
+
+/**
+ * @brief Check if a token type is a type annotation
+ * @param token_type The token type to check
+ * @return 1 if it's a type token, 0 otherwise
+ */
+static int is_type_token(MycoTokenType token_type) {
+    return (token_type == TOKEN_TYPE_INT ||
+            token_type == TOKEN_TYPE_FLOAT ||
+            token_type == TOKEN_TYPE_BOOL ||
+            token_type == TOKEN_TYPE_STRING ||
+            token_type == TOKEN_TYPE_ARRAY ||
+            token_type == TOKEN_TYPE_TUPLE ||
+            token_type == TOKEN_TYPE_DICT ||
+            token_type == TOKEN_TYPE_SET ||
+            token_type == TOKEN_TYPE_NULL ||
+            token_type == TOKEN_TYPE_ANY ||
+            token_type == TOKEN_TYPE_FUNCTION ||
+            token_type == TOKEN_TYPE_OBJECT ||
+            token_type == TOKEN_TYPE_CLASS ||
+            token_type == TOKEN_TYPE_ENUM ||
+            token_type == TOKEN_TYPE_BYTE ||
+            token_type == TOKEN_TYPE_BYTES ||
+            token_type == TOKEN_STRING_TYPE); // Legacy support
+}
+
+/**
+ * @brief Convert token type to AST node type
+ * @param token_type The token type
+ * @return The corresponding AST node type
+ */
+static ASTNodeType get_ast_type_from_token(MycoTokenType token_type) {
+    switch (token_type) {
+        case TOKEN_TYPE_INT: return AST_TYPE_INT;
+        case TOKEN_TYPE_FLOAT: return AST_TYPE_FLOAT;
+        case TOKEN_TYPE_BOOL: return AST_TYPE_BOOL;
+        case TOKEN_TYPE_STRING: return AST_TYPE_STRING;
+        case TOKEN_TYPE_ARRAY: return AST_TYPE_ARRAY;
+        case TOKEN_TYPE_TUPLE: return AST_TYPE_TUPLE;
+        case TOKEN_TYPE_DICT: return AST_TYPE_DICT;
+        case TOKEN_TYPE_SET: return AST_TYPE_SET;
+        case TOKEN_TYPE_NULL: return AST_TYPE_NULL;
+        case TOKEN_TYPE_ANY: return AST_TYPE_ANY;
+        case TOKEN_TYPE_FUNCTION: return AST_TYPE_FUNCTION;
+        case TOKEN_TYPE_OBJECT: return AST_TYPE_OBJECT;
+        case TOKEN_TYPE_CLASS: return AST_TYPE_CLASS;
+        case TOKEN_TYPE_ENUM: return AST_TYPE_ENUM;
+        case TOKEN_TYPE_BYTE: return AST_TYPE_BYTE;
+        case TOKEN_TYPE_BYTES: return AST_TYPE_BYTES;
+        case TOKEN_STRING_TYPE: return AST_TYPE_STRING; // Legacy support
+        default: return AST_TYPE_ANY;
+    }
+}
+
+/**
+ * @brief Parse generic type parameters (e.g., array<int>)
+ * @param tokens Token array
+ * @param current Current token index
+ * @param token_count Total token count
+ * @param base_type Base type node
+ * @return Updated type node with generic parameters
+ */
+static ASTNode* parse_generic_type(Token* tokens, int* current, int token_count, ASTNode* base_type) {
+    if (tokens[*current].type != TOKEN_OPERATOR || strcmp(tokens[*current].text, "<") != 0) {
+        return base_type;
+    }
+    
+    (*current)++; // Skip '<'
+    
+    // Parse type parameters
+    while (*current < token_count && !(tokens[*current].type == TOKEN_OPERATOR && strcmp(tokens[*current].text, ">") == 0)) {
+        if (is_type_token(tokens[*current].type)) {
+            ASTNode* param_type = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_generic_type_param");
+            param_type->type = get_ast_type_from_token(tokens[*current].type);
+            param_type->text = tracked_strdup(tokens[*current].text, __FILE__, __LINE__, "parse_generic_type_param_text");
+            param_type->children = NULL;
+            param_type->child_count = 0;
+            param_type->next = NULL;
+            param_type->line = tokens[*current].line;
+            
+            // Add as child to base type
+            base_type->children = (ASTNode*)tracked_realloc(base_type->children, 
+                (base_type->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parse_generic_type_children");
+            deep_copy_ast_node(&base_type->children[base_type->child_count], param_type);
+            base_type->child_count++;
+            
+            (*current)++; // Skip type parameter
+        } else {
+            fprintf(stderr, "Error: Expected type parameter in generic type at line %d\n", tokens[*current].line);
+            break;
+        }
+        
+        // Check for comma separator
+        if (tokens[*current].type == TOKEN_COMMA) {
+            (*current)++; // Skip comma
+        }
+    }
+    
+    if (tokens[*current].type == TOKEN_OPERATOR && strcmp(tokens[*current].text, ">") == 0) {
+        (*current)++; // Skip '>'
+    } else {
+        fprintf(stderr, "Error: Expected '>' to close generic type at line %d\n", tokens[*current].line);
+    }
+    
+    return base_type;
+}
+
 // Helper function to initialize AST node fields
 static void init_ast_node(ASTNode* node) {
     if (node) {
@@ -53,6 +161,10 @@ static void init_ast_node(ASTNode* node) {
         node->child_count = 0;
         node->next = NULL;
         node->for_type = AST_FOR_RANGE;
+        
+        // NEW: v2.0 Type System Support
+        node->type_annotation = AST_TYPE_ANY;  // Default to any type
+        node->type_text = NULL;
     }
 }
 
@@ -133,7 +245,7 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
             
         case TOKEN_TRUE:
             node->type = AST_EXPR;
-            node->text = tracked_strdup("1", __FILE__, __LINE__, "parser"); // True = 1
+            node->text = tracked_strdup("True", __FILE__, __LINE__, "parser"); // Keep as "True" for proper type detection
             node->children = NULL;
             node->child_count = 0;
             node->next = NULL;
@@ -142,7 +254,7 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
             
         case TOKEN_FALSE:
             node->type = AST_EXPR;
-            node->text = tracked_strdup("0", __FILE__, __LINE__, "parser"); // False = 0
+            node->text = tracked_strdup("False", __FILE__, __LINE__, "parser"); // Keep as "False" for proper type detection
             node->children = NULL;
             node->child_count = 0;
             node->next = NULL;
@@ -152,6 +264,31 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
         case TOKEN_TYPE_MARKER:
         case TOKEN_STRING_TYPE:
             // Treat type markers as identifiers for use in expressions
+            node->type = AST_EXPR;
+            node->text = tracked_strdup(tokens[*current].text, __FILE__, __LINE__, "parser");
+            node->children = NULL;
+            node->child_count = 0;
+            node->next = NULL;
+            (*current)++;
+            break;
+            
+        case TOKEN_TYPE_INT:
+        case TOKEN_TYPE_FLOAT:
+        case TOKEN_TYPE_BOOL:
+        case TOKEN_TYPE_STRING:
+        case TOKEN_TYPE_ARRAY:
+        case TOKEN_TYPE_TUPLE:
+        case TOKEN_TYPE_DICT:
+        case TOKEN_TYPE_SET:
+        case TOKEN_TYPE_NULL:
+        case TOKEN_TYPE_ANY:
+        case TOKEN_TYPE_FUNCTION:
+        case TOKEN_TYPE_OBJECT:
+        case TOKEN_TYPE_CLASS:
+        case TOKEN_TYPE_ENUM:
+        case TOKEN_TYPE_BYTE:
+        case TOKEN_TYPE_BYTES:
+            // Treat type tokens as string literals for use in expressions
             node->type = AST_EXPR;
             node->text = tracked_strdup(tokens[*current].text, __FILE__, __LINE__, "parser");
             node->children = NULL;
@@ -397,10 +534,17 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
 
         case TOKEN_STRING:
             node->type = AST_EXPR;
-            // Wrap the string literal in quotes
-            char* quoted = (char*)tracked_malloc(strlen(tokens[*current].text) + 3, __FILE__, __LINE__, "parse_primary_string");
-            sprintf(quoted, "\"%s\"", tokens[*current].text);
-            node->text = quoted;
+            // Store the string literal with quotes to match function expectations
+            char* quoted_string = (char*)tracked_malloc(strlen(tokens[*current].text) + 3, __FILE__, __LINE__, "parse_primary_string");
+            if (quoted_string) {
+                quoted_string[0] = '"';
+                strcpy(quoted_string + 1, tokens[*current].text);
+                quoted_string[strlen(tokens[*current].text) + 1] = '"';
+                quoted_string[strlen(tokens[*current].text) + 2] = '\0';
+                node->text = quoted_string;
+            } else {
+                node->text = tracked_strdup(tokens[*current].text, __FILE__, __LINE__, "parse_primary_string");
+            }
             node->children = NULL;
             node->child_count = 0;
             node->next = NULL;
@@ -490,6 +634,7 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
 
         case TOKEN_LBRACE:
             // Parse object literal: {prop1: val1, prop2: val2}
+    
             (*current)++; // Skip '{'
             
             // Create object literal node
@@ -499,8 +644,12 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
             node->child_count = 0;
             node->next = NULL;
             
+
+            
             // Parse object properties
             while (tokens[*current].type != TOKEN_RBRACE && tokens[*current].type != TOKEN_EOF) {
+
+                
                 // Parse property name (identifier)
                 if (tokens[*current].type != TOKEN_IDENTIFIER) {
                     fprintf(stderr, "Error: Expected property name (identifier) in object literal at line %d\n", tokens[*current].line);
@@ -517,6 +666,8 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
                 prop_name->next = NULL;
                 prop_name->line = tokens[*current].line;
                 (*current)++; // Skip property name
+                
+
                 
                 // Expect colon separator
                 if (tokens[*current].type != TOKEN_COLON) {
@@ -536,6 +687,8 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
                     return NULL;
                 }
                 
+
+                
                 // Create property pair node (name: value)
                 ASTNode* prop_pair = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_object_prop_pair");
                 prop_pair->type = AST_EXPR;
@@ -548,6 +701,8 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
                 // Copy name and value to property pair
                 deep_copy_ast_node(&prop_pair->children[0], prop_name);
                 deep_copy_ast_node(&prop_pair->children[1], prop_value);
+                
+
                 
                 // Add property pair to object
                 if (node->child_count == 0) {
@@ -570,6 +725,8 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
                 deep_copy_ast_node(&node->children[node->child_count], prop_pair);
                 node->child_count++;
                 
+
+                
                 // Clean up temporary nodes
                 parser_free_ast(prop_name);
                 parser_free_ast(prop_value);
@@ -590,6 +747,8 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
                     return NULL;
                 }
             }
+            
+
             
             // Check for closing brace
             if (tokens[*current].type != TOKEN_RBRACE) {
@@ -1937,6 +2096,179 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
             break;
         }
 
+        case TOKEN_FUNC: {
+            // Handle old func syntax: func name(params): return_type: body end
+            node->type = AST_FUNC;
+            node->children = NULL;
+            node->child_count = 0;
+            node->next = NULL;
+            node->line = tokens[*current].line;
+            (*current)++; // Skip 'func'
+
+            // Parse function name
+            if (tokens[*current].type != TOKEN_IDENTIFIER) {
+                fprintf(stderr, "Error: Expected function name at line %d\n", tokens[*current].line);
+                parser_free_ast(node);
+                return NULL;
+            }
+
+            // Store the function name in the main node's text field
+            node->text = tracked_strdup(tokens[*current].text, __FILE__, __LINE__, "parser");
+            
+            ASTNode* func_name = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_func_name");
+            func_name->type = AST_EXPR;
+            func_name->text = tracked_strdup(tokens[*current].text, __FILE__, __LINE__, "parser");
+            func_name->children = NULL;
+            func_name->child_count = 0;
+            func_name->next = NULL;
+            (*current)++; // Skip function name
+
+            // Parse parameters
+            if (tokens[*current].type != TOKEN_LPAREN) {
+                fprintf(stderr, "Error: Expected '(' after function name at line %d\n", tokens[*current].line);
+                parser_free_ast(node);
+                parser_free_ast(func_name);
+                return NULL;
+            }
+            (*current)++; // Skip '('
+
+            // Parse parameter list
+            while (tokens[*current].type != TOKEN_RPAREN) {
+                if (tokens[*current].type != TOKEN_IDENTIFIER) {
+                    fprintf(stderr, "Error: Expected parameter name at line %d\n", tokens[*current].line);
+                    parser_free_ast(node);
+                    parser_free_ast(func_name);
+                    return NULL;
+                }
+
+                ASTNode* param = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_func_param");
+                if (!param) {
+                    fprintf(stderr, "Error: Memory allocation failed\n");
+                    parser_free_ast(node);
+                    parser_free_ast(func_name);
+                    return NULL;
+                }
+                param->type = AST_EXPR;
+                param->text = tracked_strdup(tokens[*current].text, __FILE__, __LINE__, "parser");
+                param->children = NULL;
+                param->child_count = 0;
+                param->next = NULL;
+                (*current)++; // Skip parameter name
+
+                // Parse type annotation if present (optional for backward compatibility)
+                if (tokens[*current].type == TOKEN_COLON) {
+                    // Look ahead to see if this colon is followed by a type token
+                    int lookahead = *current + 1;
+                    if (lookahead < token_count && is_type_token(tokens[lookahead].type)) {
+                        (*current)++; // Skip ':'
+                        // Store type information in parameter
+                        param->type_annotation = get_ast_type_from_token(tokens[*current].type);
+                        param->type_text = tracked_strdup(tokens[*current].text, __FILE__, __LINE__, "parse_statement_func_param_type");
+                        (*current)++; // Skip type
+                        
+                        // Check for generic type parameters
+                        if (tokens[*current].type == TOKEN_OPERATOR && strcmp(tokens[*current].text, "<") == 0) {
+                            // Create a temporary type node for generic parsing
+                            ASTNode* temp_type = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_func_param_temp_type");
+                            temp_type->type = param->type_annotation;
+                            temp_type->text = tracked_strdup(param->type_text, __FILE__, __LINE__, "parse_statement_func_param_temp_type_text");
+                            temp_type->children = NULL;
+                            temp_type->child_count = 0;
+                            temp_type->next = NULL;
+                            temp_type->line = tokens[*current].line;
+                            
+                            temp_type = parse_generic_type(tokens, current, token_count, temp_type);
+                            
+                            // Update parameter with generic type info
+                            param->type_annotation = temp_type->type;
+                            tracked_free(param->type_text, __FILE__, __LINE__, "parse_statement_func_param_type_cleanup");
+                            param->type_text = tracked_strdup(temp_type->text, __FILE__, __LINE__, "parse_statement_func_param_type_final");
+                            
+                            // Clean up temp type
+                            tracked_free(temp_type, __FILE__, __LINE__, "parse_statement_func_param_temp_type_cleanup");
+                        }
+                    }
+                    // If colon is not followed by a type token, leave it for function body parsing
+                }
+                // If no type annotation, param->type_annotation defaults to AST_TYPE_ANY
+
+                // Add parameter to function
+                node->children = (ASTNode*)tracked_realloc(node->children, (node->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_func_param");
+                deep_copy_ast_node(&node->children[node->child_count], param);
+                node->child_count++;
+
+                // Skip comma if present
+                if (tokens[*current].type == TOKEN_COMMA) {
+                    (*current)++;
+                }
+            }
+            (*current)++; // Skip ')'
+
+            // Parse return type annotation if present (supports both : and -> syntax)
+            if (tokens[*current].type == TOKEN_COLON || tokens[*current].type == TOKEN_ARROW) {
+                (*current)++; // Skip ':' or '->'
+                if (is_type_token(tokens[*current].type)) {
+                    // Store return type in function name node
+                    func_name->type_annotation = get_ast_type_from_token(tokens[*current].type);
+                    func_name->type_text = tracked_strdup(tokens[*current].text, __FILE__, __LINE__, "parse_statement_func_return_type");
+                    (*current)++; // Skip return type
+                    
+                    // Check for generic return type parameters
+                    if (tokens[*current].type == TOKEN_LT) {
+                        // Create a temporary type node for generic parsing
+                        ASTNode* temp_type = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_func_return_temp_type");
+                        temp_type->type = func_name->type_annotation;
+                        temp_type->text = tracked_strdup(func_name->type_text, __FILE__, __LINE__, "parse_statement_func_return_temp_type_text");
+                        temp_type->children = NULL;
+                        temp_type->child_count = 0;
+                        temp_type->next = NULL;
+                        temp_type->line = tokens[*current].line;
+                        
+                        temp_type = parse_generic_type(tokens, current, token_count, temp_type);
+                        
+                        // Update return type with generic type info
+                        func_name->type_annotation = temp_type->type;
+                        tracked_free(func_name->type_text, __FILE__, __LINE__, "parse_statement_func_return_type_cleanup");
+                        func_name->type_text = tracked_strdup(temp_type->text, __FILE__, __LINE__, "parse_statement_func_return_type_final");
+                        
+                        // Clean up temp type
+                        tracked_free(temp_type, __FILE__, __LINE__, "parse_statement_func_return_temp_type_cleanup");
+                    }
+                } else {
+                    // Return type annotation is optional, so this might be a different colon/arrow
+                    // Back up and continue without return type annotation
+                    (*current)--; // Go back to ':' or '->'
+                    // Don't set return type annotation - it will default to AST_TYPE_ANY
+                }
+            }
+
+            // Parse function body
+            if (tokens[*current].type != TOKEN_COLON) {
+                fprintf(stderr, "Error: Expected ':' after function signature at line %d\n", tokens[*current].line);
+                parser_free_ast(node);
+                parser_free_ast(func_name);
+                return NULL;
+            }
+            (*current)++; // Skip ':'
+
+            ASTNode* func_body = parse_block(tokens, current, token_count);
+            if (!func_body) {
+                parser_free_ast(node);
+                parser_free_ast(func_name);
+                return NULL;
+            }
+
+            // Add function name and body as children
+            node->children = (ASTNode*)tracked_realloc(node->children, (node->child_count + 2) * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_func_children");
+            deep_copy_ast_node(&node->children[node->child_count], func_name);
+            deep_copy_ast_node(&node->children[node->child_count + 1], func_body);
+            node->child_count += 2;
+
+            // Clean up local nodes
+            tracked_free(func_name, __FILE__, __LINE__, "parse_statement_func_name_cleanup");
+            break;
+        }
+
         case TOKEN_LET: {
             node->type = AST_LET;
             node->text = tracked_strdup("let", __FILE__, __LINE__, "parser");
@@ -1948,7 +2280,12 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
 
             // Parse variable name
             if (tokens[*current].type != TOKEN_IDENTIFIER) {
+                // Check if this is a type token being used as a variable name
+                if (is_type_token(tokens[*current].type)) {
+                    fprintf(stderr, "Error: Variable name '%s' conflicts with type name at line %d\n", tokens[*current].text, tokens[*current].line);
+                } else {
                 fprintf(stderr, "Error: Expected variable name at line %d\n", tokens[*current].line);
+                }
                 parser_free_ast(node);
                 return NULL;
             }
@@ -1959,7 +2296,39 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
             var_name->children = NULL;
             var_name->child_count = 0;
             var_name->next = NULL;
+            
+            // Check if variable name conflicts with type names
+
+            
             (*current)++; // Skip variable name
+
+            // NEW: v2.0 Check for type annotation first
+            ASTNode* type_annotation = NULL;
+            if (tokens[*current].type == TOKEN_COLON) {
+                (*current)++; // Skip ':'
+                
+                // Parse type annotation
+                if (is_type_token(tokens[*current].type)) {
+                    type_annotation = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_type_annotation");
+                    type_annotation->type = get_ast_type_from_token(tokens[*current].type);
+                    type_annotation->text = tracked_strdup(tokens[*current].text, __FILE__, __LINE__, "parse_statement_type_text");
+                    type_annotation->children = NULL;
+                    type_annotation->child_count = 0;
+                    type_annotation->next = NULL;
+                    type_annotation->line = tokens[*current].line;
+                    (*current)++; // Skip type
+                    
+                    // Check for generic type parameters (e.g., array<int>)
+                    if (tokens[*current].type == TOKEN_OPERATOR && strcmp(tokens[*current].text, "<") == 0) {
+                        type_annotation = parse_generic_type(tokens, current, token_count, type_annotation);
+                    }
+                } else {
+                    fprintf(stderr, "Error: Expected type annotation at line %d\n", tokens[*current].line);
+                    parser_free_ast(node);
+                    parser_free_ast(var_name);
+                    return NULL;
+                }
+            }
 
             // Check if this is a function definition (has parentheses) or variable assignment (has =)
             if (tokens[*current].type == TOKEN_LPAREN) {
@@ -1991,16 +2360,40 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                     param->next = NULL;
                     (*current)++; // Skip parameter name
 
-                    // Parse type annotation if present
+                    // Parse type annotation if present (optional for backward compatibility)
                     if (tokens[*current].type == TOKEN_COLON) {
+                        // Look ahead to see if this colon is followed by a type token
+                        int lookahead = *current + 1;
+                        if (lookahead < token_count && is_type_token(tokens[lookahead].type)) {
                         (*current)++; // Skip ':'
-                        if (tokens[*current].type != TOKEN_TYPE_MARKER && tokens[*current].type != TOKEN_STRING_TYPE) {
-                            fprintf(stderr, "Error: Expected type annotation at line %d\n", tokens[*current].line);
-                            parser_free_ast(node);
-                            parser_free_ast(param);
-                            return NULL;
-                        }
+                            // Store type information in parameter
+                            param->type_annotation = get_ast_type_from_token(tokens[*current].type);
+                            param->type_text = tracked_strdup(tokens[*current].text, __FILE__, __LINE__, "parse_statement_func_param_type");
                         (*current)++; // Skip type
+                            
+                            // Check for generic type parameters
+                            if (tokens[*current].type == TOKEN_OPERATOR && strcmp(tokens[*current].text, "<") == 0) {
+                                // Create a temporary type node for generic parsing
+                                ASTNode* temp_type = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_func_param_temp_type");
+                                temp_type->type = param->type_annotation;
+                                temp_type->text = tracked_strdup(param->type_text, __FILE__, __LINE__, "parse_statement_func_param_temp_type_text");
+                                temp_type->children = NULL;
+                                temp_type->child_count = 0;
+                                temp_type->next = NULL;
+                                temp_type->line = tokens[*current].line;
+                                
+                                temp_type = parse_generic_type(tokens, current, token_count, temp_type);
+                                
+                                // Update parameter with generic type info
+                                param->type_annotation = temp_type->type;
+                                tracked_free(param->type_text, __FILE__, __LINE__, "parse_statement_func_param_type_cleanup");
+                                param->type_text = tracked_strdup(temp_type->text, __FILE__, __LINE__, "parse_statement_func_param_type_final");
+                                
+                                // Clean up temp type
+                                tracked_free(temp_type, __FILE__, __LINE__, "parse_statement_func_param_temp_type_cleanup");
+                            }
+                        }
+                        // If colon is not followed by a type token, leave it for function body parsing
                     }
 
                     // Add parameter to function
@@ -2015,13 +2408,13 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                 }
                 (*current)++; // Skip ')'
 
-                // Parse function body
-                if (tokens[*current].type != TOKEN_COLON) {
-                    fprintf(stderr, "Error: Expected ':' after function parameters at line %d\n", tokens[*current].line);
+                // Parse function body (supports both : and -> syntax)
+                if (tokens[*current].type != TOKEN_COLON && tokens[*current].type != TOKEN_ARROW) {
+                    fprintf(stderr, "Error: Expected ':' or '->' after function parameters at line %d\n", tokens[*current].line);
                     parser_free_ast(node);
                     return NULL;
                 }
-                (*current)++; // Skip ':'
+                (*current)++; // Skip ':' or '->'
 
                 ASTNode* func_body = parse_block(tokens, current, token_count);
                 if (!func_body) {
@@ -2205,11 +2598,26 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
             }
             (*current)++; // Skip ';'
 
-            // Add variable name and initial value as children
-                node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_let_var");
+
+
+            // Add variable name, type annotation (if present), and initial value as children
+            int child_count = type_annotation ? 3 : 2;
+            node->children = (ASTNode*)tracked_malloc(child_count * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_let_var");
             node->children[0] = *var_name;
+            
+            if (type_annotation) {
+                // Store type annotation in the variable name node
+                node->children[0].type_annotation = type_annotation->type;
+                node->children[0].type_text = tracked_strdup(type_annotation->text, __FILE__, __LINE__, "parse_statement_let_var_type");
+                
+                // Add type annotation as second child
+                node->children[1] = *type_annotation;
+                node->children[2] = *init_value;
+                node->child_count = 3;
+            } else {
             node->children[1] = *init_value;
             node->child_count = 2;
+            }
             }
             break;
         }
@@ -2297,6 +2705,61 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
 
             if (tokens[*current].type != TOKEN_SEMICOLON) {
                 fprintf(stderr, "Error: Expected ';' after print statement at line %d\n", tokens[*current].line);
+                parser_free_ast(node);
+                return NULL;
+            }
+            (*current)++; // Skip ';'
+            
+            break;
+        }
+
+        case TOKEN_UPRINT: {
+            node->type = AST_UPRINT;
+            node->text = tracked_strdup("uprint", __FILE__, __LINE__, "parser");
+            node->children = NULL;
+            node->child_count = 0;
+            node->next = NULL;
+            (*current)++; // Skip 'uprint'
+
+            // Parse uprint arguments
+            if (tokens[*current].type != TOKEN_LPAREN) {
+                fprintf(stderr, "Error: Expected '(' after uprint at line %d\n", tokens[*current].line);
+                parser_free_ast(node);
+                return NULL;
+            }
+            (*current)++; // Skip '('
+
+            while (tokens[*current].type != TOKEN_RPAREN) {
+                
+                ASTNode* arg = parse_expression(tokens, current);
+                if (!arg) {
+                    parser_free_ast(node);
+                    return NULL;
+                }
+
+                node->children = (ASTNode*)tracked_realloc(node->children, (node->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_uprint");
+                // Move the arg node directly instead of deep copying
+                node->children[node->child_count] = *arg;
+                
+                // Deep copy the text to prevent corruption
+                if (arg->text) {
+                    node->children[node->child_count].text = tracked_strdup(arg->text, __FILE__, __LINE__, "parser");
+                }
+                
+                node->child_count++;
+
+                if (tokens[*current].type == TOKEN_COMMA) {
+                    (*current)++; // Skip ','
+                } else if (tokens[*current].type != TOKEN_RPAREN) {
+                    fprintf(stderr, "Error: Expected ',' or ')' at line %d\n", tokens[*current].line);
+                    parser_free_ast(node);
+                    return NULL;
+                }
+            }
+            (*current)++; // Skip ')'
+
+            if (tokens[*current].type != TOKEN_SEMICOLON) {
+                fprintf(stderr, "Error: Expected ';' after uprint statement at line %d\n", tokens[*current].line);
                 parser_free_ast(node);
                 return NULL;
             }
@@ -2774,14 +3237,10 @@ ASTNode* parser_parse(Token* tokens) {
 
                 // Parse type annotation (optional)
                 if (tokens[current].type == TOKEN_COLON) {
+                    // Look ahead to see if this colon is followed by a type token
+                    int lookahead = current + 1;
+                    if (lookahead < token_count && is_type_token(tokens[lookahead].type)) {
                     current++; // Skip ':'
-                    if (tokens[current].type != TOKEN_TYPE_MARKER && tokens[current].type != TOKEN_STRING_TYPE) {
-                        fprintf(stderr, "Error: Expected type annotation at line %d\n", tokens[current].line);
-                        parser_free_ast(root);
-                        parser_free_ast(node);
-                        parser_free_ast(param);
-                        return NULL;
-                    }
                     ASTNode* type = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_func_type");
                     if (!type) {
                         fprintf(stderr, "Error: Memory allocation failed\n");
@@ -2807,6 +3266,11 @@ ASTNode* parser_parse(Token* tokens) {
                     param->children = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_func_param_type");
                     param->children[0] = *type;
                     param->child_count = 1;
+                    } else {
+                        // No type annotation - parameter is implicitly typed
+                        param->children = NULL;
+                        param->child_count = 0;
+                    }
                 } else {
                     // No type annotation - parameter is implicitly typed
                     param->children = NULL;
@@ -2833,7 +3297,7 @@ ASTNode* parser_parse(Token* tokens) {
             // Look ahead to see if the next token is a type marker
             if (tokens[current].type == TOKEN_COLON || tokens[current].type == TOKEN_ARROW) {
                 current++; // Skip ':' or '->'
-                if (tokens[current].type != TOKEN_TYPE_MARKER && tokens[current].type != TOKEN_STRING_TYPE) {
+                if (!is_type_token(tokens[current].type)) {
                     // This colon/arrow is for the function body, not a return type
                     // Back up and treat as implicit return
                     current--; // Go back to colon/arrow

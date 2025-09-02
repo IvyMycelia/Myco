@@ -31,6 +31,7 @@ typedef enum {
     AST_NODE_ARRAY_LITERAL,
     AST_NODE_ARRAY_ACCESS,
     AST_NODE_MEMBER_ACCESS,
+    AST_NODE_FUNCTION_CALL_EXPR,
     AST_NODE_IMPORT,
     AST_NODE_USE,
     AST_NODE_MODULE,
@@ -219,6 +220,13 @@ typedef struct ASTNode {
             char* member_name;          // The member name
         } member_access;
         
+        // Function call on expression (e.g., obj.method(args), func(args))
+        struct {
+            struct ASTNode* function;   // The function expression (can be identifier, member access, etc.)
+            struct ASTNode** arguments; // The arguments
+            size_t argument_count;      // Number of arguments
+        } function_call_expr;
+        
         // Import statement
         struct {
             char* module_name;
@@ -269,6 +277,7 @@ ASTNode* ast_create_binary_op(BinaryOperator op, ASTNode* left, ASTNode* right, 
 ASTNode* ast_create_unary_op(UnaryOperator op, ASTNode* operand, int line, int column);
 ASTNode* ast_create_assignment(const char* variable, ASTNode* value, int line, int column);
 ASTNode* ast_create_function_call(const char* name, ASTNode** args, size_t arg_count, int line, int column);
+ASTNode* ast_create_function_call_expr(ASTNode* function, ASTNode** args, size_t arg_count, int line, int column);
 ASTNode* ast_create_variable_declaration(const char* name, const char* type, ASTNode* initial_value, int is_mutable, int line, int column);
 ASTNode* ast_create_array_access(ASTNode* array, ASTNode* index, int line, int column);
 ASTNode* ast_create_member_access(ASTNode* object, const char* member_name, int line, int column);

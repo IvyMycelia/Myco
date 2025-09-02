@@ -562,25 +562,20 @@ ASTNode* parser_parse_logical_or(Parser* parser) {
     }
     
     // Check for logical OR operators
-    while (parser_check(parser, TOKEN_KEYWORD)) {
-        Token* token = parser_peek(parser);
-        if (token && token->text && strcmp(token->text, "or") == 0) {
-            parser_advance(parser);  // Consume the 'or' keyword
-            
-            // Parse the right operand
-            ASTNode* right = parser_parse_logical_and(parser);
-            if (!right) {
-                parser_error(parser, "Expected expression after 'or'");
-                return left;  // Return what we have so far
-            }
-            
-            // Create a logical OR node
-            ASTNode* logical_or = ast_create_binary_op(OP_LOGICAL_OR, left, right, 0, 0);
-            if (logical_or) {
-                left = logical_or;  // Continue building the chain
-            }
-    } else {
-            break;  // Not an 'or' keyword
+    while (parser_check(parser, TOKEN_OR)) {
+        parser_advance(parser);  // Consume the 'or' token
+        
+        // Parse the right operand
+        ASTNode* right = parser_parse_logical_and(parser);
+        if (!right) {
+            parser_error(parser, "Expected expression after 'or'");
+            return left;  // Return what we have so far
+        }
+        
+        // Create a logical OR node
+        ASTNode* logical_or = ast_create_binary_op(OP_LOGICAL_OR, left, right, 0, 0);
+        if (logical_or) {
+            left = logical_or;  // Continue building the chain
         }
     }
     
@@ -608,25 +603,20 @@ ASTNode* parser_parse_logical_and(Parser* parser) {
     }
     
     // Check for logical AND operators
-    while (parser_check(parser, TOKEN_KEYWORD)) {
-        Token* token = parser_peek(parser);
-        if (token && token->text && strcmp(token->text, "and") == 0) {
-            parser_advance(parser);  // Consume the 'and' keyword
-            
-            // Parse the right operand
-            ASTNode* right = parser_parse_equality(parser);
-            if (!right) {
-                parser_error(parser, "Expected expression after 'and'");
-                return left;  // Return what we have so far
-            }
-            
-            // Create a logical AND node
-            ASTNode* logical_and = ast_create_binary_op(OP_LOGICAL_AND, left, right, 0, 0);
-            if (logical_and) {
-                left = logical_and;  // Continue building the chain
-            }
-        } else {
-            break;  // Not an 'and' keyword
+    while (parser_check(parser, TOKEN_AND)) {
+        parser_advance(parser);  // Consume the 'and' token
+        
+        // Parse the right operand
+        ASTNode* right = parser_parse_equality(parser);
+        if (!right) {
+            parser_error(parser, "Expected expression after 'and'");
+            return left;  // Return what we have so far
+        }
+        
+        // Create a logical AND node
+        ASTNode* logical_and = ast_create_binary_op(OP_LOGICAL_AND, left, right, 0, 0);
+        if (logical_and) {
+            left = logical_and;  // Continue building the chain
         }
     }
     
@@ -999,7 +989,7 @@ ASTNode* parser_parse_primary(Parser* parser) {
         Token* ident_token = parser_peek(parser);
         parser_advance(parser);
         
-        // Function call: identifier '(' args? ')'
+        // Check if this is a simple function call: identifier '(' args? ')'
         if (parser_check(parser, TOKEN_LEFT_PAREN)) {
             parser_advance(parser); // consume '('
             
@@ -1038,6 +1028,7 @@ ASTNode* parser_parse_primary(Parser* parser) {
                 parser_error(parser, "Expected ')' after arguments");
             }
             
+            // Create simple function call node
             ASTNode* call = ast_create_function_call(ident_token->text, args, arg_count, ident_token->line, ident_token->column);
             if (!call && args) {
                 free(args);
@@ -1045,7 +1036,7 @@ ASTNode* parser_parse_primary(Parser* parser) {
             return call;
         }
         
-        // Check for array indexing: identifier '[' index ']'
+        // Create base identifier
         ASTNode* base = ast_create_identifier(ident_token->text, ident_token->line, ident_token->column);
         if (!base) {
             return NULL;
@@ -1103,11 +1094,64 @@ ASTNode* parser_parse_primary(Parser* parser) {
                 return NULL;
             }
             
+            // Check for function calls on the member access: member_access(args)
+            if (parser_check(parser, TOKEN_LEFT_PAREN)) {
+                parser_advance(parser); // consume '('
+                
+                ASTNode** args = NULL;
+                size_t arg_count = 0;
+                size_t arg_capacity = 0;
+                
+                // Parse optional arguments
+                if (!parser_check(parser, TOKEN_RIGHT_PAREN)) {
+                    while (1) {
+                        ASTNode* arg = parser_parse_expression(parser);
+                        if (!arg) {
+                            parser_error(parser, "Function call arguments must be valid expressions");
+                            break;
+                        }
+                        if (arg_count == arg_capacity) {
+                            size_t new_cap = arg_capacity == 0 ? 4 : arg_capacity * 2;
+                            ASTNode** new_args = (ASTNode**)realloc(args, new_cap * sizeof(ASTNode*));
+                            if (!new_args) {
+                                parser_error(parser, "Out of memory while parsing arguments");
+                                break;
+                            }
+                            args = new_args;
+                            arg_capacity = new_cap;
+                        }
+                        args[arg_count++] = arg;
+                        if (parser_check(parser, TOKEN_COMMA)) {
+                            parser_advance(parser);
+                            continue;
+                        }
+                        break;
+                    }
+                }
+                
+                if (!parser_match(parser, TOKEN_RIGHT_PAREN)) {
+                    parser_error(parser, "Expected ')' after arguments");
+                }
+                
+                // Create function call expression node with the member access as the function
+                ASTNode* call = ast_create_function_call_expr(member_access, args, arg_count, ident_token->line, ident_token->column);
+                if (!call) {
+                    if (args) {
+                        free(args);
+                    }
+                    return member_access;
+                }
+                
+                return call;
+            }
+            
             return member_access;
         }
         
         return base;
     }
+    
+
     
     if (parser_check(parser, TOKEN_LEFT_PAREN)) {
         // Parse parenthesized expression

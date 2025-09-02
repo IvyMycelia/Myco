@@ -1,0 +1,19 @@
+print("=== Testing Null types ===");
+
+print("Testing True type:");
+print("type(True):", type(True));
+
+print("Testing False type:");
+print("type(False):", type(False));
+
+print("Testing Null type:");
+print("type(Null):", type(Null));
+
+print("Testing Null comparison:");
+print("Null == Null:", Null == Null);
+
+print("Testing True comparison:");
+print("True == True:", True == True);
+
+print("Testing False comparison:");
+print("False == False:", False == False);

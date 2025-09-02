@@ -1,0 +1,7 @@
+print("=== Simple Null test ===");
+
+print("Testing Null literal:");
+print("Null:", Null);
+
+print("Testing Null comparison:");
+print("Null == Null:", Null == Null);

@@ -1,0 +1,15 @@
+print("=== Deep debugging Null issue ===");
+
+print("Testing Null literal directly:");
+print("Null:", Null);
+print("type(Null):", type(Null));
+
+print("Testing Null assignment:");
+let null_var = Null;
+print("null_var:", null_var);
+print("type(null_var):", type(null_var));
+
+print("Testing Null comparison:");
+print("Null == Null:", Null == Null);
+print("null_var == Null:", null_var == Null);
+print("null_var == null_var:", null_var == null_var);

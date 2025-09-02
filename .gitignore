@@ -1,3 +1,7 @@
 *test*.myco
+./tests/
+./bin/
 ./build/
 .DS_Store
+
+.gitignore

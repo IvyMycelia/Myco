@@ -379,7 +379,60 @@ Value value_to_string(Value* value) {
     } 
 }
 
-Value value_add(Value* a, Value* b) { if (a->type == VALUE_STRING || b->type == VALUE_STRING) { Value sa = value_to_string(a); Value sb = value_to_string(b); size_t la = sa.data.string_value ? strlen(sa.data.string_value) : 0; size_t lb = sb.data.string_value ? strlen(sb.data.string_value) : 0; char* out = (char*)malloc(la + lb + 1); if (!out) { value_free(&sa); value_free(&sb); return value_create_string(""); } if (la) memcpy(out, sa.data.string_value, la); if (lb) memcpy(out + la, sb.data.string_value, lb); out[la + lb] = '\0'; value_free(&sa); value_free(&sb); Value v = value_create_string(out); free(out); return v; } if (a->type == VALUE_NUMBER && b->type == VALUE_NUMBER) { return value_create_number(a->data.number_value + b->data.number_value); } return value_create_null(); }
+Value value_add(Value* a, Value* b) {
+    if (!a || !b) {
+        return value_create_null();
+    }
+    
+    // String concatenation
+    if (a->type == VALUE_STRING || b->type == VALUE_STRING) {
+        Value sa = value_to_string(a);
+        Value sb = value_to_string(b);
+        
+        // Get string lengths safely
+        size_t la = 0;
+        size_t lb = 0;
+        if (sa.type == VALUE_STRING && sa.data.string_value) {
+            la = strlen(sa.data.string_value);
+        }
+        if (sb.type == VALUE_STRING && sb.data.string_value) {
+            lb = strlen(sb.data.string_value);
+        }
+        
+        // Allocate memory for concatenated string
+        char* out = (char*)malloc(la + lb + 1);
+        if (!out) {
+            value_free(&sa);
+            value_free(&sb);
+            return value_create_string("");
+        }
+        
+        // Copy strings safely
+        if (la > 0 && sa.type == VALUE_STRING && sa.data.string_value) {
+            memcpy(out, sa.data.string_value, la);
+        }
+        if (lb > 0 && sb.type == VALUE_STRING && sb.data.string_value) {
+            memcpy(out + la, sb.data.string_value, lb);
+        }
+        out[la + lb] = '\0';
+        
+        // Clean up temporary values
+        value_free(&sa);
+        value_free(&sb);
+        
+        // Create result and free temporary buffer
+        Value result = value_create_string(out);
+        free(out);
+        return result;
+    }
+    
+    // Numeric addition
+    if (a->type == VALUE_NUMBER && b->type == VALUE_NUMBER) {
+        return value_create_number(a->data.number_value + b->data.number_value);
+    }
+    
+    return value_create_null();
+}
 Value value_subtract(Value* a, Value* b) { Value v = {0}; return v; }
 Value value_multiply(Value* a, Value* b) { 
     if (a->type == VALUE_NUMBER && b->type == VALUE_NUMBER) {

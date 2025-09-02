@@ -27,7 +27,6 @@ This document explains the comprehensive commenting approach used throughout the
 - **Simple and Clear**: Avoid overly complex language
 - **Detailed but Concise**: Provide complete information without verbosity
 - **Professional Tone**: Write as if for a technical audience
-- **Non-AI Like**: Natural, human-written documentation style
 - **Plentiful**: Err on the side of over-documentation rather than under-documentation
 
 ---
@@ -56,7 +55,7 @@ Every header file includes a comprehensive file header comment that explains:
  * called "tokens". These tokens represent the basic building blocks of the language:
  * 
  * Examples of tokens:
- * - Keywords: 'if', 'while', 'function', 'return'
+ * - Keywords: 'if', 'while', 'func', 'return'
  * - Identifiers: variable names, function names
  * - Literals: numbers (42, 3.14), strings ("hello"), booleans (True, False)
  * - Operators: +, -, *, /, ==, !=, &&, ||

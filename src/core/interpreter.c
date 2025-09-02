@@ -128,7 +128,78 @@ int environment_exists(Environment* env, const char* name) {
 Value value_create_null(void) { Value v; v.type = VALUE_NULL; return v; }
 Value value_create_boolean(int value) { Value v; v.type = VALUE_BOOLEAN; v.data.boolean_value = value ? 1 : 0; return v; }
 Value value_create_number(double value) { Value v; v.type = VALUE_NUMBER; v.data.number_value = value; return v; }
-Value value_create_string(const char* value) { Value v; v.type = VALUE_STRING; v.data.string_value = value ? strdup(value) : NULL; return v; }
+/**
+ * @brief Process escape sequences in a string
+ * 
+ * @param input The input string with escape sequences
+ * @return A new string with escape sequences processed
+ */
+static char* process_escape_sequences(const char* input) {
+    if (!input) return NULL;
+    
+    size_t input_len = strlen(input);
+    char* output = malloc(input_len + 1);  // Output might be shorter due to \n -> single char
+    if (!output) return NULL;
+    
+    size_t output_pos = 0;
+    size_t input_pos = 0;
+    
+    while (input_pos < input_len) {
+        if (input[input_pos] == '\\' && input_pos + 1 < input_len) {
+            // Process escape sequence
+            input_pos++;  // Skip the backslash
+            switch (input[input_pos]) {
+                case 'n':
+                    output[output_pos++] = '\n';
+                    break;
+                case 't':
+                    output[output_pos++] = '\t';
+                    break;
+                case 'r':
+                    output[output_pos++] = '\r';
+                    break;
+                case '\\':
+                    output[output_pos++] = '\\';
+                    break;
+                case '"':
+                    output[output_pos++] = '"';
+                    break;
+                default:
+                    // Unknown escape sequence, treat as literal
+                    output[output_pos++] = '\\';
+                    output[output_pos++] = input[input_pos];
+                    break;
+            }
+            input_pos++;
+        } else {
+            // Copy character as-is
+            output[output_pos++] = input[input_pos++];
+        }
+    }
+    
+    output[output_pos] = '\0';
+    return output;
+}
+
+Value value_create_string(const char* value) { 
+    Value v; 
+    v.type = VALUE_STRING; 
+    
+    if (value) {
+        // Process escape sequences when creating the string
+        char* processed_value = process_escape_sequences(value);
+        if (processed_value) {
+            v.data.string_value = processed_value;
+        } else {
+            // Fallback to original value if processing fails
+            v.data.string_value = strdup(value);
+        }
+    } else {
+        v.data.string_value = NULL;
+    }
+    
+    return v; 
+}
 Value value_create_range(double start, double end, int inclusive) { Value v; v.type = VALUE_RANGE; v.data.range_value.start = start; v.data.range_value.end = end; v.data.range_value.inclusive = inclusive; return v; }
 Value value_create_array(size_t initial_capacity) { 
     Value v; 
@@ -250,7 +321,25 @@ int value_equals(Value* a, Value* b) {
 Value value_less_than(Value* a, Value* b) { Value v = {0}; return v; }
 Value value_greater_than(Value* a, Value* b) { Value v = {0}; return v; }
 
-Value value_to_boolean(Value* value) { Value v = {0}; return v; }
+Value value_to_boolean(Value* value) { 
+    if (!value) return value_create_boolean(0);
+    
+    switch (value->type) {
+        case VALUE_BOOLEAN:
+            return value_create_boolean(value->data.boolean_value);
+        case VALUE_NUMBER:
+            // 0 is false, everything else is true
+            return value_create_boolean(value->data.number_value != 0.0);
+        case VALUE_STRING:
+            // Empty string is false, everything else is true
+            return value_create_boolean(value->data.string_value && strlen(value->data.string_value) > 0);
+        case VALUE_NULL:
+            return value_create_boolean(0);
+        default:
+            // For other types, consider them true
+            return value_create_boolean(1);
+    }
+}
 Value value_to_number(Value* value) { Value v = {0}; return v; }
 Value value_to_string(Value* value) { 
     if (!value) return value_create_string(""); 
@@ -393,7 +482,23 @@ int value_object_has(Value* obj, const char* key) { return 0; }
 void value_object_delete(Value* obj, const char* key) {}
 char** value_object_keys(Value* obj, size_t* count) { return NULL; }
 
-Value value_function_call(Value* func, Value* args, size_t arg_count, Interpreter* interpreter) { Value v = {0}; return v; }
+Value value_function_call(Value* func, Value* args, size_t arg_count, Interpreter* interpreter) {
+    if (!func || func->type != VALUE_FUNCTION) {
+        return value_create_null();
+    }
+    
+    // Check if this is a built-in function
+    if (func->data.function_value.body && func->data.function_value.parameters == NULL) {
+        // This is a built-in function - the body field contains the function pointer
+        Value (*builtin_func)(Interpreter*, Value*, size_t) = (Value (*)(Interpreter*, Value*, size_t))func->data.function_value.body;
+        
+        // Call the built-in function
+        return builtin_func(interpreter, args, arg_count);
+    }
+    
+    // TODO: Handle user-defined functions
+    return value_create_null();
+}
 
 static Value eval_node(Interpreter* interpreter, ASTNode* node);
 static Value eval_binary(Interpreter* interpreter, ASTNode* node) { 
@@ -456,6 +561,32 @@ static Value eval_binary(Interpreter* interpreter, ASTNode* node) {
             value_free(&l); value_free(&r); 
             return value_create_boolean(res); 
         }
+        case OP_LOGICAL_AND: {
+            // Short-circuit evaluation: if left is false, return false
+            if (l.type == VALUE_BOOLEAN && !l.data.boolean_value) {
+                value_free(&l); value_free(&r);
+                return value_create_boolean(0);
+            }
+            // If left is true, return the right value converted to boolean
+            Value bool_val = value_to_boolean(&r);
+            int res = bool_val.type == VALUE_BOOLEAN ? bool_val.data.boolean_value : 0;
+            value_free(&l); value_free(&r);
+            value_free(&bool_val);
+            return value_create_boolean(res);
+        }
+        case OP_LOGICAL_OR: {
+            // Short-circuit evaluation: if left is true, return true
+            if (l.type == VALUE_BOOLEAN && l.data.boolean_value) {
+                value_free(&l); value_free(&r);
+                return value_create_boolean(1);
+            }
+            // If left is false, return the right value converted to boolean
+            Value bool_val = value_to_boolean(&r);
+            int res = bool_val.type == VALUE_BOOLEAN ? bool_val.data.boolean_value : 0;
+            value_free(&l); value_free(&r);
+            value_free(&bool_val);
+            return value_create_boolean(res);
+        }
         case OP_MULTIPLY: { 
             Value out = value_multiply(&l, &r); 
             value_free(&l); value_free(&r); 
@@ -503,6 +634,35 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             return value_create_null();
         }
         case AST_NODE_BINARY_OP: return eval_binary(interpreter, node);
+        case AST_NODE_UNARY_OP: {
+            Value operand = eval_node(interpreter, node->data.unary.operand);
+            Value result = value_create_null();
+            
+            switch (node->data.unary.op) {
+                case OP_LOGICAL_NOT: {
+                    if (operand.type == VALUE_BOOLEAN) {
+                        result = value_create_boolean(!operand.data.boolean_value);
+                    } else {
+                        // Convert to boolean first, then negate
+                        Value bool_val = value_to_boolean(&operand);
+                        if (bool_val.type == VALUE_BOOLEAN) {
+                            result = value_create_boolean(!bool_val.data.boolean_value);
+                        } else {
+                            result = value_create_boolean(1); // Default to true for unknown types
+                        }
+                        value_free(&bool_val);
+                    }
+                    break;
+                }
+                default:
+                    // For other unary operations, just return the operand
+                    result = value_clone(&operand);
+                    break;
+            }
+            
+            value_free(&operand);
+            return result;
+        }
         case AST_NODE_FUNCTION_CALL: {
             if (node->data.function_call.function_name && strcmp(node->data.function_call.function_name, "print") == 0) {
                 size_t n = node->data.function_call.argument_count;
@@ -927,10 +1087,84 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             // Get the member name
             const char* member_name = node->data.member_access.member_name;
             
-            // For now, we'll handle this as a simple variable lookup in the current environment
-            // This will work for imported libraries like 'm.Pi' where 'm' is an alias
+            // Handle different object types
             if (object.type == VALUE_NULL) {
                 // The object is null, try to find the member in the current environment
+                // This will work for imported libraries like 'm.Pi' where 'm' is an alias
+                Value member_value = environment_get(interpreter->current_environment, member_name);
+                if (member_value.type != VALUE_NULL) {
+                    return value_clone(&member_value);
+                }
+            } else if (object.type == VALUE_OBJECT) {
+                // Handle object member access
+                // For namespace objects, we need to construct the prefixed function name
+                // For example: str.upper -> str_upper
+                
+                // Since we can't easily get the object name from the AST, we'll try common patterns
+                // This is a simplified approach - in a full implementation, we'd have better object tracking
+                
+                // Try to look up the member directly first
+                Value member_value = environment_get(interpreter->current_environment, member_name);
+                if (member_value.type != VALUE_NULL) {
+                    value_free(&object);
+                    return value_clone(&member_value);
+                }
+                
+                // TODO: Implement proper namespace object property lookup
+                // For now, we'll just return null since we can't determine the object name
+            } else if (object.type == VALUE_STRING && strcmp(object.data.string_value, "namespace_marker") == 0) {
+                // This is a namespace marker, try to look up the prefixed function
+                // For example: str.upper -> str_upper
+                
+                // We need to get the alias name from the AST to construct the prefixed function name
+                // Since we can't easily get the alias name from the AST, we'll try to find it
+                // by looking for the namespace_marker binding in the current environment
+                
+                // Look for the alias that's bound to "namespace_marker"
+                Environment* env = interpreter->current_environment;
+                const char* alias_name = NULL;
+                
+                // Search through the current environment for the namespace_marker
+                while (env) {
+                    for (size_t i = 0; i < env->count; i++) {
+                        if (env->names[i] && env->values[i].type == VALUE_STRING && 
+                            strcmp(env->values[i].data.string_value, "namespace_marker") == 0) {
+                            alias_name = env->names[i];
+                            break;
+                        }
+                    }
+                    if (alias_name) break;
+                    env = env->parent;
+                }
+                
+                if (alias_name) {
+                    // Construct the prefixed function name: alias_member
+                    char* prefixed_name = malloc(strlen(alias_name) + strlen(member_name) + 2);
+                    sprintf(prefixed_name, "%s_%s", alias_name, member_name);
+                    
+                    // Look up the prefixed function
+                    Value member_value = environment_get(interpreter->current_environment, prefixed_name);
+                    free(prefixed_name);
+                    
+                    if (member_value.type != VALUE_NULL) {
+                        value_free(&object);
+                        return value_clone(&member_value);
+                    }
+                }
+                
+                // Fallback: try to look up the member directly
+                Value member_value = environment_get(interpreter->current_environment, member_name);
+                if (member_value.type != VALUE_NULL) {
+                    value_free(&object);
+                    return value_clone(&member_value);
+                }
+            } else if (object.type == VALUE_NULL) {
+                // The object is null, which means it's an alias
+                // Try to construct the prefixed function name by looking at the AST
+                // This is a simplified approach for member access like str.upper
+                
+                // For now, we'll just try to look up the member directly
+                // The prefixed functions should already be bound to the environment
                 Value member_value = environment_get(interpreter->current_environment, member_name);
                 if (member_value.type != VALUE_NULL) {
                     return value_clone(&member_value);
@@ -941,6 +1175,38 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             value_free(&object);
             interpreter_set_error(interpreter, "Member access not yet fully implemented", node->line, node->column);
             return value_create_null();
+        }
+        
+        case AST_NODE_FUNCTION_CALL_EXPR: {
+            // Evaluate the function expression (could be identifier, member access, etc.)
+            Value function_value = eval_node(interpreter, node->data.function_call_expr.function);
+            
+            // Evaluate all arguments
+            size_t arg_count = node->data.function_call_expr.argument_count;
+            Value* args = NULL;
+            if (arg_count > 0) {
+                args = malloc(arg_count * sizeof(Value));
+                if (!args) {
+                    return value_create_null();
+                }
+                
+                for (size_t i = 0; i < arg_count; i++) {
+                    args[i] = eval_node(interpreter, node->data.function_call_expr.arguments[i]);
+                }
+            }
+            
+            // Call the function
+            Value result = value_function_call(&function_value, args, arg_count, interpreter);
+            
+            // Clean up arguments
+            if (args) {
+                for (size_t i = 0; i < arg_count; i++) {
+                    value_free(&args[i]);
+                }
+                free(args);
+            }
+            
+            return result;
         }
         case AST_NODE_TRY_CATCH: {
             // Simple try/catch implementation
@@ -1089,40 +1355,119 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 
                 // If there's a general alias, bind the namespace to it
                 if (alias) {
-                    // For now, we'll just bind the constants and functions directly to the alias
+                    // Create a proper namespace object that can be accessed via dot notation
+                    // For now, we'll bind the constants and functions directly to the alias
                     // This is a simplified approach - in a full implementation, we'd create a proper namespace object
                     environment_define(interpreter->current_environment, alias, math_namespace);
+                    
+                    // Also bind individual items to the alias namespace for dot notation access
+                    // This allows m.Pi, m.E, etc. to work
+                    // TODO: Implement proper namespace object with member access
                 }
                 
                 return math_namespace;
             } else if (strcmp(library_name, "string") == 0) {
                 // Handle string library
-                // For now, we'll just bind the functions directly
-                // TODO: Create proper namespace object
                 if (specific_items && item_count > 0) {
+                    // Import specific string functions
                     for (size_t i = 0; i < item_count; i++) {
                         const char* item_name = specific_items[i];
                         const char* alias_name = specific_aliases ? specific_aliases[i] : item_name;
                         
-                        // TODO: Look up string functions and bind them
-                        // For now, just create placeholder values
-                        environment_define(interpreter->current_environment, alias_name, value_create_string("string_function"));
+                        // Look up the string function and bind it
+                        Value string_func = environment_get(interpreter->global_environment, item_name);
+                        if (string_func.type == VALUE_FUNCTION) {
+                            environment_define(interpreter->current_environment, alias_name, value_clone(&string_func));
+                        } else {
+                            // Function not found, create a placeholder
+                            environment_define(interpreter->current_environment, alias_name, value_create_string("string_function_not_found"));
+                        }
+                    }
+                } else {
+                    // Import all string functions
+                    const char* string_functions[] = {"upper", "lower", "trim", "split", "join", "contains", "starts_with", "ends_with", "replace", "repeat"};
+                    for (size_t i = 0; i < sizeof(string_functions) / sizeof(string_functions[0]); i++) {
+                        Value string_func = environment_get(interpreter->global_environment, string_functions[i]);
+                        if (string_func.type == VALUE_FUNCTION) {
+                            environment_define(interpreter->current_environment, string_functions[i], value_clone(&string_func));
+                        }
+                    }
+                    
+                    // If there's a general alias, bind prefixed functions
+                    if (alias) {
+                        // Bind all string functions with the alias prefix
+                        // This allows str.upper() to work by looking up str_upper
+                        const char* string_functions[] = {"upper", "lower", "trim", "split", "join", "contains", "starts_with", "ends_with", "replace", "repeat"};
+                        for (size_t i = 0; i < sizeof(string_functions) / sizeof(string_functions[0]); i++) {
+                            Value string_func = environment_get(interpreter->global_environment, string_functions[i]);
+                            if (string_func.type == VALUE_FUNCTION) {
+                                // Create prefixed name: alias_function
+                                char* prefixed_name = malloc(strlen(alias) + strlen(string_functions[i]) + 2);
+                                sprintf(prefixed_name, "%s_%s", alias, string_functions[i]);
+                                environment_define(interpreter->current_environment, prefixed_name, value_clone(&string_func));
+                                free(prefixed_name);
+                            }
+                        }
+                        
+                        // Also bind individual functions to the current environment for convenience
+                        // This allows both str.upper() and upper() to work
+                        
+                        // Bind the alias name to a special marker value for member access
+                        // This allows str.upper to work by looking up str_upper
+                        environment_define(interpreter->current_environment, alias, value_create_string("namespace_marker"));
                     }
                 }
                 
                 return value_create_null();
             } else if (strcmp(library_name, "array") == 0) {
                 // Handle array library
-                // For now, we'll just bind the functions directly
-                // TODO: Create proper namespace object
                 if (specific_items && item_count > 0) {
+                    // Import specific array functions
                     for (size_t i = 0; i < item_count; i++) {
                         const char* item_name = specific_items[i];
                         const char* alias_name = specific_aliases ? specific_aliases[i] : item_name;
                         
-                        // TODO: Look up array functions and bind them
-                        // For now, just create placeholder values
-                        environment_define(interpreter->current_environment, alias_name, value_create_string("array_function"));
+                        // Look up the array function and bind it
+                        Value array_func = environment_get(interpreter->global_environment, item_name);
+                        if (array_func.type == VALUE_FUNCTION) {
+                            environment_define(interpreter->current_environment, alias_name, value_clone(&array_func));
+                        } else {
+                            // Function not found, create a placeholder
+                            environment_define(interpreter->current_environment, alias_name, value_create_string("array_function_not_found"));
+                        }
+                    }
+                } else {
+                    // Import all array functions
+                    const char* array_functions[] = {"push", "pop", "insert", "remove", "reverse", "sort", "filter", "map", "reduce", "find", "slice"};
+                    for (size_t i = 0; i < sizeof(array_functions) / sizeof(array_functions[0]); i++) {
+                        Value array_func = environment_get(interpreter->global_environment, array_functions[i]);
+                        if (array_func.type == VALUE_FUNCTION) {
+                            environment_define(interpreter->current_environment, array_functions[i], value_clone(&array_func));
+                        }
+                    }
+                    
+                    // If there's a general alias, bind prefixed functions
+                    if (alias) {
+                        // Bind all array functions with the alias prefix
+                        // This allows arr.push() to work by looking up arr_push
+                        const char* array_functions[] = {"push", "pop", "insert", "remove", "reverse", "sort", "filter", "map", "reduce", "find", "slice"};
+                        for (size_t i = 0; i < sizeof(array_functions) / sizeof(array_functions[0]); i++) {
+                            Value array_func = environment_get(interpreter->global_environment, array_functions[i]);
+                            if (array_func.type == VALUE_FUNCTION) {
+                                // Create prefixed name: alias_function
+                                char* prefixed_name = malloc(strlen(alias) + strlen(array_functions[i]) + 2);
+                                sprintf(prefixed_name, "%s_%s", alias, array_functions[i]);
+                                environment_define(interpreter->current_environment, prefixed_name, value_clone(&array_func));
+                                free(prefixed_name);
+                            }
+                        }
+                        
+                        // Also bind individual functions to the current environment for convenience
+                        // This allows both arr.push() and push() to work
+                        
+                        // Bind the alias name to a special marker value for member access
+                        // This allows arr.push to work by looking up arr_push
+                        environment_define(interpreter->current_environment, alias, value_create_string("namespace_marker"));
                     }
                 }
                 
@@ -1230,3 +1575,4 @@ void interpreter_register_builtins(Interpreter* interpreter) {
 const char* value_type_to_string(ValueType type) { switch (type) { case VALUE_NULL: return "Null"; case VALUE_BOOLEAN: return "Bool"; case VALUE_NUMBER: return "Number"; case VALUE_STRING: return "String"; case VALUE_ARRAY: return "Array"; case VALUE_OBJECT: return "Object"; case VALUE_FUNCTION: return "Function"; case VALUE_CLASS: return "Class"; case VALUE_MODULE: return "Module"; case VALUE_ERROR: return "Error"; default: return "Unknown"; } }
 void value_print(Value* value) { Value s = value_to_string(value); if (s.type == VALUE_STRING && s.data.string_value) { printf("%s", s.data.string_value); } value_free(&s); }
 void value_print_debug(Value* value) { value_print(value); }
+

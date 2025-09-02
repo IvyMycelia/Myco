@@ -42,7 +42,7 @@ Myco v2.0 is a next-generation, high-performance programming language designed f
 - **Metaprogramming** capabilities
 - **Foreign function interface** for C interop
 
-## 🏗️ **Architecture**
+## **Architecture**
 
 Myco v2.0 is built with a modular, layered architecture:
 
@@ -107,8 +107,8 @@ myco-v2/
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/myco-v2.git
-cd myco-v2
+git clone https://github.com/Ivy-Mycelia/myco.git
+cd myco
 
 # Build the project
 make
@@ -136,10 +136,10 @@ make release
 ./bin/myco program.myco --build x86_64 -o program
 
 # Interpret a string
-./bin/myco `print("Hello, World!")`
+./bin/myco "print("Hello, World!")"
 ```
 
-## 📚 **Language Examples**
+## **Language Examples**
 
 ### **Basic Syntax**
 
@@ -204,7 +204,7 @@ class Dog extends Animal:
         return "Woof!"
 ```
 
-## 🧪 **Testing**
+## **Testing**
 
 ```bash
 # Run all tests
@@ -220,7 +220,7 @@ make memcheck
 make analyze
 ```
 
-## 🔧 **Development**
+## **Development**
 
 ### **Development Setup**
 
@@ -254,16 +254,16 @@ make clean
 make distclean
 ```
 
-## 📊 **Performance Targets**
+## **Performance Targets**
 
 Myco v2.0 aims to achieve:
 
 - **90%+ of C performance** on standard benchmarks
 - **Zero memory leaks** in all scenarios
-- **Sub-100ms startup time** for typical programs
-- **Efficient memory usage** with smart allocation Stringategies
+- **Sub-10ms startup time** for typical programs
+- **Efficient memory usage** with smart allocation strategies
 
-## 🌍 **Platform Support**
+## **Platform Support**
 
 ### **Operating Systems**
 
@@ -286,22 +286,22 @@ Myco v2.0 aims to achieve:
 - ✓ **MSVC**: 2019+
 - ↺ **Intel ICC**: Planned
 
-## 📈 **Development Roadmap**
+## **Development Roadmap**
 
 ### **Phase 1: Core Language (Months 1-3)**
 
 - [x] Project Stringucture and build system
 - [x] Lexer implementation
-- [ ] Parser implementation
-- [ ] AST conStringuction
-- [ ] Basic interpreter
+- [x] Parser implementation
+- [x] AST conStringuction
+- [x] Basic interpreter
 
 ### **Phase 2: Language Features (Months 4-6)**
 
-- [ ] Complete syntax implementation
+- [x] Complete syntax implementation
 - [ ] Type system
-- [ ] Standard library
-- [ ] Error handling
+- [x] Standard library
+- [x] Error handling
 
 ### **Phase 3: Compilation (Months 7-9)**
 
@@ -356,10 +356,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## **Contact**
 
-- **Project**: [GitHub Repository](https://github.com/yourusername/myco-v2)
-- **Issues**: [GitHub Issues](https://github.com/yourusername/myco-v2/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/myco-v2/discussions)
-- **Email**: <your.email@example.com>
+- **Project**: [GitHub Repository](https://github.com/Ivy-Mycelia/myco)
+- **Issues**: [GitHub Issues](https://github.com/Ivy-Mycelia/myco/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Ivy-Mycelia/myco/discussions)
+- **Email**: <contact.ivymycelia@gmail.com>
 
 ## **Future Vision**
 

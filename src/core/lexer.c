@@ -307,6 +307,8 @@ static void lexer_parse_number(Lexer* lexer) {
     }
 }
 
+
+
 /**
  * @brief Parse a string literal
  * 
@@ -322,7 +324,17 @@ static void lexer_parse_string(Lexer* lexer) {
             lexer_add_token(lexer, TOKEN_ERROR, "Unterminated string", lexer->line, lexer->column);
             return;
         }
-        lexer_advance(lexer);
+        
+        // Handle escape sequences
+        if (lexer_current_char(lexer) == '\\' && !lexer_is_at_end(lexer)) {
+            lexer_advance(lexer);  // Skip the backslash
+            if (!lexer_is_at_end(lexer)) {
+                // Process the escaped character
+                lexer_advance(lexer);
+            }
+        } else {
+            lexer_advance(lexer);
+        }
     }
     
     if (lexer_is_at_end(lexer)) {

@@ -340,6 +340,21 @@ ASTNode* ast_create_array_access(ASTNode* array, ASTNode* index, int line, int c
     return node;
 }
 
+ASTNode* ast_create_function_call_expr(ASTNode* function, ASTNode** args, size_t arg_count, int line, int column) {
+    ASTNode* node = malloc(sizeof(ASTNode));
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_FUNCTION_CALL_EXPR;
+    node->data.function_call_expr.function = function;
+    node->data.function_call_expr.arguments = args;
+    node->data.function_call_expr.argument_count = arg_count;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
 ASTNode* ast_create_member_access(ASTNode* object, const char* member_name, int line, int column) {
     ASTNode* node = malloc(sizeof(ASTNode));
     if (!node) return NULL;
@@ -611,6 +626,16 @@ void ast_free(ASTNode* node) {
         case AST_NODE_MEMBER_ACCESS:
             ast_free(node->data.member_access.object);
             free(node->data.member_access.member_name);
+            break;
+            
+        case AST_NODE_FUNCTION_CALL_EXPR:
+            ast_free(node->data.function_call_expr.function);
+            if (node->data.function_call_expr.arguments) {
+                for (size_t i = 0; i < node->data.function_call_expr.argument_count; i++) {
+                    ast_free(node->data.function_call_expr.arguments[i]);
+                }
+                free(node->data.function_call_expr.arguments);
+            }
             break;
             
         case AST_NODE_IMPORT:
@@ -887,6 +912,7 @@ const char* ast_node_type_to_string(ASTNodeType type) {
         case AST_NODE_ARRAY_LITERAL: return "ArrayLiteral";
         case AST_NODE_ARRAY_ACCESS: return "ArrayAccess";
         case AST_NODE_MEMBER_ACCESS: return "MemberAccess";
+        case AST_NODE_FUNCTION_CALL_EXPR: return "FunctionCallExpr";
         case AST_NODE_IMPORT: return "Import";
         case AST_NODE_USE: return "Use";
         case AST_NODE_MODULE: return "Module";

@@ -375,6 +375,45 @@ Value value_to_string(Value* value) {
             return value_create_string(buf);
         }
         case VALUE_NULL: return value_create_string("Null"); 
+        case VALUE_ARRAY: {
+            // Format array as [item1, item2, item3, ...]
+            char* result = malloc(2); // Start with just "["
+            if (!result) return value_create_string("[]");
+            result[0] = '[';
+            result[1] = '\0';
+            size_t result_len = 1;
+            
+            for (size_t i = 0; i < value->data.array_value.count; i++) {
+                Value* element = (Value*)value->data.array_value.elements[i];
+                Value element_str = value_to_string(element);
+                
+                if (element_str.type == VALUE_STRING && element_str.data.string_value) {
+                    size_t element_len = strlen(element_str.data.string_value);
+                    result = realloc(result, result_len + element_len + 3); // +3 for ", " or "]"
+                    if (!result) {
+                        value_free(&element_str);
+                        return value_create_string("[]");
+                    }
+                    
+                    if (i > 0) {
+                        strcat(result, ", ");
+                        result_len += 2;
+                    }
+                    strcat(result, element_str.data.string_value);
+                    result_len += element_len;
+                }
+                value_free(&element_str);
+            }
+            
+            // Add closing bracket
+            result = realloc(result, result_len + 2);
+            if (!result) return value_create_string("[]");
+            strcat(result, "]");
+            
+            Value result_value = value_create_string(result);
+            free(result);
+            return result_value;
+        }
         default: return value_create_string("<Value>"); 
     } 
 }
@@ -433,7 +472,17 @@ Value value_add(Value* a, Value* b) {
     
     return value_create_null();
 }
-Value value_subtract(Value* a, Value* b) { Value v = {0}; return v; }
+Value value_subtract(Value* a, Value* b) {
+    if (!a || !b) {
+        return value_create_null();
+    }
+    
+    if (a->type == VALUE_NUMBER && b->type == VALUE_NUMBER) {
+        return value_create_number(a->data.number_value - b->data.number_value);
+    }
+    
+    return value_create_null();
+}
 Value value_multiply(Value* a, Value* b) { 
     if (a->type == VALUE_NUMBER && b->type == VALUE_NUMBER) {
         return value_create_number(a->data.number_value * b->data.number_value);
@@ -560,6 +609,11 @@ static Value eval_binary(Interpreter* interpreter, ASTNode* node) {
     switch (node->data.binary.op) { 
         case OP_ADD: { 
             Value out = value_add(&l, &r); 
+            value_free(&l); value_free(&r); 
+            return out; 
+        } 
+        case OP_SUBTRACT: { 
+            Value out = value_subtract(&l, &r); 
             value_free(&l); value_free(&r); 
             return out; 
         } 

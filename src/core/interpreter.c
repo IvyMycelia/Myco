@@ -546,7 +546,15 @@ Value value_divide(Value* a, Value* b) {
 Value value_modulo(Value* a, Value* b) { Value v = {0}; return v; }
 Value value_power(Value* a, Value* b) { Value v = {0}; return v; }
 
-Value value_equal(Value* a, Value* b) { Value v = {0}; return v; }
+Value value_equal(Value* a, Value* b) {
+    if (!a || !b) {
+        return value_create_boolean(0);
+    }
+    
+    // Use the existing value_equals function and convert to boolean
+    int equals = value_equals(a, b);
+    return value_create_boolean(equals);
+}
 Value value_not_equal(Value* a, Value* b) { Value v = {0}; return v; }
 Value value_less_equal(Value* a, Value* b) { Value v = {0}; return v; }
 Value value_greater_equal(Value* a, Value* b) { Value v = {0}; return v; }
@@ -713,6 +721,7 @@ static Value eval_binary(Interpreter* interpreter, ASTNode* node) {
             if (l.type == VALUE_NUMBER && r.type == VALUE_NUMBER) res = (l.data.number_value == r.data.number_value); 
             else if (l.type == VALUE_STRING && r.type == VALUE_STRING) res = strcmp(l.data.string_value, r.data.string_value) == 0; 
             else if (l.type == VALUE_BOOLEAN && r.type == VALUE_BOOLEAN) res = l.data.boolean_value == r.data.boolean_value; 
+            else if (l.type == VALUE_NULL && r.type == VALUE_NULL) res = 1; 
             else res = 0; 
             value_free(&l); value_free(&r); 
             return value_create_boolean(res); 
@@ -807,6 +816,15 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             Value result = value_create_null();
             
             switch (node->data.unary.op) {
+                case OP_NEGATIVE: {
+                    if (operand.type == VALUE_NUMBER) {
+                        result = value_create_number(-operand.data.number_value);
+                    } else {
+                        // For non-numeric types, return null
+                        result = value_create_null();
+                    }
+                    break;
+                }
                 case OP_LOGICAL_NOT: {
                     if (operand.type == VALUE_BOOLEAN) {
                         result = value_create_boolean(!operand.data.boolean_value);
@@ -911,7 +929,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 const char* t = "<Value>";
                 switch (v.type) {
                     case VALUE_NULL: t = "Null"; break;
-                    case VALUE_BOOLEAN: t = "Bool"; break;
+                    case VALUE_BOOLEAN: t = "Boolean"; break;
                     case VALUE_NUMBER: {
                         // Check if it's a float (has decimal part)
                         if (v.data.number_value == (long long)v.data.number_value) {
@@ -1833,8 +1851,67 @@ int interpreter_has_return(Interpreter* interpreter) {
 
 Value builtin_print(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { (void)interpreter; for (size_t i = 0; i < arg_count; i++) { Value s = value_to_string(&args[i]); if (s.type == VALUE_STRING && s.data.string_value) { printf("%s", s.data.string_value); } value_free(&s); if (i + 1 < arg_count) printf(" "); } printf("\n"); fflush(stdout); return value_create_null(); }
 Value builtin_input(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { Value v = {0}; return v; }
-Value builtin_len(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { Value v = {0}; return v; }
-Value builtin_type(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { Value v = {0}; return v; }
+Value builtin_len(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    (void)interpreter; // Suppress unused parameter warning
+    (void)line; // Suppress unused parameter warning
+    (void)column; // Suppress unused parameter warning
+    
+    if (arg_count < 1) {
+        return value_create_number(0);
+    }
+    
+    Value* arg = &args[0];
+    switch (arg->type) {
+        case VALUE_STRING:
+            if (arg->data.string_value) {
+                return value_create_number((double)strlen(arg->data.string_value));
+            } else {
+                return value_create_number(0);
+            }
+        case VALUE_ARRAY:
+            return value_create_number((double)arg->data.array_value.count);
+        case VALUE_OBJECT:
+            return value_create_number((double)arg->data.object_value.count);
+        default:
+            return value_create_number(0);
+    }
+}
+Value builtin_type(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    (void)interpreter; // Suppress unused parameter warning
+    (void)line; // Suppress unused parameter warning
+    (void)column; // Suppress unused parameter warning
+    
+    if (arg_count < 1) {
+        return value_create_string("Null");
+    }
+    
+    Value* arg = &args[0];
+    switch (arg->type) {
+        case VALUE_NUMBER:
+            // Check if it's an integer or float
+            if (arg->data.number_value == (int)arg->data.number_value) {
+                return value_create_string("Int");
+            } else {
+                return value_create_string("Float");
+            }
+        case VALUE_STRING:
+            return value_create_string("String");
+        case VALUE_BOOLEAN:
+            return value_create_string("Boolean");
+        case VALUE_NULL:
+            return value_create_string("Null");
+        case VALUE_ARRAY:
+            return value_create_string("Array");
+        case VALUE_OBJECT:
+            return value_create_string("Object");
+        case VALUE_FUNCTION:
+            return value_create_string("Function");
+        case VALUE_RANGE:
+            return value_create_string("Range");
+        default:
+            return value_create_string("Unknown");
+    }
+}
 
 Value builtin_assert(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count < 2) {

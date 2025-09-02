@@ -1,0 +1,88 @@
+print("=== Myco Test Suite ===");
+
+let total_tests = 0;
+let tests_passed = 0;
+let tests_failed = [];
+
+print("1. Basic variables...");
+total_tests = total_tests + 1;
+let x = 42;
+print("✓ Integer variable");
+tests_passed = tests_passed + 1;
+
+total_tests = total_tests + 1;
+let y = 3.14;
+print("✓ Float variable");
+tests_passed = tests_passed + 1;
+
+total_tests = total_tests + 1;
+let name = "Myco";
+print("✓ String variable");
+tests_passed = tests_passed + 1;
+
+print("2. Arithmetic...");
+total_tests = total_tests + 1;
+let a = 5 + 3;
+if a == 8:
+    print("✓ Addition");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Addition");
+    tests_failed = tests_failed + ["FAILED: Addition"];
+end
+
+print("3. Arrays...");
+total_tests = total_tests + 1;
+let arr = [1, 2, 3];
+print("✓ Array");
+tests_passed = tests_passed + 1;
+
+total_tests = total_tests + 1;
+let nested = [[1, 2], [3, 4]];
+print("✓ Nested array");
+tests_passed = tests_passed + 1;
+
+print("4. Control flow...");
+total_tests = total_tests + 1;
+if 10 > 5:
+    print("✓ If statement");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ If statement");
+    tests_failed = tests_failed + ["FAILED: If statement"];
+end
+
+print("5. Libraries...");
+total_tests = total_tests + 1;
+use math as math;
+print("✓ Math library");
+tests_passed = tests_passed + 1;
+
+total_tests = total_tests + 1;
+use string as string;
+print("✓ String library");
+tests_passed = tests_passed + 1;
+
+total_tests = total_tests + 1;
+use array as array;
+print("✓ Array library");
+tests_passed = tests_passed + 1;
+
+print("\n=== RESULTS ===");
+print("Total: " + str(total_tests));
+print("Passed: " + str(tests_passed));
+print("Failed: " + str(total_tests - tests_passed));
+
+let rate = (tests_passed * 100) / total_tests;
+print("Success rate: " + str(rate) + "%");
+
+tests_failed
+if total_tests - tests_passed > 0:
+    print("Failed tests:");
+    
+    for i in tests_failed:
+        print("\t - ", i);
+    end
+else:
+    print("ALL TESTS PASSED!");
+end

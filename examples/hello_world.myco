@@ -1,53 +1,17 @@
-# Hello World Example
-# This demonstrates basic Myco syntax
-
-# Print a simple message
 print("Hello, World!");
 
-# Variable declaration and usage
-let message: String = "Welcome to Myco v2.0!";
+let message = "Welcome to Myco v2.0!";
 print(message);
 
-# Basic arithmetic
-let x: Int = 10;
-let y: Int = 5;
-let sum: Int = x + y;
+let x = 10;
+let y = 5;
+let sum = x + y;
 print("Sum of " + str(x) + " and " + str(y) + " is " + str(sum));
 
-# Simple function
-func greet(name: String) -> String:
-    return "Hello, " + name + "!";
-end
-
-# Function call
-let greeting: String = greet("Developer");
-print(greeting);
-print(greet("Ivy"));
-
-func test_function():
-    print("Hello, World!");
-    return 1;
-end
-
-test_function(); # Should execute the function, resulting in "Hello, World!" being pritned out
-print(test_function()); # Should print out the return value
-
-# Control flow
 if x > y:
     print("x is greater than y");
 else:
     print("x is less than or equal to y");
 end
 
-# Loop example
-print("Counting from 1 to 5:");
-for i in 1..6:
-    print("  " + str(i));
-end
-
-print("Example completed successfully!");
-
-try:
-    let test_error: ehghh;
-    print(test_error);
-catch: 
+print("Example completed successfully!"); 

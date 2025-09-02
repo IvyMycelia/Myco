@@ -1470,6 +1470,78 @@ ASTNode* parser_parse_type_declaration(Parser* parser) {
  * @param parser The parser to use
  * @return AST node representing the if statement
  */
+/**
+ * @brief Parse an else-if statement (used internally for chaining)
+ * 
+ * This function parses an else-if statement that's part of a chain.
+ * It expects the 'if' token to already be consumed.
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the else-if statement
+ */
+static ASTNode* parser_parse_else_if_statement(Parser* parser) {
+    if (!parser) {
+        return NULL;
+    }
+    // The 'if' keyword has already been consumed
+
+    // Parse condition expression
+    ASTNode* condition = parser_parse_expression(parser);
+    if (!condition) {
+        parser_error(parser, "Expected condition after 'else if'");
+        parser_synchronize(parser);
+        return NULL;
+    }
+
+    // Expect ':'
+    if (!parser_match(parser, TOKEN_COLON)) {
+        parser_error(parser, "Expected ':' after else if condition");
+        parser_synchronize(parser);
+    }
+
+    // Parse the then block - stop on 'else' to check for more else-if or else
+    int saw_else = 0;
+    ASTNode* then_block = parser_collect_block(parser, /*stop_on_else*/1, &saw_else);
+    ASTNode* else_block = NULL;
+    ASTNode* else_if_chain = NULL;
+
+    if (saw_else) {
+        // We are at 'else'; check if it's 'else if' or just 'else'
+        if (parser_check(parser, TOKEN_KEYWORD) && parser->current_token && parser->current_token->text && 
+            strcmp(parser->current_token->text, "else") == 0) {
+            
+            // Consume 'else' and check if next token is 'if'
+            parser_advance(parser); // consume 'else'
+            
+            if (parser_check(parser, TOKEN_KEYWORD) && parser->current_token && parser->current_token->text && 
+                strcmp(parser->current_token->text, "if") == 0) {
+                
+                // This is another 'else if' - parse it recursively
+                parser_advance(parser); // consume 'if'
+                
+                // Recursively parse the next else if statement
+                else_if_chain = parser_parse_else_if_statement(parser);
+                if (!else_if_chain) {
+                    parser_error(parser, "Failed to parse else if statement");
+                    return NULL;
+                }
+                
+            } else {
+                // This is just 'else' - expect ':' and parse else block
+                if (!parser_match(parser, TOKEN_COLON)) {
+                    parser_error(parser, "Expected ':' after else");
+                    parser_synchronize(parser);
+                }
+                // Collect else block until 'end'
+                int dummy = 0;
+                else_block = parser_collect_block(parser, /*stop_on_else*/0, &dummy);
+            }
+        }
+    }
+
+    return ast_create_if_statement(condition, then_block, else_block, else_if_chain, 0, 0);
+}
+
 ASTNode* parser_parse_if_statement(Parser* parser) {
     if (!parser) {
         return NULL;
@@ -1490,6 +1562,7 @@ ASTNode* parser_parse_if_statement(Parser* parser) {
         parser_synchronize(parser);
     }
 
+    // Parse the then block - stop on 'else' to check for else-if or else
     int saw_else = 0;
     ASTNode* then_block = parser_collect_block(parser, /*stop_on_else*/1, &saw_else);
     ASTNode* else_block = NULL;
@@ -1506,83 +1579,15 @@ ASTNode* parser_parse_if_statement(Parser* parser) {
             if (parser_check(parser, TOKEN_KEYWORD) && parser->current_token && parser->current_token->text && 
                 strcmp(parser->current_token->text, "if") == 0) {
                 
-                // This is an 'else if' - parse it recursively to handle chains
+                // This is an 'else if' - parse it using the else-if parser
                 parser_advance(parser); // consume 'if'
                 
-                // Parse the else if condition
-                ASTNode* else_if_condition = parser_parse_expression(parser);
-                if (!else_if_condition) {
-                    parser_error(parser, "Expected condition after 'else if'");
-                    parser_synchronize(parser);
+                // Parse the else if statement (which will handle its own else-if chains)
+                else_if_chain = parser_parse_else_if_statement(parser);
+                if (!else_if_chain) {
+                    parser_error(parser, "Failed to parse else if statement");
                     return NULL;
                 }
-                
-                // Expect ':'
-                if (!parser_match(parser, TOKEN_COLON)) {
-                    parser_error(parser, "Expected ':' after else if condition");
-                    parser_synchronize(parser);
-                }
-                
-                // Parse the else if block - stop on else to check for more else if or final else
-                int saw_more_else = 0;
-                ASTNode* else_if_block = parser_collect_block(parser, /*stop_on_else*/1, &saw_more_else);
-                
-                // Check if there's more else if or a final else
-                ASTNode* else_if_else_block = NULL;
-                if (saw_more_else) {
-                    // We're at 'else', check if it's 'else if' or just 'else'
-                    if (parser_check(parser, TOKEN_KEYWORD) && parser->current_token && parser->current_token->text && 
-                        strcmp(parser->current_token->text, "else") == 0) {
-                        
-                        // Check if next token is 'if'
-                        Token* next_token = parser_peek(parser);
-                        if (next_token && next_token->type == TOKEN_KEYWORD && next_token->text && 
-                            strcmp(next_token->text, "if") == 0) {
-                            
-                            // This is another 'else if' - parse it recursively
-                            parser_advance(parser); // consume 'else'
-                            parser_advance(parser); // consume 'if'
-                            
-                            // Parse the next else if recursively
-                            ASTNode* next_else_if_condition = parser_parse_expression(parser);
-                            if (!next_else_if_condition) {
-                                parser_error(parser, "Expected condition after 'else if'");
-                                parser_synchronize(parser);
-                                return NULL;
-                            }
-                            
-                            // Expect ':'
-                            if (!parser_match(parser, TOKEN_COLON)) {
-                                parser_error(parser, "Expected ':' after else if condition");
-                                parser_synchronize(parser);
-                            }
-                            
-                            // Parse the next else if block
-                            int dummy = 0;
-                            ASTNode* next_else_if_block = parser_collect_block(parser, /*stop_on_else*/1, &dummy);
-                            
-                            // Create the next else if statement
-                            ASTNode* next_else_if = ast_create_if_statement(next_else_if_condition, next_else_if_block, NULL, NULL, 0, 0);
-                            
-                            // Link it to the current else if
-                            else_if_else_block = next_else_if;
-                            
-                        } else {
-                            // This is the final 'else' - parse it
-                            parser_advance(parser); // consume 'else'
-                            if (!parser_match(parser, TOKEN_COLON)) {
-                                parser_error(parser, "Expected ':' after final else");
-                                parser_synchronize(parser);
-                            }
-                            // Parse the final else block
-                            int dummy = 0;
-                            else_if_else_block = parser_collect_block(parser, /*stop_on_else*/0, &dummy);
-                        }
-                    }
-                }
-                
-                // Create a simple if statement for the else if with its else block
-                else_if_chain = ast_create_if_statement(else_if_condition, else_if_block, else_if_else_block, NULL, 0, 0);
                 
             } else {
                 // This is just 'else' - expect ':' and parse else block

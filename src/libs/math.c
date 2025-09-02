@@ -12,9 +12,9 @@ static const double MATH_SQRT3 = 1.7320508075688772;
 static const double MATH_PHI = 1.618033988749895;
 
 // Math library functions
-Value builtin_math_abs(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_math_abs(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "abs() requires exactly 1 argument", 0, 0);
+        interpreter_set_error(interpreter, "abs() requires exactly 1 argument", line, column);
         return value_create_null();
     }
     
@@ -22,14 +22,14 @@ Value builtin_math_abs(Interpreter* interpreter, Value* args, size_t arg_count) 
     if (arg.type == VALUE_NUMBER) {
         return value_create_number(fabs(arg.data.number_value));
     } else {
-        interpreter_set_error(interpreter, "abs() argument must be a number", 0, 0);
+        interpreter_set_error(interpreter, "abs() argument must be a number", line, column);
         return value_create_null();
     }
 }
 
-Value builtin_math_min(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_math_min(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "min() requires exactly 2 arguments", 0, 0);
+        interpreter_set_error(interpreter, "min() requires exactly 2 arguments", line, column);
         return value_create_null();
     }
     
@@ -37,16 +37,16 @@ Value builtin_math_min(Interpreter* interpreter, Value* args, size_t arg_count) 
     Value arg2 = args[1];
     
     if (arg1.type != VALUE_NUMBER || arg2.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "min() arguments must be numbers", 0, 0);
+        interpreter_set_error(interpreter, "min() arguments must be numbers", line, column);
         return value_create_null();
     }
     
     return value_create_number(fmin(arg1.data.number_value, arg2.data.number_value));
 }
 
-Value builtin_math_max(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_math_max(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "max() requires exactly 2 arguments", 0, 0);
+        interpreter_set_error(interpreter, "max() requires exactly 2 arguments", line, column);
         return value_create_null();
     }
     
@@ -54,36 +54,36 @@ Value builtin_math_max(Interpreter* interpreter, Value* args, size_t arg_count) 
     Value arg2 = args[1];
     
     if (arg1.type != VALUE_NUMBER || arg2.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "max() arguments must be numbers", 0, 0);
+        interpreter_set_error(interpreter, "max() arguments must be numbers", line, column);
         return value_create_null();
     }
     
     return value_create_number(fmax(arg1.data.number_value, arg2.data.number_value));
 }
 
-Value builtin_math_sqrt(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_math_sqrt(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "sqrt() requires exactly 1 argument", 0, 0);
+        interpreter_set_error(interpreter, "sqrt() requires exactly 1 argument", line, column);
         return value_create_null();
     }
     
     Value arg = args[0];
     if (arg.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "sqrt() argument must be a number", 0, 0);
+        interpreter_set_error(interpreter, "sqrt() argument must be a number", line, column);
         return value_create_null();
     }
     
     if (arg.data.number_value < 0) {
-        interpreter_set_error(interpreter, "sqrt() argument cannot be negative", 0, 0);
+        interpreter_set_error(interpreter, "sqrt() argument cannot be negative", line, column);
         return value_create_null();
     }
     
     return value_create_number(sqrt(arg.data.number_value));
 }
 
-Value builtin_math_pow(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_math_pow(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "pow() requires exactly 2 arguments", 0, 0);
+        interpreter_set_error(interpreter, "pow() requires exactly 2 arguments", line, column);
         return value_create_null();
     }
     
@@ -91,97 +91,97 @@ Value builtin_math_pow(Interpreter* interpreter, Value* args, size_t arg_count) 
     Value exponent = args[1];
     
     if (base.type != VALUE_NUMBER || exponent.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "pow() arguments must be numbers", 0, 0);
+        interpreter_set_error(interpreter, "pow() arguments must be numbers", line, column);
         return value_create_null();
     }
     
     return value_create_number(pow(base.data.number_value, exponent.data.number_value));
 }
 
-Value builtin_math_round(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_math_round(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "round() requires exactly 1 argument", 0, 0);
+        interpreter_set_error(interpreter, "round() requires exactly 1 argument", line, column);
         return value_create_null();
     }
     
     Value arg = args[0];
     if (arg.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "round() argument must be a number", 0, 0);
+        interpreter_set_error(interpreter, "round() argument must be a number", line, column);
         return value_create_null();
     }
     
     return value_create_number(round(arg.data.number_value));
 }
 
-Value builtin_math_floor(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_math_floor(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "floor() requires exactly 1 argument", 0, 0);
+        interpreter_set_error(interpreter, "floor() requires exactly 1 argument", line, column);
         return value_create_null();
     }
     
     Value arg = args[0];
     if (arg.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "floor() argument must be a number", 0, 0);
+        interpreter_set_error(interpreter, "floor() argument must be a number", line, column);
         return value_create_null();
     }
     
     return value_create_number(floor(arg.data.number_value));
 }
 
-Value builtin_math_ceil(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_math_ceil(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "ceil() requires exactly 1 argument", 0, 0);
+        interpreter_set_error(interpreter, "ceil() requires exactly 1 argument", line, column);
         return value_create_null();
     }
     
     Value arg = args[0];
     if (arg.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "ceil() argument must be a number", 0, 0);
+        interpreter_set_error(interpreter, "ceil() argument must be a number", line, column);
         return value_create_null();
     }
     
     return value_create_number(ceil(arg.data.number_value));
 }
 
-Value builtin_math_sin(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_math_sin(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "sin() requires exactly 1 argument", 0, 0);
+        interpreter_set_error(interpreter, "sin() requires exactly 1 argument", line, column);
         return value_create_null();
     }
     
     Value arg = args[0];
     if (arg.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "sin() argument must be a number", 0, 0);
+        interpreter_set_error(interpreter, "sin() argument must be a number", line, column);
         return value_create_null();
     }
     
     return value_create_number(sin(arg.data.number_value));
 }
 
-Value builtin_math_cos(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_math_cos(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "cos() requires exactly 1 argument", 0, 0);
+        interpreter_set_error(interpreter, "cos() requires exactly 1 argument", line, column);
         return value_create_null();
     }
     
     Value arg = args[0];
     if (arg.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "cos() argument must be a number", 0, 0);
+        interpreter_set_error(interpreter, "cos() argument must be a number", line, column);
         return value_create_null();
     }
     
     return value_create_number(cos(arg.data.number_value));
 }
 
-Value builtin_math_tan(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_math_tan(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "tan() requires exactly 1 argument", 0, 0);
+        interpreter_set_error(interpreter, "tan() requires exactly 1 argument", line, column);
         return value_create_null();
     }
     
     Value arg = args[0];
     if (arg.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "tan() argument must be a number", 0, 0);
+        interpreter_set_error(interpreter, "tan() argument must be a number", line, column);
         return value_create_null();
     }
     

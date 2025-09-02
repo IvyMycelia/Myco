@@ -30,6 +30,18 @@ ASTNode* ast_create_bool(int value, int line, int column) {
     return node;
 }
 
+ASTNode* ast_create_null(int line, int column) {
+    ASTNode* node = malloc(sizeof(ASTNode));
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_NULL;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
 ASTNode* ast_create_string(const char* value, int line, int column) {
     ASTNode* node = malloc(sizeof(ASTNode));
     if (!node) return NULL;
@@ -64,6 +76,23 @@ ASTNode* ast_create_binary_op(BinaryOperator op, ASTNode* left, ASTNode* right, 
     node->data.binary.op = op;
     node->data.binary.left = left;
     node->data.binary.right = right;
+    node->data.binary.step = NULL;  // Initialize step to NULL for regular binary ops
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
+ASTNode* ast_create_range_with_step(ASTNode* start, ASTNode* end, ASTNode* step, int line, int column) {
+    ASTNode* node = malloc(sizeof(ASTNode));
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_BINARY_OP;
+    node->data.binary.op = OP_RANGE_STEP;
+    node->data.binary.left = start;
+    node->data.binary.right = end;
+    node->data.binary.step = step;  // Store step in a custom field
     node->line = line;
     node->column = column;
     node->next = NULL;
@@ -478,6 +507,9 @@ void ast_free(ASTNode* node) {
         case AST_NODE_BINARY_OP:
             ast_free(node->data.binary.left);
             ast_free(node->data.binary.right);
+            if (node->data.binary.step) {
+                ast_free(node->data.binary.step);
+            }
             break;
             
         case AST_NODE_UNARY_OP:
@@ -889,6 +921,7 @@ const char* ast_node_type_to_string(ASTNodeType type) {
         case AST_NODE_NUMBER: return "Number";
         case AST_NODE_STRING: return "String";
         case AST_NODE_BOOL: return "Bool";
+        case AST_NODE_NULL: return "Null";
         case AST_NODE_IDENTIFIER: return "Identifier";
         case AST_NODE_BINARY_OP: return "BinaryOp";
         case AST_NODE_UNARY_OP: return "UnaryOp";

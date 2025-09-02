@@ -1210,6 +1210,11 @@ ASTNode* parser_parse_primary(Parser* parser) {
         return parser_parse_array_literal(parser);
     }
     
+    // Check for lambda expressions: func (params) -> returnType: body end
+    if (parser_check(parser, TOKEN_KEYWORD) && strcmp(parser_peek(parser)->text, "func") == 0) {
+        return parser_parse_lambda_expression(parser);
+    }
+    
     // If we can't parse anything, report an error
     parser_error(parser, "Expected a primary expression");
     return NULL;
@@ -2011,20 +2016,14 @@ ASTNode* parser_parse_function_declaration(Parser* parser) {
 
     // Optional return type: -> Type
     char* return_type = NULL;
-    if (parser_check(parser, TOKEN_MINUS)) {
-        // look for '->'
+    if (parser_check(parser, TOKEN_RETURN_ARROW)) {
         parser_advance(parser);
-        if (parser_check(parser, TOKEN_GREATER)) {
-            parser_advance(parser);
-            // return type identifier
-            if (parser_match(parser, TOKEN_IDENTIFIER)) {
-                return_type = strdup(parser->previous_token->text);
-            } else {
-                parser_error(parser, "Expected return type after '->'");
-                parser_synchronize(parser);
-            }
+        // return type identifier
+        if (parser_match(parser, TOKEN_IDENTIFIER)) {
+            return_type = strdup(parser->previous_token->text);
         } else {
-            // not actually '->', leave as-is
+            parser_error(parser, "Expected return type after '->'");
+            parser_synchronize(parser);
         }
     }
 
@@ -2050,6 +2049,118 @@ ASTNode* parser_parse_function_declaration(Parser* parser) {
     }
     
     return func;
+}
+
+/**
+ * @brief Parse a lambda expression
+ * 
+ * Lambda expressions have the syntax: func (params) -> returnType: body end
+ * or just: func (params): body end
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the lambda expression
+ */
+ASTNode* parser_parse_lambda_expression(Parser* parser) {
+    if (!parser) {
+        return NULL;
+    }
+    
+    // The 'func' keyword has already been consumed by the primary parser
+    parser_advance(parser); // consume 'func'
+    
+    // Parameters
+    if (!parser_match(parser, TOKEN_LEFT_PAREN)) {
+        parser_error(parser, "Expected '(' after 'func' in lambda expression");
+        parser_synchronize(parser);
+        return NULL;
+    }
+    
+    // Parse simple comma-separated identifiers with optional : Type (ignored for now)
+    ASTNode** params = NULL; 
+    size_t param_count = 0; 
+    size_t param_cap = 0;
+    
+    if (!parser_check(parser, TOKEN_RIGHT_PAREN)) {
+        while (1) {
+            if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+                parser_error(parser, "Expected parameter name");
+                parser_synchronize(parser);
+                break;
+            }
+            // Create identifier node for parameter
+            if (parser->previous_token && parser->previous_token->text) {
+                if (param_count == param_cap) {
+                    size_t new_cap = param_cap == 0 ? 4 : param_cap * 2;
+                    ASTNode** new_params = (ASTNode**)realloc(params, new_cap * sizeof(ASTNode*));
+                    if (!new_params) { 
+                        parser_error(parser, "Out of memory while parsing parameters"); 
+                        break; 
+                    }
+                    params = new_params; 
+                    param_cap = new_cap;
+                }
+                ASTNode* pid = ast_create_identifier(parser->previous_token->text, 0, 0);
+                params[param_count++] = pid;
+            }
+            // Optional : Type (skip)
+            if (parser_check(parser, TOKEN_COLON)) {
+                parser_advance(parser);
+                if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+                    parser_error(parser, "Expected type name after ':'");
+                    parser_synchronize(parser);
+                }
+            }
+            if (parser_check(parser, TOKEN_COMMA)) { 
+                parser_advance(parser); 
+                continue; 
+            }
+            break;
+        }
+    }
+    
+    if (!parser_match(parser, TOKEN_RIGHT_PAREN)) {
+        parser_error(parser, "Expected ')' after parameters");
+        parser_synchronize(parser);
+    }
+
+    // Optional return type: -> Type
+    char* return_type = NULL;
+    if (parser_check(parser, TOKEN_RETURN_ARROW)) {
+        parser_advance(parser);
+        // return type identifier
+        if (parser_match(parser, TOKEN_IDENTIFIER)) {
+            return_type = strdup(parser->previous_token->text);
+        } else {
+            parser_error(parser, "Expected return type after '->'");
+            parser_synchronize(parser);
+        }
+    }
+
+    // Expect ':' and body until 'end'
+    if (!parser_match(parser, TOKEN_COLON)) {
+        parser_error(parser, "Expected ':' to start lambda body");
+        parser_synchronize(parser);
+        return NULL;
+    }
+    
+    int dummy = 0;
+    ASTNode* body = parser_collect_block(parser, /*stop_on_else*/0, &dummy);
+    if (!(parser_check(parser, TOKEN_KEYWORD) && parser->current_token && parser->current_token->text && strcmp(parser->current_token->text, "end") == 0)) {
+        parser_error(parser, "Expected 'end' to close lambda expression");
+        parser_synchronize(parser);
+    } else {
+        parser_advance(parser);
+    }
+    
+    // Build lambda node
+    ASTNode* lambda = ast_create_lambda(params, param_count, return_type, body, 0, 0);
+    
+    // Clean up return type if we allocated it
+    if (return_type) {
+        free(return_type);
+    }
+    
+    return lambda;
 }
 
 /**

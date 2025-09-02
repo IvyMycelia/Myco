@@ -29,6 +29,7 @@ typedef enum {
     AST_NODE_SPORE_CASE,
     AST_NODE_CLASS,
     AST_NODE_FUNCTION,
+    AST_NODE_LAMBDA,
     AST_NODE_ARRAY_LITERAL,
     AST_NODE_ARRAY_ACCESS,
     AST_NODE_MEMBER_ACCESS,
@@ -205,6 +206,14 @@ typedef struct ASTNode {
             struct ASTNode* body;
         } function_definition;
         
+        // Lambda expression
+        struct {
+            struct ASTNode** parameters;
+            size_t parameter_count;
+            char* return_type;
+            struct ASTNode* body;
+        } lambda;
+        
         // Array literal
         struct {
             struct ASTNode** elements;
@@ -298,6 +307,7 @@ ASTNode* ast_create_spore(ASTNode* expression, ASTNode** cases, size_t case_coun
 ASTNode* ast_create_spore_case(ASTNode* pattern, ASTNode* body, int is_lambda, int line, int column);
 ASTNode* ast_create_class(const char* name, const char* parent, ASTNode* body, int line, int column);
 ASTNode* ast_create_function(const char* name, ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column);
+ASTNode* ast_create_lambda(ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column);
 ASTNode* ast_create_array_literal(ASTNode** elements, size_t element_count, int line, int column);
 ASTNode* ast_create_import(const char* module, const char* alias, int line, int column);
 ASTNode* ast_create_use(const char* library, const char* alias, char** specific_items, char** specific_aliases, size_t item_count, int line, int column);

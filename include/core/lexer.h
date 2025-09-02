@@ -86,6 +86,7 @@ typedef enum {
     TOKEN_DOT,         // Member access (.)
     TOKEN_DOT_DOT,     // Range operator (..)
     TOKEN_ARROW,       // Arrow operator (=>)
+    TOKEN_RETURN_ARROW, // Return type arrow (->)
     
     // Special tokens
     TOKEN_ERROR,       // Indicates a lexical error occurred

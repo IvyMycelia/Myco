@@ -34,6 +34,9 @@ void interpreter_free(Interpreter* interpreter) {
         if (interpreter->error_message) {
             free(interpreter->error_message);
         }
+        if (interpreter->global_environment) {
+            environment_free(interpreter->global_environment);
+        }
         free(interpreter);
     }
 }
@@ -91,7 +94,12 @@ void environment_define(Environment* env, const char* name, Value value) {
         size_t new_cap = env->capacity == 0 ? 8 : env->capacity * 2;
         char** new_names = (char**)realloc(env->names, new_cap * sizeof(char*));
         Value* new_values = (Value*)realloc(env->values, new_cap * sizeof(Value));
-        if (!new_names || !new_values) return;
+        if (!new_names || !new_values) {
+            // Clean up on failure
+            if (new_names) free(new_names);
+            if (new_values) free(new_values);
+            return;
+        }
         env->names = new_names;
         env->values = new_values;
         env->capacity = new_cap;
@@ -209,8 +217,70 @@ Value value_create_array(size_t initial_capacity) {
     v.data.array_value.capacity = 0; 
     return v; 
 }
-Value value_create_object(size_t initial_capacity) { Value v = {0}; return v; }
-Value value_create_function(ASTNode* body, char** params, size_t param_count, const char* return_type) { Value v = {0}; return v; }
+Value value_create_object(size_t initial_capacity) {
+    Value v = {0};
+    v.type = VALUE_OBJECT;
+    v.data.object_value.count = 0;
+    v.data.object_value.capacity = initial_capacity > 0 ? initial_capacity : 4;
+    v.data.object_value.keys = calloc(v.data.object_value.capacity, sizeof(char*));
+    v.data.object_value.values = calloc(v.data.object_value.capacity, sizeof(void*));
+    return v;
+}
+
+void value_object_set_member(Value* object, const char* member_name, Value member_value) {
+    if (!object || object->type != VALUE_OBJECT) return;
+    
+    // Check if member already exists
+    for (size_t i = 0; i < object->data.object_value.count; i++) {
+        if (strcmp(object->data.object_value.keys[i], member_name) == 0) {
+            // Free the old value
+            Value* old_value = (Value*)object->data.object_value.values[i];
+            if (old_value) value_free(old_value);
+            // Set the new value
+            Value* new_value = malloc(sizeof(Value));
+            *new_value = value_clone(&member_value);
+            object->data.object_value.values[i] = new_value;
+            return;
+        }
+    }
+    
+    // Resize if needed
+    if (object->data.object_value.count >= object->data.object_value.capacity) {
+        size_t new_capacity = object->data.object_value.capacity * 2;
+        char** new_keys = realloc(object->data.object_value.keys, new_capacity * sizeof(char*));
+        void** new_values = realloc(object->data.object_value.values, new_capacity * sizeof(void*));
+        if (!new_keys || !new_values) return;
+        object->data.object_value.keys = new_keys;
+        object->data.object_value.values = new_values;
+        object->data.object_value.capacity = new_capacity;
+    }
+    
+    // Add new member
+    object->data.object_value.keys[object->data.object_value.count] = strdup(member_name);
+    Value* new_value = malloc(sizeof(Value));
+    *new_value = value_clone(&member_value);
+    object->data.object_value.values[object->data.object_value.count] = new_value;
+    object->data.object_value.count++;
+}
+Value value_create_function(ASTNode* body, char** params, size_t param_count, const char* return_type) {
+    Value v = {0};
+    v.type = VALUE_FUNCTION;
+    v.data.function_value.body = body;
+    v.data.function_value.parameter_count = param_count;
+    v.data.function_value.return_type = return_type ? strdup(return_type) : NULL;
+    
+    // Copy parameter names
+    if (param_count > 0 && params) {
+        v.data.function_value.parameters = (char**)malloc(param_count * sizeof(char*));
+        for (size_t i = 0; i < param_count; i++) {
+            v.data.function_value.parameters[i] = params[i] ? strdup(params[i]) : NULL;
+        }
+    } else {
+        v.data.function_value.parameters = NULL;
+    }
+    
+    return v;
+}
 
 Value value_create_builtin_function(Value (*func)(Interpreter*, Value*, size_t, int, int)) {
     Value v = {0};
@@ -275,27 +345,28 @@ Value value_clone(Value* value) {
             }
             return v;
         }
-        case VALUE_FUNCTION: { 
-            Value v; 
-            v.type = VALUE_FUNCTION; 
-            v.data.function_value.body = value->data.function_value.body; 
-            v.data.function_value.parameter_count = value->data.function_value.parameter_count; 
-            v.data.function_value.return_type = value->data.function_value.return_type; 
-            
-            // Deep copy parameter names
-            if (value->data.function_value.parameter_count > 0 && value->data.function_value.parameters) {
-                v.data.function_value.parameters = (char**)malloc(value->data.function_value.parameter_count * sizeof(char*));
-                for (size_t i = 0; i < value->data.function_value.parameter_count; i++) {
-                    if (value->data.function_value.parameters[i]) {
-                        v.data.function_value.parameters[i] = strdup(value->data.function_value.parameters[i]);
-                    } else {
-                        v.data.function_value.parameters[i] = NULL;
-                    }
+        case VALUE_OBJECT: {
+            // Deep copy object with all members
+            Value v = value_create_object(value->data.object_value.count);
+            for (size_t i = 0; i < value->data.object_value.count; i++) {
+                char* key = value->data.object_value.keys[i];
+                Value* member_value = (Value*)value->data.object_value.values[i];
+                if (key && member_value) {
+                    Value cloned_member = value_clone(member_value);
+                    value_object_set_member(&v, key, cloned_member);
+                    value_free(&cloned_member);
                 }
-            } else {
-                v.data.function_value.parameters = NULL;
             }
-            return v; 
+            return v;
+        }
+        case VALUE_FUNCTION: { 
+            // Use the proper function creation function to ensure proper initialization
+            return value_create_function(
+                value->data.function_value.body,
+                value->data.function_value.parameters,
+                value->data.function_value.parameter_count,
+                value->data.function_value.return_type
+            );
         } 
         default: return value_create_null(); 
     } 
@@ -850,20 +921,47 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             return result;
         }
         case AST_NODE_FUNCTION_CALL: {
-            if (node->data.function_call.function_name && strcmp(node->data.function_call.function_name, "print") == 0) {
+            // Create a safer way to handle function name checks
+            const char* func_name = node->data.function_call.function_name;
+            if (!func_name) {
+                interpreter_set_error(interpreter, "Function name is NULL", node->line, node->column);
+                return value_create_null();
+            }
+            
+            // First check if this is a user-defined function to avoid built-in function checks
+            // This prevents the memory corruption issue
+            Value fn = environment_get(interpreter->current_environment, func_name);
+            if (fn.type == VALUE_FUNCTION && fn.data.function_value.body) {
+                // This is a user-defined function, handle it directly
+                goto handle_user_function;
+            }
+            
+            // Cache the first character to avoid repeated string access
+            char first_char = func_name[0];
+            
+            // Check built-in functions more efficiently
+            if (first_char == 'p' && strcmp(func_name, "print") == 0) {
                 size_t n = node->data.function_call.argument_count;
-                Value* argv = (Value*)calloc(n, sizeof(Value));
+                Value* argv = n > 0 ? (Value*)calloc(n, sizeof(Value)) : NULL;
+                if (n > 0 && !argv) {
+                    interpreter_set_error(interpreter, "Out of memory allocating print arguments", node->line, node->column);
+                    return value_create_null();
+                }
                 for (size_t i = 0; i < n; i++) {
                     argv[i] = eval_node(interpreter, node->data.function_call.arguments[i]);
                 }
                 Value rv = builtin_print(interpreter, argv, n, node->line, node->column);
                 for (size_t i = 0; i < n; i++) value_free(&argv[i]);
-                free(argv);
+                if (argv) free(argv);
                 return rv;
             }
-            if (node->data.function_call.function_name && strcmp(node->data.function_call.function_name, "uprint") == 0) {
+            if (first_char == 'u' && strcmp(func_name, "uprint") == 0) {
                 size_t n = node->data.function_call.argument_count;
-                Value* argv = (Value*)calloc(n, sizeof(Value));
+                Value* argv = n > 0 ? (Value*)calloc(n, sizeof(Value)) : NULL;
+                if (n > 0 && !argv) {
+                    interpreter_set_error(interpreter, "Out of memory allocating uprint arguments", node->line, node->column);
+                    return value_create_null();
+                }
                 for (size_t i = 0; i < n; i++) {
                     argv[i] = eval_node(interpreter, node->data.function_call.arguments[i]);
                 }
@@ -878,10 +976,10 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 }
                 fflush(stdout);
                 for (size_t i = 0; i < n; i++) value_free(&argv[i]);
-                free(argv);
+                if (argv) free(argv);
                 return value_create_null();
             }
-            if (node->data.function_call.function_name && strcmp(node->data.function_call.function_name, "str") == 0) {
+            if (first_char == 's' && strcmp(func_name, "str") == 0) {
                 size_t n = node->data.function_call.argument_count;
                 if (n == 0) return value_create_string("");
                 Value v = eval_node(interpreter, node->data.function_call.arguments[0]);
@@ -889,7 +987,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 value_free(&v);
                 return s;
             }
-            if (node->data.function_call.function_name && strcmp(node->data.function_call.function_name, "len") == 0) {
+            if (first_char == 'l' && strcmp(func_name, "len") == 0) {
                 size_t n = node->data.function_call.argument_count;
                 if (n == 0) return value_create_number(0);
                 Value v = eval_node(interpreter, node->data.function_call.arguments[0]);
@@ -984,11 +1082,23 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             }
             
             // Attempt user-defined function from environment
-            Value fn = environment_get(interpreter->current_environment, node->data.function_call.function_name);
+            if (func_name[0] == '\0') {
+                interpreter_set_error(interpreter, "Function name is empty", node->line, node->column);
+                return value_create_null();
+            }
+            fn = environment_get(interpreter->current_environment, func_name);
+            
+            handle_user_function:
             if (fn.type == VALUE_FUNCTION && fn.data.function_value.body) {
                 // Evaluate arguments in the current (caller) environment first
                 size_t n = node->data.function_call.argument_count;
                 Value* args = n ? (Value*)calloc(n, sizeof(Value)) : NULL;
+                if (n > 0 && !args) {
+                    interpreter_set_error(interpreter, "Out of memory allocating function arguments", node->line, node->column);
+                    value_free(&fn);
+                    return value_create_null();
+                }
+                
                 for (size_t i = 0; i < n; i++) {
                     args[i] = eval_node(interpreter, node->data.function_call.arguments[i]);
                 }
@@ -996,6 +1106,15 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 // New scope for call
                 Environment* saved = interpreter->current_environment;
                 Environment* call_env = environment_create(saved);
+                if (!call_env) {
+                    interpreter_set_error(interpreter, "Failed to create function call environment", node->line, node->column);
+                    if (args) {
+                        for (size_t i = 0; i < n; i++) value_free(&args[i]);
+                        free(args);
+                    }
+                    value_free(&fn);
+                    return value_create_null();
+                }
                 interpreter->current_environment = call_env;
 
                 // Bind parameters by name if available
@@ -1015,6 +1134,19 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
 
                 // Reset return state
                 interpreter->has_return = 0;
+
+                // Check if function body is valid before executing
+                if (!fn.data.function_value.body) {
+                    interpreter_set_error(interpreter, "Function body is NULL", node->line, node->column);
+                    interpreter->current_environment = saved;
+                    environment_free(call_env);
+                    if (args) {
+                        for (size_t i = 0; i < n; i++) value_free(&args[i]);
+                        free(args);
+                    }
+                    value_free(&fn);
+                    return value_create_null();
+                }
 
                 Value rv = eval_node(interpreter, fn.data.function_value.body);
 
@@ -1108,34 +1240,82 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             // Define a function value in the current environment
             const char* name = node->data.function_definition.function_name;
             if (name) {
-                Value fv;
-                fv.type = VALUE_FUNCTION;
-                fv.data.function_value.body = node->data.function_definition.body;
-                fv.data.function_value.parameter_count = node->data.function_definition.parameter_count;
-                fv.data.function_value.return_type = node->data.function_definition.return_type;
-                
                 // Extract parameter names from AST parameter nodes
+                char** param_names = NULL;
                 if (node->data.function_definition.parameter_count > 0 && node->data.function_definition.parameters) {
-                    fv.data.function_value.parameters = (char**)malloc(node->data.function_definition.parameter_count * sizeof(char*));
+                    param_names = (char**)malloc(node->data.function_definition.parameter_count * sizeof(char*));
                     for (size_t i = 0; i < node->data.function_definition.parameter_count; i++) {
                         ASTNode* param = node->data.function_definition.parameters[i];
                         if (param && param->type == AST_NODE_IDENTIFIER && param->data.identifier_value) {
-                            fv.data.function_value.parameters[i] = strdup(param->data.identifier_value);
+                            param_names[i] = strdup(param->data.identifier_value);
                         } else {
                             // Fallback to positional parameter name
                             char param_name[16];
                             snprintf(param_name, sizeof(param_name), "p%zu", i);
-                            fv.data.function_value.parameters[i] = strdup(param_name);
+                            param_names[i] = strdup(param_name);
                         }
                     }
-                } else {
-                    fv.data.function_value.parameters = NULL;
+                }
+                
+                // Create function value using the proper function
+                Value fv = value_create_function(
+                    node->data.function_definition.body,
+                    param_names,
+                    node->data.function_definition.parameter_count,
+                    node->data.function_definition.return_type
+                );
+                
+                // Clean up parameter names array (they're copied in value_create_function)
+                if (param_names) {
+                    for (size_t i = 0; i < node->data.function_definition.parameter_count; i++) {
+                        free(param_names[i]);
+                    }
+                    free(param_names);
                 }
                 
                 environment_define(interpreter->current_environment, name, fv);
             }
             return value_create_null();
         }
+        
+        case AST_NODE_LAMBDA: {
+            // Create a lambda function value (anonymous function)
+            // Extract parameter names from AST parameter nodes
+            char** param_names = NULL;
+            if (node->data.lambda.parameter_count > 0 && node->data.lambda.parameters) {
+                param_names = (char**)malloc(node->data.lambda.parameter_count * sizeof(char*));
+                for (size_t i = 0; i < node->data.lambda.parameter_count; i++) {
+                    ASTNode* param = node->data.lambda.parameters[i];
+                    if (param && param->type == AST_NODE_IDENTIFIER && param->data.identifier_value) {
+                        param_names[i] = strdup(param->data.identifier_value);
+                    } else {
+                        // Fallback to positional parameter name
+                        char param_name[16];
+                        snprintf(param_name, sizeof(param_name), "p%zu", i);
+                        param_names[i] = strdup(param_name);
+                    }
+                }
+            }
+            
+            // Create lambda function value using the proper function
+            Value lambda_value = value_create_function(
+                node->data.lambda.body,
+                param_names,
+                node->data.lambda.parameter_count,
+                node->data.lambda.return_type
+            );
+            
+            // Clean up parameter names array (they're copied in value_create_function)
+            if (param_names) {
+                for (size_t i = 0; i < node->data.lambda.parameter_count; i++) {
+                    free(param_names[i]);
+                }
+                free(param_names);
+            }
+            
+            return lambda_value;
+        }
+        
         case AST_NODE_FOR_LOOP: {
             // Evaluate the collection/range
             Value collection = eval_node(interpreter, node->data.for_loop.collection);
@@ -1284,21 +1464,15 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 }
             } else if (object.type == VALUE_OBJECT) {
                 // Handle object member access
-                // For namespace objects, we need to construct the prefixed function name
-                // For example: str.upper -> str_upper
-                
-                // Since we can't easily get the object name from the AST, we'll try common patterns
-                // This is a simplified approach - in a full implementation, we'd have better object tracking
-                
-                // Try to look up the member directly first
-                Value member_value = environment_get(interpreter->current_environment, member_name);
-                if (member_value.type != VALUE_NULL) {
-                    value_free(&object);
-                    return value_clone(&member_value);
+                // Look for the member in the object
+                for (size_t i = 0; i < object.data.object_value.count; i++) {
+                    if (strcmp(object.data.object_value.keys[i], member_name) == 0) {
+                        Value* member_value = (Value*)object.data.object_value.values[i];
+                        if (member_value) {
+                            return value_clone(member_value);
+                        }
+                    }
                 }
-                
-                // TODO: Implement proper namespace object property lookup
-                // For now, we'll just return null since we can't determine the object name
             } else if (object.type == VALUE_STRING && strcmp(object.data.string_value, "namespace_marker") == 0) {
                 // This is a namespace marker, try to look up the prefixed function
                 // For example: math.Pi -> math_Pi, str.upper -> str_upper
@@ -1357,16 +1531,13 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             
             // Evaluate all arguments
             size_t arg_count = node->data.function_call_expr.argument_count;
-            Value* args = NULL;
-            if (arg_count > 0) {
-                args = malloc(arg_count * sizeof(Value));
-                if (!args) {
-                    return value_create_null();
-                }
-                
-                for (size_t i = 0; i < arg_count; i++) {
-                    args[i] = eval_node(interpreter, node->data.function_call_expr.arguments[i]);
-                }
+            Value* args = arg_count > 0 ? (Value*)calloc(arg_count, sizeof(Value)) : NULL;
+            if (arg_count > 0 && !args) {
+                return value_create_null();
+            }
+            
+            for (size_t i = 0; i < arg_count; i++) {
+                args[i] = eval_node(interpreter, node->data.function_call_expr.arguments[i]);
             }
             
             // Call the function
@@ -1631,9 +1802,15 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                         // Also bind individual functions to the current environment for convenience
                         // This allows both arr.push() and push() to work
                         
-                        // Bind the alias name to a special marker value for member access
-                        // This allows arr.push to work by looking up arr_push
-                        environment_define(interpreter->current_environment, alias, value_create_string("namespace_marker"));
+                        // Create an object for the alias with all array functions as members
+                        Value array_object = value_create_object(11); // 11 array functions
+                        for (size_t i = 0; i < sizeof(array_functions) / sizeof(array_functions[0]); i++) {
+                            Value array_func = environment_get(interpreter->global_environment, array_functions[i]);
+                            if (array_func.type == VALUE_FUNCTION) {
+                                value_object_set_member(&array_object, array_functions[i], array_func);
+                            }
+                        }
+                        environment_define(interpreter->current_environment, alias, array_object);
                     }
                 }
                 
@@ -1961,5 +2138,6 @@ void interpreter_register_builtins(Interpreter* interpreter) {
 const char* value_type_to_string(ValueType type) { switch (type) { case VALUE_NULL: return "Null"; case VALUE_BOOLEAN: return "Bool"; case VALUE_NUMBER: return "Number"; case VALUE_STRING: return "String"; case VALUE_ARRAY: return "Array"; case VALUE_OBJECT: return "Object"; case VALUE_FUNCTION: return "Function"; case VALUE_CLASS: return "Class"; case VALUE_MODULE: return "Module"; case VALUE_ERROR: return "Error"; default: return "Unknown"; } }
 void value_print(Value* value) { Value s = value_to_string(value); if (s.type == VALUE_STRING && s.data.string_value) { printf("%s", s.data.string_value); } value_free(&s); }
 void value_print_debug(Value* value) { value_print(value); }
+
 
 

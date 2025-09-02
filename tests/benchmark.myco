@@ -1,0 +1,6 @@
+let x: Int = 0;
+for i in 0..1000000:
+    x = x + 1;
+end
+
+print(x);

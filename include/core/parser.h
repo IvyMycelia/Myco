@@ -496,6 +496,17 @@ ASTNode* parser_parse_block(Parser* parser);
 ASTNode* parser_parse_function_declaration(Parser* parser);
 
 /**
+ * @brief Parse a lambda expression
+ * 
+ * Lambda expressions are anonymous functions that can be assigned to variables:
+ * func (params) -> returnType: body end
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the lambda expression
+ */
+ASTNode* parser_parse_lambda_expression(Parser* parser);
+
+/**
  * @brief Parse a class declaration
  * 
  * Class declarations define object types:

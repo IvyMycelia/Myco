@@ -134,6 +134,10 @@ ASTNode* ast_create_function_call(const char* name, ASTNode** args, size_t arg_c
     
     node->type = AST_NODE_FUNCTION_CALL;
     node->data.function_call.function_name = strdup(name);
+    if (!node->data.function_call.function_name) {
+        free(node);
+        return NULL;
+    }
     node->data.function_call.arguments = args;
     node->data.function_call.argument_count = arg_count;
     node->line = line;
@@ -334,6 +338,22 @@ ASTNode* ast_create_function(const char* name, ASTNode** params, size_t param_co
     node->data.function_definition.parameter_count = param_count;
     node->data.function_definition.return_type = return_type ? strdup(return_type) : NULL;
     node->data.function_definition.body = body;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
+ASTNode* ast_create_lambda(ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column) {
+    ASTNode* node = malloc(sizeof(ASTNode));
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_LAMBDA;
+    node->data.lambda.parameters = params;
+    node->data.lambda.parameter_count = param_count;
+    node->data.lambda.return_type = return_type ? strdup(return_type) : NULL;
+    node->data.lambda.body = body;
     node->line = line;
     node->column = column;
     node->next = NULL;
@@ -643,6 +663,17 @@ void ast_free(ASTNode* node) {
             ast_free(node->data.function_definition.body);
             break;
             
+        case AST_NODE_LAMBDA:
+            for (size_t i = 0; i < node->data.lambda.parameter_count; i++) {
+                ast_free(node->data.lambda.parameters[i]);
+            }
+            free(node->data.lambda.parameters);
+            if (node->data.lambda.return_type) {
+                free(node->data.lambda.return_type);
+            }
+            ast_free(node->data.lambda.body);
+            break;
+            
         case AST_NODE_ARRAY_LITERAL:
             for (size_t i = 0; i < node->data.array_literal.element_count; i++) {
                 ast_free(node->data.array_literal.elements[i]);
@@ -942,6 +973,7 @@ const char* ast_node_type_to_string(ASTNodeType type) {
         case AST_NODE_SPORE_CASE: return "SporeCase";
         case AST_NODE_CLASS: return "Class";
         case AST_NODE_FUNCTION: return "Function";
+        case AST_NODE_LAMBDA: return "Lambda";
         case AST_NODE_ARRAY_LITERAL: return "ArrayLiteral";
         case AST_NODE_ARRAY_ACCESS: return "ArrayAccess";
         case AST_NODE_MEMBER_ACCESS: return "MemberAccess";

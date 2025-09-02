@@ -992,6 +992,360 @@ total_tests = total_tests + 1;
 print("✓ Undefined variable handled gracefully");
 tests_passed = tests_passed + 1;
 
+print("\n16.1. Function definitions (no parameters, no return type)...");
+func simple_greet():
+    print("Hello from simple function!");
+end
+
+total_tests = total_tests + 1;
+if type(simple_greet) == "Function":
+    print("✓ Simple function definition (no params, no return)");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Simple function definition failed");
+    tests_failed = tests_failed + ["Simple function definition"];
+end
+
+print("\n16.2. Function definitions (with parameters, no return type)...");
+func greet_with_name(name):
+    print("Hello, " + name + "!");
+end
+
+func add_numbers(a, b):
+    let result = a + b;
+    print("Sum: " + str(result));
+end
+
+total_tests = total_tests + 1;
+if type(greet_with_name) == "Function" and type(add_numbers) == "Function":
+    print("✓ Function definitions with parameters");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Function definitions with parameters failed");
+    tests_failed = tests_failed + ["Function definitions with parameters"];
+end
+
+print("\n16.3. Function definitions (with return types)...");
+func get_pi() -> Number:
+    return 3.14159;
+end
+
+func multiply(x, y) -> Number:
+    return x * y;
+end
+
+func get_greeting(name) -> String:
+    return "Hello, " + name + "!";
+end
+
+total_tests = total_tests + 1;
+if type(get_pi) == "Function" and type(multiply) == "Function" and type(get_greeting) == "Function":
+    print("✓ Function definitions with return types");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Function definitions with return types failed");
+    tests_failed = tests_failed + ["Function definitions with return types"];
+end
+
+print("\n16.4. Function definitions (mixed explicit/implicit types)...");
+func mixed_func1(x, y: Number) -> String:
+    return "Mixed types: " + str(x) + ", " + str(y);
+end
+
+func mixed_func2(name: String):
+    print("Name: " + name);
+end
+
+func mixed_func3(a, b) -> Number:
+    return a + b;
+end
+
+total_tests = total_tests + 1;
+if type(mixed_func1) == "Function" and type(mixed_func2) == "Function" and type(mixed_func3) == "Function":
+    print("✓ Function definitions with mixed explicit/implicit types");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Function definitions with mixed types failed");
+    tests_failed = tests_failed + ["Function definitions with mixed types"];
+end
+
+print("\n16.5. Function calls (no parameters)...");
+func return_five() -> Number:
+    return 5;
+end
+
+func return_hello() -> String:
+    return "Hello";
+end
+
+total_tests = total_tests + 1;
+let five = return_five();
+let hello = return_hello();
+if five == 5 and hello == "Hello":
+    print("✓ Function calls with no parameters");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Function calls with no parameters failed");
+    tests_failed = tests_failed + ["Function calls with no parameters"];
+end
+
+print("\n16.6. Function calls (with parameters)...");
+func add(a, b) -> Number:
+    return a + b;
+end
+
+func concatenate(str1, str2) -> String:
+    return str1 + str2;
+end
+
+total_tests = total_tests + 1;
+let sum = add(10, 20);
+let combined = concatenate("Hello", "World");
+if sum == 30 and combined == "HelloWorld":
+    print("✓ Function calls with parameters");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Function calls with parameters failed");
+    tests_failed = tests_failed + ["Function calls with parameters"];
+end
+
+print("\n16.7. Function calls (with type annotations)...");
+func typed_add(x: Number, y: Number) -> Number:
+    return x + y;
+end
+
+func typed_greet(name: String) -> String:
+    return "Hello, " + name;
+end
+
+total_tests = total_tests + 1;
+let typed_sum = typed_add(5, 15);
+let typed_greeting = typed_greet("Myco");
+if typed_sum == 20 and typed_greeting == "Hello, Myco":
+    print("✓ Function calls with type annotations");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Function calls with type annotations failed");
+    tests_failed = tests_failed + ["Function calls with type annotations"];
+end
+
+print("\n16.8. Recursive functions...");
+func factorial(n) -> Number:
+    if n <= 1:
+        return 1;
+    else:
+        return n * factorial(n - 1);
+    end
+end
+
+func fibonacci(n) -> Number:
+    if n <= 1:
+        return n;
+    else:
+        return fibonacci(n - 1) + fibonacci(n - 2);
+    end
+end
+
+total_tests = total_tests + 1;
+let fact_5 = factorial(5);
+let fib_7 = fibonacci(7);
+if fact_5 == 120 and fib_7 == 13:
+    print("✓ Recursive functions");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Recursive functions failed");
+    tests_failed = tests_failed + ["Recursive functions"];
+end
+
+print("\n16.9. Function variables and assignments...");
+func square(x) -> Number:
+    return x * x;
+end
+
+let my_square = square;
+let my_add = add;
+
+total_tests = total_tests + 1;
+if type(my_square) == "Function" and type(my_add) == "Function":
+    let square_result = my_square(4);
+    let add_result = my_add(3, 7);
+    if square_result == 16 and add_result == 10:
+        print("✓ Function variables and assignments");
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Function variables and assignments failed");
+        tests_failed = tests_failed + ["Function variables and assignments"];
+    end
+else:
+    print("✗ Function variables and assignments failed");
+    tests_failed = tests_failed + ["Function variables and assignments"];
+end
+
+print("\n16.10. Complex function combinations...");
+func math_operations(a, b) -> Array:
+    let results = [];
+    results = array.push(results, add(a, b));
+    results = array.push(results, multiply(a, b));
+    results = array.push(results, square(a));
+    results = array.push(results, square(b));
+    return results;
+end
+
+func process_strings(str1, str2) -> String:
+    let combined = concatenate(str1, str2);
+    let greeting = typed_greet(combined);
+    return greeting;
+end
+
+total_tests = total_tests + 1;
+let math_results = math_operations(3, 4);
+let string_result = process_strings("Myco", "Lang");
+if len(math_results) == 4 and string_result == "Hello, MycoLang":
+    print("✓ Complex function combinations");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Complex function combinations failed");
+    tests_failed = tests_failed + ["Complex function combinations"];
+end
+
+print("\n16.11. Function scope and closures...");
+func create_counter() -> Function:
+    let count = 0;
+    func counter() -> Number:
+        count = count + 1;
+        return count;
+    end
+    return counter;
+end
+
+total_tests = total_tests + 1;
+let counter1 = create_counter();
+let counter2 = create_counter();
+if type(counter1) == "Function" and type(counter2) == "Function":
+    let count1 = counter1();
+    let count2 = counter1();
+    let count3 = counter2();
+    if count1 == 1 and count2 == 2 and count3 == 1:
+        print("✓ Function scope and closures");
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Function scope and closures failed");
+        tests_failed = tests_failed + ["Function scope and closures"];
+    end
+else:
+    print("✗ Function scope and closures failed");
+    tests_failed = tests_failed + ["Function scope and closures"];
+end
+
+print("\n16.12. Function error handling...");
+func safe_divide(a, b) -> Number:
+    if b == 0:
+        return 0;
+    else:
+        return a / b;
+    end
+end
+
+func safe_array_access(arr, index) -> String:
+    if index >= len(arr):
+        return "Index out of bounds";
+    else:
+        return str(arr[index]);
+    end
+end
+
+total_tests = total_tests + 1;
+let div_by_zero = safe_divide(10, 0);
+let safe_access = safe_array_access([1, 2, 3], 5);
+if div_by_zero == 0 and safe_access == "Index out of bounds":
+    print("✓ Function error handling");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Function error handling failed");
+    tests_failed = tests_failed + ["Function error handling"];
+end
+
+print("\n16.13. Lambda functions (anonymous functions)...");
+let simple_lambda = func ():
+    return "Hello from lambda!";
+end;
+
+let add_lambda = func (a, b):
+    return a + b;
+end;
+
+let multiply_lambda = func (x, y) -> Number:
+    return x * y;
+end;
+
+let greet_lambda = func (name):
+    return "Hello, " + name + "!";
+end;
+
+let mixed_lambda = func (x, y: Number) -> String:
+    return "Mixed: " + str(x) + " and " + str(y);
+end;
+
+total_tests = total_tests + 1;
+if type(simple_lambda) == "Function" and type(add_lambda) == "Function" and 
+   type(multiply_lambda) == "Function" and type(greet_lambda) == "Function" and 
+   type(mixed_lambda) == "Function":
+    print("✓ Lambda functions (anonymous functions)");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Lambda functions (anonymous functions) failed");
+    tests_failed = tests_failed + ["Lambda functions (anonymous functions)"];
+end
+
+print("\n16.14. Function variable assignments...");
+let my_square = func (x):
+    return x * x;
+end;
+
+let my_add = func (a, b):
+    return a + b;
+end;
+
+let my_greet = func (name):
+    return "Hello, " + name + "!";
+end;
+
+total_tests = total_tests + 1;
+if type(my_square) == "Function" and type(my_add) == "Function" and type(my_greet) == "Function":
+    print("✓ Function variable assignments");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Function variable assignments failed");
+    tests_failed = tests_failed + ["Function variable assignments"];
+end
+
+print("\n16.15. Lambda functions with different parameter types...");
+let no_params_lambda = func ():
+    return 42;
+end;
+
+let single_param_lambda = func (x):
+    return x * 2;
+end;
+
+let multi_param_lambda = func (a, b, c):
+    return a + b + c;
+end;
+
+let typed_param_lambda = func (x: Number, y: Number) -> Number:
+    return x * y;
+end;
+
+total_tests = total_tests + 1;
+if type(no_params_lambda) == "Function" and type(single_param_lambda) == "Function" and 
+   type(multi_param_lambda) == "Function" and type(typed_param_lambda) == "Function":
+    print("✓ Lambda functions with different parameter types");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Lambda functions with different parameter types failed");
+    tests_failed = tests_failed + ["Lambda functions with different parameter types"];
+end
+
 print("\n=== RESULTS ===");
 print("Total: " + str(total_tests));
 print("Passed: " + str(tests_passed));

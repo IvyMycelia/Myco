@@ -27,6 +27,7 @@ typedef union {
     struct {
         double start;
         double end;
+        double step;
         int inclusive;
     } range_value;
     struct {
@@ -107,9 +108,9 @@ int environment_exists(Environment* env, const char* name);
 Value value_create_null(void);
 Value value_create_boolean(int value);
 Value value_create_number(double value);
-Value value_create_builtin_function(Value (*func)(Interpreter*, Value*, size_t));
+Value value_create_builtin_function(Value (*func)(Interpreter*, Value*, size_t, int, int));
 Value value_create_string(const char* value);
-Value value_create_range(double start, double end, int inclusive);
+Value value_create_range(double start, double end, double step, int inclusive);
 Value value_create_array(size_t initial_capacity);
 Value value_create_object(size_t initial_capacity);
 Value value_create_function(ASTNode* body, char** params, size_t param_count, const char* return_type);
@@ -175,7 +176,7 @@ void value_object_delete(Value* obj, const char* key);
 char** value_object_keys(Value* obj, size_t* count);
 
 // Function execution
-Value value_function_call(Value* func, Value* args, size_t arg_count, Interpreter* interpreter);
+Value value_function_call(Value* func, Value* args, size_t arg_count, Interpreter* interpreter, int line, int column);
 
 // Execution functions
 Value interpreter_execute(Interpreter* interpreter, ASTNode* node);
@@ -212,15 +213,15 @@ int interpreter_has_error(Interpreter* interpreter);
 int interpreter_has_return(Interpreter* interpreter);
 
 // Built-in functions
-Value builtin_print(Interpreter* interpreter, Value* args, size_t arg_count);
-Value builtin_input(Interpreter* interpreter, Value* args, size_t arg_count);
-Value builtin_len(Interpreter* interpreter, Value* args, size_t arg_count);
-Value builtin_type(Interpreter* interpreter, Value* args, size_t arg_count);
-Value builtin_assert(Interpreter* interpreter, Value* args, size_t arg_count);
-Value builtin_str(Interpreter* interpreter, Value* args, size_t arg_count);
-Value builtin_int(Interpreter* interpreter, Value* args, size_t arg_count);
-Value builtin_float(Interpreter* interpreter, Value* args, size_t arg_count);
-Value builtin_bool(Interpreter* interpreter, Value* args, size_t arg_count);
+Value builtin_print(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_input(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_len(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_type(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_assert(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_str(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_int(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_float(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_bool(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 
 // Utility functions
 void interpreter_register_builtins(Interpreter* interpreter);

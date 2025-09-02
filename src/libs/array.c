@@ -4,9 +4,9 @@
 #include "../../include/core/ast.h"
 
 // Array utility functions
-Value builtin_array_push(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_array_push(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "push() requires exactly 2 arguments", 0, 0);
+        interpreter_set_error(interpreter, "push() requires exactly 2 arguments", line, column);
         return value_create_null();
     }
     
@@ -14,7 +14,7 @@ Value builtin_array_push(Interpreter* interpreter, Value* args, size_t arg_count
     Value element = args[1];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "push() first argument must be an array", 0, 0);
+        interpreter_set_error(interpreter, "push() first argument must be an array", line, column);
         return value_create_null();
     }
     
@@ -27,30 +27,30 @@ Value builtin_array_push(Interpreter* interpreter, Value* args, size_t arg_count
     return value_create_null();
 }
 
-Value builtin_array_pop(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_array_pop(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "pop() requires exactly 1 argument", 0, 0);
+        interpreter_set_error(interpreter, "pop() requires exactly 1 argument", line, column);
         return value_create_null();
     }
     
     Value array_arg = args[0];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "pop() argument must be an array", 0, 0);
+        interpreter_set_error(interpreter, "pop() argument must be an array", line, column);
         return value_create_null();
     }
     
     if (array_arg.data.array_value.count == 0) {
-        interpreter_set_error(interpreter, "Cannot pop from empty array", 0, 0);
+        interpreter_set_error(interpreter, "Cannot pop from empty array", line, column);
         return value_create_null();
     }
     
     return value_array_pop(&array_arg);
 }
 
-Value builtin_array_insert(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_array_insert(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 3) {
-        interpreter_set_error(interpreter, "insert() requires exactly 3 arguments", 0, 0);
+        interpreter_set_error(interpreter, "insert() requires exactly 3 arguments", line, column);
         return value_create_null();
     }
     
@@ -59,12 +59,12 @@ Value builtin_array_insert(Interpreter* interpreter, Value* args, size_t arg_cou
     Value element = args[2];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "insert() first argument must be an array", 0, 0);
+        interpreter_set_error(interpreter, "insert() first argument must be an array", line, column);
         return value_create_null();
     }
     
     if (index_arg.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "insert() second argument must be a number", 0, 0);
+        interpreter_set_error(interpreter, "insert() second argument must be a number", line, column);
         return value_create_null();
     }
     
@@ -72,7 +72,7 @@ Value builtin_array_insert(Interpreter* interpreter, Value* args, size_t arg_cou
     size_t array_len = array_arg.data.array_value.count;
     
     if (index < 0 || index > (int)array_len) {
-        interpreter_set_error(interpreter, "insert() index out of bounds", 0, 0);
+        interpreter_set_error(interpreter, "insert() index out of bounds", line, column);
         return value_create_null();
     }
     
@@ -84,7 +84,7 @@ Value builtin_array_insert(Interpreter* interpreter, Value* args, size_t arg_cou
         size_t new_capacity = array_arg.data.array_value.capacity == 0 ? 4 : array_arg.data.array_value.capacity * 2;
         void** new_elements = realloc(array_arg.data.array_value.elements, new_capacity * sizeof(void*));
         if (!new_elements) {
-            interpreter_set_error(interpreter, "Out of memory in insert()", 0, 0);
+            interpreter_set_error(interpreter, "Out of memory in insert()", line, column);
             value_free(&cloned_element);
             return value_create_null();
         }
@@ -100,7 +100,7 @@ Value builtin_array_insert(Interpreter* interpreter, Value* args, size_t arg_cou
     // Insert element
     array_arg.data.array_value.elements[index] = malloc(sizeof(Value));
     if (!array_arg.data.array_value.elements[index]) {
-        interpreter_set_error(interpreter, "Out of memory in insert()", 0, 0);
+        interpreter_set_error(interpreter, "Out of memory in insert()", line, column);
         value_free(&cloned_element);
         return value_create_null();
     }
@@ -111,9 +111,9 @@ Value builtin_array_insert(Interpreter* interpreter, Value* args, size_t arg_cou
     return value_create_null();
 }
 
-Value builtin_array_remove(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_array_remove(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "remove() requires exactly 2 arguments", 0, 0);
+        interpreter_set_error(interpreter, "remove() requires exactly 2 arguments", line, column);
         return value_create_null();
     }
     
@@ -121,12 +121,12 @@ Value builtin_array_remove(Interpreter* interpreter, Value* args, size_t arg_cou
     Value index_arg = args[1];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "remove() first argument must be an array", 0, 0);
+        interpreter_set_error(interpreter, "remove() first argument must be an array", line, column);
         return value_create_null();
     }
     
     if (index_arg.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "remove() second argument must be a number", 0, 0);
+        interpreter_set_error(interpreter, "remove() second argument must be a number", line, column);
         return value_create_null();
     }
     
@@ -134,7 +134,7 @@ Value builtin_array_remove(Interpreter* interpreter, Value* args, size_t arg_cou
     size_t array_len = array_arg.data.array_value.count;
     
     if (index < 0 || index >= (int)array_len) {
-        interpreter_set_error(interpreter, "remove() index out of bounds", 0, 0);
+        interpreter_set_error(interpreter, "remove() index out of bounds", line, column);
         return value_create_null();
     }
     
@@ -155,16 +155,16 @@ Value builtin_array_remove(Interpreter* interpreter, Value* args, size_t arg_cou
     return value_create_null();
 }
 
-Value builtin_array_reverse(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_array_reverse(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "reverse() requires exactly 1 argument", 0, 0);
+        interpreter_set_error(interpreter, "reverse() requires exactly 1 argument", line, column);
         return value_create_null();
     }
     
     Value array_arg = args[0];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "reverse() argument must be an array", 0, 0);
+        interpreter_set_error(interpreter, "reverse() argument must be an array", line, column);
         return value_create_null();
     }
     
@@ -180,16 +180,16 @@ Value builtin_array_reverse(Interpreter* interpreter, Value* args, size_t arg_co
     return value_create_null();
 }
 
-Value builtin_array_sort(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_array_sort(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "sort() requires exactly 1 argument", 0, 0);
+        interpreter_set_error(interpreter, "sort() requires exactly 1 argument", line, column);
         return value_create_null();
     }
     
     Value array_arg = args[0];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "sort() argument must be an array", 0, 0);
+        interpreter_set_error(interpreter, "sort() argument must be an array", line, column);
         return value_create_null();
     }
     
@@ -215,9 +215,9 @@ Value builtin_array_sort(Interpreter* interpreter, Value* args, size_t arg_count
     return value_create_null();
 }
 
-Value builtin_array_filter(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_array_filter(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "filter() requires exactly 2 arguments", 0, 0);
+        interpreter_set_error(interpreter, "filter() requires exactly 2 arguments", line, column);
         return value_create_null();
     }
     
@@ -225,12 +225,12 @@ Value builtin_array_filter(Interpreter* interpreter, Value* args, size_t arg_cou
     Value predicate_arg = args[1];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "filter() first argument must be an array", 0, 0);
+        interpreter_set_error(interpreter, "filter() first argument must be an array", line, column);
         return value_create_null();
     }
     
     if (predicate_arg.type != VALUE_FUNCTION) {
-        interpreter_set_error(interpreter, "filter() second argument must be a function", 0, 0);
+        interpreter_set_error(interpreter, "filter() second argument must be a function", line, column);
         return value_create_null();
     }
     
@@ -243,7 +243,7 @@ Value builtin_array_filter(Interpreter* interpreter, Value* args, size_t arg_cou
         if (element) {
             // Call predicate function with element
             Value predicate_args[1] = {*element};
-            Value predicate_result = value_function_call(&predicate_arg, predicate_args, 1, interpreter);
+            Value predicate_result = value_function_call(&predicate_arg, predicate_args, 1, interpreter, line, column);
             
             if (predicate_result.type == VALUE_BOOLEAN && predicate_result.data.boolean_value) {
                 Value cloned_element = value_clone(element);
@@ -257,9 +257,9 @@ Value builtin_array_filter(Interpreter* interpreter, Value* args, size_t arg_cou
     return result;
 }
 
-Value builtin_array_map(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_array_map(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "map() requires exactly 2 arguments", 0, 0);
+        interpreter_set_error(interpreter, "map() requires exactly 2 arguments", line, column);
         return value_create_null();
     }
     
@@ -267,12 +267,12 @@ Value builtin_array_map(Interpreter* interpreter, Value* args, size_t arg_count)
     Value transform_arg = args[1];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "map() first argument must be an array", 0, 0);
+        interpreter_set_error(interpreter, "map() first argument must be an array", line, column);
         return value_create_null();
     }
     
     if (transform_arg.type != VALUE_FUNCTION) {
-        interpreter_set_error(interpreter, "map() second argument must be a function", 0, 0);
+        interpreter_set_error(interpreter, "map() second argument must be a function", line, column);
         return value_create_null();
     }
     
@@ -285,7 +285,7 @@ Value builtin_array_map(Interpreter* interpreter, Value* args, size_t arg_count)
         if (element) {
             // Call transform function with element
             Value transform_args[1] = {*element};
-            Value transform_result = value_function_call(&transform_arg, transform_args, 1, interpreter);
+            Value transform_result = value_function_call(&transform_arg, transform_args, 1, interpreter, line, column);
             
             value_array_push(&result, transform_result);
         }
@@ -294,9 +294,9 @@ Value builtin_array_map(Interpreter* interpreter, Value* args, size_t arg_count)
     return result;
 }
 
-Value builtin_array_reduce(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_array_reduce(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 3) {
-        interpreter_set_error(interpreter, "reduce() requires exactly 3 arguments", 0, 0);
+        interpreter_set_error(interpreter, "reduce() requires exactly 3 arguments", line, column);
         return value_create_null();
     }
     
@@ -305,12 +305,12 @@ Value builtin_array_reduce(Interpreter* interpreter, Value* args, size_t arg_cou
     Value initial_arg = args[2];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "reduce() first argument must be an array", 0, 0);
+        interpreter_set_error(interpreter, "reduce() first argument must be an array", line, column);
         return value_create_null();
     }
     
     if (reducer_arg.type != VALUE_FUNCTION) {
-        interpreter_set_error(interpreter, "reduce() second argument must be a function", 0, 0);
+        interpreter_set_error(interpreter, "reduce() second argument must be a function", line, column);
         return value_create_null();
     }
     
@@ -323,7 +323,7 @@ Value builtin_array_reduce(Interpreter* interpreter, Value* args, size_t arg_cou
         if (element) {
             // Call reducer function with accumulator and element
             Value reducer_args[2] = {accumulator, *element};
-            Value reducer_result = value_function_call(&reducer_arg, reducer_args, 2, interpreter);
+            Value reducer_result = value_function_call(&reducer_arg, reducer_args, 2, interpreter, line, column);
             
             value_free(&accumulator);
             accumulator = reducer_result;
@@ -333,9 +333,9 @@ Value builtin_array_reduce(Interpreter* interpreter, Value* args, size_t arg_cou
     return accumulator;
 }
 
-Value builtin_array_find(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_array_find(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "find() requires exactly 2 arguments", 0, 0);
+        interpreter_set_error(interpreter, "find() requires exactly 2 arguments", line, column);
         return value_create_null();
     }
     
@@ -343,12 +343,12 @@ Value builtin_array_find(Interpreter* interpreter, Value* args, size_t arg_count
     Value predicate_arg = args[1];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "find() first argument must be an array", 0, 0);
+        interpreter_set_error(interpreter, "find() first argument must be an array", line, column);
         return value_create_null();
     }
     
     if (predicate_arg.type != VALUE_FUNCTION) {
-        interpreter_set_error(interpreter, "find() second argument must be a function", 0, 0);
+        interpreter_set_error(interpreter, "find() second argument must be a function", line, column);
         return value_create_null();
     }
     
@@ -360,7 +360,7 @@ Value builtin_array_find(Interpreter* interpreter, Value* args, size_t arg_count
         if (element) {
             // Call predicate function with element
             Value predicate_args[1] = {*element};
-            Value predicate_result = value_function_call(&predicate_arg, predicate_args, 1, interpreter);
+            Value predicate_result = value_function_call(&predicate_arg, predicate_args, 1, interpreter, line, column);
             
             if (predicate_result.type == VALUE_BOOLEAN && predicate_result.data.boolean_value) {
                 value_free(&predicate_result);
@@ -374,9 +374,9 @@ Value builtin_array_find(Interpreter* interpreter, Value* args, size_t arg_count
     return value_create_null();
 }
 
-Value builtin_array_slice(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_array_slice(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 3) {
-        interpreter_set_error(interpreter, "slice() requires exactly 3 arguments", 0, 0);
+        interpreter_set_error(interpreter, "slice() requires exactly 3 arguments", line, column);
         return value_create_null();
     }
     
@@ -385,12 +385,12 @@ Value builtin_array_slice(Interpreter* interpreter, Value* args, size_t arg_coun
     Value end_arg = args[2];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "slice() first argument must be an array", 0, 0);
+        interpreter_set_error(interpreter, "slice() first argument must be an array", line, column);
         return value_create_null();
     }
     
     if (start_arg.type != VALUE_NUMBER || end_arg.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "slice() start and end arguments must be numbers", 0, 0);
+        interpreter_set_error(interpreter, "slice() start and end arguments must be numbers", line, column);
         return value_create_null();
     }
     

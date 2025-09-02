@@ -389,6 +389,7 @@ static void lexer_parse_identifier(Lexer* lexer) {
         else if (strcmp(text, "const") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "True") == 0 || strcmp(text, "true") == 0) type = TOKEN_BOOL;
         else if (strcmp(text, "False") == 0 || strcmp(text, "false") == 0) type = TOKEN_BOOL;
+        else if (strcmp(text, "Null") == 0 || strcmp(text, "null") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "and") == 0) type = TOKEN_AND;
         else if (strcmp(text, "or") == 0) type = TOKEN_OR;
         else if (strcmp(text, "not") == 0) type = TOKEN_NOT;

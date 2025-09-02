@@ -8,6 +8,7 @@ typedef enum {
     AST_NODE_NUMBER,
     AST_NODE_STRING,
     AST_NODE_BOOL,
+    AST_NODE_NULL,
     AST_NODE_IDENTIFIER,
     AST_NODE_BINARY_OP,
     AST_NODE_UNARY_OP,
@@ -62,7 +63,8 @@ typedef enum {
     OP_LEFT_SHIFT,
     OP_RIGHT_SHIFT,
     OP_RANGE,
-    OP_RANGE_INCLUSIVE
+    OP_RANGE_INCLUSIVE,
+    OP_RANGE_STEP
 } BinaryOperator;
 
 // Unary Operators
@@ -90,6 +92,7 @@ typedef struct ASTNode {
             BinaryOperator op;
             struct ASTNode* left;
             struct ASTNode* right;
+            struct ASTNode* step;  // For range with step (start..end..step)
         } binary;
         
         struct {
@@ -272,8 +275,10 @@ typedef struct ASTNode {
 ASTNode* ast_create_number(double value, int line, int column);
 ASTNode* ast_create_string(const char* value, int line, int column);
 ASTNode* ast_create_bool(int value, int line, int column);
+ASTNode* ast_create_null(int line, int column);
 ASTNode* ast_create_identifier(const char* name, int line, int column);
 ASTNode* ast_create_binary_op(BinaryOperator op, ASTNode* left, ASTNode* right, int line, int column);
+ASTNode* ast_create_range_with_step(ASTNode* start, ASTNode* end, ASTNode* step, int line, int column);
 ASTNode* ast_create_unary_op(UnaryOperator op, ASTNode* operand, int line, int column);
 ASTNode* ast_create_assignment(const char* variable, ASTNode* value, int line, int column);
 ASTNode* ast_create_function_call(const char* name, ASTNode** args, size_t arg_count, int line, int column);

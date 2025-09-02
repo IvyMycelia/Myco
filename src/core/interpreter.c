@@ -200,7 +200,7 @@ Value value_create_string(const char* value) {
     
     return v; 
 }
-Value value_create_range(double start, double end, int inclusive) { Value v; v.type = VALUE_RANGE; v.data.range_value.start = start; v.data.range_value.end = end; v.data.range_value.inclusive = inclusive; return v; }
+Value value_create_range(double start, double end, double step, int inclusive) { Value v; v.type = VALUE_RANGE; v.data.range_value.start = start; v.data.range_value.end = end; v.data.range_value.step = step; v.data.range_value.inclusive = inclusive; return v; }
 Value value_create_array(size_t initial_capacity) { 
     Value v; 
     v.type = VALUE_ARRAY; 
@@ -212,7 +212,7 @@ Value value_create_array(size_t initial_capacity) {
 Value value_create_object(size_t initial_capacity) { Value v = {0}; return v; }
 Value value_create_function(ASTNode* body, char** params, size_t param_count, const char* return_type) { Value v = {0}; return v; }
 
-Value value_create_builtin_function(Value (*func)(Interpreter*, Value*, size_t)) {
+Value value_create_builtin_function(Value (*func)(Interpreter*, Value*, size_t, int, int)) {
     Value v = {0};
     v.type = VALUE_FUNCTION;
     v.data.function_value.body = NULL;
@@ -261,7 +261,7 @@ Value value_clone(Value* value) {
         case VALUE_NUMBER: return value_create_number(value->data.number_value); 
         case VALUE_BOOLEAN: return value_create_boolean(value->data.boolean_value); 
         case VALUE_STRING: return value_create_string(value->data.string_value); 
-        case VALUE_RANGE: return value_create_range(value->data.range_value.start, value->data.range_value.end, value->data.range_value.inclusive); 
+        case VALUE_RANGE: return value_create_range(value->data.range_value.start, value->data.range_value.end, value->data.range_value.step, value->data.range_value.inclusive); 
         case VALUE_ARRAY: {
             // Deep copy array with all elements
             Value v = value_create_array(value->data.array_value.count);
@@ -465,6 +465,48 @@ Value value_add(Value* a, Value* b) {
         return result;
     }
     
+    // Array concatenation
+    if (a->type == VALUE_ARRAY && b->type == VALUE_ARRAY) {
+        // Create a new array with combined elements
+        Value result = value_create_array(0);
+        
+        // Add elements from first array
+        for (size_t i = 0; i < a->data.array_value.count; i++) {
+            Value* element = (Value*)a->data.array_value.elements[i];
+            if (element) {
+                value_array_push(&result, value_clone(element));
+            }
+        }
+        
+        // Add elements from second array
+        for (size_t i = 0; i < b->data.array_value.count; i++) {
+            Value* element = (Value*)b->data.array_value.elements[i];
+            if (element) {
+                value_array_push(&result, value_clone(element));
+            }
+        }
+        
+        return result;
+    }
+    
+    // Array + single element (append)
+    if (a->type == VALUE_ARRAY) {
+        Value result = value_create_array(0);
+        
+        // Add elements from array
+        for (size_t i = 0; i < a->data.array_value.count; i++) {
+            Value* element = (Value*)a->data.array_value.elements[i];
+            if (element) {
+                value_array_push(&result, value_clone(element));
+            }
+        }
+        
+        // Add the single element
+        value_array_push(&result, value_clone(b));
+        
+        return result;
+    }
+    
     // Numeric addition
     if (a->type == VALUE_NUMBER && b->type == VALUE_NUMBER) {
         return value_create_number(a->data.number_value + b->data.number_value);
@@ -584,7 +626,7 @@ int value_object_has(Value* obj, const char* key) { return 0; }
 void value_object_delete(Value* obj, const char* key) {}
 char** value_object_keys(Value* obj, size_t* count) { return NULL; }
 
-Value value_function_call(Value* func, Value* args, size_t arg_count, Interpreter* interpreter) {
+Value value_function_call(Value* func, Value* args, size_t arg_count, Interpreter* interpreter, int line, int column) {
     if (!func || func->type != VALUE_FUNCTION) {
         return value_create_null();
     }
@@ -592,10 +634,10 @@ Value value_function_call(Value* func, Value* args, size_t arg_count, Interprete
     // Check if this is a built-in function
     if (func->data.function_value.body && func->data.function_value.parameters == NULL) {
         // This is a built-in function - the body field contains the function pointer
-        Value (*builtin_func)(Interpreter*, Value*, size_t) = (Value (*)(Interpreter*, Value*, size_t))func->data.function_value.body;
+        Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = (Value (*)(Interpreter*, Value*, size_t, int, int))func->data.function_value.body;
         
         // Call the built-in function
-        return builtin_func(interpreter, args, arg_count);
+        return builtin_func(interpreter, args, arg_count, line, column);
     }
     
     // TODO: Handle user-defined functions
@@ -619,9 +661,25 @@ static Value eval_binary(Interpreter* interpreter, ASTNode* node) {
         } 
         case OP_RANGE: { 
             if (l.type == VALUE_NUMBER && r.type == VALUE_NUMBER) { 
-                Value out = value_create_range(l.data.number_value, r.data.number_value, 0); 
+                Value out = value_create_range(l.data.number_value, r.data.number_value, 1.0, 0); 
                 value_free(&l); value_free(&r); 
                 return out; 
+            } 
+            value_free(&l); value_free(&r); 
+            return value_create_null(); 
+        }
+        case OP_RANGE_STEP: { 
+            if (l.type == VALUE_NUMBER && r.type == VALUE_NUMBER) { 
+                // Evaluate the step expression
+                Value step_val = eval_node(interpreter, node->data.binary.step);
+                if (step_val.type == VALUE_NUMBER) {
+                    Value out = value_create_range(l.data.number_value, r.data.number_value, step_val.data.number_value, 0); 
+                    value_free(&l); value_free(&r); value_free(&step_val);
+                    return out; 
+                } else {
+                    value_free(&l); value_free(&r); value_free(&step_val);
+                    return value_create_null();
+                }
             } 
             value_free(&l); value_free(&r); 
             return value_create_null(); 
@@ -702,14 +760,7 @@ static Value eval_binary(Interpreter* interpreter, ASTNode* node) {
         case OP_DIVIDE: { 
             // Check for division by zero
             if (r.type == VALUE_NUMBER && r.data.number_value == 0.0) {
-                // Set error state for try/catch handling
-                if (interpreter && interpreter->try_depth > 0) {
-                    interpreter->has_error = 1;
-                    if (interpreter->error_message) free(interpreter->error_message);
-                    interpreter->error_message = strdup("Division by zero");
-                    interpreter->error_line = node->line;
-                    interpreter->error_column = node->column;
-                }
+                interpreter_set_error(interpreter, "Division by zero", node->line, node->column);
                 value_free(&l); value_free(&r); 
                 return value_create_null();
             }
@@ -724,12 +775,22 @@ static Value eval_binary(Interpreter* interpreter, ASTNode* node) {
 }
 static Value eval_node(Interpreter* interpreter, ASTNode* node) {
     if (!node) return value_create_null();
+    
+    // Continue execution even if there are errors (like Python)
+    // Errors are reported but don't stop execution
+    
     switch (node->type) {
         case AST_NODE_NUMBER: return value_create_number(node->data.number_value);
         case AST_NODE_STRING: return value_create_string(node->data.string_value);
         case AST_NODE_BOOL: return value_create_boolean(node->data.bool_value);
-        case AST_NODE_IDENTIFIER:
-            return environment_get(interpreter->current_environment, node->data.identifier_value);
+        case AST_NODE_NULL: return value_create_null();
+        case AST_NODE_IDENTIFIER: {
+            Value result = environment_get(interpreter->current_environment, node->data.identifier_value);
+            if (result.type == VALUE_NULL) {
+                interpreter_set_error(interpreter, "Undefined variable", node->line, node->column);
+            }
+            return result;
+        }
         case AST_NODE_VARIABLE_DECLARATION: {
             const char* var_name = node->data.variable_declaration.variable_name;
             Value init = value_create_null();
@@ -777,7 +838,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 for (size_t i = 0; i < n; i++) {
                     argv[i] = eval_node(interpreter, node->data.function_call.arguments[i]);
                 }
-                Value rv = builtin_print(interpreter, argv, n);
+                Value rv = builtin_print(interpreter, argv, n, node->line, node->column);
                 for (size_t i = 0; i < n; i++) value_free(&argv[i]);
                 free(argv);
                 return rv;
@@ -838,7 +899,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 for (size_t i = 0; i < n; i++) {
                     argv[i] = eval_node(interpreter, node->data.function_call.arguments[i]);
                 }
-                Value rv = builtin_assert(interpreter, argv, n);
+                Value rv = builtin_assert(interpreter, argv, n, node->line, node->column);
                 for (size_t i = 0; i < n; i++) value_free(&argv[i]);
                 free(argv);
                 return rv;
@@ -1065,14 +1126,15 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             if (collection.type == VALUE_RANGE) {
                 double start = collection.data.range_value.start;
                 double end = collection.data.range_value.end;
+                double step = collection.data.range_value.step;
                 
                 // Create a new environment for the loop scope
                 Environment* loop_env = environment_create(interpreter->current_environment);
                 Environment* old_env = interpreter->current_environment;
                 interpreter->current_environment = loop_env;
                 
-                // Iterate through the range (exclusive of end)
-                for (double i = start; i < end; i += 1.0) {
+                // Iterate through the range (exclusive of end) with step
+                for (double i = start; i < end; i += step) {
                     // Define the iterator variable
                     Value iterator_value = value_create_number(i);
                     environment_define(loop_env, node->data.for_loop.iterator_name, iterator_value);
@@ -1221,41 +1283,28 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 // For now, we'll just return null since we can't determine the object name
             } else if (object.type == VALUE_STRING && strcmp(object.data.string_value, "namespace_marker") == 0) {
                 // This is a namespace marker, try to look up the prefixed function
-                // For example: str.upper -> str_upper
+                // For example: math.Pi -> math_Pi, str.upper -> str_upper
                 
                 // We need to get the alias name from the AST to construct the prefixed function name
                 // Since we can't easily get the alias name from the AST, we'll try to find it
                 // by looking for the namespace_marker binding in the current environment
                 
-                // Look for the alias that's bound to "namespace_marker"
-                Environment* env = interpreter->current_environment;
+                // Try to find the alias name by looking for the namespace_marker binding
                 const char* alias_name = NULL;
-                
-                // Search through the current environment for the namespace_marker
-                while (env) {
-                    for (size_t i = 0; i < env->count; i++) {
-                        if (env->names[i] && env->values[i].type == VALUE_STRING && 
-                            strcmp(env->values[i].data.string_value, "namespace_marker") == 0) {
-                            alias_name = env->names[i];
-                            break;
-                        }
-                    }
-                    if (alias_name) break;
-                    env = env->parent;
+                if (node->data.member_access.object->type == AST_NODE_IDENTIFIER) {
+                    alias_name = node->data.member_access.object->data.identifier_value;
                 }
                 
                 if (alias_name) {
-                    // Construct the prefixed function name: alias_member
-                    char* prefixed_name = malloc(strlen(alias_name) + strlen(member_name) + 2);
-                    sprintf(prefixed_name, "%s_%s", alias_name, member_name);
+                    // Construct the prefixed function name
+                    char prefixed_name[256];
+                    snprintf(prefixed_name, sizeof(prefixed_name), "%s_%s", alias_name, member_name);
                     
                     // Look up the prefixed function
-                    Value member_value = environment_get(interpreter->current_environment, prefixed_name);
-                    free(prefixed_name);
-                    
-                    if (member_value.type != VALUE_NULL) {
+                    Value prefixed_value = environment_get(interpreter->current_environment, prefixed_name);
+                    if (prefixed_value.type != VALUE_NULL) {
                         value_free(&object);
-                        return value_clone(&member_value);
+                        return value_clone(&prefixed_value);
                     }
                 }
                 
@@ -1303,7 +1352,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             }
             
             // Call the function
-            Value result = value_function_call(&function_value, args, arg_count, interpreter);
+            Value result = value_function_call(&function_value, args, arg_count, interpreter, node->line, node->column);
             
             // Clean up arguments
             if (args) {
@@ -1421,29 +1470,26 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             // TODO: Implement file-based imports later
             
             if (strcmp(library_name, "math") == 0) {
-                // Create a namespace object for math
-                Value math_namespace = value_create_object(0);
+                // Register math constants and functions with math_ prefix
+                environment_define(interpreter->current_environment, "math_Pi", value_create_number(3.141592653589793));
+                environment_define(interpreter->current_environment, "math_E", value_create_number(2.718281828459045));
+                environment_define(interpreter->current_environment, "math_Tau", value_create_number(6.283185307179586));
+                environment_define(interpreter->current_environment, "math_Sqrt2", value_create_number(1.4142135623730951));
+                environment_define(interpreter->current_environment, "math_Sqrt3", value_create_number(1.7320508075688772));
+                environment_define(interpreter->current_environment, "math_Phi", value_create_number(1.618033988749895));
                 
-                // Add math constants
-                environment_define(interpreter->current_environment, "Pi", value_create_number(3.141592653589793));
-                environment_define(interpreter->current_environment, "E", value_create_number(2.718281828459045));
-                environment_define(interpreter->current_environment, "Tau", value_create_number(6.283185307179586));
-                environment_define(interpreter->current_environment, "Sqrt2", value_create_number(1.4142135623730951));
-                environment_define(interpreter->current_environment, "Sqrt3", value_create_number(1.7320508075688772));
-                environment_define(interpreter->current_environment, "Phi", value_create_number(1.618033988749895));
-                
-                // Add math functions
-                environment_define(interpreter->current_environment, "abs", value_create_builtin_function(builtin_math_abs));
-                environment_define(interpreter->current_environment, "min", value_create_builtin_function(builtin_math_min));
-                environment_define(interpreter->current_environment, "max", value_create_builtin_function(builtin_math_max));
-                environment_define(interpreter->current_environment, "sqrt", value_create_builtin_function(builtin_math_sqrt));
-                environment_define(interpreter->current_environment, "pow", value_create_builtin_function(builtin_math_pow));
-                environment_define(interpreter->current_environment, "round", value_create_builtin_function(builtin_math_round));
-                environment_define(interpreter->current_environment, "floor", value_create_builtin_function(builtin_math_floor));
-                environment_define(interpreter->current_environment, "ceil", value_create_builtin_function(builtin_math_ceil));
-                environment_define(interpreter->current_environment, "sin", value_create_builtin_function(builtin_math_sin));
-                environment_define(interpreter->current_environment, "cos", value_create_builtin_function(builtin_math_cos));
-                environment_define(interpreter->current_environment, "tan", value_create_builtin_function(builtin_math_tan));
+                // Register math functions with math_ prefix
+                environment_define(interpreter->current_environment, "math_abs", value_create_builtin_function(builtin_math_abs));
+                environment_define(interpreter->current_environment, "math_min", value_create_builtin_function(builtin_math_min));
+                environment_define(interpreter->current_environment, "math_max", value_create_builtin_function(builtin_math_max));
+                environment_define(interpreter->current_environment, "math_sqrt", value_create_builtin_function(builtin_math_sqrt));
+                environment_define(interpreter->current_environment, "math_pow", value_create_builtin_function(builtin_math_pow));
+                environment_define(interpreter->current_environment, "math_round", value_create_builtin_function(builtin_math_round));
+                environment_define(interpreter->current_environment, "math_floor", value_create_builtin_function(builtin_math_floor));
+                environment_define(interpreter->current_environment, "math_ceil", value_create_builtin_function(builtin_math_ceil));
+                environment_define(interpreter->current_environment, "math_sin", value_create_builtin_function(builtin_math_sin));
+                environment_define(interpreter->current_environment, "math_cos", value_create_builtin_function(builtin_math_cos));
+                environment_define(interpreter->current_environment, "math_tan", value_create_builtin_function(builtin_math_tan));
                 
                 // Handle specific imports
                 if (specific_items && item_count > 0) {
@@ -1460,19 +1506,14 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     }
                 }
                 
-                // If there's a general alias, bind the namespace to it
+                // If there's a general alias, bind the namespace marker to it
                 if (alias) {
-                    // Create a proper namespace object that can be accessed via dot notation
-                    // For now, we'll bind the constants and functions directly to the alias
-                    // This is a simplified approach - in a full implementation, we'd create a proper namespace object
-                    environment_define(interpreter->current_environment, alias, math_namespace);
-                    
-                    // Also bind individual items to the alias namespace for dot notation access
-                    // This allows m.Pi, m.E, etc. to work
-                    // TODO: Implement proper namespace object with member access
+                    // Bind the alias to a special namespace marker string
+                    // This allows the member access system to detect it and look up prefixed functions
+                    environment_define(interpreter->current_environment, alias, value_create_string("namespace_marker"));
                 }
                 
-                return math_namespace;
+                return value_create_null();
             } else if (strcmp(library_name, "string") == 0) {
                 // Handle string library
                 if (specific_items && item_count > 0) {
@@ -1591,8 +1632,15 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
 Value interpreter_execute(Interpreter* interpreter, ASTNode* node) { return eval_node(interpreter, node); }
 Value interpreter_execute_program(Interpreter* interpreter, ASTNode* node) {
     if (!node) return value_create_null();
+    
+    // Clear any previous errors before starting execution
+    if (interpreter) {
+        interpreter_clear_error(interpreter);
+    }
+    
     if (node->type == AST_NODE_BLOCK) {
         for (size_t i = 0; i < node->data.block.statement_count; i++) {
+            // Continue execution even if there are errors (like Python)
             eval_node(interpreter, node->data.block.statements[i]);
         }
         return value_create_null();
@@ -1624,17 +1672,171 @@ Value interpreter_execute_module(Interpreter* interpreter, ASTNode* node) { Valu
 Value interpreter_execute_package(Interpreter* interpreter, ASTNode* node) { Value v = {0}; return v; }
 
 void interpreter_set_return(Interpreter* interpreter, Value value) {}
-void interpreter_set_error(Interpreter* interpreter, const char* message, int line, int column) {}
-void interpreter_clear_error(Interpreter* interpreter) {}
-int interpreter_has_error(Interpreter* interpreter) { return 0; }
-int interpreter_has_return(Interpreter* interpreter) { return 0; }
+// Fungus-themed error code definitions
+typedef enum {
+    MYCO_ERROR_DIVISION_BY_ZERO = 1001,        // SPORE_SPLIT - Division by zero
+    MYCO_ERROR_UNDEFINED_VARIABLE = 1002,      // MYCELIUM_MISSING - Undefined variable
+    MYCO_ERROR_ARRAY_INDEX_OUT_OF_BOUNDS = 1003, // CAP_OVERFLOW - Array index out of bounds
+    MYCO_ERROR_ARRAY_INDEX_NON_ARRAY = 1004,   // STEM_INDEX - Array index on non-array
+    MYCO_ERROR_ARRAY_INDEX_NON_NUMBER = 1005,  // SPORE_TYPE - Array index with non-number
+    MYCO_ERROR_STRING_INDEX_OUT_OF_BOUNDS = 1006, // HYPHAE_OVERFLOW - String index out of bounds
+    MYCO_ERROR_STRING_INDEX_NON_STRING = 1007, // STEM_STRING - String index on non-string
+    MYCO_ERROR_STRING_INDEX_NON_NUMBER = 1008, // HYPHAE_TYPE - String index with non-number
+    MYCO_ERROR_MEMBER_ACCESS_NON_OBJECT = 1009, // CAP_ACCESS - Member access on non-object
+    MYCO_ERROR_FUNCTION_CALL_NON_FUNCTION = 1010, // SPORE_CALL - Function call on non-function
+    MYCO_ERROR_UNDEFINED_FUNCTION = 1011,      // FUNGUS_MISSING - Undefined function
+    MYCO_ERROR_WRONG_ARGUMENT_COUNT = 1012,    // SPORE_COUNT - Wrong argument count
+    MYCO_ERROR_WRONG_ARGUMENT_TYPE = 1013,     // SPORE_TYPE - Wrong argument type
+    MYCO_ERROR_MODULO_BY_ZERO = 1014,          // SPORE_MODULO - Modulo by zero
+    MYCO_ERROR_POWER_INVALID_BASE = 1015,      // CAP_POWER - Power with invalid base
+    MYCO_ERROR_UNKNOWN = 1999                  // UNKNOWN_FUNGUS - Unknown error
+} MycoErrorCode;
 
-Value builtin_print(Interpreter* interpreter, Value* args, size_t arg_count) { (void)interpreter; for (size_t i = 0; i < arg_count; i++) { Value s = value_to_string(&args[i]); if (s.type == VALUE_STRING && s.data.string_value) { printf("%s", s.data.string_value); } value_free(&s); if (i + 1 < arg_count) printf(" "); } printf("\n"); fflush(stdout); return value_create_null(); }
-Value builtin_input(Interpreter* interpreter, Value* args, size_t arg_count) { Value v = {0}; return v; }
-Value builtin_len(Interpreter* interpreter, Value* args, size_t arg_count) { Value v = {0}; return v; }
-Value builtin_type(Interpreter* interpreter, Value* args, size_t arg_count) { Value v = {0}; return v; }
+// Get error code from message
+static MycoErrorCode get_error_code(const char* message) {
+    if (!message) return MYCO_ERROR_UNKNOWN;
+    
+    if (strstr(message, "Division by zero")) return MYCO_ERROR_DIVISION_BY_ZERO;
+    if (strstr(message, "Undefined variable")) return MYCO_ERROR_UNDEFINED_VARIABLE;
+    if (strstr(message, "Array index out of bounds")) return MYCO_ERROR_ARRAY_INDEX_OUT_OF_BOUNDS;
+    if (strstr(message, "Cannot index non-array value")) return MYCO_ERROR_ARRAY_INDEX_NON_ARRAY;
+    if (strstr(message, "Array index must be a number")) return MYCO_ERROR_ARRAY_INDEX_NON_NUMBER;
+    if (strstr(message, "String index out of bounds")) return MYCO_ERROR_STRING_INDEX_OUT_OF_BOUNDS;
+    if (strstr(message, "Cannot index non-string value")) return MYCO_ERROR_STRING_INDEX_NON_STRING;
+    if (strstr(message, "String index must be a number")) return MYCO_ERROR_STRING_INDEX_NON_NUMBER;
+    if (strstr(message, "Member access not yet fully implemented")) return MYCO_ERROR_MEMBER_ACCESS_NON_OBJECT;
+    if (strstr(message, "Cannot call non-function")) return MYCO_ERROR_FUNCTION_CALL_NON_FUNCTION;
+    if (strstr(message, "Undefined function")) return MYCO_ERROR_UNDEFINED_FUNCTION;
+    if (strstr(message, "requires exactly") || strstr(message, "too many arguments")) return MYCO_ERROR_WRONG_ARGUMENT_COUNT;
+    if (strstr(message, "argument must be")) return MYCO_ERROR_WRONG_ARGUMENT_TYPE;
+    if (strstr(message, "Modulo by zero")) return MYCO_ERROR_MODULO_BY_ZERO;
+    if (strstr(message, "Power with invalid base")) return MYCO_ERROR_POWER_INVALID_BASE;
+    
+    return MYCO_ERROR_UNKNOWN;
+}
 
-Value builtin_assert(Interpreter* interpreter, Value* args, size_t arg_count) {
+// Get fungus-themed error name from code
+static const char* get_fungus_error_name(MycoErrorCode code) {
+    switch (code) {
+        case MYCO_ERROR_DIVISION_BY_ZERO: return "SPORE_SPLIT";
+        case MYCO_ERROR_UNDEFINED_VARIABLE: return "LOST_IN_THE_MYCELIUM";
+        case MYCO_ERROR_ARRAY_INDEX_OUT_OF_BOUNDS: return "MUSHROOM_TOO_BIG";
+        case MYCO_ERROR_ARRAY_INDEX_NON_ARRAY: return "NOT_A_MUSHROOM";
+        case MYCO_ERROR_ARRAY_INDEX_NON_NUMBER: return "SPORE_CONFUSION";
+        case MYCO_ERROR_STRING_INDEX_OUT_OF_BOUNDS: return "HYPHAE_TOO_LONG";
+        case MYCO_ERROR_STRING_INDEX_NON_STRING: return "NOT_A_HYPHAE";
+        case MYCO_ERROR_STRING_INDEX_NON_NUMBER: return "HYPHAE_CONFUSION";
+        case MYCO_ERROR_MEMBER_ACCESS_NON_OBJECT: return "NO_CAP";
+        case MYCO_ERROR_FUNCTION_CALL_NON_FUNCTION: return "NOT_SPORULATING";
+        case MYCO_ERROR_UNDEFINED_FUNCTION: return "EXTINCT_FUNGUS";
+        case MYCO_ERROR_WRONG_ARGUMENT_COUNT: return "WRONG_SPORE_COUNT";
+        case MYCO_ERROR_WRONG_ARGUMENT_TYPE: return "TOXIC_SPORE";
+        case MYCO_ERROR_MODULO_BY_ZERO: return "SPORE_REMAINDER";
+        case MYCO_ERROR_POWER_INVALID_BASE: return "POWERLESS_MUSHROOM";
+        default: return "MYSTERY_MUSHROOM";
+    }
+}
+
+// Get error solution from code
+static const char* get_error_solution(MycoErrorCode code) {
+    switch (code) {
+        case MYCO_ERROR_DIVISION_BY_ZERO:
+            return "Check if the divisor is zero before dividing. Use conditional logic or ensure the divisor is non-zero.";
+        case MYCO_ERROR_UNDEFINED_VARIABLE:
+            return "Declare the variable with 'let' before using it, or check for typos in the variable name.";
+        case MYCO_ERROR_ARRAY_INDEX_OUT_OF_BOUNDS:
+            return "Ensure the index is within the array bounds (0 to length-1). Check array length with len() function.";
+        case MYCO_ERROR_ARRAY_INDEX_NON_ARRAY:
+            return "Only arrays can be indexed. Check that the variable is actually an array, not a number or string.";
+        case MYCO_ERROR_ARRAY_INDEX_NON_NUMBER:
+            return "Array indices must be numbers. Convert the index to a number or use a numeric expression.";
+        case MYCO_ERROR_STRING_INDEX_OUT_OF_BOUNDS:
+            return "Ensure the index is within the string bounds (0 to length-1). Check string length with len() function.";
+        case MYCO_ERROR_STRING_INDEX_NON_STRING:
+            return "Only strings can be indexed. Check that the variable is actually a string, not a number or array.";
+        case MYCO_ERROR_STRING_INDEX_NON_NUMBER:
+            return "String indices must be numbers. Convert the index to a number or use a numeric expression.";
+        case MYCO_ERROR_MEMBER_ACCESS_NON_OBJECT:
+            return "Member access is only available on objects. Use array indexing or function calls instead.";
+        case MYCO_ERROR_FUNCTION_CALL_NON_FUNCTION:
+            return "Only functions can be called. Check that the variable contains a function, not a value.";
+        case MYCO_ERROR_UNDEFINED_FUNCTION:
+            return "Define the function before calling it, or check for typos in the function name.";
+        case MYCO_ERROR_WRONG_ARGUMENT_COUNT:
+            return "Check the function signature and provide the correct number of arguments.";
+        case MYCO_ERROR_WRONG_ARGUMENT_TYPE:
+            return "Convert the argument to the expected type or use a value of the correct type.";
+        case MYCO_ERROR_MODULO_BY_ZERO:
+            return "Check if the divisor is zero before using modulo. Use conditional logic or ensure the divisor is non-zero.";
+        case MYCO_ERROR_POWER_INVALID_BASE:
+            return "Ensure the base is valid for the power operation. Negative bases with fractional exponents are not supported.";
+        default:
+            return "Check the Myco documentation for more information about this error type.";
+    }
+}
+
+// ANSI color codes for terminal output
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
+
+void interpreter_set_error(Interpreter* interpreter, const char* message, int line, int column) {
+    if (!interpreter) return;
+    
+    interpreter->has_error = 1;
+    interpreter->error_line = line;
+    interpreter->error_column = column;
+    
+    // Free existing error message
+    if (interpreter->error_message) {
+        free(interpreter->error_message);
+    }
+    
+    // Create new error message
+    if (message) {
+        interpreter->error_message = strdup(message);
+    } else {
+        interpreter->error_message = strdup("Unknown runtime error");
+    }
+    
+    // Get error code and solution
+    MycoErrorCode error_code = get_error_code(message);
+    const char* solution = get_error_solution(error_code);
+    
+    // Get fungus-themed error name
+    const char* fungus_name = get_fungus_error_name(error_code);
+    
+    // Print concise error message with color and fungus name
+    fprintf(stderr, ANSI_COLOR_RED "Error (%s) at Line %d, Column %d: %s\n" ANSI_COLOR_RESET, 
+            fungus_name, line, column, interpreter->error_message);
+}
+
+void interpreter_clear_error(Interpreter* interpreter) {
+    if (!interpreter) return;
+    
+    interpreter->has_error = 0;
+    interpreter->error_line = 0;
+    interpreter->error_column = 0;
+    
+    if (interpreter->error_message) {
+        free(interpreter->error_message);
+        interpreter->error_message = NULL;
+    }
+}
+
+int interpreter_has_error(Interpreter* interpreter) {
+    return interpreter ? interpreter->has_error : 0;
+}
+
+int interpreter_has_return(Interpreter* interpreter) {
+    return interpreter ? interpreter->has_return : 0;
+}
+
+Value builtin_print(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { (void)interpreter; for (size_t i = 0; i < arg_count; i++) { Value s = value_to_string(&args[i]); if (s.type == VALUE_STRING && s.data.string_value) { printf("%s", s.data.string_value); } value_free(&s); if (i + 1 < arg_count) printf(" "); } printf("\n"); fflush(stdout); return value_create_null(); }
+Value builtin_input(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { Value v = {0}; return v; }
+Value builtin_len(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { Value v = {0}; return v; }
+Value builtin_type(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { Value v = {0}; return v; }
+
+Value builtin_assert(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count < 2) {
         fprintf(stderr, "Assertion failed: assert() requires at least 2 arguments (condition, message)\n");
         return value_create_null();
@@ -1656,10 +1858,10 @@ Value builtin_assert(Interpreter* interpreter, Value* args, size_t arg_count) {
     
     return value_create_null();
 }
-Value builtin_str(Interpreter* interpreter, Value* args, size_t arg_count) { Value v = {0}; return v; }
-Value builtin_int(Interpreter* interpreter, Value* args, size_t arg_count) { Value v = {0}; return v; }
-Value builtin_float(Interpreter* interpreter, Value* args, size_t arg_count) { Value v = {0}; return v; }
-Value builtin_bool(Interpreter* interpreter, Value* args, size_t arg_count) { Value v = {0}; return v; }
+Value builtin_str(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { Value v = {0}; return v; }
+Value builtin_int(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { Value v = {0}; return v; }
+Value builtin_float(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { Value v = {0}; return v; }
+Value builtin_bool(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { Value v = {0}; return v; }
 
 void interpreter_register_builtins(Interpreter* interpreter) {
     if (!interpreter || !interpreter->global_environment) return;
@@ -1682,4 +1884,5 @@ void interpreter_register_builtins(Interpreter* interpreter) {
 const char* value_type_to_string(ValueType type) { switch (type) { case VALUE_NULL: return "Null"; case VALUE_BOOLEAN: return "Bool"; case VALUE_NUMBER: return "Number"; case VALUE_STRING: return "String"; case VALUE_ARRAY: return "Array"; case VALUE_OBJECT: return "Object"; case VALUE_FUNCTION: return "Function"; case VALUE_CLASS: return "Class"; case VALUE_MODULE: return "Module"; case VALUE_ERROR: return "Error"; default: return "Unknown"; } }
 void value_print(Value* value) { Value s = value_to_string(value); if (s.type == VALUE_STRING && s.data.string_value) { printf("%s", s.data.string_value); } value_free(&s); }
 void value_print_debug(Value* value) { value_print(value); }
+
 

@@ -227,18 +227,13 @@ static void parser_error(Parser* parser, const char* message) {
         const char* token_text = parser->current_token->text ? parser->current_token->text : "";
         const char* token_type_name = get_token_type_name(parser->current_token->type);
         
-        // Create a more intuitive error message
+        // Create a concise error message
         snprintf(buf, sizeof(buf), 
-                 "ERROR: %s\n"
-                 "   Location: Line %d, Column %d\n"
-                 "   Found: '%s' (%s)\n"
-                 "   Suggestion: %s",
-                 message,
+                 "Parse Error at Line %d, Column %d: %s (found '%s')",
                  parser->current_token->line,
                  parser->current_token->column,
-                 token_text,
-                 token_type_name,
-                 get_error_suggestion(message, parser->current_token));
+                 message,
+                 token_text);
         
         parser->error_message = strdup(buf);
         
@@ -247,12 +242,16 @@ static void parser_error(Parser* parser, const char* message) {
         parser->error_column = parser->current_token->column;
     } else {
         // No current token, create a basic error message
-        snprintf(buf, sizeof(buf), "ERROR: %s\n   Location: Unknown", message);
+        snprintf(buf, sizeof(buf), "Parse Error: %s", message);
         parser->error_message = strdup(buf);
     }
     
-    // Print the enhanced error message
-    fprintf(stderr, "%s\n", parser->error_message ? parser->error_message : message);
+    // ANSI color codes for terminal output
+    #define ANSI_COLOR_RED     "\x1b[31m"
+    #define ANSI_COLOR_RESET   "\x1b[0m"
+    
+    // Print the enhanced error message with color
+    fprintf(stderr, ANSI_COLOR_RED "%s\n" ANSI_COLOR_RESET, parser->error_message ? parser->error_message : message);
 }
 
 /**
@@ -573,7 +572,9 @@ ASTNode* parser_parse_logical_or(Parser* parser) {
         }
         
         // Create a logical OR node
-        ASTNode* logical_or = ast_create_binary_op(OP_LOGICAL_OR, left, right, 0, 0);
+        ASTNode* logical_or = ast_create_binary_op(OP_LOGICAL_OR, left, right, 
+                                                   parser->current_token->line, 
+                                                   parser->current_token->column);
         if (logical_or) {
             left = logical_or;  // Continue building the chain
         }
@@ -614,7 +615,9 @@ ASTNode* parser_parse_logical_and(Parser* parser) {
         }
         
         // Create a logical AND node
-        ASTNode* logical_and = ast_create_binary_op(OP_LOGICAL_AND, left, right, 0, 0);
+        ASTNode* logical_and = ast_create_binary_op(OP_LOGICAL_AND, left, right, 
+                                                    parser->current_token->line, 
+                                                    parser->current_token->column);
         if (logical_and) {
             left = logical_and;  // Continue building the chain
         }
@@ -657,7 +660,9 @@ ASTNode* parser_parse_equality(Parser* parser) {
         
         // Create an equality node
         BinaryOperator op = (operator_type == TOKEN_EQUAL) ? OP_EQUAL : OP_NOT_EQUAL;
-        ASTNode* equality = ast_create_binary_op(op, left, right, 0, 0);
+        ASTNode* equality = ast_create_binary_op(op, left, right, 
+                                                 parser->current_token->line, 
+                                                 parser->current_token->column);
         if (equality) {
             left = equality;  // Continue building the chain
         }
@@ -710,7 +715,9 @@ ASTNode* parser_parse_comparison(Parser* parser) {
             case TOKEN_GREATER_EQUAL: op = OP_GREATER_EQUAL; break;
             default: op = OP_LESS_THAN; break; // Should never happen
         }
-        ASTNode* comparison = ast_create_binary_op(op, left, right, 0, 0);
+        ASTNode* comparison = ast_create_binary_op(op, left, right, 
+                                                   parser->current_token->line, 
+                                                   parser->current_token->column);
         if (comparison) {
             left = comparison;  // Continue building the chain
         }
@@ -750,10 +757,32 @@ ASTNode* parser_parse_range(Parser* parser) {
             return left;  // Return what we have so far
         }
         
-        // Create a range node (using OP_RANGE for exclusive ranges)
-        ASTNode* range = ast_create_binary_op(OP_RANGE, left, right, 0, 0);
-        if (range) {
-            return range;
+        // Check for step operator (another ..)
+        if (parser_check(parser, TOKEN_DOT_DOT)) {
+            parser_advance(parser);  // Consume the second '..' operator
+            
+            // Parse the step operand
+            ASTNode* step = parser_parse_term(parser);
+            if (!step) {
+                parser_error(parser, "Expected step expression after '..' in range");
+                return left;  // Return what we have so far
+            }
+            
+            // Create a range with step node (using OP_RANGE_STEP)
+            ASTNode* range = ast_create_range_with_step(left, right, step, 
+                                                       parser->current_token->line, 
+                                                       parser->current_token->column);
+            if (range) {
+                return range;
+            }
+        } else {
+            // Create a simple range node (using OP_RANGE for exclusive ranges)
+            ASTNode* range = ast_create_binary_op(OP_RANGE, left, right, 
+                                                  parser->current_token->line, 
+                                                  parser->current_token->column);
+            if (range) {
+                return range;
+            }
         }
     }
     
@@ -794,7 +823,9 @@ ASTNode* parser_parse_term(Parser* parser) {
             
             // Create a binary operation node
             BinaryOperator op = (operator_type == TOKEN_PLUS) ? OP_ADD : OP_SUBTRACT;
-            ASTNode* binary_op = ast_create_binary_op(op, left, right, 0, 0);
+            ASTNode* binary_op = ast_create_binary_op(op, left, right, 
+                                                      parser->current_token->line, 
+                                                      parser->current_token->column);
             if (binary_op) {
                 left = binary_op;  // Continue building the chain
             }
@@ -842,7 +873,9 @@ ASTNode* parser_parse_factor(Parser* parser) {
         if (operator_type == TOKEN_MULTIPLY) op = OP_MULTIPLY;
         else if (operator_type == TOKEN_DIVIDE) op = OP_DIVIDE;
         else op = OP_MODULO;
-        ASTNode* binary_op = ast_create_binary_op(op, left, right, 0, 0);
+        ASTNode* binary_op = ast_create_binary_op(op, left, right, 
+                                                   parser->current_token->line, 
+                                                   parser->current_token->column);
         if (binary_op) {
             left = binary_op;  // Continue building the chain
         }
@@ -883,7 +916,9 @@ ASTNode* parser_parse_power(Parser* parser) {
         }
         
         // Create a power operation node
-        ASTNode* power = ast_create_binary_op(OP_POWER, left, right, 0, 0);
+        ASTNode* power = ast_create_binary_op(OP_POWER, left, right, 
+                                               parser->current_token->line, 
+                                               parser->current_token->column);
         if (power) {
             return power;
         }
@@ -979,6 +1014,18 @@ ASTNode* parser_parse_primary(Parser* parser) {
         // Create proper boolean AST node
         int bool_value = (strcmp(token->text, "True") == 0) ? 1 : 0;
         ASTNode* literal = ast_create_bool(bool_value, token->line, token->column);
+        if (literal) {
+            return literal;
+        }
+    }
+    
+    if (parser_check(parser, TOKEN_KEYWORD) && strcmp(parser_peek(parser)->text, "Null") == 0) {
+        // Parse null literal
+        Token* token = parser_peek(parser);
+        parser_advance(parser);
+        
+        // Create null AST node
+        ASTNode* literal = ast_create_null(token->line, token->column);
         if (literal) {
             return literal;
         }

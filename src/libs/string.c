@@ -5,22 +5,22 @@
 #include "../../include/core/ast.h"
 
 // String utility functions
-Value builtin_string_upper(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_string_upper(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "upper() requires exactly 1 argument", 0, 0);
+        interpreter_set_error(interpreter, "upper() requires exactly 1 argument", line, column);
         return value_create_null();
     }
     
     Value arg = args[0];
     if (arg.type != VALUE_STRING || !arg.data.string_value) {
-        interpreter_set_error(interpreter, "upper() argument must be a string", 0, 0);
+        interpreter_set_error(interpreter, "upper() argument must be a string", line, column);
         return value_create_null();
     }
     
     size_t len = strlen(arg.data.string_value);
     char* result = malloc(len + 1);
     if (!result) {
-        interpreter_set_error(interpreter, "Out of memory in upper()", 0, 0);
+        interpreter_set_error(interpreter, "Out of memory in upper()", line, column);
         return value_create_null();
     }
     
@@ -34,22 +34,22 @@ Value builtin_string_upper(Interpreter* interpreter, Value* args, size_t arg_cou
     return ret;
 }
 
-Value builtin_string_lower(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_string_lower(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "lower() requires exactly 1 argument", 0, 0);
+        interpreter_set_error(interpreter, "lower() requires exactly 1 argument", line, column);
         return value_create_null();
     }
     
     Value arg = args[0];
     if (arg.type != VALUE_STRING || !arg.data.string_value) {
-        interpreter_set_error(interpreter, "lower() argument must be a string", 0, 0);
+        interpreter_set_error(interpreter, "lower() argument must be a string", line, column);
         return value_create_null();
     }
     
     size_t len = strlen(arg.data.string_value);
     char* result = malloc(len + 1);
     if (!result) {
-        interpreter_set_error(interpreter, "Out of memory in lower()", 0, 0);
+        interpreter_set_error(interpreter, "Out of memory in lower()", line, column);
         return value_create_null();
     }
     
@@ -63,15 +63,15 @@ Value builtin_string_lower(Interpreter* interpreter, Value* args, size_t arg_cou
     return ret;
 }
 
-Value builtin_string_trim(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_string_trim(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "trim() requires exactly 1 argument", 0, 0);
+        interpreter_set_error(interpreter, "trim() requires exactly 1 argument", line, column);
         return value_create_null();
     }
     
     Value arg = args[0];
     if (arg.type != VALUE_STRING || !arg.data.string_value) {
-        interpreter_set_error(interpreter, "trim() argument must be a string", 0, 0);
+        interpreter_set_error(interpreter, "trim() argument must be a string", line, column);
         return value_create_null();
     }
     
@@ -97,7 +97,7 @@ Value builtin_string_trim(Interpreter* interpreter, Value* args, size_t arg_coun
     size_t result_len = end - start;
     char* result = malloc(result_len + 1);
     if (!result) {
-        interpreter_set_error(interpreter, "Out of memory in trim()", 0, 0);
+        interpreter_set_error(interpreter, "Out of memory in trim()", line, column);
         return value_create_null();
     }
     
@@ -109,9 +109,9 @@ Value builtin_string_trim(Interpreter* interpreter, Value* args, size_t arg_coun
     return ret;
 }
 
-Value builtin_string_split(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_string_split(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "split() requires exactly 2 arguments", 0, 0);
+        interpreter_set_error(interpreter, "split() requires exactly 2 arguments", line, column);
         return value_create_null();
     }
     
@@ -120,7 +120,7 @@ Value builtin_string_split(Interpreter* interpreter, Value* args, size_t arg_cou
     
     if (str_arg.type != VALUE_STRING || !str_arg.data.string_value ||
         delim_arg.type != VALUE_STRING || !delim_arg.data.string_value) {
-        interpreter_set_error(interpreter, "split() arguments must be strings", 0, 0);
+        interpreter_set_error(interpreter, "split() arguments must be strings", line, column);
         return value_create_null();
     }
     
@@ -128,7 +128,7 @@ Value builtin_string_split(Interpreter* interpreter, Value* args, size_t arg_cou
     const char* delimiter = delim_arg.data.string_value;
     
     if (strlen(delimiter) == 0) {
-        interpreter_set_error(interpreter, "split() delimiter cannot be empty", 0, 0);
+        interpreter_set_error(interpreter, "split() delimiter cannot be empty", line, column);
         return value_create_null();
     }
     
@@ -144,7 +144,7 @@ Value builtin_string_split(Interpreter* interpreter, Value* args, size_t arg_cou
     // Create array
     Value array = value_create_array(token_count);
     if (array.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "Failed to create array in split()", 0, 0);
+        interpreter_set_error(interpreter, "Failed to create array in split()", line, column);
         return value_create_null();
     }
     
@@ -192,9 +192,9 @@ Value builtin_string_split(Interpreter* interpreter, Value* args, size_t arg_cou
     return array;
 }
 
-Value builtin_string_join(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_string_join(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "join() requires exactly 2 arguments", 0, 0);
+        interpreter_set_error(interpreter, "join() requires exactly 2 arguments", line, column);
         return value_create_null();
     }
     
@@ -202,7 +202,7 @@ Value builtin_string_join(Interpreter* interpreter, Value* args, size_t arg_coun
     Value separator_arg = args[1];
     
     if (array_arg.type != VALUE_ARRAY || separator_arg.type != VALUE_STRING || !separator_arg.data.string_value) {
-        interpreter_set_error(interpreter, "join() first argument must be array, second must be string", 0, 0);
+        interpreter_set_error(interpreter, "join() first argument must be array, second must be string", line, column);
         return value_create_null();
     }
     
@@ -228,7 +228,7 @@ Value builtin_string_join(Interpreter* interpreter, Value* args, size_t arg_coun
     // Build result string
     char* result = malloc(total_len + 1);
     if (!result) {
-        interpreter_set_error(interpreter, "Out of memory in join()", 0, 0);
+        interpreter_set_error(interpreter, "Out of memory in join()", line, column);
         return value_create_null();
     }
     
@@ -248,9 +248,9 @@ Value builtin_string_join(Interpreter* interpreter, Value* args, size_t arg_coun
     return ret;
 }
 
-Value builtin_string_contains(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_string_contains(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "contains() requires exactly 2 arguments", 0, 0);
+        interpreter_set_error(interpreter, "contains() requires exactly 2 arguments", line, column);
         return value_create_null();
     }
     
@@ -259,7 +259,7 @@ Value builtin_string_contains(Interpreter* interpreter, Value* args, size_t arg_
     
     if (str_arg.type != VALUE_STRING || !str_arg.data.string_value ||
         substr_arg.type != VALUE_STRING || !substr_arg.data.string_value) {
-        interpreter_set_error(interpreter, "contains() arguments must be strings", 0, 0);
+        interpreter_set_error(interpreter, "contains() arguments must be strings", line, column);
         return value_create_null();
     }
     
@@ -269,9 +269,9 @@ Value builtin_string_contains(Interpreter* interpreter, Value* args, size_t arg_
     return value_create_boolean(strstr(str, substr) != NULL);
 }
 
-Value builtin_string_starts_with(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_string_starts_with(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "starts_with() requires exactly 2 arguments", 0, 0);
+        interpreter_set_error(interpreter, "starts_with() requires exactly 2 arguments", line, column);
         return value_create_null();
     }
     
@@ -280,7 +280,7 @@ Value builtin_string_starts_with(Interpreter* interpreter, Value* args, size_t a
     
     if (str_arg.type != VALUE_STRING || !str_arg.data.string_value ||
         prefix_arg.type != VALUE_STRING || !prefix_arg.data.string_value) {
-        interpreter_set_error(interpreter, "starts_with() arguments must be strings", 0, 0);
+        interpreter_set_error(interpreter, "starts_with() arguments must be strings", line, column);
         return value_create_null();
     }
     
@@ -295,9 +295,9 @@ Value builtin_string_starts_with(Interpreter* interpreter, Value* args, size_t a
     return value_create_boolean(strncmp(str, prefix, prefix_len) == 0);
 }
 
-Value builtin_string_ends_with(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_string_ends_with(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "ends_with() requires exactly 2 arguments", 0, 0);
+        interpreter_set_error(interpreter, "ends_with() requires exactly 2 arguments", line, column);
         return value_create_null();
     }
     
@@ -306,7 +306,7 @@ Value builtin_string_ends_with(Interpreter* interpreter, Value* args, size_t arg
     
     if (str_arg.type != VALUE_STRING || !str_arg.data.string_value ||
         suffix_arg.type != VALUE_STRING || !suffix_arg.data.string_value) {
-        interpreter_set_error(interpreter, "ends_with() arguments must be strings", 0, 0);
+        interpreter_set_error(interpreter, "ends_with() arguments must be strings", line, column);
         return value_create_null();
     }
     
@@ -323,9 +323,9 @@ Value builtin_string_ends_with(Interpreter* interpreter, Value* args, size_t arg
     return value_create_boolean(strcmp(str + str_len - suffix_len, suffix) == 0);
 }
 
-Value builtin_string_replace(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_string_replace(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 3) {
-        interpreter_set_error(interpreter, "replace() requires exactly 3 arguments", 0, 0);
+        interpreter_set_error(interpreter, "replace() requires exactly 3 arguments", line, column);
         return value_create_null();
     }
     
@@ -336,7 +336,7 @@ Value builtin_string_replace(Interpreter* interpreter, Value* args, size_t arg_c
     if (str_arg.type != VALUE_STRING || !str_arg.data.string_value ||
         old_arg.type != VALUE_STRING || !old_arg.data.string_value ||
         new_arg.type != VALUE_STRING || !new_arg.data.string_value) {
-        interpreter_set_error(interpreter, "replace() arguments must be strings", 0, 0);
+        interpreter_set_error(interpreter, "replace() arguments must be strings", line, column);
         return value_create_null();
     }
     
@@ -369,7 +369,7 @@ Value builtin_string_replace(Interpreter* interpreter, Value* args, size_t arg_c
     // Allocate result string
     char* result = malloc(result_len + 1);
     if (!result) {
-        interpreter_set_error(interpreter, "Out of memory in replace()", 0, 0);
+        interpreter_set_error(interpreter, "Out of memory in replace()", line, column);
         return value_create_null();
     }
     
@@ -393,9 +393,9 @@ Value builtin_string_replace(Interpreter* interpreter, Value* args, size_t arg_c
     return ret;
 }
 
-Value builtin_string_repeat(Interpreter* interpreter, Value* args, size_t arg_count) {
+Value builtin_string_repeat(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "repeat() requires exactly 2 arguments", 0, 0);
+        interpreter_set_error(interpreter, "repeat() requires exactly 2 arguments", line, column);
         return value_create_null();
     }
     
@@ -404,7 +404,7 @@ Value builtin_string_repeat(Interpreter* interpreter, Value* args, size_t arg_co
     
     if (str_arg.type != VALUE_STRING || !str_arg.data.string_value ||
         count_arg.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "repeat() first argument must be string, second must be number", 0, 0);
+        interpreter_set_error(interpreter, "repeat() first argument must be string, second must be number", line, column);
         return value_create_null();
     }
     
@@ -412,7 +412,7 @@ Value builtin_string_repeat(Interpreter* interpreter, Value* args, size_t arg_co
     int count = (int)count_arg.data.number_value;
     
     if (count < 0) {
-        interpreter_set_error(interpreter, "repeat() count cannot be negative", 0, 0);
+        interpreter_set_error(interpreter, "repeat() count cannot be negative", line, column);
         return value_create_null();
     }
     
@@ -425,7 +425,7 @@ Value builtin_string_repeat(Interpreter* interpreter, Value* args, size_t arg_co
     
     char* result = malloc(result_len + 1);
     if (!result) {
-        interpreter_set_error(interpreter, "Out of memory in repeat()", 0, 0);
+        interpreter_set_error(interpreter, "Out of memory in repeat()", line, column);
         return value_create_null();
     }
     

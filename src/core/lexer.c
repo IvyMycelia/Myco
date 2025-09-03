@@ -386,6 +386,8 @@ static void lexer_parse_identifier(Lexer* lexer) {
         else if (strcmp(text, "function") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "class") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "self") == 0) type = TOKEN_KEYWORD;
+        else if (strcmp(text, "extends") == 0) type = TOKEN_KEYWORD;
+        else if (strcmp(text, "super") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "return") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "let") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "const") == 0) type = TOKEN_KEYWORD;

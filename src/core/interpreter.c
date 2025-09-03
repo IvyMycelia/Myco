@@ -410,13 +410,93 @@ Value value_create_builtin_function(Value (*func)(Interpreter*, Value*, size_t, 
     v.data.function_value.body = (ASTNode*)func;
     return v;
 }
-Value value_create_class(const char* name, ASTNode* class_body, Environment* class_env) {
+Value value_create_class(const char* name, const char* parent_name, ASTNode* class_body, Environment* class_env) {
     Value v = {0};
     v.type = VALUE_CLASS;
     v.data.class_value.class_name = name ? strdup(name) : NULL;
+    v.data.class_value.parent_class_name = parent_name ? strdup(parent_name) : NULL;
     v.data.class_value.class_body = class_body;
     v.data.class_value.class_environment = class_env;
     return v;
+}
+
+// Helper function to collect all fields from the inheritance chain
+void collect_inherited_fields(Interpreter* interpreter, Value* class_value, ASTNode*** all_fields, size_t* field_count, size_t* field_capacity) {
+    if (!class_value || class_value->type != VALUE_CLASS) {
+        return;
+    }
+    
+    // First, collect fields from parent class (if any)
+    if (class_value->data.class_value.parent_class_name) {
+        Value parent_class = environment_get(interpreter->global_environment, class_value->data.class_value.parent_class_name);
+        if (parent_class.type == VALUE_CLASS) {
+            collect_inherited_fields(interpreter, &parent_class, all_fields, field_count, field_capacity);
+            value_free(&parent_class);
+        }
+    }
+    
+    // Then, collect fields from current class
+    ASTNode* class_body = class_value->data.class_value.class_body;
+    if (class_body && class_body->type == AST_NODE_BLOCK) {
+        for (size_t i = 0; i < class_body->data.block.statement_count; i++) {
+            ASTNode* stmt = class_body->data.block.statements[i];
+            if (stmt && stmt->type == AST_NODE_VARIABLE_DECLARATION) {
+                // Expand capacity if needed
+                if (*field_count >= *field_capacity) {
+                    size_t new_capacity = *field_capacity == 0 ? 4 : *field_capacity * 2;
+                    ASTNode** new_fields = (ASTNode**)realloc(*all_fields, new_capacity * sizeof(ASTNode*));
+                    if (new_fields) {
+                        *all_fields = new_fields;
+                        *field_capacity = new_capacity;
+                    }
+                }
+                
+                if (*field_count < *field_capacity) {
+                    (*all_fields)[*field_count] = stmt;
+                    (*field_count)++;
+                }
+            }
+        }
+    }
+}
+
+// Helper function to find a method in the inheritance chain
+Value find_method_in_inheritance_chain(Interpreter* interpreter, Value* class_value, const char* method_name) {
+    if (!class_value || class_value->type != VALUE_CLASS) {
+        return value_create_null();
+    }
+    
+    // Search in current class
+    ASTNode* class_body = class_value->data.class_value.class_body;
+    if (class_body && class_body->type == AST_NODE_BLOCK) {
+        for (size_t i = 0; i < class_body->data.block.statement_count; i++) {
+            ASTNode* stmt = class_body->data.block.statements[i];
+            if (stmt && stmt->type == AST_NODE_FUNCTION && 
+                stmt->data.function_definition.function_name &&
+                strcmp(stmt->data.function_definition.function_name, method_name) == 0) {
+                // Found the method! Return it
+                return value_create_function(
+                    stmt->data.function_definition.body,
+                    stmt->data.function_definition.parameters,
+                    stmt->data.function_definition.parameter_count,
+                    stmt->data.function_definition.return_type,
+                    class_value->data.class_value.class_environment
+                );
+            }
+        }
+    }
+    
+    // If not found in current class, search in parent class
+    if (class_value->data.class_value.parent_class_name) {
+        Value parent_class = environment_get(interpreter->global_environment, class_value->data.class_value.parent_class_name);
+        if (parent_class.type == VALUE_CLASS) {
+            Value result = find_method_in_inheritance_chain(interpreter, &parent_class, method_name);
+            value_free(&parent_class);
+            return result;
+        }
+    }
+    
+    return value_create_null();
 }
 
 // Helper function to create a class instance
@@ -449,10 +529,16 @@ Value create_class_instance(Interpreter* interpreter, Value* class_value, ASTNod
             args[i] = interpreter_execute(interpreter, call_node->data.function_call.arguments[i]);
         }
         
+        // Collect all fields from inheritance chain
+        ASTNode** all_fields = NULL;
+        size_t field_count = 0;
+        size_t field_capacity = 0;
+        collect_inherited_fields(interpreter, class_value, &all_fields, &field_count, &field_capacity);
+        
         // Initialize fields from constructor arguments
         size_t field_index = 0;
-        for (size_t i = 0; i < class_body->data.block.statement_count; i++) {
-            ASTNode* stmt = class_body->data.block.statements[i];
+        for (size_t i = 0; i < field_count; i++) {
+            ASTNode* stmt = all_fields[i];
             if (stmt && stmt->type == AST_NODE_VARIABLE_DECLARATION) {
                 const char* field_name = stmt->data.variable_declaration.variable_name;
                 if (field_name) {
@@ -471,6 +557,11 @@ Value create_class_instance(Interpreter* interpreter, Value* class_value, ASTNod
                     value_object_set(&instance, field_name, field_value);
                 }
             }
+        }
+        
+        // Free the fields array
+        if (all_fields) {
+            free(all_fields);
         }
         
         // Free constructor arguments
@@ -566,6 +657,11 @@ void value_free(Value* value) {
                 free(value->data.class_value.class_name);
                 value->data.class_value.class_name = NULL;
             }
+            // Free parent class name
+            if (value->data.class_value.parent_class_name) {
+                free(value->data.class_value.parent_class_name);
+                value->data.class_value.parent_class_name = NULL;
+            }
             // Note: Don't free class_body or class_environment here as they may be shared
             // The AST and environment will be freed when the interpreter is freed
             break;
@@ -626,6 +722,7 @@ Value value_clone(Value* value) {
             // Clone the class value
             return value_create_class(
                 value->data.class_value.class_name,
+                value->data.class_value.parent_class_name,
                 value->data.class_value.class_body,
                 value->data.class_value.class_environment
             );
@@ -1094,7 +1191,39 @@ Value value_function_call(Value* func, Value* args, size_t arg_count, Interprete
         return builtin_func(interpreter, args, arg_count, line, column);
     }
     
-    // TODO: Handle user-defined functions
+    // Handle user-defined functions
+    if (func->data.function_value.body) {
+        // Save current environment
+        Environment* old_env = interpreter->current_environment;
+        
+        // Create new environment for function execution
+        Environment* func_env = environment_create(func->data.function_value.captured_environment);
+        
+        // Set up function parameters
+        if (func->data.function_value.parameters && func->data.function_value.parameter_count > 0) {
+            for (size_t i = 0; i < func->data.function_value.parameter_count && i < arg_count; i++) {
+                const char* param_name = func->data.function_value.parameters[i]->data.identifier_value;
+                if (param_name) {
+                    environment_define(func_env, param_name, value_clone(&args[i]));
+                }
+            }
+        }
+        
+        // Set current environment to function environment
+        interpreter->current_environment = func_env;
+        
+        // Execute function body
+        Value result = interpreter_execute(interpreter, func->data.function_value.body);
+        
+        // Restore environment
+        interpreter->current_environment = old_env;
+        
+        // Clean up function environment
+        environment_free(func_env);
+        
+        return result;
+    }
+    
     return value_create_null();
 }
 
@@ -1935,30 +2064,13 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     // Look up the class by name in the global environment
                     Value class_ref = environment_get(interpreter->global_environment, class_name_val.data.string_value);
                     if (class_ref.type == VALUE_CLASS) {
-                        // Look for the method in the class body
-                        ASTNode* class_body = class_ref.data.class_value.class_body;
-                        if (class_body && class_body->type == AST_NODE_BLOCK) {
-                            // Search through the class body for the method
-                            for (size_t i = 0; i < class_body->data.block.statement_count; i++) {
-                                ASTNode* stmt = class_body->data.block.statements[i];
-                                if (stmt && stmt->type == AST_NODE_FUNCTION && 
-                                    stmt->data.function_definition.function_name &&
-                                    strcmp(stmt->data.function_definition.function_name, member_name) == 0) {
-                                    // Found the method! Create a bound method
-                                    // For now, just return the function (method binding will be implemented later)
-                                    Value method = value_create_function(
-                                        stmt->data.function_definition.body,
-                                        stmt->data.function_definition.parameters,
-                                        stmt->data.function_definition.parameter_count,
-                                        stmt->data.function_definition.return_type,
-                                        class_ref.data.class_value.class_environment
-                                    );
-                                    value_free(&class_name_val);
-                                    value_free(&class_ref);
-                                    value_free(&object);
-                                    return method;
-                                }
-                            }
+                        // Look for the method in the inheritance chain
+                        Value method = find_method_in_inheritance_chain(interpreter, &class_ref, member_name);
+                        if (method.type != VALUE_NULL) {
+                            value_free(&class_name_val);
+                            value_free(&class_ref);
+                            value_free(&object);
+                            return method;
                         }
                         
                         // If not a method, check if it's a field
@@ -2295,7 +2407,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 Environment* class_env = environment_create(interpreter->current_environment);
                 
                 // Create the class value with the class body and environment
-                Value class_value = value_create_class(class_name, node->data.class_definition.body, class_env);
+                Value class_value = value_create_class(class_name, node->data.class_definition.parent_class, node->data.class_definition.body, class_env);
                 
                 // Define the class in the global environment
                 environment_define(interpreter->global_environment, class_name, class_value);

@@ -429,16 +429,22 @@ Value builtin_array_slice(Interpreter* interpreter, Value* args, size_t arg_coun
 void array_library_register(Interpreter* interpreter) {
     if (!interpreter || !interpreter->global_environment) return;
     
-    // Register functions
-    environment_define(interpreter->global_environment, "push", value_create_builtin_function(builtin_array_push));
-    environment_define(interpreter->global_environment, "pop", value_create_builtin_function(builtin_array_pop));
-    environment_define(interpreter->global_environment, "insert", value_create_builtin_function(builtin_array_insert));
-    environment_define(interpreter->global_environment, "remove", value_create_builtin_function(builtin_array_remove));
-    environment_define(interpreter->global_environment, "reverse", value_create_builtin_function(builtin_array_reverse));
-    environment_define(interpreter->global_environment, "sort", value_create_builtin_function(builtin_array_sort));
-    environment_define(interpreter->global_environment, "filter", value_create_builtin_function(builtin_array_filter));
-    environment_define(interpreter->global_environment, "map", value_create_builtin_function(builtin_array_map));
-    environment_define(interpreter->global_environment, "reduce", value_create_builtin_function(builtin_array_reduce));
-    environment_define(interpreter->global_environment, "find", value_create_builtin_function(builtin_array_find));
-    environment_define(interpreter->global_environment, "slice", value_create_builtin_function(builtin_array_slice));
+    // Create array object with methods
+    Value array_obj = value_create_object(16);
+    
+    // Add methods to array object
+    value_object_set_member(&array_obj, "push", value_create_builtin_function(builtin_array_push));
+    value_object_set_member(&array_obj, "pop", value_create_builtin_function(builtin_array_pop));
+    value_object_set_member(&array_obj, "insert", value_create_builtin_function(builtin_array_insert));
+    value_object_set_member(&array_obj, "remove", value_create_builtin_function(builtin_array_remove));
+    value_object_set_member(&array_obj, "reverse", value_create_builtin_function(builtin_array_reverse));
+    value_object_set_member(&array_obj, "sort", value_create_builtin_function(builtin_array_sort));
+    value_object_set_member(&array_obj, "filter", value_create_builtin_function(builtin_array_filter));
+    value_object_set_member(&array_obj, "map", value_create_builtin_function(builtin_array_map));
+    value_object_set_member(&array_obj, "reduce", value_create_builtin_function(builtin_array_reduce));
+    value_object_set_member(&array_obj, "find", value_create_builtin_function(builtin_array_find));
+    value_object_set_member(&array_obj, "slice", value_create_builtin_function(builtin_array_slice));
+    
+    // Register the array object
+    environment_define(interpreter->global_environment, "array", array_obj);
 }

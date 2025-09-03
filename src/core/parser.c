@@ -1035,7 +1035,8 @@ ASTNode* parser_parse_primary(Parser* parser) {
     }
     
     if (parser_check(parser, TOKEN_IDENTIFIER) || 
-        (parser_check(parser, TOKEN_KEYWORD) && parser->current_token->text && strcmp(parser->current_token->text, "self") == 0)) {
+        (parser_check(parser, TOKEN_KEYWORD) && parser->current_token->text && 
+         (strcmp(parser->current_token->text, "self") == 0 || strcmp(parser->current_token->text, "super") == 0))) {
         // Parse identifier or self keyword
         Token* ident_token = parser_peek(parser);
         parser_advance(parser);
@@ -2201,12 +2202,30 @@ ASTNode* parser_parse_class_declaration(Parser* parser) {
     }
     
     char* class_name = strdup(parser->previous_token->text);
+    char* parent_class = NULL;
+    
+    // Check for inheritance (extends keyword)
+    if (parser_check(parser, TOKEN_KEYWORD) && 
+        parser->current_token->text && 
+        strcmp(parser->current_token->text, "extends") == 0) {
+        parser_advance(parser);  // Consume 'extends'
+        
+        // Parse parent class name
+        if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+            parser_error(parser, "Expected parent class name after 'extends'");
+            parser_synchronize(parser);
+            free(class_name);
+            return NULL;
+        }
+        parent_class = strdup(parser->previous_token->text);
+    }
     
     // Parse ':'
     if (!parser_match(parser, TOKEN_COLON)) {
         parser_error(parser, "Expected ':' after class name");
         parser_synchronize(parser);
         free(class_name);
+        if (parent_class) free(parent_class);
         return NULL;
     }
     
@@ -2220,8 +2239,9 @@ ASTNode* parser_parse_class_declaration(Parser* parser) {
     }
     
     // Create class node
-    ASTNode* class_node = ast_create_class(class_name, NULL, body, 0, 0);
+    ASTNode* class_node = ast_create_class(class_name, parent_class, body, 0, 0);
     free(class_name);
+    if (parent_class) free(parent_class);
     
     return class_node;
 }

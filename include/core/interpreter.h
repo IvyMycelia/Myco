@@ -53,7 +53,8 @@ typedef union {
     } function_value;
     struct {
         char* class_name;
-        void* instance;
+        ASTNode* class_body;  // The class definition body (fields and methods)
+        Environment* class_environment;  // Environment for class-level variables
     } class_value;
     struct {
         char* module_name;
@@ -121,7 +122,7 @@ Value value_create_array(size_t initial_capacity);
 Value value_create_object(size_t initial_capacity);
 void value_object_set_member(Value* object, const char* member_name, Value member_value);
 Value value_create_function(ASTNode* body, ASTNode** params, size_t param_count, const char* return_type, Environment* captured_env);
-Value value_create_class(const char* name, void* instance);
+Value value_create_class(const char* name, ASTNode* class_body, Environment* class_env);
 Value value_create_module(const char* name, void* exports);
 Value value_create_error(const char* message, int code);
 

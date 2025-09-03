@@ -516,6 +516,8 @@ ASTNode* parser_parse_lambda_expression(Parser* parser);
  * @return AST node representing the class declaration
  */
 ASTNode* parser_parse_class_declaration(Parser* parser);
+ASTNode* parser_parse_class_body(Parser* parser);
+ASTNode* parser_parse_class_field(Parser* parser);
 
 /**
  * @brief Parse an interface declaration

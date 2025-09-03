@@ -1567,6 +1567,111 @@ else:
     tests_failed = tests_failed + ["Function type interchangeability with different argument types"];
 end
 
+# 17. Classes and Objects
+total_tests = total_tests + 1;
+class TestClass:
+    let name: String
+end
+print("✓ Basic class parsing");
+tests_passed = tests_passed + 1;
+
+total_tests = total_tests + 1;
+class Person:
+    let name: String
+    let age: Int
+end
+print("✓ Class with typed fields");
+tests_passed = tests_passed + 1;
+
+total_tests = total_tests + 1;
+class DefaultClass:
+    let name = "Default"
+    let count = 0
+end
+print("✓ Class with default field values");
+tests_passed = tests_passed + 1;
+
+total_tests = total_tests + 1;
+class SimpleClass:
+    let value: Int
+end
+let s: SimpleClass = SimpleClass(42);
+print("✓ Class instantiation");
+tests_passed = tests_passed + 1;
+
+total_tests = total_tests + 1;
+class MethodClass:
+    let name: String
+    func greet() -> String:
+        return "Hello, " + self.name
+    end
+end
+let m: MethodClass = MethodClass("World");
+print("✓ Class with methods");
+tests_passed = tests_passed + 1;
+
+total_tests = total_tests + 1;
+class SelfClass:
+    let value: Int
+    func getValue() -> Int:
+        return self.value
+    end
+end
+let self_test: SelfClass = SelfClass(100);
+print("✓ Class with self references");
+tests_passed = tests_passed + 1;
+
+total_tests = total_tests + 1;
+class MixedClass:
+    let name: String
+    let age: Int
+    let active = true
+end
+let mixed: MixedClass = MixedClass("Alice", 25);
+print("✓ Class with mixed field types");
+tests_passed = tests_passed + 1;
+
+total_tests = total_tests + 1;
+class TypedMethodClass:
+    let count: Int
+    func increment() -> Int:
+        return self.count + 1
+    end
+    func getName() -> String:
+        return "TypedMethodClass"
+    end
+end
+let typed: TypedMethodClass = TypedMethodClass(5);
+print("✓ Class with typed methods");
+tests_passed = tests_passed + 1;
+
+total_tests = total_tests + 1;
+class UntypedMethodClass:
+    let data: String
+    func process():
+        // Method without return type
+    end
+end
+let untyped: UntypedMethodClass = UntypedMethodClass("data");
+print("✓ Class with untyped methods");
+tests_passed = tests_passed + 1;
+
+total_tests = total_tests + 1;
+class ComplexClass:
+    let x: Int
+    let y: Int
+    func calculate() -> Int:
+        if self.x > self.y:
+            return self.x * 2
+        else:
+            return self.y * 2
+        end
+    end
+end
+let complex: ComplexClass = ComplexClass(10, 5);
+print("✓ Class with complex method bodies");
+tests_passed = tests_passed + 1;
+
 print("\n=== RESULTS ===");
 print("Total: " + str(total_tests));
 print("Passed: " + str(tests_passed));

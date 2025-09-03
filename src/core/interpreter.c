@@ -410,7 +410,81 @@ Value value_create_builtin_function(Value (*func)(Interpreter*, Value*, size_t, 
     v.data.function_value.body = (ASTNode*)func;
     return v;
 }
-Value value_create_class(const char* name, void* instance) { Value v = {0}; return v; }
+Value value_create_class(const char* name, ASTNode* class_body, Environment* class_env) {
+    Value v = {0};
+    v.type = VALUE_CLASS;
+    v.data.class_value.class_name = name ? strdup(name) : NULL;
+    v.data.class_value.class_body = class_body;
+    v.data.class_value.class_environment = class_env;
+    return v;
+}
+
+// Helper function to create a class instance
+Value create_class_instance(Interpreter* interpreter, Value* class_value, ASTNode* call_node) {
+    if (!class_value || class_value->type != VALUE_CLASS) {
+        interpreter_set_error(interpreter, "Invalid class value", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Create an instance environment
+    Environment* instance_env = environment_create(class_value->data.class_value.class_environment);
+    
+    // Create an instance object to store instance variables
+    Value instance = value_create_object(16);
+    
+    // Store the class name as a string for method lookup (safer than storing the full class)
+    value_object_set(&instance, "__class_name__", value_create_string(class_value->data.class_value.class_name));
+    
+    // Process constructor arguments and initialize fields
+    ASTNode* class_body = class_value->data.class_value.class_body;
+    if (class_body && class_body->type == AST_NODE_BLOCK) {
+        // Get constructor arguments
+        size_t arg_count = call_node->data.function_call.argument_count;
+        Value* args = arg_count > 0 ? (Value*)calloc(arg_count, sizeof(Value)) : NULL;
+        if (arg_count > 0 && !args) {
+            return value_create_null();
+        }
+        
+        for (size_t i = 0; i < arg_count; i++) {
+            args[i] = interpreter_execute(interpreter, call_node->data.function_call.arguments[i]);
+        }
+        
+        // Initialize fields from constructor arguments
+        size_t field_index = 0;
+        for (size_t i = 0; i < class_body->data.block.statement_count; i++) {
+            ASTNode* stmt = class_body->data.block.statements[i];
+            if (stmt && stmt->type == AST_NODE_VARIABLE_DECLARATION) {
+                const char* field_name = stmt->data.variable_declaration.variable_name;
+                if (field_name) {
+                    Value field_value;
+                    if (field_index < arg_count) {
+                        // Use constructor argument
+                        field_value = value_clone(&args[field_index]);
+                        field_index++;
+                    } else if (stmt->data.variable_declaration.initial_value) {
+                        // Use default value
+                        field_value = interpreter_execute(interpreter, stmt->data.variable_declaration.initial_value);
+                    } else {
+                        // Use null as default
+                        field_value = value_create_null();
+                    }
+                    value_object_set(&instance, field_name, field_value);
+                }
+            }
+        }
+        
+        // Free constructor arguments
+        if (args) {
+            for (size_t i = 0; i < arg_count; i++) {
+                value_free(&args[i]);
+            }
+            free(args);
+        }
+    }
+    
+    return instance;
+}
+
 Value value_create_module(const char* name, void* exports) { Value v = {0}; return v; }
 Value value_create_error(const char* message, int code) { Value v = {0}; return v; }
 
@@ -486,6 +560,16 @@ void value_free(Value* value) {
             }
             break;
             
+        case VALUE_CLASS:
+            // Free class name
+            if (value->data.class_value.class_name) {
+                free(value->data.class_value.class_name);
+                value->data.class_value.class_name = NULL;
+            }
+            // Note: Don't free class_body or class_environment here as they may be shared
+            // The AST and environment will be freed when the interpreter is freed
+            break;
+            
         default:
             // Other types (NUMBER, BOOLEAN, NULL, RANGE) don't need cleanup
             break;
@@ -538,6 +622,14 @@ Value value_clone(Value* value) {
                 value->data.function_value.captured_environment
             );
         } 
+        case VALUE_CLASS: {
+            // Clone the class value
+            return value_create_class(
+                value->data.class_value.class_name,
+                value->data.class_value.class_body,
+                value->data.class_value.class_environment
+            );
+        }
         default: return value_create_null(); 
     } 
 }
@@ -876,7 +968,19 @@ size_t value_array_length(Value* array) {
     return array->data.array_value.count;
 }
 
-void value_object_set(Value* obj, const char* key, Value value) {}
+void value_object_set(Value* obj, const char* key, Value value) {
+    if (!obj || obj->type != VALUE_OBJECT || !key) return;
+    
+    // For now, just a simple implementation - don't expand, just add if there's space
+    if (obj->data.object_value.count < obj->data.object_value.capacity) {
+        obj->data.object_value.keys[obj->data.object_value.count] = strdup(key);
+        obj->data.object_value.values[obj->data.object_value.count] = malloc(sizeof(Value));
+        if (obj->data.object_value.values[obj->data.object_value.count]) {
+            *((Value*)obj->data.object_value.values[obj->data.object_value.count]) = value_clone(&value);
+            obj->data.object_value.count++;
+        }
+    }
+}
 Value value_object_get(Value* obj, const char* key) { 
     if (!obj || obj->type != VALUE_OBJECT || !key) {
         return value_create_null();
@@ -1136,9 +1240,13 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
         case AST_NODE_BOOL: return value_create_boolean(node->data.bool_value);
         case AST_NODE_NULL: return value_create_null();
         case AST_NODE_IDENTIFIER: {
-            Value result = environment_get(interpreter->current_environment, node->data.identifier_value);
+            const char* name = node->data.identifier_value;
+            Value result = environment_get(interpreter->current_environment, name);
             if (result.type == VALUE_NULL) {
-                interpreter_set_error(interpreter, "Undefined variable", node->line, node->column);
+                result = environment_get(interpreter->global_environment, name);
+                if (result.type == VALUE_NULL) {
+                    interpreter_set_error(interpreter, "Undefined variable", node->line, node->column);
+                }
             }
             return result;
         }
@@ -1196,6 +1304,17 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             if (!func_name) {
                 interpreter_set_error(interpreter, "Function name is NULL", node->line, node->column);
                 return value_create_null();
+            }
+            
+            // Check if this is a class instantiation
+            Value class_value = environment_get(interpreter->current_environment, func_name);
+            if (class_value.type != VALUE_CLASS) {
+                // Try global environment
+                class_value = environment_get(interpreter->global_environment, func_name);
+            }
+            if (class_value.type == VALUE_CLASS) {
+                // This is a class instantiation - create an instance
+                return create_class_instance(interpreter, &class_value, node);
             }
             
             // Handle built-in functions first
@@ -1810,6 +1929,51 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             if (object.type == VALUE_NULL) {
                 snprintf(error_msg, sizeof(error_msg), "Cannot access member '%s' of null object", member_name);
             } else if (object.type == VALUE_OBJECT) {
+                // Check if this is a class instance with a __class_name__ reference
+                Value class_name_val = value_object_get(&object, "__class_name__");
+                if (class_name_val.type == VALUE_STRING && class_name_val.data.string_value) {
+                    // Look up the class by name in the global environment
+                    Value class_ref = environment_get(interpreter->global_environment, class_name_val.data.string_value);
+                    if (class_ref.type == VALUE_CLASS) {
+                        // Look for the method in the class body
+                        ASTNode* class_body = class_ref.data.class_value.class_body;
+                        if (class_body && class_body->type == AST_NODE_BLOCK) {
+                            // Search through the class body for the method
+                            for (size_t i = 0; i < class_body->data.block.statement_count; i++) {
+                                ASTNode* stmt = class_body->data.block.statements[i];
+                                if (stmt && stmt->type == AST_NODE_FUNCTION && 
+                                    stmt->data.function_definition.function_name &&
+                                    strcmp(stmt->data.function_definition.function_name, member_name) == 0) {
+                                    // Found the method! Create a bound method
+                                    // For now, just return the function (method binding will be implemented later)
+                                    Value method = value_create_function(
+                                        stmt->data.function_definition.body,
+                                        stmt->data.function_definition.parameters,
+                                        stmt->data.function_definition.parameter_count,
+                                        stmt->data.function_definition.return_type,
+                                        class_ref.data.class_value.class_environment
+                                    );
+                                    value_free(&class_name_val);
+                                    value_free(&class_ref);
+                                    value_free(&object);
+                                    return method;
+                                }
+                            }
+                        }
+                        
+                        // If not a method, check if it's a field
+                        // Look for the field in the instance object
+                        Value field_value = value_object_get(&object, member_name);
+                        if (field_value.type != VALUE_NULL) {
+                            value_free(&class_name_val);
+                            value_free(&class_ref);
+                            value_free(&object);
+                            return field_value;
+                        }
+                    }
+                    value_free(&class_ref);
+                }
+                value_free(&class_name_val);
                 snprintf(error_msg, sizeof(error_msg), "Member '%s' not found in object", member_name);
             } else {
                 snprintf(error_msg, sizeof(error_msg), "Cannot access member '%s' of %s", member_name, value_type_string(object.type));
@@ -2120,6 +2284,22 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             }
             
             // TODO: Implement file-based imports
+            return value_create_null();
+        }
+        
+        case AST_NODE_CLASS: {
+            // Define a class in the current environment
+            const char* class_name = node->data.class_definition.class_name;
+            if (class_name) {
+                // Create a class environment to store class-level variables
+                Environment* class_env = environment_create(interpreter->current_environment);
+                
+                // Create the class value with the class body and environment
+                Value class_value = value_create_class(class_name, node->data.class_definition.body, class_env);
+                
+                // Define the class in the global environment
+                environment_define(interpreter->global_environment, class_name, class_value);
+            }
             return value_create_null();
         }
             

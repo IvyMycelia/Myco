@@ -372,6 +372,9 @@ ASTNode* parser_parse_statement(Parser* parser) {
             } else if (strcmp(token->text, "func") == 0) {
                 parser_advance(parser);  // Consume the 'func' keyword
                 return parser_parse_function_declaration(parser);
+            } else if (strcmp(token->text, "class") == 0) {
+                parser_advance(parser);  // Consume the 'class' keyword
+                return parser_parse_class_declaration(parser);
             } else if (strcmp(token->text, "return") == 0) {
                 parser_advance(parser);  // Consume the 'return' keyword
                 return parser_parse_return_statement(parser);
@@ -1031,8 +1034,9 @@ ASTNode* parser_parse_primary(Parser* parser) {
         }
     }
     
-    if (parser_check(parser, TOKEN_IDENTIFIER)) {
-        // Parse identifier
+    if (parser_check(parser, TOKEN_IDENTIFIER) || 
+        (parser_check(parser, TOKEN_KEYWORD) && parser->current_token->text && strcmp(parser->current_token->text, "self") == 0)) {
+        // Parse identifier or self keyword
         Token* ident_token = parser_peek(parser);
         parser_advance(parser);
         
@@ -2188,8 +2192,188 @@ ASTNode* parser_parse_class_declaration(Parser* parser) {
         return NULL;
     }
     
-    // TODO: Implement class declaration parsing logic
-    return NULL;  // Not implemented yet
+    // Parse 'class' keyword (already consumed by caller)
+    // Parse class name
+    if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+        parser_error(parser, "Expected class name after 'class'");
+        parser_synchronize(parser);
+        return NULL;
+    }
+    
+    char* class_name = strdup(parser->previous_token->text);
+    
+    // Parse ':'
+    if (!parser_match(parser, TOKEN_COLON)) {
+        parser_error(parser, "Expected ':' after class name");
+        parser_synchronize(parser);
+        free(class_name);
+        return NULL;
+    }
+    
+    // Parse class body (fields and methods)
+    ASTNode* body = parser_parse_class_body(parser);
+    if (!body) {
+        parser_error(parser, "Expected class body");
+        parser_synchronize(parser);
+        free(class_name);
+        return NULL;
+    }
+    
+    // Create class node
+    ASTNode* class_node = ast_create_class(class_name, NULL, body, 0, 0);
+    free(class_name);
+    
+    return class_node;
+}
+
+/**
+ * @brief Parse a class body containing fields and methods
+ * 
+ * Class bodies can contain:
+ * - Field declarations: let name: String or let name = "default"
+ * - Method declarations: func method_name(): ... end
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the class body
+ */
+ASTNode* parser_parse_class_body(Parser* parser) {
+    if (!parser) {
+        return NULL;
+    }
+    
+    ASTNode* head = NULL;
+    ASTNode* tail = NULL;
+    
+    // Parse until we hit 'end'
+    while (parser->current_token && parser->current_token->type != TOKEN_EOF) {
+        // Skip semicolons
+        if (parser->current_token->type == TOKEN_SEMICOLON) {
+            parser_advance(parser);
+            continue;
+        }
+        
+        // Check for 'end' keyword
+        if (parser_check(parser, TOKEN_KEYWORD) && 
+            parser->current_token->text && 
+            strcmp(parser->current_token->text, "end") == 0) {
+            parser_advance(parser);  // Consume 'end'
+            break;
+        }
+        
+        ASTNode* stmt = NULL;
+        
+        // Check what type of statement we're dealing with
+        if (parser_check(parser, TOKEN_KEYWORD)) {
+            Token* token = parser_peek(parser);
+            
+            if (token && token->text) {
+                if (strcmp(token->text, "let") == 0) {
+                    // Parse field declaration
+                    parser_advance(parser);  // Consume 'let'
+                    stmt = parser_parse_class_field(parser);
+                } else if (strcmp(token->text, "func") == 0) {
+                    // Parse method declaration
+                    parser_advance(parser);  // Consume 'func'
+                    stmt = parser_parse_function_declaration(parser);
+                }
+            }
+        }
+        
+        if (stmt) {
+            if (!head) { 
+                head = tail = stmt; 
+            } else { 
+                tail->next = stmt; 
+                tail = stmt; 
+            }
+        } else {
+            parser_synchronize(parser);
+        }
+    }
+    
+    // Convert linked list to block node
+    if (!head) return ast_create_block(NULL, 0, 0, 0);
+    int count = 0; 
+    for (ASTNode* n = head; n; n = n->next) count++;
+    
+    ASTNode** statements = malloc(count * sizeof(ASTNode*));
+    if (!statements) return NULL;
+    
+    int i = 0;
+    for (ASTNode* n = head; n; n = n->next) {
+        statements[i++] = n;
+    }
+    
+    return ast_create_block(statements, count, 0, 0);
+}
+
+/**
+ * @brief Parse a class field declaration
+ * 
+ * Class fields can be:
+ * - let name: String (type only)
+ * - let name = "default" (with default value)
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the field declaration
+ */
+ASTNode* parser_parse_class_field(Parser* parser) {
+    if (!parser) {
+        return NULL;
+    }
+    
+    // Parse field name
+    if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+        parser_error(parser, "Expected field name after 'let'");
+        parser_synchronize(parser);
+        return NULL;
+    }
+    
+    char* field_name = strdup(parser->previous_token->text);
+    
+    // Check if this is a type declaration or assignment
+    if (parser_check(parser, TOKEN_COLON)) {
+        // Type declaration: let name: String
+        parser_advance(parser);  // Consume ':'
+        
+        if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+            parser_error(parser, "Expected type name after ':'");
+            parser_synchronize(parser);
+            free(field_name);
+            return NULL;
+        }
+        
+        char* type_name = strdup(parser->previous_token->text);
+        
+        // Create a variable declaration with type but no initial value
+        ASTNode* field = ast_create_variable_declaration(field_name, type_name, NULL, 0, 0, 0);
+        free(field_name);
+        free(type_name);
+        return field;
+        
+    } else if (parser_check(parser, TOKEN_ASSIGN)) {
+        // Assignment: let name = value
+        parser_advance(parser);  // Consume '='
+        
+        ASTNode* initial_value = parser_parse_expression(parser);
+        if (!initial_value) {
+            parser_error(parser, "Expected initial value after '='");
+            parser_synchronize(parser);
+            free(field_name);
+            return NULL;
+        }
+        
+        // Create a variable declaration with initial value
+        ASTNode* field = ast_create_variable_declaration(field_name, NULL, initial_value, 0, 0, 0);
+        free(field_name);
+        return field;
+        
+    } else {
+        parser_error(parser, "Expected ':' for type or '=' for assignment");
+        parser_synchronize(parser);
+        free(field_name);
+        return NULL;
+    }
 }
 
 /**

@@ -24,7 +24,8 @@ Value builtin_array_push(Interpreter* interpreter, Value* args, size_t arg_count
     // Add to array
     value_array_push(&array_arg, cloned_element);
     
-    return value_create_null();
+    // Return the modified array
+    return value_clone(&array_arg);
 }
 
 Value builtin_array_pop(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {

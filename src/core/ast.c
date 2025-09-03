@@ -796,6 +796,39 @@ ASTNode* ast_clone(ASTNode* node) {
             clone->data.unary.operand = ast_clone(node->data.unary.operand);
             break;
             
+        case AST_NODE_RETURN:
+            clone->data.return_statement.value = ast_clone(node->data.return_statement.value);
+            break;
+            
+        case AST_NODE_BLOCK:
+            clone->data.block.statement_count = node->data.block.statement_count;
+            clone->data.block.statements = malloc(node->data.block.statement_count * sizeof(ASTNode*));
+            for (size_t i = 0; i < node->data.block.statement_count; i++) {
+                clone->data.block.statements[i] = ast_clone(node->data.block.statements[i]);
+            }
+            break;
+            
+        case AST_NODE_FUNCTION_CALL:
+            clone->data.function_call.function_name = strdup(node->data.function_call.function_name);
+            clone->data.function_call.argument_count = node->data.function_call.argument_count;
+            clone->data.function_call.arguments = malloc(node->data.function_call.argument_count * sizeof(ASTNode*));
+            for (size_t i = 0; i < node->data.function_call.argument_count; i++) {
+                clone->data.function_call.arguments[i] = ast_clone(node->data.function_call.arguments[i]);
+            }
+            break;
+            
+        case AST_NODE_ASSIGNMENT:
+            clone->data.assignment.variable_name = strdup(node->data.assignment.variable_name);
+            clone->data.assignment.value = ast_clone(node->data.assignment.value);
+            break;
+            
+        case AST_NODE_VARIABLE_DECLARATION:
+            clone->data.variable_declaration.variable_name = strdup(node->data.variable_declaration.variable_name);
+            clone->data.variable_declaration.type_name = node->data.variable_declaration.type_name ? strdup(node->data.variable_declaration.type_name) : NULL;
+            clone->data.variable_declaration.initial_value = ast_clone(node->data.variable_declaration.initial_value);
+            clone->data.variable_declaration.is_mutable = node->data.variable_declaration.is_mutable;
+            break;
+            
         // Add other cases as needed...
         default:
             // For now, just copy the basic structure

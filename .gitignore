@@ -3,5 +3,21 @@
 ./bin/
 ./build/
 .DS_Store
+*.o
+*.exe
+*.dll
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.obj
+*.res
+*.sdf
+*.sln
+*.vcxproj
+*.vcxproj.user
+*.vcxproj.filters
+*.vcxproj.user
 
 .gitignore
+bin/myco

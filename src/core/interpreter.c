@@ -131,6 +131,24 @@ Environment* environment_copy(Environment* env) {
     return copy;
 }
 
+// Helper function to get string representation of value type
+const char* value_type_string(ValueType type) {
+    switch (type) {
+        case VALUE_NULL: return "Null";
+        case VALUE_NUMBER: return "Number";
+        case VALUE_STRING: return "String";
+        case VALUE_BOOLEAN: return "Boolean";
+        case VALUE_ARRAY: return "Array";
+        case VALUE_OBJECT: return "Object";
+        case VALUE_FUNCTION: return "Function";
+        case VALUE_RANGE: return "Range";
+        case VALUE_CLASS: return "Class";
+        case VALUE_MODULE: return "Module";
+        case VALUE_ERROR: return "Error";
+        default: return "Unknown";
+    }
+}
+
 Value environment_get(Environment* env, const char* name) {
     for (Environment* e = env; e; e = e->parent) {
         int idx = environment_find_index(e, name);
@@ -1677,12 +1695,22 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 // Handle object member access
                 // Look for the member in the object
                 for (size_t i = 0; i < object.data.object_value.count; i++) {
-                    if (strcmp(object.data.object_value.keys[i], member_name) == 0) {
+                    if (object.data.object_value.keys[i] && strcmp(object.data.object_value.keys[i], member_name) == 0) {
                         Value* member_value = (Value*)object.data.object_value.values[i];
                         if (member_value) {
-                            return value_clone(member_value);
+                            Value result = value_clone(member_value);
+                            value_free(&object);
+                            return result;
                         }
                     }
+                }
+                
+                // If member not found in object, try to look up a global function with the same name
+                // This is a fallback for cases where the object member lookup fails
+                Value global_member = environment_get(interpreter->global_environment, member_name);
+                if (global_member.type != VALUE_NULL) {
+                    value_free(&object);
+                    return global_member;
                 }
             } else if (object.type == VALUE_STRING && strcmp(object.data.string_value, "namespace_marker") == 0) {
                 // This is a namespace marker, try to look up the prefixed function
@@ -1730,9 +1758,17 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 }
             }
             
-            // TODO: Implement proper object member access for more complex cases
+            // Enhanced error reporting for member access issues
+            char error_msg[512];
+            if (object.type == VALUE_NULL) {
+                snprintf(error_msg, sizeof(error_msg), "Cannot access member '%s' of null object", member_name);
+            } else if (object.type == VALUE_OBJECT) {
+                snprintf(error_msg, sizeof(error_msg), "Member '%s' not found in object", member_name);
+            } else {
+                snprintf(error_msg, sizeof(error_msg), "Cannot access member '%s' of %s", member_name, value_type_string(object.type));
+            }
             value_free(&object);
-            interpreter_set_error(interpreter, "Member access not yet fully implemented", node->line, node->column);
+            interpreter_set_error(interpreter, error_msg, node->line, node->column);
             return value_create_null();
         }
         
@@ -2014,14 +2050,22 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                         // This allows both arr.push() and push() to work
                         
                         // Create an object for the alias with all array functions as members
-                        Value array_object = value_create_object(11); // 11 array functions
-                        for (size_t i = 0; i < sizeof(array_functions) / sizeof(array_functions[0]); i++) {
-                            Value array_func = environment_get(interpreter->global_environment, array_functions[i]);
-                            if (array_func.type == VALUE_FUNCTION) {
-                                value_object_set_member(&array_object, array_functions[i], array_func);
+                        // Get the existing array object from the global environment
+                        Value existing_array = environment_get(interpreter->global_environment, "array");
+                        if (existing_array.type == VALUE_OBJECT) {
+                            // Clone the existing array object
+                            Value array_object = value_create_object(existing_array.data.object_value.capacity);
+                            for (size_t i = 0; i < existing_array.data.object_value.count; i++) {
+                                if (existing_array.data.object_value.keys[i] && existing_array.data.object_value.values[i]) {
+                                    value_object_set_member(&array_object, existing_array.data.object_value.keys[i], *((Value*)existing_array.data.object_value.values[i]));
+                                }
                             }
+                            environment_define(interpreter->current_environment, alias, array_object);
+                        } else {
+                            // Fallback: create empty object if array not found
+                            Value array_object = value_create_object(11);
+                            environment_define(interpreter->current_environment, alias, array_object);
                         }
-                        environment_define(interpreter->global_environment, alias, array_object);
                     }
                 }
                 

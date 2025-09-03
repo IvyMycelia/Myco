@@ -435,7 +435,7 @@ else:
     tests_failed = tests_failed + ["Logical AND false"];
 end
 
-// Note: Symbolic && operator not yet implemented in Myco
+# Note: Symbolic && operator not yet implemented in Myco
 
 print("\n4.2. Logical OR...");
 total_tests = total_tests + 1;
@@ -458,7 +458,7 @@ else:
     tests_failed = tests_failed + ["Logical OR false"];
 end
 
-// Note: Symbolic || operator not yet implemented in Myco
+# Note: Symbolic || operator not yet implemented in Myco
 
 print("\n4.3. Logical NOT...");
 total_tests = total_tests + 1;
@@ -481,7 +481,7 @@ else:
     tests_failed = tests_failed + ["Logical NOT false"];
 end
 
-// Note: Symbolic ! operator not yet implemented in Myco
+# Note: Symbolic ! operator not yet implemented in Myco
 
 print("\n4.4. Complex logical expressions...");
 total_tests = total_tests + 1;

@@ -1,5 +1,0 @@
-func test():
-    return 42
-end
-
-test();

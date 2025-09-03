@@ -1306,6 +1306,18 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     value_free(&fn);
                     return value_create_null();
                 }
+                
+                // Add the function itself to the call environment for recursive calls
+                // Create a new function value that can access the global environment but not create circular references
+                Value recursive_fn = value_create_function(
+                    fn.data.function_value.body,
+                    fn.data.function_value.parameters,
+                    fn.data.function_value.parameter_count,
+                    fn.data.function_value.return_type,
+                    interpreter->global_environment  // Use global environment for recursive calls
+                );
+                environment_define(call_env, func_name, recursive_fn);
+                
                 interpreter->current_environment = call_env;
 
                 // Bind parameters by name if available

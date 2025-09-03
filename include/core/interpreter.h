@@ -46,7 +46,7 @@ typedef union {
     } object_value;
     struct {
         ASTNode* body;
-        char** parameters;
+        ASTNode** parameters;
         size_t parameter_count;
         char* return_type;
         Environment* captured_environment;  // For closures
@@ -93,6 +93,7 @@ typedef struct {
     int break_depth;
     int continue_depth;
     int try_depth;
+    const char* current_function_return_type;  // Track return type for type checking
 } Interpreter;
 
 // Interpreter initialization and cleanup
@@ -119,7 +120,7 @@ Value value_create_range(double start, double end, double step, int inclusive);
 Value value_create_array(size_t initial_capacity);
 Value value_create_object(size_t initial_capacity);
 void value_object_set_member(Value* object, const char* member_name, Value member_value);
-Value value_create_function(ASTNode* body, char** params, size_t param_count, const char* return_type, Environment* captured_env);
+Value value_create_function(ASTNode* body, ASTNode** params, size_t param_count, const char* return_type, Environment* captured_env);
 Value value_create_class(const char* name, void* instance);
 Value value_create_module(const char* name, void* exports);
 Value value_create_error(const char* message, int code);

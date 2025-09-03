@@ -21,6 +21,7 @@ Interpreter* interpreter_create(void) {
     interpreter->break_depth = 0;
     interpreter->continue_depth = 0;
     interpreter->try_depth = 0;
+    interpreter->current_function_return_type = NULL;
     
     // Setup global env
     interpreter->global_environment = environment_create(NULL);
@@ -147,6 +148,37 @@ const char* value_type_string(ValueType type) {
         case VALUE_ERROR: return "Error";
         default: return "Unknown";
     }
+}
+
+// Helper function to check if a value matches a type annotation
+int value_matches_type(Value* value, const char* type_name) {
+    if (!value || !type_name) return 0;
+    
+    // Handle common type aliases
+    if (strcmp(type_name, "Int") == 0 || strcmp(type_name, "Integer") == 0) {
+        return value->type == VALUE_NUMBER;
+    } else if (strcmp(type_name, "Float") == 0 || strcmp(type_name, "Double") == 0) {
+        return value->type == VALUE_NUMBER;
+    } else if (strcmp(type_name, "Number") == 0) {
+        return value->type == VALUE_NUMBER;
+    } else if (strcmp(type_name, "String") == 0) {
+        return value->type == VALUE_STRING;
+    } else if (strcmp(type_name, "Bool") == 0 || strcmp(type_name, "Boolean") == 0) {
+        return value->type == VALUE_BOOLEAN;
+    } else if (strcmp(type_name, "Array") == 0) {
+        return value->type == VALUE_ARRAY;
+    } else if (strcmp(type_name, "Object") == 0) {
+        return value->type == VALUE_OBJECT;
+    } else if (strcmp(type_name, "Function") == 0) {
+        return value->type == VALUE_FUNCTION;
+    } else if (strcmp(type_name, "Range") == 0) {
+        return value->type == VALUE_RANGE;
+    } else if (strcmp(type_name, "Null") == 0) {
+        return value->type == VALUE_NULL;
+    }
+    
+    // Default: check exact type name match
+    return strcmp(value_type_string(value->type), type_name) == 0;
 }
 
 Value environment_get(Environment* env, const char* name) {
@@ -337,7 +369,7 @@ void value_object_set_member(Value* object, const char* member_name, Value membe
         if (new_value) free(new_value);
     }
 }
-Value value_create_function(ASTNode* body, char** params, size_t param_count, const char* return_type, Environment* captured_env) {
+Value value_create_function(ASTNode* body, ASTNode** params, size_t param_count, const char* return_type, Environment* captured_env) {
     Value v = {0};
     v.type = VALUE_FUNCTION;
     v.data.function_value.body = body;
@@ -345,12 +377,12 @@ Value value_create_function(ASTNode* body, char** params, size_t param_count, co
     v.data.function_value.return_type = return_type ? strdup(return_type) : NULL;
     v.data.function_value.captured_environment = captured_env;
     
-    // Copy parameter names with proper error handling
+    // Copy parameter nodes with proper error handling
     if (param_count > 0 && params) {
-        v.data.function_value.parameters = (char**)malloc(param_count * sizeof(char*));
+        v.data.function_value.parameters = (ASTNode**)malloc(param_count * sizeof(ASTNode*));
         if (v.data.function_value.parameters) {
             for (size_t i = 0; i < param_count; i++) {
-                v.data.function_value.parameters[i] = params[i] ? strdup(params[i]) : NULL;
+                v.data.function_value.parameters[i] = params[i] ? ast_clone(params[i]) : NULL;
             }
         } else {
             // If parameter allocation fails, clean up return type
@@ -394,11 +426,11 @@ void value_free(Value* value) {
             break;
             
         case VALUE_FUNCTION:
-            // Free parameter names
+            // Free parameter nodes
             if (value->data.function_value.parameters) {
                 for (size_t i = 0; i < value->data.function_value.parameter_count; i++) {
                     if (value->data.function_value.parameters[i]) {
-                        free(value->data.function_value.parameters[i]);
+                        ast_free(value->data.function_value.parameters[i]);
                     }
                 }
                 free(value->data.function_value.parameters);
@@ -1288,6 +1320,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                         value_free(&args[i]);
                     }
                     free(args);
+                    args = NULL;  // Prevent double-free
                 }
                 
                 value_free(&fn);
@@ -1320,6 +1353,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     if (args) {
                         for (size_t i = 0; i < n; i++) value_free(&args[i]);
                         free(args);
+                        args = NULL;  // Prevent double-free
                     }
                     value_free(&fn);
                     return value_create_null();
@@ -1341,10 +1375,43 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 // Bind parameters by name if available
                 for (size_t i = 0; i < n; i++) {
                     const char* param_name = NULL;
+                    const char* param_type = NULL;
+                    
                     if (i < fn.data.function_value.parameter_count &&
                         fn.data.function_value.parameters &&
                         fn.data.function_value.parameters[i]) {
-                        param_name = fn.data.function_value.parameters[i];
+                        
+                        ASTNode* param_node = fn.data.function_value.parameters[i];
+                        if (param_node->type == AST_NODE_TYPED_PARAMETER) {
+                            param_name = param_node->data.typed_parameter.parameter_name;
+                            param_type = param_node->data.typed_parameter.parameter_type;
+                            
+                            // Type checking for typed parameters
+                            if (!value_matches_type(&args[i], param_type)) {
+                                char error_msg[512];
+                                snprintf(error_msg, sizeof(error_msg), 
+                                    "Type mismatch: parameter '%s' expects %s but got %s", 
+                                    param_name, param_type, value_type_string(args[i].type));
+                                interpreter_set_error(interpreter, error_msg, node->line, node->column);
+                                
+                                // Clean up and return immediately
+                                environment_free(call_env);
+                                value_free(&fn);
+                                // Restore environment before returning
+                                interpreter->current_environment = saved;
+                                
+                                // Clean up arguments before returning
+                                if (args) {
+                                    for (size_t j = 0; j < n; j++) {
+                                        value_free(&args[j]);
+                                    }
+                                    free(args);
+                                }
+                                return value_create_null();
+                            }
+                        } else if (param_node->type == AST_NODE_IDENTIFIER) {
+                            param_name = param_node->data.identifier_value;
+                        }
                     } else {
                         static char pname[16];
                         snprintf(pname, sizeof(pname), "p%zu", i);
@@ -1355,6 +1422,10 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
 
                 // Reset return state
                 interpreter->has_return = 0;
+                
+                // Set current function return type for type checking
+                const char* saved_return_type = interpreter->current_function_return_type;
+                interpreter->current_function_return_type = fn.data.function_value.return_type;
 
                 // Check if function body is valid before executing
                 if (!fn.data.function_value.body) {
@@ -1364,6 +1435,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     if (args) {
                         for (size_t i = 0; i < n; i++) value_free(&args[i]);
                         free(args);
+                        args = NULL;  // Prevent double-free
                     }
                     value_free(&fn);
                     return value_create_null();
@@ -1380,14 +1452,40 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     interpreter->has_return = 0;
                     interpreter->return_value = value_create_null();
                 }
+                
+                // Check return type if function has explicit return type
+                if (fn.data.function_value.return_type && 
+                    !value_matches_type(&rv, fn.data.function_value.return_type)) {
+                    char error_msg[512];
+                    snprintf(error_msg, sizeof(error_msg), 
+                        "Return type mismatch: function expects %s but returned %s", 
+                        fn.data.function_value.return_type, value_type_string(rv.type));
+                    interpreter_set_error(interpreter, error_msg, node->line, node->column);
+                    
+                    // Clean up
+                    value_free(&rv);
+                    interpreter->current_environment = saved;
+                    environment_free(call_env);
+                    if (args) {
+                        for (size_t i = 0; i < n; i++) value_free(&args[i]);
+                        free(args);
+                        args = NULL;  // Prevent double-free
+                    }
+                    value_free(&fn);
+                    interpreter->current_function_return_type = saved_return_type;
+                    return value_create_null();
+                }
 
-                // Restore env
+                // Restore env and return type
                 interpreter->current_environment = saved;
+                interpreter->current_function_return_type = saved_return_type;
                 environment_free(call_env);
 
                 // Cleanup
                 if (args) {
-                    for (size_t i = 0; i < n; i++) value_free(&args[i]);
+                    for (size_t i = 0; i < n; i++) {
+                        value_free(&args[i]);
+                    }
                     free(args);
                 }
                 value_free(&fn);
@@ -1463,41 +1561,16 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             // Define a function value in the current environment
             const char* name = node->data.function_definition.function_name;
             if (name) {
-                // Extract parameter names from AST parameter nodes
-                char** param_names = NULL;
-                if (node->data.function_definition.parameter_count > 0 && node->data.function_definition.parameters) {
-                    param_names = (char**)malloc(node->data.function_definition.parameter_count * sizeof(char*));
-                    for (size_t i = 0; i < node->data.function_definition.parameter_count; i++) {
-                        ASTNode* param = node->data.function_definition.parameters[i];
-                        if (param && param->type == AST_NODE_IDENTIFIER && param->data.identifier_value) {
-                            param_names[i] = strdup(param->data.identifier_value);
-                        } else {
-                            // Fallback to positional parameter name
-                            char param_name[16];
-                            snprintf(param_name, sizeof(param_name), "p%zu", i);
-                            param_names[i] = strdup(param_name);
-                        }
-                    }
-                }
-                
                 // Create function value using the proper function
                 // Capture a copy of the current environment for closures to avoid circular references
                 Environment* captured_env = environment_copy(interpreter->current_environment);
                 Value fv = value_create_function(
                     node->data.function_definition.body,
-                    param_names,
+                    node->data.function_definition.parameters,
                     node->data.function_definition.parameter_count,
                     node->data.function_definition.return_type,
                     captured_env
                 );
-                
-                // Clean up parameter names array (they're copied in value_create_function)
-                if (param_names) {
-                    for (size_t i = 0; i < node->data.function_definition.parameter_count; i++) {
-                        free(param_names[i]);
-                    }
-                    free(param_names);
-                }
                 
                 environment_define(interpreter->current_environment, name, fv);
             }
@@ -1506,41 +1579,15 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
         
         case AST_NODE_LAMBDA: {
             // Create a lambda function value (anonymous function)
-            // Extract parameter names from AST parameter nodes
-            char** param_names = NULL;
-            if (node->data.lambda.parameter_count > 0 && node->data.lambda.parameters) {
-                param_names = (char**)malloc(node->data.lambda.parameter_count * sizeof(char*));
-                for (size_t i = 0; i < node->data.lambda.parameter_count; i++) {
-                    ASTNode* param = node->data.lambda.parameters[i];
-                    if (param && param->type == AST_NODE_IDENTIFIER && param->data.identifier_value) {
-                        param_names[i] = strdup(param->data.identifier_value);
-                    } else {
-                        // Fallback to positional parameter name
-                        char param_name[16];
-                        snprintf(param_name, sizeof(param_name), "p%zu", i);
-                        param_names[i] = strdup(param_name);
-                    }
-                }
-            }
-            
-            // Create lambda function value using the proper function
             // Capture a copy of the current environment for closures to avoid circular references
             Environment* captured_env = environment_copy(interpreter->current_environment);
             Value lambda_value = value_create_function(
                 node->data.lambda.body,
-                param_names,
+                node->data.lambda.parameters,
                 node->data.lambda.parameter_count,
                 node->data.lambda.return_type,
                 captured_env
             );
-            
-            // Clean up parameter names array (they're copied in value_create_function)
-            if (param_names) {
-                for (size_t i = 0; i < node->data.lambda.parameter_count; i++) {
-                    free(param_names[i]);
-                }
-                free(param_names);
-            }
             
             return lambda_value;
         }

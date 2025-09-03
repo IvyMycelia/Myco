@@ -10,6 +10,7 @@ typedef enum {
     AST_NODE_BOOL,
     AST_NODE_NULL,
     AST_NODE_IDENTIFIER,
+    AST_NODE_TYPED_PARAMETER,
     AST_NODE_BINARY_OP,
     AST_NODE_UNARY_OP,
     AST_NODE_ASSIGNMENT,
@@ -87,6 +88,12 @@ typedef struct ASTNode {
         char* string_value;
         int bool_value;
         char* identifier_value;
+        
+        // Typed parameter
+        struct {
+            char* parameter_name;
+            char* parameter_type;
+        } typed_parameter;
         
         // Operators
         struct {
@@ -286,6 +293,7 @@ ASTNode* ast_create_string(const char* value, int line, int column);
 ASTNode* ast_create_bool(int value, int line, int column);
 ASTNode* ast_create_null(int line, int column);
 ASTNode* ast_create_identifier(const char* name, int line, int column);
+ASTNode* ast_create_typed_parameter(const char* name, const char* type, int line, int column);
 ASTNode* ast_create_binary_op(BinaryOperator op, ASTNode* left, ASTNode* right, int line, int column);
 ASTNode* ast_create_range_with_step(ASTNode* start, ASTNode* end, ASTNode* step, int line, int column);
 ASTNode* ast_create_unary_op(UnaryOperator op, ASTNode* operand, int line, int column);

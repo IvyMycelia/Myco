@@ -68,6 +68,20 @@ ASTNode* ast_create_identifier(const char* name, int line, int column) {
     return node;
 }
 
+ASTNode* ast_create_typed_parameter(const char* name, const char* type, int line, int column) {
+    ASTNode* node = malloc(sizeof(ASTNode));
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_TYPED_PARAMETER;
+    node->data.typed_parameter.parameter_name = strdup(name);
+    node->data.typed_parameter.parameter_type = strdup(type);
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
 ASTNode* ast_create_binary_op(BinaryOperator op, ASTNode* left, ASTNode* right, int line, int column) {
     ASTNode* node = malloc(sizeof(ASTNode));
     if (!node) return NULL;
@@ -520,6 +534,11 @@ void ast_free(ASTNode* node) {
             free(node->data.string_value);
             break;
             
+        case AST_NODE_TYPED_PARAMETER:
+            free(node->data.typed_parameter.parameter_name);
+            free(node->data.typed_parameter.parameter_type);
+            break;
+            
         case AST_NODE_BOOL:
             // Booleans don't need cleanup
             break;
@@ -785,6 +804,11 @@ ASTNode* ast_clone(ASTNode* node) {
             clone->data.identifier_value = strdup(node->data.identifier_value);
             break;
             
+        case AST_NODE_TYPED_PARAMETER:
+            clone->data.typed_parameter.parameter_name = strdup(node->data.typed_parameter.parameter_name);
+            clone->data.typed_parameter.parameter_type = strdup(node->data.typed_parameter.parameter_type);
+            break;
+            
         case AST_NODE_BINARY_OP:
             clone->data.binary.op = node->data.binary.op;
             clone->data.binary.left = ast_clone(node->data.binary.left);
@@ -891,6 +915,10 @@ void ast_print(ASTNode* node, int indent) {
             printf("(%s)", node->data.identifier_value);
             break;
             
+        case AST_NODE_TYPED_PARAMETER:
+            printf("(%s: %s)", node->data.typed_parameter.parameter_name, node->data.typed_parameter.parameter_type);
+            break;
+            
         case AST_NODE_BINARY_OP:
             printf("(%s)", binary_op_to_string(node->data.binary.op));
             break;
@@ -987,6 +1015,7 @@ const char* ast_node_type_to_string(ASTNodeType type) {
         case AST_NODE_BOOL: return "Bool";
         case AST_NODE_NULL: return "Null";
         case AST_NODE_IDENTIFIER: return "Identifier";
+        case AST_NODE_TYPED_PARAMETER: return "TypedParameter";
         case AST_NODE_BINARY_OP: return "BinaryOp";
         case AST_NODE_UNARY_OP: return "UnaryOp";
         case AST_NODE_ASSIGNMENT: return "Assignment";

@@ -1986,7 +1986,7 @@ ASTNode* parser_parse_function_declaration(Parser* parser) {
                 parser_synchronize(parser);
                 break;
             }
-            // Create identifier node for parameter
+            // Create parameter node
             if (parser->previous_token && parser->previous_token->text) {
                 if (param_count == param_cap) {
                     size_t new_cap = param_cap == 0 ? 4 : param_cap * 2;
@@ -1994,16 +1994,27 @@ ASTNode* parser_parse_function_declaration(Parser* parser) {
                     if (!new_params) { parser_error(parser, "Out of memory while parsing parameters"); break; }
                     params = new_params; param_cap = new_cap;
                 }
-                ASTNode* pid = ast_create_identifier(parser->previous_token->text, 0, 0);
-                params[param_count++] = pid;
-            }
-            // Optional : Type (skip)
-            if (parser_check(parser, TOKEN_COLON)) {
-                parser_advance(parser);
-                if (!parser_match(parser, TOKEN_IDENTIFIER)) {
-                    parser_error(parser, "Expected type name after ':'");
-                    parser_synchronize(parser);
+                
+                char* param_name = strdup(parser->previous_token->text); // Store the parameter name
+                
+                // Check for type annotation
+                if (parser_check(parser, TOKEN_COLON)) {
+                    parser_advance(parser);
+                    if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+                        parser_error(parser, "Expected type name after ':'");
+                        parser_synchronize(parser);
+                        free(param_name);
+                        break;
+                    }
+                    // Create typed parameter node
+                    ASTNode* tparam = ast_create_typed_parameter(param_name, parser->previous_token->text, 0, 0);
+                    params[param_count++] = tparam;
+                } else {
+                    // Create regular identifier node for untyped parameter
+                    ASTNode* pid = ast_create_identifier(param_name, 0, 0);
+                    params[param_count++] = pid;
                 }
+                free(param_name);
             }
             if (parser_check(parser, TOKEN_COMMA)) { parser_advance(parser); continue; }
             break;

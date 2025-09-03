@@ -104,9 +104,14 @@ void environment_define(Environment* env, const char* name, Value value) {
         env->values = new_values;
         env->capacity = new_cap;
     }
-    env->names[env->count] = strdup(name);
-    env->values[env->count] = value_clone(&value);
-    env->count++;
+    
+    // Allocate name with proper error handling
+    char* name_copy = strdup(name);
+    if (name_copy) {
+        env->names[env->count] = name_copy;
+        env->values[env->count] = value_clone(&value);
+        env->count++;
+    }
 }
 Value environment_get(Environment* env, const char* name) {
     for (Environment* e = env; e; e = e->parent) {
@@ -222,24 +227,46 @@ Value value_create_object(size_t initial_capacity) {
     v.type = VALUE_OBJECT;
     v.data.object_value.count = 0;
     v.data.object_value.capacity = initial_capacity > 0 ? initial_capacity : 4;
+    
+    // Allocate memory with proper error handling
     v.data.object_value.keys = calloc(v.data.object_value.capacity, sizeof(char*));
     v.data.object_value.values = calloc(v.data.object_value.capacity, sizeof(void*));
+    
+    // If allocation fails, return a null object
+    if (!v.data.object_value.keys || !v.data.object_value.values) {
+        if (v.data.object_value.keys) {
+            free(v.data.object_value.keys);
+            v.data.object_value.keys = NULL;
+        }
+        if (v.data.object_value.values) {
+            free(v.data.object_value.values);
+            v.data.object_value.values = NULL;
+        }
+        v.data.object_value.capacity = 0;
+    }
+    
     return v;
 }
 
 void value_object_set_member(Value* object, const char* member_name, Value member_value) {
-    if (!object || object->type != VALUE_OBJECT) return;
+    if (!object || object->type != VALUE_OBJECT || !member_name) return;
     
     // Check if member already exists
     for (size_t i = 0; i < object->data.object_value.count; i++) {
-        if (strcmp(object->data.object_value.keys[i], member_name) == 0) {
+        if (object->data.object_value.keys[i] && 
+            strcmp(object->data.object_value.keys[i], member_name) == 0) {
             // Free the old value
             Value* old_value = (Value*)object->data.object_value.values[i];
-            if (old_value) value_free(old_value);
+            if (old_value) {
+                value_free(old_value);
+                free(old_value);
+            }
             // Set the new value
             Value* new_value = malloc(sizeof(Value));
-            *new_value = value_clone(&member_value);
-            object->data.object_value.values[i] = new_value;
+            if (new_value) {
+                *new_value = value_clone(&member_value);
+                object->data.object_value.values[i] = new_value;
+            }
             return;
         }
     }
@@ -249,18 +276,30 @@ void value_object_set_member(Value* object, const char* member_name, Value membe
         size_t new_capacity = object->data.object_value.capacity * 2;
         char** new_keys = realloc(object->data.object_value.keys, new_capacity * sizeof(char*));
         void** new_values = realloc(object->data.object_value.values, new_capacity * sizeof(void*));
-        if (!new_keys || !new_values) return;
+        if (!new_keys || !new_values) {
+            // Clean up on failure
+            if (new_keys) free(new_keys);
+            if (new_values) free(new_values);
+            return;
+        }
         object->data.object_value.keys = new_keys;
         object->data.object_value.values = new_values;
         object->data.object_value.capacity = new_capacity;
     }
     
     // Add new member
-    object->data.object_value.keys[object->data.object_value.count] = strdup(member_name);
+    char* key_copy = strdup(member_name);
     Value* new_value = malloc(sizeof(Value));
-    *new_value = value_clone(&member_value);
-    object->data.object_value.values[object->data.object_value.count] = new_value;
-    object->data.object_value.count++;
+    if (key_copy && new_value) {
+        *new_value = value_clone(&member_value);
+        object->data.object_value.keys[object->data.object_value.count] = key_copy;
+        object->data.object_value.values[object->data.object_value.count] = new_value;
+        object->data.object_value.count++;
+    } else {
+        // Clean up on failure
+        if (key_copy) free(key_copy);
+        if (new_value) free(new_value);
+    }
 }
 Value value_create_function(ASTNode* body, char** params, size_t param_count, const char* return_type) {
     Value v = {0};
@@ -269,11 +308,19 @@ Value value_create_function(ASTNode* body, char** params, size_t param_count, co
     v.data.function_value.parameter_count = param_count;
     v.data.function_value.return_type = return_type ? strdup(return_type) : NULL;
     
-    // Copy parameter names
+    // Copy parameter names with proper error handling
     if (param_count > 0 && params) {
         v.data.function_value.parameters = (char**)malloc(param_count * sizeof(char*));
-        for (size_t i = 0; i < param_count; i++) {
-            v.data.function_value.parameters[i] = params[i] ? strdup(params[i]) : NULL;
+        if (v.data.function_value.parameters) {
+            for (size_t i = 0; i < param_count; i++) {
+                v.data.function_value.parameters[i] = params[i] ? strdup(params[i]) : NULL;
+            }
+        } else {
+            // If parameter allocation fails, clean up return type
+            if (v.data.function_value.return_type) {
+                free(v.data.function_value.return_type);
+                v.data.function_value.return_type = NULL;
+            }
         }
     } else {
         v.data.function_value.parameters = NULL;
@@ -300,30 +347,81 @@ Value value_create_error(const char* message, int code) { Value v = {0}; return 
 
 void value_free(Value* value) { 
     if (!value) return; 
-    if (value->type == VALUE_STRING && value->data.string_value) { 
-        free(value->data.string_value); 
-        value->data.string_value = NULL; 
-    } else if (value->type == VALUE_FUNCTION && value->data.function_value.parameters) {
-        // Free parameter names
-        for (size_t i = 0; i < value->data.function_value.parameter_count; i++) {
-            if (value->data.function_value.parameters[i]) {
-                free(value->data.function_value.parameters[i]);
+    
+    switch (value->type) {
+        case VALUE_STRING:
+            if (value->data.string_value) {
+                free(value->data.string_value);
+                value->data.string_value = NULL;
             }
-        }
-        free(value->data.function_value.parameters);
-        value->data.function_value.parameters = NULL;
-    } else if (value->type == VALUE_ARRAY && value->data.array_value.elements) {
-        // Free array elements
-        for (size_t i = 0; i < value->data.array_value.count; i++) {
-            Value* element = (Value*)value->data.array_value.elements[i];
-            if (element) {
-                value_free(element);
-                free(element);
+            break;
+            
+        case VALUE_FUNCTION:
+            // Free parameter names
+            if (value->data.function_value.parameters) {
+                for (size_t i = 0; i < value->data.function_value.parameter_count; i++) {
+                    if (value->data.function_value.parameters[i]) {
+                        free(value->data.function_value.parameters[i]);
+                    }
+                }
+                free(value->data.function_value.parameters);
+                value->data.function_value.parameters = NULL;
             }
-        }
-        free(value->data.array_value.elements);
-        value->data.array_value.elements = NULL;
+            // Free return type
+            if (value->data.function_value.return_type) {
+                free(value->data.function_value.return_type);
+                value->data.function_value.return_type = NULL;
+            }
+
+            break;
+            
+        case VALUE_ARRAY:
+            if (value->data.array_value.elements) {
+                // Free array elements
+                for (size_t i = 0; i < value->data.array_value.count; i++) {
+                    Value* element = (Value*)value->data.array_value.elements[i];
+                    if (element) {
+                        value_free(element);
+                        free(element);
+                    }
+                }
+                free(value->data.array_value.elements);
+                value->data.array_value.elements = NULL;
+            }
+            break;
+            
+        case VALUE_OBJECT:
+            if (value->data.object_value.keys) {
+                // Free object keys
+                for (size_t i = 0; i < value->data.object_value.count; i++) {
+                    if (value->data.object_value.keys[i]) {
+                        free(value->data.object_value.keys[i]);
+                    }
+                }
+                free(value->data.object_value.keys);
+                value->data.object_value.keys = NULL;
+            }
+            if (value->data.object_value.values) {
+                // Free object values
+                for (size_t i = 0; i < value->data.object_value.count; i++) {
+                    Value* member_value = (Value*)value->data.object_value.values[i];
+                    if (member_value) {
+                        value_free(member_value);
+                        free(member_value);
+                    }
+                }
+                free(value->data.object_value.values);
+                value->data.object_value.values = NULL;
+            }
+            break;
+            
+        default:
+            // Other types (NUMBER, BOOLEAN, NULL, RANGE) don't need cleanup
+            break;
     }
+    
+    // Zero out the value to prevent use-after-free
+    memset(value, 0, sizeof(Value));
 }
 Value value_clone(Value* value) { 
     if (!value) { Value v = {0}; return v; } 
@@ -669,12 +767,14 @@ Value value_array_pop(Value* array) {
     }
     
     Value* element = (Value*)array->data.array_value.elements[array->data.array_value.count - 1];
-    Value result = value_clone(element);
-    value_free(element);
-    free(element);
-    array->data.array_value.count--;
-    
-    return result;
+    if (element) {
+        Value result = value_clone(element);
+        value_free(element);
+        free(element);
+        array->data.array_value.count--;
+        return result;
+    }
+    return value_create_null();
 }
 
 Value value_array_get(Value* array, size_t index) { 
@@ -683,15 +783,20 @@ Value value_array_get(Value* array, size_t index) {
     }
     
     Value* element = (Value*)array->data.array_value.elements[index];
-    return value_clone(element);
+    if (element) {
+        return value_clone(element);
+    }
+    return value_create_null();
 }
 
 void value_array_set(Value* array, size_t index, Value element) {
     if (!array || array->type != VALUE_ARRAY || index >= array->data.array_value.count) return;
     
     Value* stored_element = (Value*)array->data.array_value.elements[index];
-    value_free(stored_element);
-    *stored_element = value_clone(&element);
+    if (stored_element) {
+        value_free(stored_element);
+        *stored_element = value_clone(&element);
+    }
 }
 
 size_t value_array_length(Value* array) { 
@@ -700,10 +805,104 @@ size_t value_array_length(Value* array) {
 }
 
 void value_object_set(Value* obj, const char* key, Value value) {}
-Value value_object_get(Value* obj, const char* key) { Value v = {0}; return v; }
-int value_object_has(Value* obj, const char* key) { return 0; }
-void value_object_delete(Value* obj, const char* key) {}
-char** value_object_keys(Value* obj, size_t* count) { return NULL; }
+Value value_object_get(Value* obj, const char* key) { 
+    if (!obj || obj->type != VALUE_OBJECT || !key) {
+        return value_create_null();
+    }
+    
+    for (size_t i = 0; i < obj->data.object_value.count; i++) {
+        if (obj->data.object_value.keys[i] && 
+            strcmp(obj->data.object_value.keys[i], key) == 0) {
+            Value* member_value = (Value*)obj->data.object_value.values[i];
+            if (member_value) {
+                return value_clone(member_value);
+            }
+        }
+    }
+    
+    return value_create_null();
+}
+int value_object_has(Value* obj, const char* key) { 
+    if (!obj || obj->type != VALUE_OBJECT || !key) {
+        return 0;
+    }
+    
+    for (size_t i = 0; i < obj->data.object_value.count; i++) {
+        if (obj->data.object_value.keys[i] && 
+            strcmp(obj->data.object_value.keys[i], key) == 0) {
+            return 1;
+        }
+    }
+    
+    return 0;
+}
+void value_object_delete(Value* obj, const char* key) {
+    if (!obj || obj->type != VALUE_OBJECT || !key) {
+        return;
+    }
+    
+    for (size_t i = 0; i < obj->data.object_value.count; i++) {
+        if (obj->data.object_value.keys[i] && 
+            strcmp(obj->data.object_value.keys[i], key) == 0) {
+            // Free the key
+            free(obj->data.object_value.keys[i]);
+            obj->data.object_value.keys[i] = NULL;
+            
+            // Free the value
+            Value* member_value = (Value*)obj->data.object_value.values[i];
+            if (member_value) {
+                value_free(member_value);
+                free(member_value);
+                obj->data.object_value.values[i] = NULL;
+            }
+            
+            // Shift remaining elements
+            for (size_t j = i; j < obj->data.object_value.count - 1; j++) {
+                obj->data.object_value.keys[j] = obj->data.object_value.keys[j + 1];
+                obj->data.object_value.values[j] = obj->data.object_value.values[j + 1];
+            }
+            
+            obj->data.object_value.count--;
+            break;
+        }
+    }
+}
+char** value_object_keys(Value* obj, size_t* count) { 
+    if (!obj || obj->type != VALUE_OBJECT || !count) {
+        if (count) *count = 0;
+        return NULL;
+    }
+    
+    *count = obj->data.object_value.count;
+    if (*count == 0) {
+        return NULL;
+    }
+    
+    char** keys = malloc(*count * sizeof(char*));
+    if (!keys) {
+        *count = 0;
+        return NULL;
+    }
+    
+    for (size_t i = 0; i < *count; i++) {
+        if (obj->data.object_value.keys[i]) {
+            keys[i] = strdup(obj->data.object_value.keys[i]);
+            if (!keys[i]) {
+                // Clean up on failure
+                for (size_t j = 0; j < i; j++) {
+                    free(keys[j]);
+                }
+                free(keys);
+                *count = 0;
+                return NULL;
+            }
+        } else {
+            keys[i] = NULL;
+        }
+    }
+    
+    return keys;
+}
 
 Value value_function_call(Value* func, Value* args, size_t arg_count, Interpreter* interpreter, int line, int column) {
     if (!func || func->type != VALUE_FUNCTION) {
@@ -921,26 +1120,14 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             return result;
         }
         case AST_NODE_FUNCTION_CALL: {
-            // Create a safer way to handle function name checks
             const char* func_name = node->data.function_call.function_name;
             if (!func_name) {
                 interpreter_set_error(interpreter, "Function name is NULL", node->line, node->column);
                 return value_create_null();
             }
             
-            // First check if this is a user-defined function to avoid built-in function checks
-            // This prevents the memory corruption issue
-            Value fn = environment_get(interpreter->current_environment, func_name);
-            if (fn.type == VALUE_FUNCTION && fn.data.function_value.body) {
-                // This is a user-defined function, handle it directly
-                goto handle_user_function;
-            }
-            
-            // Cache the first character to avoid repeated string access
-            char first_char = func_name[0];
-            
-            // Check built-in functions more efficiently
-            if (first_char == 'p' && strcmp(func_name, "print") == 0) {
+            // Handle built-in functions first
+            if (strcmp(func_name, "print") == 0) {
                 size_t n = node->data.function_call.argument_count;
                 Value* argv = n > 0 ? (Value*)calloc(n, sizeof(Value)) : NULL;
                 if (n > 0 && !argv) {
@@ -955,31 +1142,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 if (argv) free(argv);
                 return rv;
             }
-            if (first_char == 'u' && strcmp(func_name, "uprint") == 0) {
-                size_t n = node->data.function_call.argument_count;
-                Value* argv = n > 0 ? (Value*)calloc(n, sizeof(Value)) : NULL;
-                if (n > 0 && !argv) {
-                    interpreter_set_error(interpreter, "Out of memory allocating uprint arguments", node->line, node->column);
-                    return value_create_null();
-                }
-                for (size_t i = 0; i < n; i++) {
-                    argv[i] = eval_node(interpreter, node->data.function_call.arguments[i]);
-                }
-                // Unformatted print (no newline)
-                for (size_t i = 0; i < n; i++) {
-                    Value s = value_to_string(&argv[i]);
-                    if (s.type == VALUE_STRING && s.data.string_value) {
-                        printf("%s", s.data.string_value);
-                    }
-                    value_free(&s);
-                    if (i + 1 < n) printf(" ");
-                }
-                fflush(stdout);
-                for (size_t i = 0; i < n; i++) value_free(&argv[i]);
-                if (argv) free(argv);
-                return value_create_null();
-            }
-            if (first_char == 's' && strcmp(func_name, "str") == 0) {
+            if (strcmp(func_name, "str") == 0) {
                 size_t n = node->data.function_call.argument_count;
                 if (n == 0) return value_create_string("");
                 Value v = eval_node(interpreter, node->data.function_call.arguments[0]);
@@ -987,7 +1150,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 value_free(&v);
                 return s;
             }
-            if (first_char == 'l' && strcmp(func_name, "len") == 0) {
+            if (strcmp(func_name, "len") == 0) {
                 size_t n = node->data.function_call.argument_count;
                 if (n == 0) return value_create_number(0);
                 Value v = eval_node(interpreter, node->data.function_call.arguments[0]);
@@ -1009,18 +1172,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 value_free(&v);
                 return value_create_number(out);
             }
-            if (node->data.function_call.function_name && strcmp(node->data.function_call.function_name, "assert") == 0) {
-                size_t n = node->data.function_call.argument_count;
-                Value* argv = (Value*)calloc(n, sizeof(Value));
-                for (size_t i = 0; i < n; i++) {
-                    argv[i] = eval_node(interpreter, node->data.function_call.arguments[i]);
-                }
-                Value rv = builtin_assert(interpreter, argv, n, node->line, node->column);
-                for (size_t i = 0; i < n; i++) value_free(&argv[i]);
-                free(argv);
-                return rv;
-            }
-            if (node->data.function_call.function_name && strcmp(node->data.function_call.function_name, "type") == 0) {
+            if (strcmp(func_name, "type") == 0) {
                 size_t n = node->data.function_call.argument_count;
                 if (n == 0) return value_create_string("Null");
                 Value v = eval_node(interpreter, node->data.function_call.arguments[0]);
@@ -1050,45 +1202,59 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 value_free(&v);
                 return value_create_string(t);
             }
+            // Look up function in environment
+            Value fn = environment_get(interpreter->current_environment, func_name);
             
-            // Check if this is a built-in function from the libraries
-            if (node->data.function_call.function_name) {
-                Value func_value = environment_get(interpreter->global_environment, node->data.function_call.function_name);
-                if (func_value.type == VALUE_FUNCTION && func_value.data.function_value.body) {
-                    // This is a built-in function
-                    size_t n = node->data.function_call.argument_count;
-                    Value* argv = (Value*)calloc(n, sizeof(Value));
-                    if (!argv) {
-                        interpreter_set_error(interpreter, "Out of memory in function call", node->line, node->column);
-                        return value_create_null();
-                    }
-                    
-                    for (size_t i = 0; i < n; i++) {
-                        argv[i] = eval_node(interpreter, node->data.function_call.arguments[i]);
-                    }
-                    
-                    // Cast the body pointer to the builtin function pointer
-                    Value (*builtin_func)(Interpreter*, Value*, size_t) = (Value (*)(Interpreter*, Value*, size_t))func_value.data.function_value.body;
-                    Value result = builtin_func(interpreter, argv, n);
-                    
-                    // Clean up arguments
-                    for (size_t i = 0; i < n; i++) {
-                        value_free(&argv[i]);
-                    }
-                    free(argv);
-                    
-                    return result;
+            // Check if this is a built-in function by checking if it's a known builtin
+            // Built-in functions are registered in the global environment with specific names
+            const char* builtin_names[] = {
+                "print", "uprint", "str", "len", "type", "assert", "input", "int", "float", "bool",
+                "abs", "min", "max", "sqrt", "pow", "round", "floor", "ceil", "sin", "cos", "tan",
+                "upper", "lower", "trim", "push", "pop", "insert", "remove", "reverse", "sort", 
+                "filter", "map", "reduce", "find", "slice"
+            };
+            int is_builtin = 0;
+            for (size_t i = 0; i < sizeof(builtin_names) / sizeof(builtin_names[0]); i++) {
+                if (strcmp(func_name, builtin_names[i]) == 0) {
+                    is_builtin = 1;
+                    break;
                 }
             }
             
-            // Attempt user-defined function from environment
-            if (func_name[0] == '\0') {
-                interpreter_set_error(interpreter, "Function name is empty", node->line, node->column);
-                return value_create_null();
+            if (is_builtin && fn.type == VALUE_FUNCTION && fn.data.function_value.body && 
+                fn.data.function_value.parameters == NULL && fn.data.function_value.parameter_count == 0) {
+                // This is a built-in function - call it directly
+                Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = (Value (*)(Interpreter*, Value*, size_t, int, int))fn.data.function_value.body;
+                
+                // Evaluate arguments
+                size_t n = node->data.function_call.argument_count;
+                Value* args = n ? (Value*)calloc(n, sizeof(Value)) : NULL;
+                if (n > 0 && !args) {
+                    interpreter_set_error(interpreter, "Out of memory allocating function arguments", node->line, node->column);
+                    value_free(&fn);
+                    return value_create_null();
+                }
+                
+                for (size_t i = 0; i < n; i++) {
+                    args[i] = eval_node(interpreter, node->data.function_call.arguments[i]);
+                }
+                
+                // Call the built-in function
+                Value result = builtin_func(interpreter, args, n, node->line, node->column);
+                
+                // Clean up arguments
+                if (args) {
+                    for (size_t i = 0; i < n; i++) {
+                        value_free(&args[i]);
+                    }
+                    free(args);
+                }
+                
+                value_free(&fn);
+                return result;
             }
-            fn = environment_get(interpreter->current_environment, func_name);
             
-            handle_user_function:
+            // Handle user-defined functions
             if (fn.type == VALUE_FUNCTION && fn.data.function_value.body) {
                 // Evaluate arguments in the current (caller) environment first
                 size_t n = node->data.function_call.argument_count;
@@ -1103,9 +1269,9 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     args[i] = eval_node(interpreter, node->data.function_call.arguments[i]);
                 }
 
-                // New scope for call
+                // New scope for call - use global environment as parent to allow access to global variables
                 Environment* saved = interpreter->current_environment;
-                Environment* call_env = environment_create(saved);
+                Environment* call_env = environment_create(interpreter->global_environment);
                 if (!call_env) {
                     interpreter_set_error(interpreter, "Failed to create function call environment", node->line, node->column);
                     if (args) {
@@ -1147,6 +1313,8 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     value_free(&fn);
                     return value_create_null();
                 }
+
+
 
                 Value rv = eval_node(interpreter, fn.data.function_value.body);
 
@@ -1810,7 +1978,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                                 value_object_set_member(&array_object, array_functions[i], array_func);
                             }
                         }
-                        environment_define(interpreter->current_environment, alias, array_object);
+                        environment_define(interpreter->global_environment, alias, array_object);
                     }
                 }
                 

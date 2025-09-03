@@ -354,8 +354,8 @@ static int process_file(const char* filename, int interpret, int compile, int de
                         interpreter_free(interp);
                     }
                     
-                    // Clean up the AST
-                    ast_free_tree(ast);
+                    // Don't free the AST yet - functions might still reference it
+                    // ast_free_tree(ast);
                 } else {
                     fprintf(stderr, "Parsing failed: %s\n", 
                            parser->error_message ? parser->error_message : "Unknown error");
@@ -441,8 +441,8 @@ static int process_file(const char* filename, int interpret, int compile, int de
                         interpreter_free(interp);
                     }
                     
-                    // Clean up the AST
-                    ast_free_tree(ast);
+                    // Don't free the AST yet - functions might still reference it
+                    // ast_free_tree(ast);
                 } else {
                     fprintf(stderr, "Parsing failed: %s\n", 
                            parser->error_message ? parser->error_message : "Unknown error");
@@ -536,8 +536,8 @@ static int process_string(const char* source, int interpret, int compile, int de
                         interpreter_free(interp);
                     }
                     
-                    // Clean up the AST
-                    ast_free_tree(ast);
+                    // Don't free the AST yet - functions might still reference it
+                    // ast_free_tree(ast);
                 } else {
                     fprintf(stderr, "Parsing failed: %s\n", 
                            parser->error_message ? parser->error_message : "Unknown error");
@@ -616,8 +616,8 @@ static int process_string(const char* source, int interpret, int compile, int de
                         interpreter_free(interp);
                     }
                     
-                    // Clean up the AST
-                    ast_free_tree(ast);
+                    // Don't free the AST yet - functions might still reference it
+                    // ast_free_tree(ast);
                 } else {
                     fprintf(stderr, "Parsing failed: %s\n", 
                            parser->error_message ? parser->error_message : "Unknown error");

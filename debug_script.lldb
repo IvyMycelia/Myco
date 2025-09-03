@@ -1,7 +1,0 @@
-target create ./bin/myco
-settings set target.run-args debug_minimal.myco
-run
-bt
-frame select 1
-disassemble --count 20
-quit

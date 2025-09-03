@@ -1006,26 +1006,36 @@ else:
     tests_failed = tests_failed + ["Simple function definition"];
 end
 
-print("\n16.2. Function definitions (with parameters, no return type)...");
+print("\n16.2. Function with single parameter (no return type)...");
 func greet_with_name(name):
     print("Hello, " + name + "!");
 end
 
+total_tests = total_tests + 1;
+if type(greet_with_name) == "Function":
+    print("✓ Function with single parameter (no return type)");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Function with single parameter failed");
+    tests_failed = tests_failed + ["Function with single parameter"];
+end
+
+print("\n16.3. Function with multiple parameters (no return type)...");
 func add_numbers(a, b):
     let result = a + b;
     print("Sum: " + str(result));
 end
 
 total_tests = total_tests + 1;
-if type(greet_with_name) == "Function" and type(add_numbers) == "Function":
-    print("✓ Function definitions with parameters");
+if type(add_numbers) == "Function":
+    print("✓ Function with multiple parameters (no return type)");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Function definitions with parameters failed");
-    tests_failed = tests_failed + ["Function definitions with parameters"];
+    print("✗ Function with multiple parameters failed");
+    tests_failed = tests_failed + ["Function with multiple parameters"];
 end
 
-print("\n16.3. Function definitions (with return types)...");
+print("\n16.4. Function definitions (with return types)...");
 func get_pi() -> Number:
     return 3.14159;
 end
@@ -1344,6 +1354,217 @@ if type(no_params_lambda) == "Function" and type(single_param_lambda) == "Functi
 else:
     print("✗ Lambda functions with different parameter types failed");
     tests_failed = tests_failed + ["Lambda functions with different parameter types"];
+end
+
+print("\n16.16. Explicit function with all types...");
+func explicit_all(param: Int) -> String:
+    return str(param);
+end
+
+total_tests = total_tests + 1;
+if type(explicit_all) == "Function":
+    let result = explicit_all(42);
+    if result != Null:
+        print("✓ Explicit function with all types");
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Explicit function with all types failed");
+        tests_failed = tests_failed + ["Explicit function with all types"];
+    end
+else:
+    print("✗ Explicit function with all types failed");
+    tests_failed = tests_failed + ["Explicit function with all types"];
+end
+
+print("\n16.17. Implicit function with no types...");
+func implicit_none(param):
+    return str(param);
+end
+
+total_tests = total_tests + 1;
+if type(implicit_none) == "Function":
+    let result = implicit_none(42);
+    if result != Null:
+        print("✓ Implicit function with no types");
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Implicit function with no types failed");
+        tests_failed = tests_failed + ["Implicit function with no types"];
+    end
+else:
+    print("✗ Implicit function with no types failed");
+    tests_failed = tests_failed + ["Implicit function with no types"];
+end
+
+print("\n16.18. Mixed function - explicit parameter, implicit return...");
+func mixed_param(param: Int):
+    return str(param);
+end
+
+total_tests = total_tests + 1;
+if type(mixed_param) == "Function":
+    let result = mixed_param(42);
+    if result != Null:
+        print("✓ Mixed function - explicit parameter, implicit return");
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Mixed function - explicit parameter, implicit return failed");
+        tests_failed = tests_failed + ["Mixed function - explicit parameter, implicit return"];
+    end
+else:
+    print("✗ Mixed function - explicit parameter, implicit return failed");
+    tests_failed = tests_failed + ["Mixed function - explicit parameter, implicit return"];
+end
+
+print("\n16.19. Mixed function - implicit parameter, explicit return...");
+func mixed_return(param) -> String:
+    return str(param);
+end
+
+total_tests = total_tests + 1;
+if type(mixed_return) == "Function":
+    let result = mixed_return(42);
+    if result != Null:
+        print("✓ Mixed function - implicit parameter, explicit return");
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Mixed function - implicit parameter, explicit return failed");
+        tests_failed = tests_failed + ["Mixed function - implicit parameter, explicit return"];
+    end
+else:
+    print("✗ Mixed function - implicit parameter, explicit return failed");
+    tests_failed = tests_failed + ["Mixed function - implicit parameter, explicit return"];
+end
+
+print("\n16.20. Function variable with explicit types...");
+let explicit_var: Function = func (param: Int) -> String:
+    return str(param);
+end;
+
+total_tests = total_tests + 1;
+if type(explicit_var) == "Function":
+    let result = explicit_var(42);
+    if result != Null:
+        print("✓ Function variable with explicit types");
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Function variable with explicit types failed");
+        tests_failed = tests_failed + ["Function variable with explicit types"];
+    end
+else:
+    print("✗ Function variable with explicit types failed");
+    tests_failed = tests_failed + ["Function variable with explicit types"];
+end
+
+print("\n16.21. Function variable with implicit types...");
+let implicit_var = func (param):
+    return str(param);
+end;
+
+total_tests = total_tests + 1;
+if type(implicit_var) == "Function":
+    let result = implicit_var(42);
+    if result != Null:
+        print("✓ Function variable with implicit types");
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Function variable with implicit types failed");
+        tests_failed = tests_failed + ["Function variable with implicit types"];
+    end
+else:
+    print("✗ Function variable with implicit types failed");
+    tests_failed = tests_failed + ["Function variable with implicit types"];
+end
+
+print("\n16.22. Function variable with mixed types...");
+let mixed_var: Function = func (param: Int):
+    return str(param);
+end;
+
+total_tests = total_tests + 1;
+if type(mixed_var) == "Function":
+    let result = mixed_var(42);
+    if result != Null:
+        print("✓ Function variable with mixed types");
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Function variable with mixed types failed");
+        tests_failed = tests_failed + ["Function variable with mixed types"];
+    end
+else:
+    print("✗ Function variable with mixed types failed");
+    tests_failed = tests_failed + ["Function variable with mixed types"];
+end
+
+print("\n16.23. Function variable with mixed return type...");
+let mixed_return_var = func (param) -> String:
+    return str(param);
+end;
+
+total_tests = total_tests + 1;
+if type(mixed_return_var) == "Function":
+    let result = mixed_return_var(42);
+    if result != Null:
+        print("✓ Function variable with mixed return type");
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Function variable with mixed return type failed");
+        tests_failed = tests_failed + ["Function variable with mixed return type"];
+    end
+else:
+    print("✗ Function variable with mixed return type failed");
+    tests_failed = tests_failed + ["Function variable with mixed return type"];
+end
+
+print("\n16.24. Function type interchangeability with different argument types...");
+total_tests = total_tests + 1;
+# Test that all functions work with different argument types
+let test_int = 42;
+let test_string = "hello";
+let test_bool = True;
+
+# Test with integer
+let int_result1 = explicit_all(test_int);
+let int_result2 = implicit_none(test_int);
+let int_result3 = mixed_param(test_int);
+let int_result4 = mixed_return(test_int);
+let int_result5 = explicit_var(test_int);
+let int_result6 = implicit_var(test_int);
+let int_result7 = mixed_var(test_int);
+let int_result8 = mixed_return_var(test_int);
+
+# Test with string
+let string_result1 = explicit_all(test_string);
+let string_result2 = implicit_none(test_string);
+let string_result3 = mixed_param(test_string);
+let string_result4 = mixed_return(test_string);
+let string_result5 = explicit_var(test_string);
+let string_result6 = implicit_var(test_string);
+let string_result7 = mixed_var(test_string);
+let string_result8 = mixed_return_var(test_string);
+
+# Test with boolean
+let bool_result1 = explicit_all(test_bool);
+let bool_result2 = implicit_none(test_bool);
+let bool_result3 = mixed_param(test_bool);
+let bool_result4 = mixed_return(test_bool);
+let bool_result5 = explicit_var(test_bool);
+let bool_result6 = implicit_var(test_bool);
+let bool_result7 = mixed_var(test_bool);
+let bool_result8 = mixed_return_var(test_bool);
+
+# Check that all results are valid (not Null)
+if int_result1 != Null and int_result2 != Null and int_result3 != Null and int_result4 != Null and
+   int_result5 != Null and int_result6 != Null and int_result7 != Null and int_result8 != Null and
+   string_result1 != Null and string_result2 != Null and string_result3 != Null and string_result4 != Null and
+   string_result5 != Null and string_result6 != Null and string_result7 != Null and string_result8 != Null and
+   bool_result1 != Null and bool_result2 != Null and bool_result3 != Null and bool_result4 != Null and
+   bool_result5 != Null and bool_result6 != Null and bool_result7 != Null and bool_result8 != Null:
+    print("✓ Function type interchangeability with different argument types");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Function type interchangeability with different argument types failed");
+    tests_failed = tests_failed + ["Function type interchangeability with different argument types"];
 end
 
 print("\n=== RESULTS ===");

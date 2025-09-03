@@ -113,6 +113,24 @@ void environment_define(Environment* env, const char* name, Value value) {
         env->count++;
     }
 }
+
+// Create a deep copy of an environment for closure capture
+Environment* environment_copy(Environment* env) {
+    if (!env) return NULL;
+    
+    Environment* copy = environment_create(env->parent);
+    if (!copy) return NULL;
+    
+    // Copy all variables from the source environment
+    for (size_t i = 0; i < env->count; i++) {
+        if (env->names[i]) {
+            environment_define(copy, env->names[i], env->values[i]);
+        }
+    }
+    
+    return copy;
+}
+
 Value environment_get(Environment* env, const char* name) {
     for (Environment* e = env; e; e = e->parent) {
         int idx = environment_find_index(e, name);
@@ -301,12 +319,13 @@ void value_object_set_member(Value* object, const char* member_name, Value membe
         if (new_value) free(new_value);
     }
 }
-Value value_create_function(ASTNode* body, char** params, size_t param_count, const char* return_type) {
+Value value_create_function(ASTNode* body, char** params, size_t param_count, const char* return_type, Environment* captured_env) {
     Value v = {0};
     v.type = VALUE_FUNCTION;
     v.data.function_value.body = body;
     v.data.function_value.parameter_count = param_count;
     v.data.function_value.return_type = return_type ? strdup(return_type) : NULL;
+    v.data.function_value.captured_environment = captured_env;
     
     // Copy parameter names with proper error handling
     if (param_count > 0 && params) {
@@ -372,6 +391,8 @@ void value_free(Value* value) {
                 free(value->data.function_value.return_type);
                 value->data.function_value.return_type = NULL;
             }
+            // Note: Don't free captured_environment here as it may be shared
+            // The environment will be freed when the interpreter is freed
 
             break;
             
@@ -463,7 +484,8 @@ Value value_clone(Value* value) {
                 value->data.function_value.body,
                 value->data.function_value.parameters,
                 value->data.function_value.parameter_count,
-                value->data.function_value.return_type
+                value->data.function_value.return_type,
+                value->data.function_value.captured_environment
             );
         } 
         default: return value_create_null(); 
@@ -1269,9 +1291,12 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     args[i] = eval_node(interpreter, node->data.function_call.arguments[i]);
                 }
 
-                // New scope for call - use global environment as parent to allow access to global variables
+                // New scope for call - use captured environment as parent if available, otherwise use global
                 Environment* saved = interpreter->current_environment;
-                Environment* call_env = environment_create(interpreter->global_environment);
+                Environment* parent_env = fn.data.function_value.captured_environment ? 
+                    fn.data.function_value.captured_environment : 
+                    interpreter->global_environment;
+                Environment* call_env = environment_create(parent_env);
                 if (!call_env) {
                     interpreter_set_error(interpreter, "Failed to create function call environment", node->line, node->column);
                     if (args) {
@@ -1426,11 +1451,14 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 }
                 
                 // Create function value using the proper function
+                // Capture a copy of the current environment for closures to avoid circular references
+                Environment* captured_env = environment_copy(interpreter->current_environment);
                 Value fv = value_create_function(
                     node->data.function_definition.body,
                     param_names,
                     node->data.function_definition.parameter_count,
-                    node->data.function_definition.return_type
+                    node->data.function_definition.return_type,
+                    captured_env
                 );
                 
                 // Clean up parameter names array (they're copied in value_create_function)
@@ -1466,11 +1494,14 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             }
             
             // Create lambda function value using the proper function
+            // Capture a copy of the current environment for closures to avoid circular references
+            Environment* captured_env = environment_copy(interpreter->current_environment);
             Value lambda_value = value_create_function(
                 node->data.lambda.body,
                 param_names,
                 node->data.lambda.parameter_count,
-                node->data.lambda.return_type
+                node->data.lambda.return_type,
+                captured_env
             );
             
             // Clean up parameter names array (they're copied in value_create_function)

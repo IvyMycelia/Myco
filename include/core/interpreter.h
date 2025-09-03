@@ -4,6 +4,9 @@
 #include "ast.h"
 #include <stddef.h>
 
+// Forward declarations
+typedef struct Environment Environment;
+
 // Value types
 typedef enum {
     VALUE_NULL,
@@ -46,6 +49,7 @@ typedef union {
         char** parameters;
         size_t parameter_count;
         char* return_type;
+        Environment* captured_environment;  // For closures
     } function_value;
     struct {
         char* class_name;
@@ -102,6 +106,7 @@ void environment_free(Environment* env);
 void environment_define(Environment* env, const char* name, Value value);
 Value environment_get(Environment* env, const char* name);
 void environment_assign(Environment* env, const char* name, Value value);
+Environment* environment_copy(Environment* env);
 int environment_exists(Environment* env, const char* name);
 
 // Value creation and management
@@ -114,7 +119,7 @@ Value value_create_range(double start, double end, double step, int inclusive);
 Value value_create_array(size_t initial_capacity);
 Value value_create_object(size_t initial_capacity);
 void value_object_set_member(Value* object, const char* member_name, Value member_value);
-Value value_create_function(ASTNode* body, char** params, size_t param_count, const char* return_type);
+Value value_create_function(ASTNode* body, char** params, size_t param_count, const char* return_type, Environment* captured_env);
 Value value_create_class(const char* name, void* instance);
 Value value_create_module(const char* name, void* exports);
 Value value_create_error(const char* message, int code);

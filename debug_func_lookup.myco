@@ -1,7 +1,0 @@
-func test():
-    return 42
-end
-
-print("About to call test()");
-let result = test();
-print("Result: " + str(result));

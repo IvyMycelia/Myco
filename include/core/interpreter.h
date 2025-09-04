@@ -16,6 +16,8 @@ typedef enum {
     VALUE_RANGE,
     VALUE_ARRAY,
     VALUE_OBJECT,
+    VALUE_HASH_MAP,
+    VALUE_SET,
     VALUE_FUNCTION,
     VALUE_CLASS,
     VALUE_MODULE,
@@ -44,6 +46,17 @@ typedef union {
         size_t count;
         size_t capacity;
     } object_value;
+    struct {
+        void** keys;
+        void** values;
+        size_t count;
+        size_t capacity;
+    } hash_map_value;
+    struct {
+        void** elements;
+        size_t count;
+        size_t capacity;
+    } set_value;
     struct {
         ASTNode* body;
         ASTNode** parameters;
@@ -200,6 +213,24 @@ Value value_object_get(Value* obj, const char* key);
 int value_object_has(Value* obj, const char* key);
 void value_object_delete(Value* obj, const char* key);
 char** value_object_keys(Value* obj, size_t* count);
+
+// Hash map operations
+Value value_create_hash_map(size_t initial_capacity);
+void value_hash_map_set(Value* map, Value key, Value value);
+Value value_hash_map_get(Value* map, Value key);
+int value_hash_map_has(Value* map, Value key);
+void value_hash_map_delete(Value* map, Value key);
+Value* value_hash_map_keys(Value* map, size_t* count);
+size_t value_hash_map_size(Value* map);
+int value_equals(Value* a, Value* b);  // Compare two values for equality
+
+// Set operations
+Value value_create_set(size_t initial_capacity);
+void value_set_add(Value* set, Value element);
+int value_set_has(Value* set, Value element);
+void value_set_remove(Value* set, Value element);
+size_t value_set_size(Value* set);
+Value value_set_to_array(Value* set);
 
 // Function execution
 Value value_function_call(Value* func, Value* args, size_t arg_count, Interpreter* interpreter, int line, int column);

@@ -1024,6 +1024,47 @@ void value_free(Value* value) {
             // The AST and environment will be freed when the interpreter is freed
             break;
             
+        case VALUE_HASH_MAP:
+            // Free hash map keys and values
+            if (value->data.hash_map_value.keys) {
+                for (size_t i = 0; i < value->data.hash_map_value.count; i++) {
+                    Value* key = (Value*)value->data.hash_map_value.keys[i];
+                    if (key) {
+                        value_free(key);
+                        free(key);
+                    }
+                }
+                free(value->data.hash_map_value.keys);
+                value->data.hash_map_value.keys = NULL;
+            }
+            if (value->data.hash_map_value.values) {
+                for (size_t i = 0; i < value->data.hash_map_value.count; i++) {
+                    Value* map_value = (Value*)value->data.hash_map_value.values[i];
+                    if (map_value) {
+                        value_free(map_value);
+                        free(map_value);
+                    }
+                }
+                free(value->data.hash_map_value.values);
+                value->data.hash_map_value.values = NULL;
+            }
+            break;
+            
+        case VALUE_SET:
+            // Free set elements
+            if (value->data.set_value.elements) {
+                for (size_t i = 0; i < value->data.set_value.count; i++) {
+                    Value* element = (Value*)value->data.set_value.elements[i];
+                    if (element) {
+                        value_free(element);
+                        free(element);
+                    }
+                }
+                free(value->data.set_value.elements);
+                value->data.set_value.elements = NULL;
+            }
+            break;
+            
         default:
             // Other types (NUMBER, BOOLEAN, NULL, RANGE) don't need cleanup
             break;
@@ -1062,6 +1103,35 @@ Value value_clone(Value* value) {
                     Value cloned_member = value_clone(member_value);
                     value_object_set_member(&v, key, cloned_member);
                     value_free(&cloned_member);
+                }
+            }
+            return v;
+        }
+        case VALUE_HASH_MAP: {
+            // Deep copy hash map with all key-value pairs
+            Value v = value_create_hash_map(value->data.hash_map_value.capacity);
+            for (size_t i = 0; i < value->data.hash_map_value.count; i++) {
+                Value* key = (Value*)value->data.hash_map_value.keys[i];
+                Value* map_value = (Value*)value->data.hash_map_value.values[i];
+                if (key && map_value) {
+                    Value cloned_key = value_clone(key);
+                    Value cloned_value = value_clone(map_value);
+                    value_hash_map_set(&v, cloned_key, cloned_value);
+                    value_free(&cloned_key);
+                    value_free(&cloned_value);
+                }
+            }
+            return v;
+        }
+        case VALUE_SET: {
+            // Deep copy set with all elements
+            Value v = value_create_set(value->data.set_value.capacity);
+            for (size_t i = 0; i < value->data.set_value.count; i++) {
+                Value* element = (Value*)value->data.set_value.elements[i];
+                if (element) {
+                    Value cloned_element = value_clone(element);
+                    value_set_add(&v, cloned_element);
+                    value_free(&cloned_element);
                 }
             }
             return v;
@@ -1225,6 +1295,136 @@ Value value_to_string(Value* value) {
             result = realloc(result, result_len + 2);
             if (!result) return value_create_string("[]");
             strcat(result, "]");
+            
+            Value result_value = value_create_string(result);
+            free(result);
+            return result_value;
+        }
+        case VALUE_HASH_MAP: {
+            // Format hash map as {key1: value1, key2: value2, ...}
+            char* result = malloc(2); // Start with just "{"
+            if (!result) return value_create_string("{}");
+            result[0] = '{';
+            result[1] = '\0';
+            size_t result_len = 1;
+            
+            for (size_t i = 0; i < value->data.hash_map_value.count; i++) {
+                Value* key = (Value*)value->data.hash_map_value.keys[i];
+                Value* map_value = (Value*)value->data.hash_map_value.values[i];
+                
+                if (key && map_value) {
+                    // Add comma separator
+                    if (i > 0) {
+                        result = realloc(result, result_len + 2);
+                        if (!result) return value_create_string("{}");
+                        strcat(result, ", ");
+                        result_len += 2;
+                    }
+                    
+                    // Add key
+                    Value key_str = value_to_string(key);
+                    if (key_str.type == VALUE_STRING && key_str.data.string_value) {
+                        size_t key_len = strlen(key_str.data.string_value);
+                        result = realloc(result, result_len + key_len + 1);
+                        if (!result) {
+                            value_free(&key_str);
+                            return value_create_string("{}");
+                        }
+                        strcat(result, key_str.data.string_value);
+                        result_len += key_len;
+                        value_free(&key_str);
+                    } else {
+                        value_free(&key_str);
+                        return value_create_string("{}");
+                    }
+                    
+                    // Add colon
+                    result = realloc(result, result_len + 2);
+                    if (!result) return value_create_string("{}");
+                    strcat(result, ": ");
+                    result_len += 2;
+                    
+                    // Add value
+                    Value value_str = value_to_string(map_value);
+                    if (value_str.type == VALUE_STRING && value_str.data.string_value) {
+                        size_t val_len = strlen(value_str.data.string_value);
+                        result = realloc(result, result_len + val_len + 1);
+                        if (!result) {
+                            value_free(&value_str);
+                            return value_create_string("{}");
+                        }
+                        strcat(result, value_str.data.string_value);
+                        result_len += val_len;
+                    } else {
+                        result = realloc(result, result_len + 5);
+                        if (!result) {
+                            value_free(&value_str);
+                            return value_create_string("{}");
+                        }
+                        strcat(result, "null");
+                        result_len += 4;
+                    }
+                    value_free(&value_str);
+                }
+            }
+            
+            // Add closing brace
+            result = realloc(result, result_len + 2);
+            if (!result) return value_create_string("{}");
+            strcat(result, "}");
+            
+            Value result_value = value_create_string(result);
+            free(result);
+            return result_value;
+        }
+        case VALUE_SET: {
+            // Format set as {item1, item2, item3, ...}
+            char* result = malloc(2); // Start with just "{"
+            if (!result) return value_create_string("{}");
+            result[0] = '{';
+            result[1] = '\0';
+            size_t result_len = 1;
+            
+            for (size_t i = 0; i < value->data.set_value.count; i++) {
+                Value* element = (Value*)value->data.set_value.elements[i];
+                
+                if (element) {
+                    // Add comma separator
+                    if (i > 0) {
+                        result = realloc(result, result_len + 2);
+                        if (!result) return value_create_string("{}");
+                        strcat(result, ", ");
+                        result_len += 2;
+                    }
+                    
+                    // Add element
+                    Value element_str = value_to_string(element);
+                    if (element_str.type == VALUE_STRING && element_str.data.string_value) {
+                        size_t elem_len = strlen(element_str.data.string_value);
+                        result = realloc(result, result_len + elem_len + 1);
+                        if (!result) {
+                            value_free(&element_str);
+                            return value_create_string("{}");
+                        }
+                        strcat(result, element_str.data.string_value);
+                        result_len += elem_len;
+                    } else {
+                        result = realloc(result, result_len + 5);
+                        if (!result) {
+                            value_free(&element_str);
+                            return value_create_string("{}");
+                        }
+                        strcat(result, "null");
+                        result_len += 4;
+                    }
+                    value_free(&element_str);
+                }
+            }
+            
+            // Add closing brace
+            result = realloc(result, result_len + 2);
+            if (!result) return value_create_string("{}");
+            strcat(result, "}");
             
             Value result_value = value_create_string(result);
             free(result);
@@ -1565,6 +1765,237 @@ char** value_object_keys(Value* obj, size_t* count) {
     }
     
     return keys;
+}
+
+// Hash map operations
+
+Value value_create_hash_map(size_t initial_capacity) {
+    Value v;
+    v.type = VALUE_HASH_MAP;
+    v.data.hash_map_value.count = 0;
+    v.data.hash_map_value.capacity = initial_capacity > 0 ? initial_capacity : 8;
+    v.data.hash_map_value.keys = calloc(v.data.hash_map_value.capacity, sizeof(Value*));
+    v.data.hash_map_value.values = calloc(v.data.hash_map_value.capacity, sizeof(void*));
+    return v;
+}
+
+void value_hash_map_set(Value* map, Value key, Value value) {
+    if (!map || map->type != VALUE_HASH_MAP) return;
+    
+    // Check if key already exists
+    for (size_t i = 0; i < map->data.hash_map_value.count; i++) {
+        Value* existing_key = (Value*)map->data.hash_map_value.keys[i];
+        if (existing_key && value_equals(existing_key, &key)) {
+            // Update existing value
+            Value* existing_value = (Value*)map->data.hash_map_value.values[i];
+            if (existing_value) {
+                value_free(existing_value);
+                *existing_value = value_clone(&value);
+            }
+            return;
+        }
+    }
+    
+    // Add new key-value pair
+    if (map->data.hash_map_value.count >= map->data.hash_map_value.capacity) {
+        // Resize
+        size_t new_capacity = map->data.hash_map_value.capacity * 2;
+        Value** new_keys = realloc(map->data.hash_map_value.keys, new_capacity * sizeof(Value*));
+        void** new_values = realloc(map->data.hash_map_value.values, new_capacity * sizeof(void*));
+        if (!new_keys || !new_values) return;
+        
+        map->data.hash_map_value.keys = new_keys;
+        map->data.hash_map_value.values = new_values;
+        map->data.hash_map_value.capacity = new_capacity;
+    }
+    
+    // Add new entry
+    map->data.hash_map_value.keys[map->data.hash_map_value.count] = malloc(sizeof(Value));
+    *(Value*)map->data.hash_map_value.keys[map->data.hash_map_value.count] = value_clone(&key);
+    Value* new_value = malloc(sizeof(Value));
+    *new_value = value_clone(&value);
+    map->data.hash_map_value.values[map->data.hash_map_value.count] = new_value;
+    map->data.hash_map_value.count++;
+}
+
+Value value_hash_map_get(Value* map, Value key) {
+    if (!map || map->type != VALUE_HASH_MAP) {
+        return value_create_null();
+    }
+    
+    for (size_t i = 0; i < map->data.hash_map_value.count; i++) {
+        Value* existing_key = (Value*)map->data.hash_map_value.keys[i];
+        if (existing_key && value_equals(existing_key, &key)) {
+            Value* value = (Value*)map->data.hash_map_value.values[i];
+            return value ? value_clone(value) : value_create_null();
+        }
+    }
+    
+    return value_create_null();
+}
+
+int value_hash_map_has(Value* map, Value key) {
+    if (!map || map->type != VALUE_HASH_MAP) return 0;
+    
+    for (size_t i = 0; i < map->data.hash_map_value.count; i++) {
+        Value* existing_key = (Value*)map->data.hash_map_value.keys[i];
+        if (existing_key && value_equals(existing_key, &key)) {
+            return 1;
+        }
+    }
+    
+    return 0;
+}
+
+void value_hash_map_delete(Value* map, Value key) {
+    if (!map || map->type != VALUE_HASH_MAP) return;
+    
+    for (size_t i = 0; i < map->data.hash_map_value.count; i++) {
+        Value* existing_key = (Value*)map->data.hash_map_value.keys[i];
+        if (existing_key && value_equals(existing_key, &key)) {
+            // Free the key
+            value_free(existing_key);
+            free(existing_key);
+            map->data.hash_map_value.keys[i] = NULL;
+            
+            // Free the value
+            Value* value = (Value*)map->data.hash_map_value.values[i];
+            if (value) {
+                value_free(value);
+                free(value);
+                map->data.hash_map_value.values[i] = NULL;
+            }
+            
+            // Shift remaining elements
+            for (size_t j = i; j < map->data.hash_map_value.count - 1; j++) {
+                map->data.hash_map_value.keys[j] = map->data.hash_map_value.keys[j + 1];
+                map->data.hash_map_value.values[j] = map->data.hash_map_value.values[j + 1];
+            }
+            
+            map->data.hash_map_value.count--;
+            break;
+        }
+    }
+}
+
+Value* value_hash_map_keys(Value* map, size_t* count) {
+    if (!map || map->type != VALUE_HASH_MAP || !count) {
+        if (count) *count = 0;
+        return NULL;
+    }
+    
+    *count = map->data.hash_map_value.count;
+    if (*count == 0) {
+        return NULL;
+    }
+    
+    Value* keys = malloc(*count * sizeof(Value));
+    if (!keys) {
+        *count = 0;
+        return NULL;
+    }
+    
+    for (size_t i = 0; i < *count; i++) {
+        Value* existing_key = (Value*)map->data.hash_map_value.keys[i];
+        if (existing_key) {
+            keys[i] = value_clone(existing_key);
+        } else {
+            keys[i] = value_create_null();
+        }
+    }
+    
+    return keys;
+}
+
+size_t value_hash_map_size(Value* map) {
+    if (!map || map->type != VALUE_HASH_MAP) return 0;
+    return map->data.hash_map_value.count;
+}
+
+// Set operations
+Value value_create_set(size_t initial_capacity) {
+    Value v;
+    v.type = VALUE_SET;
+    v.data.set_value.count = 0;
+    v.data.set_value.capacity = initial_capacity > 0 ? initial_capacity : 8;
+    v.data.set_value.elements = calloc(v.data.set_value.capacity, sizeof(void*));
+    return v;
+}
+
+void value_set_add(Value* set, Value element) {
+    if (!set || set->type != VALUE_SET) return;
+    
+    // Check if element already exists
+    for (size_t i = 0; i < set->data.set_value.count; i++) {
+        Value* existing = (Value*)set->data.set_value.elements[i];
+        if (existing && value_equals(existing, &element)) {
+            return; // Element already exists
+        }
+    }
+    
+    // Add new element
+    if (set->data.set_value.count < set->data.set_value.capacity) {
+        Value* new_element = malloc(sizeof(Value));
+        *new_element = value_clone(&element);
+        set->data.set_value.elements[set->data.set_value.count] = new_element;
+        set->data.set_value.count++;
+    }
+}
+
+int value_set_has(Value* set, Value element) {
+    if (!set || set->type != VALUE_SET) return 0;
+    
+    for (size_t i = 0; i < set->data.set_value.count; i++) {
+        Value* existing = (Value*)set->data.set_value.elements[i];
+        if (existing && value_equals(existing, &element)) {
+            return 1;
+        }
+    }
+    
+    return 0;
+}
+
+void value_set_remove(Value* set, Value element) {
+    if (!set || set->type != VALUE_SET) return;
+    
+    for (size_t i = 0; i < set->data.set_value.count; i++) {
+        Value* existing = (Value*)set->data.set_value.elements[i];
+        if (existing && value_equals(existing, &element)) {
+            // Free the element
+            value_free(existing);
+            free(existing);
+            set->data.set_value.elements[i] = NULL;
+            
+            // Shift remaining elements
+            for (size_t j = i; j < set->data.set_value.count - 1; j++) {
+                set->data.set_value.elements[j] = set->data.set_value.elements[j + 1];
+            }
+            
+            set->data.set_value.count--;
+            break;
+        }
+    }
+}
+
+size_t value_set_size(Value* set) {
+    if (!set || set->type != VALUE_SET) return 0;
+    return set->data.set_value.count;
+}
+
+Value value_set_to_array(Value* set) {
+    if (!set || set->type != VALUE_SET) {
+        return value_create_array(0);
+    }
+    
+    Value array = value_create_array(set->data.set_value.count);
+    for (size_t i = 0; i < set->data.set_value.count; i++) {
+        Value* element = (Value*)set->data.set_value.elements[i];
+        if (element) {
+            value_array_push(&array, value_clone(element));
+        }
+    }
+    
+    return array;
 }
 
 Value value_function_call(Value* func, Value* args, size_t arg_count, Interpreter* interpreter, int line, int column) {
@@ -1951,6 +2382,8 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                         break;
                     }
                     case VALUE_FUNCTION: t = "Function"; break;
+                    case VALUE_HASH_MAP: t = "HashMap"; break;
+                    case VALUE_SET: t = "Set"; break;
                     case VALUE_CLASS: t = "Class"; break;
                     case VALUE_MODULE: t = "Module"; break;
                     case VALUE_ERROR: t = "Error"; break;
@@ -2255,7 +2688,8 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 }
             }
             
-            // Assign to the variable in the current environment (update existing variable)
+            
+            // Regular variable assignment
             if (node->data.assignment.variable_name) {
                 environment_assign(interpreter->current_environment, node->data.assignment.variable_name, value);
             }
@@ -2384,6 +2818,38 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
 
             return array;
         }
+        case AST_NODE_HASH_MAP_LITERAL: {
+            // Create hash map value
+            Value hash_map = value_create_hash_map(node->data.hash_map_literal.pair_count);
+            
+            for (size_t i = 0; i < node->data.hash_map_literal.pair_count; i++) {
+                // Evaluate key (can be any type)
+                Value key_value = eval_node(interpreter, node->data.hash_map_literal.keys[i]);
+                
+                // Evaluate value
+                Value value = eval_node(interpreter, node->data.hash_map_literal.values[i]);
+                
+                // Add to hash map
+                value_hash_map_set(&hash_map, key_value, value);
+                value_free(&key_value);
+                value_free(&value);
+            }
+            
+            return hash_map;
+        }
+        case AST_NODE_SET_LITERAL: {
+            // Create set value
+            Value set = value_create_set(node->data.set_literal.element_count);
+            
+            for (size_t i = 0; i < node->data.set_literal.element_count; i++) {
+                Value element = eval_node(interpreter, node->data.set_literal.elements[i]);
+                
+                value_set_add(&set, element);
+                value_free(&element);
+            }
+            
+            return set;
+        }
         case AST_NODE_ARRAY_ACCESS: {
             // Evaluate the array
             Value array = eval_node(interpreter, node->data.array_access.array);
@@ -2391,42 +2857,61 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             // Evaluate the index
             Value index = eval_node(interpreter, node->data.array_access.index);
             
-            // Check if array is actually an array
-            if (array.type != VALUE_ARRAY) {
+            // Handle array access
+            if (array.type == VALUE_ARRAY) {
+                // Check if index is a number
+                if (index.type != VALUE_NUMBER) {
+                    value_free(&array);
+                    value_free(&index);
+                    interpreter_set_error(interpreter, "Array index must be a number", node->line, node->column);
+                    return value_create_null();
+                }
+                
+                // Convert index to integer and bounds check
+                int idx = (int)index.data.number_value;
+                if (idx < 0 || idx >= (int)array.data.array_value.count) {
+                    value_free(&array);
+                    value_free(&index);
+                    interpreter_set_error(interpreter, "Array index out of bounds", node->line, node->column);
+                    return value_create_null();
+                }
+                
+                // Get the element at the index
+                Value* element_ptr = (Value*)array.data.array_value.elements[idx];
+                Value element = *element_ptr;
+                
+                // Return a copy of the element
+                Value result = value_clone(&element);
+                
                 value_free(&array);
                 value_free(&index);
-                interpreter_set_error(interpreter, "Cannot index non-array value", node->line, node->column);
-                return value_create_null();
+                
+                return result;
             }
-            
-            // Check if index is a number
-            if (index.type != VALUE_NUMBER) {
+            // Handle hash map access
+            else if (array.type == VALUE_HASH_MAP) {
+                // Get the value for the key (any type)
+                Value result = value_hash_map_get(&array, index);
+                
                 value_free(&array);
                 value_free(&index);
-                interpreter_set_error(interpreter, "Array index must be a number", node->line, node->column);
-                return value_create_null();
+                
+                return result;
             }
-            
-            // Convert index to integer and bounds check
-            int idx = (int)index.data.number_value;
-            if (idx < 0 || idx >= (int)array.data.array_value.count) {
+            // Handle set access (not supported - sets don't have indexed access)
+            else if (array.type == VALUE_SET) {
                 value_free(&array);
                 value_free(&index);
-                interpreter_set_error(interpreter, "Array index out of bounds", node->line, node->column);
+                interpreter_set_error(interpreter, "Cannot index set values", node->line, node->column);
                 return value_create_null();
             }
-            
-            // Get the element at the index
-            Value* element_ptr = (Value*)array.data.array_value.elements[idx];
-            Value element = *element_ptr;
-            
-            // Return a copy of the element
-            Value result = value_clone(&element);
-            
-            value_free(&array);
-            value_free(&index);
-            
-            return result;
+            // Handle other types
+            else {
+                value_free(&array);
+                value_free(&index);
+                interpreter_set_error(interpreter, "Cannot index non-array or non-hash-map value", node->line, node->column);
+                return value_create_null();
+            }
         }
         case AST_NODE_MEMBER_ACCESS: {
             // Evaluate the object

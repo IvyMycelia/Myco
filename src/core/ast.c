@@ -402,6 +402,35 @@ ASTNode* ast_create_array_literal(ASTNode** elements, size_t element_count, int 
     return node;
 }
 
+ASTNode* ast_create_hash_map_literal(ASTNode** keys, ASTNode** values, size_t pair_count, int line, int column) {
+    ASTNode* node = malloc(sizeof(ASTNode));
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_HASH_MAP_LITERAL;
+    node->data.hash_map_literal.keys = keys;
+    node->data.hash_map_literal.values = values;
+    node->data.hash_map_literal.pair_count = pair_count;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
+ASTNode* ast_create_set_literal(ASTNode** elements, size_t element_count, int line, int column) {
+    ASTNode* node = malloc(sizeof(ASTNode));
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_SET_LITERAL;
+    node->data.set_literal.elements = elements;
+    node->data.set_literal.element_count = element_count;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
 ASTNode* ast_create_array_access(ASTNode* array, ASTNode* index, int line, int column) {
     ASTNode* node = malloc(sizeof(ASTNode));
     if (!node) return NULL;

@@ -12,6 +12,8 @@ static void parser_error(Parser* parser, const char* message);
 static const char* get_token_type_name(TokenType type);
 static const char* get_error_suggestion(const char* message, Token* token);
 static ASTNode* parser_parse_array_literal(Parser* parser);
+static ASTNode* parser_parse_hash_map_literal(Parser* parser);
+static ASTNode* parser_parse_set_literal(Parser* parser);
 static ASTNode* parser_parse_try_catch_statement(Parser* parser);
 static ASTNode* parser_parse_use_statement(Parser* parser);
 static ASTNode* parser_collect_block(Parser* parser, int stop_on_else, int* saw_else);
@@ -145,6 +147,21 @@ static Token* parser_peek(Parser* parser) {
         // Fall back to scanning tokens on-demand
         parser->current_token = lexer_scan_next(parser->lexer);
         return parser->current_token;
+    }
+}
+
+static Token* parser_peek_next(Parser* parser) {
+    if (!parser || !parser->lexer) {
+        return NULL;
+    }
+    
+    // Check if we have pre-scanned tokens available
+    if (parser->lexer->token_count > 1) {
+        // Use pre-scanned tokens
+        return lexer_get_token(parser->lexer, 1);
+    } else {
+        // Fall back to scanning tokens on-demand
+        return lexer_scan_next(parser->lexer);
     }
 }
 
@@ -1216,6 +1233,39 @@ ASTNode* parser_parse_primary(Parser* parser) {
     if (parser_check(parser, TOKEN_LEFT_BRACKET)) {
         // Parse array literal [1, 2, 3]
         return parser_parse_array_literal(parser);
+    }
+    
+    if (parser_check(parser, TOKEN_LEFT_BRACE)) {
+        // Parse hash map or set literal {key: value} or {item1, item2}
+        // We need to peek ahead to determine if it's a hash map (has colon) or set (no colon)
+        int current_pos = parser->current_position;
+        parser_advance(parser); // consume opening brace
+        
+        // Handle empty braces {} - default to hash map
+        if (parser_check(parser, TOKEN_RIGHT_BRACE)) {
+            parser_advance(parser); // consume closing brace
+            return ast_create_hash_map_literal(NULL, NULL, 0, parser->previous_token->line, parser->previous_token->column);
+        }
+        
+        // Parse first expression to determine type
+        ASTNode* first_expr = parser_parse_expression(parser);
+        if (!first_expr) {
+            parser_error(parser, "Expected expression in hash map or set literal");
+            return NULL;
+        }
+        
+        // Check if next token is colon (hash map) or comma/brace (set)
+        if (parser_check(parser, TOKEN_COLON)) {
+            // It's a hash map - rewind and parse as hash map
+            ast_free(first_expr);
+            parser->current_position = current_pos;
+            return parser_parse_hash_map_literal(parser);
+        } else {
+            // It's a set - rewind and parse as set
+            ast_free(first_expr);
+            parser->current_position = current_pos;
+            return parser_parse_set_literal(parser);
+        }
     }
     
     // Check for lambda expressions: func (params) -> returnType: body end
@@ -3439,6 +3489,237 @@ static ASTNode* parser_parse_array_literal(Parser* parser) {
     }
     
     return ast_create_array_literal(elements, element_count, parser->previous_token->line, parser->previous_token->column);
+}
+
+/**
+ * Parse hash map literal: {key1: value1, key2: value2, ...}
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the hash map literal
+ */
+static ASTNode* parser_parse_hash_map_literal(Parser* parser) {
+    if (!parser) {
+        return NULL;
+    }
+    
+    // Consume the opening brace
+    parser_advance(parser);
+    
+    // Handle empty hash map
+    Token* current = parser_peek(parser);
+    if (current && current->type == TOKEN_RIGHT_BRACE) {
+        parser_advance(parser);
+        return ast_create_hash_map_literal(NULL, NULL, 0, parser->previous_token->line, parser->previous_token->column);
+    }
+    
+    // Parse first key-value pair
+    ASTNode* first_key = parser_parse_expression(parser);
+    if (!first_key) {
+        parser_error(parser, "Expected key expression in hash map literal");
+        return NULL;
+    }
+    
+    // Expect colon
+    if (!parser_match(parser, TOKEN_COLON)) {
+        parser_error(parser, "Expected ':' after key in hash map literal");
+        ast_free(first_key);
+        return NULL;
+    }
+    
+    ASTNode* first_value = parser_parse_expression(parser);
+    if (!first_value) {
+        parser_error(parser, "Expected value expression after ':' in hash map literal");
+        ast_free(first_key);
+        return NULL;
+    }
+    
+    // Allocate arrays for keys and values
+    ASTNode** keys = malloc(sizeof(ASTNode*));
+    ASTNode** values = malloc(sizeof(ASTNode*));
+    if (!keys || !values) {
+        parser_error(parser, "Memory allocation failed for hash map literal");
+        ast_free(first_key);
+        ast_free(first_value);
+        free(keys);
+        free(values);
+        return NULL;
+    }
+    keys[0] = first_key;
+    values[0] = first_value;
+    size_t pair_count = 1;
+    size_t pair_capacity = 1;
+    
+    // Parse remaining key-value pairs
+    while (parser_check(parser, TOKEN_COMMA)) {
+        parser_advance(parser);  // Consume the comma
+        
+        ASTNode* key = parser_parse_expression(parser);
+        if (!key) {
+            parser_error(parser, "Expected key expression after comma in hash map literal");
+            // Clean up and return what we have
+            for (size_t i = 0; i < pair_count; i++) {
+                ast_free(keys[i]);
+                ast_free(values[i]);
+            }
+            free(keys);
+            free(values);
+            return NULL;
+        }
+        
+        // Expect colon
+        if (!parser_match(parser, TOKEN_COLON)) {
+            parser_error(parser, "Expected ':' after key in hash map literal");
+            ast_free(key);
+            // Clean up and return what we have
+            for (size_t i = 0; i < pair_count; i++) {
+                ast_free(keys[i]);
+                ast_free(values[i]);
+            }
+            free(keys);
+            free(values);
+            return NULL;
+        }
+        
+        ASTNode* value = parser_parse_expression(parser);
+        if (!value) {
+            parser_error(parser, "Expected value expression after ':' in hash map literal");
+            ast_free(key);
+            // Clean up and return what we have
+            for (size_t i = 0; i < pair_count; i++) {
+                ast_free(keys[i]);
+                ast_free(values[i]);
+            }
+            free(keys);
+            free(values);
+            return NULL;
+        }
+        
+        // Expand arrays if needed
+        if (pair_count >= pair_capacity) {
+            pair_capacity *= 2;
+            keys = realloc(keys, pair_capacity * sizeof(ASTNode*));
+            values = realloc(values, pair_capacity * sizeof(ASTNode*));
+            if (!keys || !values) {
+                parser_error(parser, "Memory allocation failed for hash map literal");
+                ast_free(key);
+                ast_free(value);
+                // Clean up and return what we have
+                for (size_t i = 0; i < pair_count; i++) {
+                    ast_free(keys[i]);
+                    ast_free(values[i]);
+                }
+                free(keys);
+                free(values);
+                return NULL;
+            }
+        }
+        
+        keys[pair_count] = key;
+        values[pair_count] = value;
+        pair_count++;
+    }
+    
+    // Expect closing brace
+    if (!parser_match(parser, TOKEN_RIGHT_BRACE)) {
+        parser_error(parser, "Expected '}' to close hash map literal");
+        // Clean up and return what we have
+        for (size_t i = 0; i < pair_count; i++) {
+            ast_free(keys[i]);
+            ast_free(values[i]);
+        }
+        free(keys);
+        free(values);
+        return NULL;
+    }
+    
+    return ast_create_hash_map_literal(keys, values, pair_count, parser->previous_token->line, parser->previous_token->column);
+}
+
+/**
+ * Parse set literal: {item1, item2, item3, ...}
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the set literal
+ */
+static ASTNode* parser_parse_set_literal(Parser* parser) {
+    if (!parser) {
+        return NULL;
+    }
+    
+    // Consume the opening brace
+    parser_advance(parser);
+    
+    // Handle empty set
+    if (parser_check(parser, TOKEN_RIGHT_BRACE)) {
+        parser_advance(parser);
+        return ast_create_set_literal(NULL, 0, parser->previous_token->line, parser->previous_token->column);
+    }
+    
+    // Parse first element
+    ASTNode* first_element = parser_parse_expression(parser);
+    if (!first_element) {
+        parser_error(parser, "Expected expression in set literal");
+        return NULL;
+    }
+    
+    // Allocate array for elements
+    ASTNode** elements = malloc(sizeof(ASTNode*));
+    if (!elements) {
+        parser_error(parser, "Memory allocation failed for set literal");
+        ast_free(first_element);
+        return NULL;
+    }
+    elements[0] = first_element;
+    size_t element_count = 1;
+    size_t element_capacity = 1;
+    
+    // Parse remaining elements
+    while (parser_check(parser, TOKEN_COMMA)) {
+        parser_advance(parser);  // Consume the comma
+        
+        ASTNode* element = parser_parse_expression(parser);
+        if (!element) {
+            parser_error(parser, "Expected expression after comma in set literal");
+            // Clean up and return what we have
+            for (size_t i = 0; i < element_count; i++) {
+                ast_free(elements[i]);
+            }
+            free(elements);
+            return NULL;
+        }
+        
+        // Expand array if needed
+        if (element_count >= element_capacity) {
+            element_capacity *= 2;
+            elements = realloc(elements, element_capacity * sizeof(ASTNode*));
+            if (!elements) {
+                parser_error(parser, "Memory allocation failed for set literal");
+                ast_free(element);
+                // Clean up and return what we have
+                for (size_t i = 0; i < element_count; i++) {
+                    ast_free(elements[i]);
+                }
+                free(elements);
+                return NULL;
+            }
+        }
+        
+        elements[element_count] = element;
+        element_count++;
+    }
+    
+    // Expect closing brace
+    if (!parser_match(parser, TOKEN_RIGHT_BRACE)) {
+        parser_error(parser, "Expected '}' to close set literal");
+        // Clean up and return what we have
+        for (size_t i = 0; i < element_count; i++) {
+            ast_free(elements[i]);
+        }
+        free(elements);
+        return NULL;
+    }
+    
+    return ast_create_set_literal(elements, element_count, parser->previous_token->line, parser->previous_token->column);
 }
 
 /**

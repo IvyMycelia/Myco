@@ -33,6 +33,8 @@ typedef enum {
     AST_NODE_FUNCTION,
     AST_NODE_LAMBDA,
     AST_NODE_ARRAY_LITERAL,
+    AST_NODE_HASH_MAP_LITERAL,
+    AST_NODE_SET_LITERAL,
     AST_NODE_ARRAY_ACCESS,
     AST_NODE_MEMBER_ACCESS,
     AST_NODE_FUNCTION_CALL_EXPR,
@@ -233,6 +235,19 @@ typedef struct ASTNode {
             size_t element_count;
         } array_literal;
         
+        // Hash map literal
+        struct {
+            struct ASTNode** keys;
+            struct ASTNode** values;
+            size_t pair_count;
+        } hash_map_literal;
+        
+        // Set literal
+        struct {
+            struct ASTNode** elements;
+            size_t element_count;
+        } set_literal;
+        
         // Array access
         struct {
             struct ASTNode* array;      // The array being accessed
@@ -324,6 +339,8 @@ ASTNode* ast_create_class(const char* name, const char* parent, ASTNode* body, i
 ASTNode* ast_create_function(const char* name, ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column);
 ASTNode* ast_create_lambda(ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column);
 ASTNode* ast_create_array_literal(ASTNode** elements, size_t element_count, int line, int column);
+ASTNode* ast_create_hash_map_literal(ASTNode** keys, ASTNode** values, size_t pair_count, int line, int column);
+ASTNode* ast_create_set_literal(ASTNode** elements, size_t element_count, int line, int column);
 ASTNode* ast_create_import(const char* module, const char* alias, int line, int column);
 ASTNode* ast_create_use(const char* library, const char* alias, char** specific_items, char** specific_aliases, size_t item_count, int line, int column);
 ASTNode* ast_create_module(const char* name, ASTNode* body, int line, int column);

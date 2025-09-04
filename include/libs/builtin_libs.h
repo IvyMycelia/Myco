@@ -17,6 +17,7 @@
 #include "queues.h"
 #include "stacks.h"
 #include "time.h"
+#include "regex.h"
 
 // Register all built-in libraries
 void register_all_builtin_libraries(Interpreter* interpreter);

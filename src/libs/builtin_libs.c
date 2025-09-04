@@ -42,4 +42,7 @@ void register_all_builtin_libraries(Interpreter* interpreter) {
     
     // Register time library
     time_library_register(interpreter);
+    
+    // Register regex library
+    regex_library_register(interpreter);
 }

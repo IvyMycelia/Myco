@@ -2706,10 +2706,168 @@ print("✓ Inheritance with mixed field types");
 total_tests = total_tests + 1;
 tests_passed = tests_passed + 1;
 
+# 23. Time Library Functions
+print("\n=== 23. Time Library Functions ===");
+
+# Test time library import
+use time as time;
+total_tests = total_tests + 1;
+if type(time) == "Object":
+    print("✓ Time library import works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Time library import failed");
+end
+
+# Test time.now()
+total_tests = total_tests + 1;
+let current_time = time.now();
+if type(current_time) == "Object":
+    print("✓ time.now() returns time object");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ time.now() failed");
+end
+
+# Test time.create()
+total_tests = total_tests + 1;
+let specific_time = time.create(2024, 1, 15, 14, 30, 0);
+if type(specific_time) == "Object":
+    print("✓ time.create() returns time object");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ time.create() failed");
+end
+
+# Test time.format()
+total_tests = total_tests + 1;
+let formatted = time.format(specific_time, "%Y-%m-%d %H:%M:%S");
+if formatted == "2024-01-15 14:30:00":
+    print("✓ time.format() works correctly");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ time.format() failed");
+end
+
+# Test time.year()
+total_tests = total_tests + 1;
+let year = time.year(specific_time);
+if year == 2024:
+    print("✓ time.year() works correctly");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ time.year() failed");
+end
+
+# Test time.month()
+total_tests = total_tests + 1;
+let month = time.month(specific_time);
+if month == 1:
+    print("✓ time.month() works correctly");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ time.month() failed");
+end
+
+# Test time.day()
+total_tests = total_tests + 1;
+let day = time.day(specific_time);
+if day == 15:
+    print("✓ time.day() works correctly");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ time.day() failed");
+end
+
+# Test time.hour()
+total_tests = total_tests + 1;
+let hour = time.hour(specific_time);
+if hour == 14:
+    print("✓ time.hour() works correctly");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ time.hour() failed");
+end
+
+# Test time.minute()
+total_tests = total_tests + 1;
+let minute = time.minute(specific_time);
+if minute == 30:
+    print("✓ time.minute() works correctly");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ time.minute() failed");
+end
+
+# Test time.second()
+total_tests = total_tests + 1;
+let second = time.second(specific_time);
+if second == 0:
+    print("✓ time.second() works correctly");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ time.second() failed");
+end
+
+# Test time.iso_string()
+total_tests = total_tests + 1;
+let iso = time.iso_string(specific_time);
+if iso == "2024-01-15T14:30:00":
+    print("✓ time.iso_string() works correctly");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ time.iso_string() failed");
+end
+
+# Test time.unix_timestamp()
+total_tests = total_tests + 1;
+let unix = time.unix_timestamp(specific_time);
+if unix == 1705347000:
+    print("✓ time.unix_timestamp() works correctly");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ time.unix_timestamp() failed");
+end
+
+# Test time.add()
+total_tests = total_tests + 1;
+let future_time = time.add(specific_time, 3600);
+let future_hour = time.hour(future_time);
+if future_hour == 15:
+    print("✓ time.add() works correctly");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ time.add() failed");
+end
+
+# Test time.subtract()
+total_tests = total_tests + 1;
+let past_time = time.subtract(specific_time, 3600);
+let past_hour = time.hour(past_time);
+if past_hour == 13:
+    print("✓ time.subtract() works correctly");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ time.subtract() failed");
+end
+
+# Test time.difference()
+total_tests = total_tests + 1;
+let time1 = time.create(2024, 1, 15, 15, 0, 0);
+let time2 = time.create(2024, 1, 15, 14, 0, 0);
+let diff = time.difference(time1, time2);
+if diff == 3600:
+    print("✓ time.difference() works correctly");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ time.difference() failed");
+end
+
 print("\n=== RESULTS ===");
 print("Total: " + str(total_tests));
 print("Passed: " + str(tests_passed));
 print("Failed: " + str(total_tests - tests_passed));
+
 
 let rate = (tests_passed * 100) / total_tests;
 print("Success rate: " + str(rate) + "%");

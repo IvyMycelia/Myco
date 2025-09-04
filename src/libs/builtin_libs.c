@@ -1,4 +1,5 @@
 #include "../../include/libs/builtin_libs.h"
+#include "time.h"
 
 // Register all built-in libraries
 void register_all_builtin_libraries(Interpreter* interpreter) {
@@ -39,4 +40,7 @@ void register_all_builtin_libraries(Interpreter* interpreter) {
     
     // Register stacks library
     stacks_library_register(interpreter);
+    
+    // Register time library
+    time_library_register(interpreter);
 }

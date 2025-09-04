@@ -39,6 +39,9 @@ void queues_library_register(Interpreter* interpreter);
 // Stacks library registration
 void stacks_library_register(Interpreter* interpreter);
 
+// Time library registration
+void time_library_register(Interpreter* interpreter);
+
 // Register all built-in libraries
 void register_all_builtin_libraries(Interpreter* interpreter);
 

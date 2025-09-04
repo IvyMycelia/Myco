@@ -14,6 +14,7 @@ static const char* get_error_suggestion(const char* message, Token* token);
 static ASTNode* parser_parse_array_literal(Parser* parser);
 static ASTNode* parser_parse_hash_map_literal(Parser* parser);
 static ASTNode* parser_parse_set_literal(Parser* parser);
+static ASTNode* parser_parse_hash_map_key(Parser* parser);
 static ASTNode* parser_parse_try_catch_statement(Parser* parser);
 static ASTNode* parser_parse_use_statement(Parser* parser);
 static ASTNode* parser_collect_block(Parser* parser, int stop_on_else, int* saw_else);
@@ -1241,10 +1242,10 @@ ASTNode* parser_parse_primary(Parser* parser) {
         int current_pos = parser->current_position;
         parser_advance(parser); // consume opening brace
         
-        // Handle empty braces {} - default to hash map
+        // Handle empty braces {} - default to set
         if (parser_check(parser, TOKEN_RIGHT_BRACE)) {
             parser_advance(parser); // consume closing brace
-            return ast_create_hash_map_literal(NULL, NULL, 0, parser->previous_token->line, parser->previous_token->column);
+            return ast_create_set_literal(NULL, 0, parser->previous_token->line, parser->previous_token->column);
         }
         
         // Parse first expression to determine type
@@ -3497,6 +3498,33 @@ static ASTNode* parser_parse_array_literal(Parser* parser) {
  * @param parser The parser to use
  * @return AST node representing the hash map literal
  */
+/**
+ * Parse a hash map key, converting unquoted identifiers to string literals
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the key (string literal for identifiers, expression for others)
+ */
+static ASTNode* parser_parse_hash_map_key(Parser* parser) {
+    if (!parser) {
+        return NULL;
+    }
+    
+    Token* current = parser_peek(parser);
+    if (!current) {
+        parser_error(parser, "Expected key in hash map literal");
+        return NULL;
+    }
+    
+    // If it's an identifier, convert it to a string literal
+    if (current->type == TOKEN_IDENTIFIER) {
+        parser_advance(parser); // consume the identifier
+        return ast_create_string(strdup(current->text), current->line, current->column);
+    }
+    
+    // For all other cases, parse as a regular expression
+    return parser_parse_expression(parser);
+}
+
 static ASTNode* parser_parse_hash_map_literal(Parser* parser) {
     if (!parser) {
         return NULL;
@@ -3513,7 +3541,7 @@ static ASTNode* parser_parse_hash_map_literal(Parser* parser) {
     }
     
     // Parse first key-value pair
-    ASTNode* first_key = parser_parse_expression(parser);
+    ASTNode* first_key = parser_parse_hash_map_key(parser);
     if (!first_key) {
         parser_error(parser, "Expected key expression in hash map literal");
         return NULL;
@@ -3553,7 +3581,7 @@ static ASTNode* parser_parse_hash_map_literal(Parser* parser) {
     while (parser_check(parser, TOKEN_COMMA)) {
         parser_advance(parser);  // Consume the comma
         
-        ASTNode* key = parser_parse_expression(parser);
+        ASTNode* key = parser_parse_hash_map_key(parser);
         if (!key) {
             parser_error(parser, "Expected key expression after comma in hash map literal");
             // Clean up and return what we have

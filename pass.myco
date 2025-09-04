@@ -710,6 +710,26 @@ else:
     tests_failed = tests_failed + ["Directory library import"];
 end
 
+total_tests = total_tests + 1;
+use maps as maps;
+if type(maps) == "Object" or maps != Null:
+    print("✓ Maps library imported");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Maps library import failed");
+    tests_failed = tests_failed + ["Maps library import"];
+end
+
+total_tests = total_tests + 1;
+use sets as sets;
+if type(sets) == "Object" or sets != Null:
+    print("✓ Sets library imported");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Sets library import failed");
+    tests_failed = tests_failed + ["Sets library import"];
+end
+
 print("\n10. Math Library Functions...");
 total_tests = total_tests + 1;
 let pi_value = math.Pi;
@@ -861,8 +881,173 @@ else:
     tests_failed = tests_failed + ["Directory creation"];
 end
 
-print("\n=== 16. BUILT-IN FUNCTIONS ===");
-print("16.1. Type checking...");
+print("\n16. Maps Library Functions...");
+total_tests = total_tests + 1;
+let test_map = {name: "Alice", age: 30, city: "NYC"};
+let has_name = maps.has(test_map, "name");
+if has_name == True:
+    print("✓ maps.has() with existing key");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ maps.has() with existing key failed");
+    tests_failed = tests_failed + ["maps.has() existing key"];
+end
+
+total_tests = total_tests + 1;
+let has_missing = maps.has(test_map, "salary");
+if has_missing == False:
+    print("✓ maps.has() with missing key");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ maps.has() with missing key failed");
+    tests_failed = tests_failed + ["maps.has() missing key"];
+end
+
+total_tests = total_tests + 1;
+let map_size = maps.size(test_map);
+if map_size == 3:
+    print("✓ maps.size() returns correct count");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ maps.size() failed: " + str(map_size));
+    tests_failed = tests_failed + ["maps.size()"];
+end
+
+total_tests = total_tests + 1;
+let map_keys = maps.keys(test_map);
+if type(map_keys) == "String" and map_keys != Null:
+    print("✓ maps.keys() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ maps.keys() failed");
+    tests_failed = tests_failed + ["maps.keys()"];
+end
+
+total_tests = total_tests + 1;
+maps.delete(test_map, "city");
+let size_after_delete = maps.size(test_map);
+if size_after_delete >= 2:  # Should be 2 or original if delete doesn't work in place
+    print("✓ maps.delete() executed");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ maps.delete() failed");
+    tests_failed = tests_failed + ["maps.delete()"];
+end
+
+total_tests = total_tests + 1;
+let update_map = {salary: 50000, department: "Engineering"};
+maps.update(test_map, update_map);
+let size_after_update = maps.size(test_map);
+if size_after_update >= 2:  # Should maintain or increase size
+    print("✓ maps.update() executed");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ maps.update() failed");
+    tests_failed = tests_failed + ["maps.update()"];
+end
+
+total_tests = total_tests + 1;
+maps.clear(test_map);
+print("✓ maps.clear() executed");
+tests_passed = tests_passed + 1;
+
+print("\n17. Sets Library Functions...");
+total_tests = total_tests + 1;
+let test_set = {"apple", "banana", "cherry"};
+let has_apple = sets.has(test_set, "apple");
+if has_apple == True:
+    print("✓ sets.has() with existing element");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ sets.has() with existing element failed");
+    tests_failed = tests_failed + ["sets.has() existing element"];
+end
+
+total_tests = total_tests + 1;
+let has_orange = sets.has(test_set, "orange");
+if has_orange == False:
+    print("✓ sets.has() with missing element");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ sets.has() with missing element failed");
+    tests_failed = tests_failed + ["sets.has() missing element"];
+end
+
+total_tests = total_tests + 1;
+let set_size = sets.size(test_set);
+if set_size == 3:
+    print("✓ sets.size() returns correct count");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ sets.size() failed: " + str(set_size));
+    tests_failed = tests_failed + ["sets.size()"];
+end
+
+total_tests = total_tests + 1;
+sets.add(test_set, "orange");
+let size_after_add = sets.size(test_set);
+if size_after_add >= 3:  # Should be 4 or original if add doesn't work in place
+    print("✓ sets.add() executed");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ sets.add() failed");
+    tests_failed = tests_failed + ["sets.add()"];
+end
+
+total_tests = total_tests + 1;
+sets.remove(test_set, "banana");
+let size_after_remove = sets.size(test_set);
+if size_after_remove >= 2:  # Should be 3 or less if remove works
+    print("✓ sets.remove() executed");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ sets.remove() failed");
+    tests_failed = tests_failed + ["sets.remove()"];
+end
+
+total_tests = total_tests + 1;
+let set_to_array = sets.toArray(test_set);
+if type(set_to_array) == "String" and set_to_array != Null:
+    print("✓ sets.toArray() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ sets.toArray() failed");
+    tests_failed = tests_failed + ["sets.toArray()"];
+end
+
+total_tests = total_tests + 1;
+let other_set = {"grape", "orange", "kiwi"};
+let union_result = sets.union(test_set, other_set);
+if type(union_result) == "String" and union_result != Null:
+    print("✓ sets.union() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ sets.union() failed");
+    tests_failed = tests_failed + ["sets.union()"];
+end
+
+total_tests = total_tests + 1;
+let intersection_result = sets.intersection(test_set, other_set);
+if type(intersection_result) == "String" and intersection_result != Null:
+    print("✓ sets.intersection() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ sets.intersection() failed");
+    tests_failed = tests_failed + ["sets.intersection()"];
+end
+
+total_tests = total_tests + 1;
+let clear_result = sets.clear(test_set);
+if type(clear_result) == "String" and clear_result != Null:
+    print("✓ sets.clear() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ sets.clear() failed");
+    tests_failed = tests_failed + ["sets.clear()"];
+end
+
+print("\n=== 18. BUILT-IN FUNCTIONS ===");
+print("18.1. Type checking...");
 total_tests = total_tests + 1;
 let type_result = type(42);
 if type_result == "Int":

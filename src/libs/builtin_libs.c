@@ -18,4 +18,10 @@ void register_all_builtin_libraries(Interpreter* interpreter) {
     
     // Register directory library
     dir_library_register(interpreter);
+    
+    // Register maps library
+    maps_library_register(interpreter);
+    
+    // Register sets library
+    sets_library_register(interpreter);
 }

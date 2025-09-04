@@ -436,6 +436,252 @@ Value builtin_array_slice(Interpreter* interpreter, Value* args, size_t arg_coun
     return result;
 }
 
+Value builtin_array_join(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 2) {
+        interpreter_set_error(interpreter, "join() requires exactly 2 arguments: array and separator", line, column);
+        return value_create_null();
+    }
+    
+    Value array_arg = args[0];
+    Value separator_arg = args[1];
+    
+    if (array_arg.type != VALUE_ARRAY) {
+        interpreter_set_error(interpreter, "join() first argument must be an array", line, column);
+        return value_create_null();
+    }
+    
+    if (separator_arg.type != VALUE_STRING) {
+        interpreter_set_error(interpreter, "join() second argument must be a string", line, column);
+        return value_create_null();
+    }
+    
+    size_t array_len = array_arg.data.array_value.count;
+    
+    if (array_len == 0) {
+        return value_create_string(strdup(""));
+    }
+    
+    // Calculate total length needed
+    size_t total_length = 0;
+    for (size_t i = 0; i < array_len; i++) {
+        Value* element = (Value*)array_arg.data.array_value.elements[i];
+        if (element && element->type == VALUE_STRING) {
+            total_length += strlen(element->data.string_value);
+        } else {
+            // Convert non-string elements to string for joining
+            total_length += 10; // Estimate for non-string elements
+        }
+    }
+    
+    // Add space for separators
+    total_length += (array_len - 1) * strlen(separator_arg.data.string_value);
+    total_length += 1; // Null terminator
+    
+    char* result_str = malloc(total_length);
+    if (!result_str) {
+        interpreter_set_error(interpreter, "Out of memory in join()", line, column);
+        return value_create_null();
+    }
+    
+    result_str[0] = '\0';
+    
+    // Join elements
+    for (size_t i = 0; i < array_len; i++) {
+        Value* element = (Value*)array_arg.data.array_value.elements[i];
+        if (element) {
+            if (element->type == VALUE_STRING) {
+                strcat(result_str, element->data.string_value);
+            } else {
+                // Convert to string representation
+                Value element_str_value = value_to_string(element);
+                if (element_str_value.type == VALUE_STRING) {
+                    strcat(result_str, element_str_value.data.string_value);
+                }
+                value_free(&element_str_value);
+            }
+        }
+        
+        // Add separator (except for last element)
+        if (i < array_len - 1) {
+            strcat(result_str, separator_arg.data.string_value);
+        }
+    }
+    
+    return value_create_string(result_str);
+}
+
+Value builtin_array_contains(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 2) {
+        interpreter_set_error(interpreter, "contains() requires exactly 2 arguments: array and value", line, column);
+        return value_create_null();
+    }
+    
+    Value array_arg = args[0];
+    Value search_value = args[1];
+    
+    if (array_arg.type != VALUE_ARRAY) {
+        interpreter_set_error(interpreter, "contains() first argument must be an array", line, column);
+        return value_create_null();
+    }
+    
+    size_t array_len = array_arg.data.array_value.count;
+    
+    // Search for the value
+    for (size_t i = 0; i < array_len; i++) {
+        Value* element = (Value*)array_arg.data.array_value.elements[i];
+        if (element && value_equals(element, &search_value)) {
+            return value_create_boolean(1);
+        }
+    }
+    
+    return value_create_boolean(0);
+}
+
+Value builtin_array_index_of(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 2) {
+        interpreter_set_error(interpreter, "indexOf() requires exactly 2 arguments: array and value", line, column);
+        return value_create_null();
+    }
+    
+    Value array_arg = args[0];
+    Value search_value = args[1];
+    
+    if (array_arg.type != VALUE_ARRAY) {
+        interpreter_set_error(interpreter, "indexOf() first argument must be an array", line, column);
+        return value_create_null();
+    }
+    
+    size_t array_len = array_arg.data.array_value.count;
+    
+    // Search for the value
+    for (size_t i = 0; i < array_len; i++) {
+        Value* element = (Value*)array_arg.data.array_value.elements[i];
+        if (element && value_equals(element, &search_value)) {
+            return value_create_number((double)i);
+        }
+    }
+    
+    return value_create_number(-1.0);
+}
+
+Value builtin_array_unique(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 1) {
+        interpreter_set_error(interpreter, "unique() requires exactly 1 argument: array", line, column);
+        return value_create_null();
+    }
+    
+    Value array_arg = args[0];
+    
+    if (array_arg.type != VALUE_ARRAY) {
+        interpreter_set_error(interpreter, "unique() argument must be an array", line, column);
+        return value_create_null();
+    }
+    
+    size_t array_len = array_arg.data.array_value.count;
+    Value result = value_create_array(0);
+    
+    // Add unique elements to result
+    for (size_t i = 0; i < array_len; i++) {
+        Value* element = (Value*)array_arg.data.array_value.elements[i];
+        if (element) {
+            // Check if element already exists in result
+            int is_duplicate = 0;
+            for (size_t j = 0; j < result.data.array_value.count; j++) {
+                Value* existing = (Value*)result.data.array_value.elements[j];
+                if (existing && value_equals(existing, element)) {
+                    is_duplicate = 1;
+                    break;
+                }
+            }
+            
+            if (!is_duplicate) {
+                Value cloned_element = value_clone(element);
+                value_array_push(&result, cloned_element);
+            }
+        }
+    }
+    
+    return result;
+}
+
+Value builtin_array_concat(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 2) {
+        interpreter_set_error(interpreter, "concat() requires exactly 2 arguments: array1 and array2", line, column);
+        return value_create_null();
+    }
+    
+    Value array1_arg = args[0];
+    Value array2_arg = args[1];
+    
+    if (array1_arg.type != VALUE_ARRAY || array2_arg.type != VALUE_ARRAY) {
+        interpreter_set_error(interpreter, "concat() both arguments must be arrays", line, column);
+        return value_create_null();
+    }
+    
+    size_t len1 = array1_arg.data.array_value.count;
+    size_t len2 = array2_arg.data.array_value.count;
+    size_t total_len = len1 + len2;
+    
+    Value result = value_create_array(total_len);
+    
+    // Copy elements from first array
+    for (size_t i = 0; i < len1; i++) {
+        Value* element = (Value*)array1_arg.data.array_value.elements[i];
+        if (element) {
+            Value cloned_element = value_clone(element);
+            value_array_push(&result, cloned_element);
+        }
+    }
+    
+    // Copy elements from second array
+    for (size_t i = 0; i < len2; i++) {
+        Value* element = (Value*)array2_arg.data.array_value.elements[i];
+        if (element) {
+            Value cloned_element = value_clone(element);
+            value_array_push(&result, cloned_element);
+        }
+    }
+    
+    return result;
+}
+
+Value builtin_array_fill(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 3) {
+        interpreter_set_error(interpreter, "fill() requires exactly 3 arguments: array, value, and count", line, column);
+        return value_create_null();
+    }
+    
+    Value array_arg = args[0];
+    Value fill_value = args[1];
+    Value count_arg = args[2];
+    
+    if (array_arg.type != VALUE_ARRAY) {
+        interpreter_set_error(interpreter, "fill() first argument must be an array", line, column);
+        return value_create_null();
+    }
+    
+    if (count_arg.type != VALUE_NUMBER) {
+        interpreter_set_error(interpreter, "fill() third argument must be a number", line, column);
+        return value_create_null();
+    }
+    
+    int count = (int)count_arg.data.number_value;
+    if (count < 0) {
+        interpreter_set_error(interpreter, "fill() count must be non-negative", line, column);
+        return value_create_null();
+    }
+    
+    // Clear existing array and fill with new values
+    array_arg.data.array_value.count = 0;
+    
+    for (int i = 0; i < count; i++) {
+        Value cloned_value = value_clone(&fill_value);
+        value_array_push(&array_arg, cloned_value);
+    }
+    
+    return value_create_null();
+}
+
 // Register array library with interpreter
 void array_library_register(Interpreter* interpreter) {
     if (!interpreter || !interpreter->global_environment) return;
@@ -455,6 +701,12 @@ void array_library_register(Interpreter* interpreter) {
     value_object_set_member(&array_obj, "reduce", value_create_builtin_function(builtin_array_reduce));
     value_object_set_member(&array_obj, "find", value_create_builtin_function(builtin_array_find));
     value_object_set_member(&array_obj, "slice", value_create_builtin_function(builtin_array_slice));
+    value_object_set_member(&array_obj, "join", value_create_builtin_function(builtin_array_join));
+    value_object_set_member(&array_obj, "contains", value_create_builtin_function(builtin_array_contains));
+    value_object_set_member(&array_obj, "indexOf", value_create_builtin_function(builtin_array_index_of));
+    value_object_set_member(&array_obj, "unique", value_create_builtin_function(builtin_array_unique));
+    value_object_set_member(&array_obj, "concat", value_create_builtin_function(builtin_array_concat));
+    value_object_set_member(&array_obj, "fill", value_create_builtin_function(builtin_array_fill));
     
     // Register the array object
     environment_define(interpreter->global_environment, "array", array_obj);

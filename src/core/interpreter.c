@@ -1,4 +1,5 @@
 #include "interpreter.h"
+#include "environment.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -77,82 +78,6 @@ void interpreter_reset(Interpreter* interpreter) {
     }
 }
 
-// Minimal environment implementation
-Environment* environment_create(Environment* parent) {
-    Environment* env = (Environment*)calloc(1, sizeof(Environment));
-    if (!env) return NULL;
-    env->parent = parent;
-    env->names = NULL;
-    env->values = NULL;
-    env->count = 0;
-    env->capacity = 0;
-    return env;
-}
-void environment_free(Environment* env) {
-    if (!env) return;
-    for (size_t i = 0; i < env->count; i++) {
-        if (env->names && env->names[i]) free(env->names[i]);
-        if (env->values) value_free(&env->values[i]);
-    }
-    free(env->names);
-    free(env->values);
-    free(env);
-}
-static int environment_find_index(Environment* env, const char* name) {
-    if (!env || !name) return -1;
-    for (size_t i = 0; i < env->count; i++) {
-        if (env->names[i] && strcmp(env->names[i], name) == 0) return (int)i;
-    }
-    return -1;
-}
-void environment_define(Environment* env, const char* name, Value value) {
-    if (!env || !name) return;
-    int idx = environment_find_index(env, name);
-    if (idx >= 0) {
-        value_free(&env->values[idx]);
-        env->values[idx] = value_clone(&value);
-        return;
-    }
-    if (env->count == env->capacity) {
-        size_t new_cap = env->capacity == 0 ? 8 : env->capacity * 2;
-        char** new_names = (char**)realloc(env->names, new_cap * sizeof(char*));
-        Value* new_values = (Value*)realloc(env->values, new_cap * sizeof(Value));
-        if (!new_names || !new_values) {
-            // Clean up on failure
-            if (new_names) free(new_names);
-            if (new_values) free(new_values);
-            return;
-        }
-        env->names = new_names;
-        env->values = new_values;
-        env->capacity = new_cap;
-    }
-    
-    // Allocate name with proper error handling
-    char* name_copy = strdup(name);
-    if (name_copy) {
-        env->names[env->count] = name_copy;
-        env->values[env->count] = value_clone(&value);
-        env->count++;
-    }
-}
-
-// Create a deep copy of an environment for closure capture
-Environment* environment_copy(Environment* env) {
-    if (!env) return NULL;
-    
-    Environment* copy = environment_create(env->parent);
-    if (!copy) return NULL;
-    
-    // Copy all variables from the source environment
-    for (size_t i = 0; i < env->count; i++) {
-        if (env->names[i]) {
-            environment_define(copy, env->names[i], env->values[i]);
-        }
-    }
-    
-    return copy;
-}
 
 // Helper function to get string representation of value type
 const char* value_type_string(ValueType type) {
@@ -246,30 +171,6 @@ int value_matches_type(Value* value, const char* type_name, Interpreter* interpr
     return strcmp(value_type_string(value->type), type_name) == 0;
 }
 
-Value environment_get(Environment* env, const char* name) {
-    for (Environment* e = env; e; e = e->parent) {
-        int idx = environment_find_index(e, name);
-        if (idx >= 0) return value_clone(&e->values[idx]);
-    }
-    return value_create_null();
-}
-void environment_assign(Environment* env, const char* name, Value value) {
-    for (Environment* e = env; e; e = e->parent) {
-        int idx = environment_find_index(e, name);
-        if (idx >= 0) {
-            value_free(&e->values[idx]);
-            e->values[idx] = value_clone(&value);
-            return;
-        }
-    }
-    environment_define(env, name, value);
-}
-int environment_exists(Environment* env, const char* name) {
-    for (Environment* e = env; e; e = e->parent) {
-        if (environment_find_index(e, name) >= 0) return 1;
-    }
-    return 0;
-}
 
 Value value_create_null(void) { Value v; v.type = VALUE_NULL; return v; }
 Value value_create_boolean(int value) { Value v; v.type = VALUE_BOOLEAN; v.data.boolean_value = value ? 1 : 0; return v; }

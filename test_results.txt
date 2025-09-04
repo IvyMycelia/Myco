@@ -1,0 +1,318 @@
+=== Myco Comprehensive Test Suite ===
+Testing EVERY feature and edge case in Myco
+
+=== 1. BASIC DATA TYPES ===
+1.1. Numbers...
+✓ Integer variable: 42
+✓ Float variable: 3.140000
+✓ Negative integer: -10
+✓ Negative float: -3.140000
+✓ Zero: 0
+
+1.2. Strings...
+✓ String variable: Myco
+✓ Empty string: ''
+✓ String with spaces: hello world
+
+1.3. Booleans...
+✓ Boolean True: True
+✓ Boolean False: False
+
+1.4. Null...
+[31mError (LOST_IN_THE_MYCELIUM) at Line 116, Column 4: Undefined variable
+[0m[31mError (LOST_IN_THE_MYCELIUM) at Line 117, Column 39: Undefined variable
+[0m✓ Null variable: Null
+
+=== 2. ARITHMETIC OPERATIONS ===
+2.1. Addition...
+✓ Integer addition (5 + 3): 8
+✓ Float addition (2.5 + 1.5): 4
+✓ Mixed addition (5 + 2.5): 7.500000
+✓ String concatenation: helloworld
+
+2.2. Subtraction...
+✓ Integer subtraction (10 - 4): 6
+✓ Float subtraction (5.5 - 2.5): 3
+✓ Negative result (3 - 5): -2
+
+2.3. Multiplication...
+✓ Integer multiplication (6 * 7): 42
+✓ Float multiplication (2.5 * 4): 10
+✓ Zero multiplication (5 * 0): 0
+
+2.4. Division...
+✓ Integer division (15 / 3): 5
+✓ Float division (10.0 / 2.5): 4
+✓ Division with remainder (7 / 2): 3.500000
+
+=== 3. COMPARISON OPERATIONS ===
+3.1. Equality...
+✓ Integer equality (5 == 5): True
+✓ Integer inequality (5 == 6): False
+✓ Float equality (3.14 == 3.14): True
+✓ String equality ('hello' == 'hello'): True
+✓ Boolean equality (True == True): True
+
+3.2. Inequality...
+✓ Integer inequality (4 != 6): True
+✓ String inequality ('hello' != 'world'): True
+
+3.3. Greater than...
+✓ Greater than (10 > 5): True
+✓ Not greater than (5 > 10): False
+
+3.4. Less than...
+✓ Less than (3 < 7): True
+✓ Not less than (7 < 3): False
+
+3.5. Greater than or equal...
+✓ Greater than or equal (10 >= 5): True
+✓ Equal values (5 >= 5): True
+
+3.6. Less than or equal...
+✓ Less than or equal (3 <= 7): True
+✓ Equal values (5 <= 5): True
+
+=== 4. LOGICAL OPERATIONS ===
+4.1. Logical AND...
+✓ Logical AND (True and True): True
+✓ Logical AND false (True and False): False
+
+4.2. Logical OR...
+✓ Logical OR (False or True): True
+✓ Logical OR false (False or False): False
+
+4.3. Logical NOT...
+✓ Logical NOT (not False): True
+✓ Logical NOT false (not True): False
+
+4.4. Complex logical expressions...
+✓ Complex logical ((True and False) or True): True
+✓ Nested NOT (not (True and False)): True
+
+5. Arrays...
+✓ Simple array: [1, 2, 3]
+✓ Nested array: [[1, 2], [3, 4]]
+✓ Mixed type array: [1, hello, True, [1, 2]]
+✓ Empty array: []
+
+6. String Operations...
+✓ String concatenation: Hello World
+✓ Number to string: 42
+✓ Boolean to string: True
+
+=== 7. STRING OPERATIONS ===
+7.1. String concatenation...
+✓ String concatenation: Hello World
+✓ Number to string: 42
+✓ Boolean to string: True
+
+7.2. Escape sequences...
+✓ Escape sequences work
+✓ Quoted string: He said "Hello"
+✓ Backslash string: Path: C:\Users\Name
+
+8. Control Flow...
+✓ If statement works
+✓ Else statement works
+✓ Else-if statement works
+
+9. Built-in Libraries...
+✓ Math library imported
+✓ String library imported
+✓ Array library imported
+
+10. Math Library Functions...
+✓ Math.Pi: 3.141593
+✓ Math.E: 2.718282
+[31mError (MYSTERY_MUSHROOM) at Line 690, Column 18: Method calls can only be made on objects
+[0m[31mError (LOST_IN_THE_MYCELIUM) at Line 691, Column 34: Undefined variable
+[0m✓ Math.abs(-5): Null
+[31mError (MYSTERY_MUSHROOM) at Line 695, Column 18: Method calls can only be made on objects
+[0m[31mError (LOST_IN_THE_MYCELIUM) at Line 696, Column 37: Undefined variable
+[0m✓ Math.min(10, 5): Null
+[31mError (MYSTERY_MUSHROOM) at Line 700, Column 18: Method calls can only be made on objects
+[0m[31mError (LOST_IN_THE_MYCELIUM) at Line 701, Column 37: Undefined variable
+[0m✓ Math.max(10, 5): Null
+[31mError (MYSTERY_MUSHROOM) at Line 705, Column 19: Method calls can only be made on objects
+[0m[31mError (LOST_IN_THE_MYCELIUM) at Line 706, Column 35: Undefined variable
+[0m✓ Math.sqrt(16): Null
+
+11. String Library Functions...
+[31mError (MYSTERY_MUSHROOM) at Line 712, Column 17: Method calls can only be made on objects
+[0m[31mError (LOST_IN_THE_MYCELIUM) at Line 713, Column 45: Undefined variable
+[0m✓ String.upper('hello world'): Null
+[31mError (MYSTERY_MUSHROOM) at Line 717, Column 17: Method calls can only be made on objects
+[0m[31mError (LOST_IN_THE_MYCELIUM) at Line 718, Column 45: Undefined variable
+[0m✓ String.lower('HELLO WORLD'): Null
+[31mError (MYSTERY_MUSHROOM) at Line 722, Column 16: Method calls can only be made on objects
+[0m[31mError (LOST_IN_THE_MYCELIUM) at Line 723, Column 43: Undefined variable
+[0m✓ String.trim('  hello  '): 'Null'
+✓ len('hello'): 5
+
+12. Array Library Functions...
+✓ Array library imported successfully
+
+=== 13. BUILT-IN FUNCTIONS ===
+13.1. Type checking...
+✓ type(42): Int
+✓ type(3.14): Float
+✓ type('hello'): String
+✓ type(True): Boolean
+✓ type(Null): Null
+✓ type([1,2,3]): Array
+
+13.2. Length function...
+✓ len('hello'): 5
+✓ len(''): 0
+✓ len([1,2,3]): 3
+
+13.3. String conversion...
+✓ str(3.14): 3.140000
+✓ str(False): False
+✓ str(Null): Null
+✓ str([1,2,3]): [1, 2, 3]
+
+=== 14. EDGE CASES ===
+14.1. Zero and negative numbers...
+✓ Zero addition (0 + 0): 0
+✓ Zero multiplication (0 * 5): 0
+✓ Negative addition (-5 + 3): -2
+
+14.2. Large numbers...
+✓ Large addition (999999 + 1): 1000000
+✓ Large multiplication (1000 * 1000): 1000000
+
+14.3. Floating point precision...
+✓ Float precision (0.1 + 0.2 > 0.3): 0.300000
+✓ Float equality (1.0 == 1): True
+
+14.4. Empty values...
+✓ Empty string length: 0
+✓ Empty array length: 0
+✓ Empty string concatenation: hello
+
+=== 15. ERROR HANDLING (Expected Errors) ===
+15.1. Division by zero (should continue execution)...
+[31mError (SPORE_SPLIT) at Line 977, Column 25: Division by zero
+[0m✓ Division by zero handled gracefully
+
+15.2. Array index out of bounds (should continue execution)...
+[31mError (MUSHROOM_TOO_BIG) at Line 984, Column 21: Array index out of bounds
+[0m✓ Array out of bounds handled gracefully
+
+15.3. Undefined variable (should continue execution)...
+[31mError (LOST_IN_THE_MYCELIUM) at Line 990, Column 21: Undefined variable
+[0m✓ Undefined variable handled gracefully
+
+16.1. Function definitions (no parameters, no return type)...
+✓ Simple function definition (no params, no return)
+
+16.2. Function with single parameter (no return type)...
+✓ Function with single parameter (no return type)
+
+16.3. Function with multiple parameters (no return type)...
+✓ Function with multiple parameters (no return type)
+
+16.4. Function definitions (with return types)...
+✓ Function definitions with return types
+
+16.4. Function definitions (mixed explicit/implicit types)...
+✓ Function definitions with mixed explicit/implicit types
+
+16.5. Function calls (no parameters)...
+✓ Function calls with no parameters
+
+16.6. Function calls (with parameters)...
+✓ Function calls with parameters
+
+16.7. Function calls (with type annotations)...
+✓ Function calls with type annotations
+
+16.8. Recursive functions...
+✓ Recursive functions
+
+16.9. Function variables and assignments...
+✓ Function variables and assignments
+
+16.10. Complex function combinations...
+✓ Complex function combinations
+
+16.11. Function scope and closures...
+✓ Function scope and closures
+
+16.12. Function error handling...
+✓ Function error handling
+
+16.13. Lambda functions (anonymous functions)...
+✓ Lambda functions (anonymous functions)
+
+16.14. Function variable assignments...
+✓ Function variable assignments
+
+16.15. Lambda functions with different parameter types...
+✓ Lambda functions with different parameter types
+
+16.16. Explicit function with all types...
+✓ Explicit function with all types
+
+16.17. Implicit function with no types...
+✓ Implicit function with no types
+
+16.18. Mixed function - explicit parameter, implicit return...
+✓ Mixed function - explicit parameter, implicit return
+
+16.19. Mixed function - implicit parameter, explicit return...
+✓ Mixed function - implicit parameter, explicit return
+
+16.20. Function variable with explicit types...
+✓ Function variable with explicit types
+
+16.21. Function variable with implicit types...
+✓ Function variable with implicit types
+
+16.22. Function variable with mixed types...
+✓ Function variable with mixed types
+
+16.23. Function variable with mixed return type...
+✓ Function variable with mixed return type
+
+16.24. Function type interchangeability with different argument types...
+[31mError (MYSTERY_MUSHROOM) at Line 1537, Column 22: Type mismatch: parameter 'param' expects Int but got String
+[0m[31mError (MYSTERY_MUSHROOM) at Line 1539, Column 22: Type mismatch: parameter 'param' expects Int but got String
+[0m[31mError (MYSTERY_MUSHROOM) at Line 1547, Column 20: Type mismatch: parameter 'param' expects Int but got Boolean
+[0m[31mError (MYSTERY_MUSHROOM) at Line 1549, Column 20: Type mismatch: parameter 'param' expects Int but got Boolean
+[0m[31mError (LOST_IN_THE_MYCELIUM) at Line 1559, Column 4: Undefined variable
+[0m[31mError (LOST_IN_THE_MYCELIUM) at Line 1559, Column 58: Undefined variable
+[0m[31mError (LOST_IN_THE_MYCELIUM) at Line 1561, Column 4: Undefined variable
+[0m[31mError (LOST_IN_THE_MYCELIUM) at Line 1561, Column 54: Undefined variable
+[0m✓ Function type interchangeability with different argument types
+✓ Basic class parsing
+✓ Class with typed fields
+✓ Class with default field values
+✓ Class instantiation
+✓ Class with methods
+✓ Class with self references
+✓ Class with mixed field types
+✓ Class with typed methods
+✓ Class with untyped methods
+✓ Class with complex method bodies
+
+=== 17. INHERITANCE TESTS ===
+✓ Basic inheritance parsing
+✓ Field inheritance
+✓ Method overriding (structure verified)
+✓ Multi-level inheritance parsing
+✓ Inheritance with additional fields
+✓ Inheritance without method override
+✓ Complex inheritance chain
+✓ Inheritance with default values
+✓ Multiple inheritance simulation
+✓ Inheritance with mixed field types
+
+=== RESULTS ===
+Total: 145
+Passed: 141
+Failed: 4
+Success rate: 97.241379%
+Failed tests:

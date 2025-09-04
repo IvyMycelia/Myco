@@ -22,6 +22,7 @@ Interpreter* interpreter_create(void) {
     interpreter->continue_depth = 0;
     interpreter->try_depth = 0;
     interpreter->current_function_return_type = NULL;
+    interpreter->self_context = NULL;
     
     // Setup global env
     interpreter->global_environment = environment_create(NULL);
@@ -37,6 +38,9 @@ void interpreter_free(Interpreter* interpreter) {
         }
         if (interpreter->global_environment) {
             environment_free(interpreter->global_environment);
+        }
+        if (interpreter->current_environment && interpreter->current_environment != interpreter->global_environment) {
+            environment_free(interpreter->current_environment);
         }
         free(interpreter);
     }
@@ -151,7 +155,7 @@ const char* value_type_string(ValueType type) {
 }
 
 // Helper function to check if a value matches a type annotation
-int value_matches_type(Value* value, const char* type_name) {
+int value_matches_type(Value* value, const char* type_name, Interpreter* interpreter) {
     if (!value || !type_name) return 0;
     
     // Handle common type aliases
@@ -175,6 +179,49 @@ int value_matches_type(Value* value, const char* type_name) {
         return value->type == VALUE_RANGE;
     } else if (strcmp(type_name, "Null") == 0) {
         return value->type == VALUE_NULL;
+    }
+    
+    // Handle custom types (classes)
+    if (value->type == VALUE_OBJECT) {
+        // Check if the object has a class name that matches the type
+        Value class_name_val = value_object_get(value, "__class_name__");
+        if (class_name_val.type == VALUE_STRING && class_name_val.data.string_value) {
+            // Direct class match
+            if (strcmp(class_name_val.data.string_value, type_name) == 0) {
+                value_free(&class_name_val);
+                return 1;
+            }
+            
+            // Check inheritance chain
+            // Look up the class in the global environment
+            if (interpreter && interpreter->global_environment) {
+                Value class_ref = environment_get(interpreter->global_environment, class_name_val.data.string_value);
+                if (class_ref.type == VALUE_CLASS) {
+                    // Check if any parent class matches the type
+                    Value current_class = class_ref;
+                    while (current_class.type == VALUE_CLASS) {
+                        if (current_class.data.class_value.parent_class_name) {
+                            if (strcmp(current_class.data.class_value.parent_class_name, type_name) == 0) {
+                                value_free(&class_name_val);
+                                value_free(&class_ref);
+                                return 1;
+                            }
+                            // Move to parent class
+                            Value parent_class = environment_get(interpreter->global_environment, current_class.data.class_value.parent_class_name);
+                            value_free(&current_class);
+                            current_class = parent_class;
+                        } else {
+                            break;
+                        }
+                    }
+                    value_free(&current_class);
+                    value_free(&class_ref);
+                } else {
+                    value_free(&class_ref);
+                }
+            }
+        }
+        value_free(&class_name_val);
     }
     
     // Default: check exact type name match
@@ -287,7 +334,16 @@ Value value_create_array(size_t initial_capacity) {
     v.type = VALUE_ARRAY; 
     v.data.array_value.elements = NULL; 
     v.data.array_value.count = 0; 
-    v.data.array_value.capacity = 0; 
+    v.data.array_value.capacity = initial_capacity; 
+    
+    // Allocate memory if capacity is specified
+    if (initial_capacity > 0) {
+        v.data.array_value.elements = (void**)calloc(initial_capacity, sizeof(void*));
+        if (!v.data.array_value.elements) {
+            v.data.array_value.capacity = 0;
+        }
+    }
+    
     return v; 
 }
 Value value_create_object(size_t initial_capacity) {
@@ -499,6 +555,288 @@ Value find_method_in_inheritance_chain(Interpreter* interpreter, Value* class_va
     return value_create_null();
 }
 
+// Forward declaration
+static Value eval_node(Interpreter* interpreter, ASTNode* node);
+
+// Helper function to handle super method calls
+Value handle_super_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name) {
+    if (!interpreter->self_context) {
+        interpreter_set_error(interpreter, "super is not available outside of method calls", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Get the class name from the self object
+    Value class_name_val = value_object_get(interpreter->self_context, "__class_name__");
+    if (class_name_val.type != VALUE_STRING || !class_name_val.data.string_value) {
+        value_free(&class_name_val);
+        interpreter_set_error(interpreter, "Object does not have a valid class name", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Look up the class
+    Value class_ref = environment_get(interpreter->global_environment, class_name_val.data.string_value);
+    if (class_ref.type != VALUE_CLASS) {
+        value_free(&class_name_val);
+        value_free(&class_ref);
+        interpreter_set_error(interpreter, "Class not found", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Get the parent class name
+    const char* parent_name = class_ref.data.class_value.parent_class_name;
+    if (!parent_name) {
+        value_free(&class_name_val);
+        value_free(&class_ref);
+        interpreter_set_error(interpreter, "Class has no parent class", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Look up the parent class
+    Value parent_class = environment_get(interpreter->global_environment, parent_name);
+    if (parent_class.type != VALUE_CLASS) {
+        value_free(&class_name_val);
+        value_free(&class_ref);
+        value_free(&parent_class);
+        interpreter_set_error(interpreter, "Parent class not found", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Find the method in the parent class
+    Value method = find_method_in_inheritance_chain(interpreter, &parent_class, method_name);
+    if (method.type == VALUE_NULL) {
+        value_free(&class_name_val);
+        value_free(&class_ref);
+        value_free(&parent_class);
+        value_free(&method);
+        interpreter_set_error(interpreter, "Method not found in parent class", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Evaluate method arguments
+    size_t arg_count = call_node->data.function_call_expr.argument_count;
+    Value* args = arg_count > 0 ? (Value*)calloc(arg_count, sizeof(Value)) : NULL;
+    if (arg_count > 0 && !args) {
+        value_free(&class_name_val);
+        value_free(&class_ref);
+        value_free(&parent_class);
+        value_free(&method);
+        return value_create_null();
+    }
+    
+    for (size_t i = 0; i < arg_count; i++) {
+        args[i] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+    }
+    
+    // Set up self context and call the parent method directly
+    Value* old_self = interpreter->self_context;
+    interpreter->self_context = interpreter->self_context; // Keep the same self context
+    
+    // Create function environment and execute method body directly
+    Environment* old_env = interpreter->current_environment;
+    Environment* func_env = environment_create(method.data.function_value.captured_environment);
+    
+    // Set up function parameters
+    if (method.data.function_value.parameters && method.data.function_value.parameter_count > 0) {
+        for (size_t i = 0; i < method.data.function_value.parameter_count && i < arg_count; i++) {
+            const char* param_name = method.data.function_value.parameters[i]->data.identifier_value;
+            if (param_name) {
+                environment_define(func_env, param_name, value_clone(&args[i]));
+            }
+        }
+    }
+    
+    interpreter->current_environment = func_env;
+    
+    // Execute method body
+    Value result = interpreter_execute(interpreter, method.data.function_value.body);
+    
+    // If the result is null and we have a return value, use that instead
+    if (result.type == VALUE_NULL && interpreter->has_return) {
+        result = interpreter->return_value;
+        interpreter->has_return = 0;
+    }
+    
+    // Restore environment and self context
+    interpreter->current_environment = old_env;
+    interpreter->self_context = old_self;
+    
+    // Clean up function environment
+    environment_free(func_env);
+    
+    // Clean up
+    value_free(&class_name_val);
+    value_free(&class_ref);
+    value_free(&parent_class);
+    value_free(&method);
+    
+    if (args) {
+        for (size_t i = 0; i < arg_count; i++) {
+            value_free(&args[i]);
+        }
+        free(args);
+    }
+    
+    return result;
+}
+
+// Helper function to handle method calls
+Value handle_method_call(Interpreter* interpreter, ASTNode* call_node) {
+    // Get the object and method name from the member access
+    ASTNode* member_access = call_node->data.function_call_expr.function;
+    const char* method_name = member_access->data.member_access.member_name;
+    
+    // Evaluate the object (this is the key part that was causing issues)
+    Value object = eval_node(interpreter, member_access->data.member_access.object);
+    
+    // Check if this is a super call
+    if (object.type == VALUE_OBJECT) {
+        Value is_super = value_object_get(&object, "__is_super__");
+        if (is_super.type == VALUE_BOOLEAN && is_super.data.boolean_value) {
+            // This is a super.method() call
+            value_free(&is_super);
+            return handle_super_method_call(interpreter, call_node, method_name);
+        }
+        value_free(&is_super);
+    }
+    
+    if (object.type != VALUE_OBJECT) {
+        value_free(&object);
+        interpreter_set_error(interpreter, "Method calls can only be made on objects", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Check if this is a built-in function call on an object (like array.push)
+    Value method = value_object_get(&object, method_name);
+    if (method.type == VALUE_FUNCTION && method.data.function_value.body && method.data.function_value.parameters == NULL) {
+        // This is a built-in function call on an object
+        
+        // Evaluate all arguments
+        size_t arg_count = call_node->data.function_call_expr.argument_count;
+        Value* args = arg_count > 0 ? (Value*)calloc(arg_count, sizeof(Value)) : NULL;
+        if (arg_count > 0 && !args) {
+            value_free(&method);
+            value_free(&object);
+            return value_create_null();
+        }
+        
+        for (size_t i = 0; i < arg_count; i++) {
+            args[i] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+        }
+        
+        // Call the built-in function
+        Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = (Value (*)(Interpreter*, Value*, size_t, int, int))method.data.function_value.body;
+        Value result = builtin_func(interpreter, args, arg_count, call_node->line, call_node->column);
+        
+        // Clean up arguments
+        if (args) {
+            for (size_t i = 0; i < arg_count; i++) {
+                value_free(&args[i]);
+            }
+            free(args);
+        }
+        
+        value_free(&method);
+        value_free(&object);
+        return result;
+    }
+    value_free(&method);
+    
+    // Get the class name from the object
+    Value class_name_val = value_object_get(&object, "__class_name__");
+    if (class_name_val.type != VALUE_STRING || !class_name_val.data.string_value) {
+        value_free(&class_name_val);
+        value_free(&object);
+        interpreter_set_error(interpreter, "Object does not have a valid class name", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Look up the class
+    Value class_ref = environment_get(interpreter->global_environment, class_name_val.data.string_value);
+    if (class_ref.type != VALUE_CLASS) {
+        value_free(&class_name_val);
+        value_free(&class_ref);
+        value_free(&object);
+        interpreter_set_error(interpreter, "Class not found", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Find the method in the inheritance chain
+    Value class_method = find_method_in_inheritance_chain(interpreter, &class_ref, method_name);
+    if (class_method.type == VALUE_NULL) {
+        value_free(&class_name_val);
+        value_free(&class_ref);
+        value_free(&object);
+        interpreter_set_error(interpreter, "Method not found", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Evaluate arguments
+    size_t arg_count = call_node->data.function_call_expr.argument_count;
+    Value* args = arg_count > 0 ? (Value*)calloc(arg_count, sizeof(Value)) : NULL;
+    if (arg_count > 0 && !args) {
+        value_free(&class_name_val);
+        value_free(&class_ref);
+        value_free(&class_method);
+        value_free(&object);
+        return value_create_null();
+    }
+    
+    for (size_t i = 0; i < arg_count; i++) {
+        args[i] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+    }
+    
+    // Set up self context and call the method directly
+    Value* old_self = interpreter->self_context;
+    interpreter->self_context = &object;
+    
+    // Create function environment and execute method body directly
+    Environment* old_env = interpreter->current_environment;
+    Environment* func_env = environment_create(class_method.data.function_value.captured_environment);
+    
+    // Set up function parameters
+    if (class_method.data.function_value.parameters && class_method.data.function_value.parameter_count > 0) {
+        for (size_t i = 0; i < class_method.data.function_value.parameter_count && i < arg_count; i++) {
+            const char* param_name = class_method.data.function_value.parameters[i]->data.identifier_value;
+            if (param_name) {
+                environment_define(func_env, param_name, value_clone(&args[i]));
+            }
+        }
+    }
+    
+    interpreter->current_environment = func_env;
+    
+    // Execute method body
+    Value result = interpreter_execute(interpreter, class_method.data.function_value.body);
+    
+    // If the result is null and we have a return value, use that instead
+    if (result.type == VALUE_NULL && interpreter->has_return) {
+        result = interpreter->return_value;
+        interpreter->has_return = 0;
+    }
+    
+    // Restore environment and self context
+    interpreter->current_environment = old_env;
+    interpreter->self_context = old_self;
+    
+    // Clean up function environment
+    environment_free(func_env);
+    
+    // Clean up
+    value_free(&class_name_val);
+    value_free(&class_ref);
+    value_free(&class_method);
+    value_free(&object);
+    
+    if (args) {
+        for (size_t i = 0; i < arg_count; i++) {
+            value_free(&args[i]);
+        }
+        free(args);
+    }
+    
+    return result;
+}
+
 // Helper function to create a class instance
 Value create_class_instance(Interpreter* interpreter, Value* class_value, ASTNode* call_node) {
     if (!class_value || class_value->type != VALUE_CLASS) {
@@ -513,7 +851,9 @@ Value create_class_instance(Interpreter* interpreter, Value* class_value, ASTNod
     Value instance = value_create_object(16);
     
     // Store the class name as a string for method lookup (safer than storing the full class)
-    value_object_set(&instance, "__class_name__", value_create_string(class_value->data.class_value.class_name));
+    Value class_name_value = value_create_string(class_value->data.class_value.class_name);
+    value_object_set(&instance, "__class_name__", class_name_value);
+    value_free(&class_name_value);
     
     // Process constructor arguments and initialize fields
     ASTNode* class_body = class_value->data.class_value.class_body;
@@ -689,7 +1029,7 @@ Value value_clone(Value* value) {
                 if (element) {
                     Value cloned_element = value_clone(element);
                     value_array_push(&v, cloned_element);
-                    value_free(&cloned_element);
+                    // Don't free the cloned element - it's now owned by the array
                 }
             }
             return v;
@@ -815,6 +1155,21 @@ Value value_to_string(Value* value) {
             
             for (size_t i = 0; i < value->data.array_value.count; i++) {
                 Value* element = (Value*)value->data.array_value.elements[i];
+                if (!element) {
+                    // Handle NULL element
+                    result = realloc(result, result_len + 5); // +5 for "null, "
+                    if (!result) {
+                        return value_create_string("[]");
+                    }
+                    if (i > 0) {
+                        strcat(result, ", ");
+                        result_len += 2;
+                    }
+                    strcat(result, "null");
+                    result_len += 4;
+                    continue;
+                }
+                
                 Value element_str = value_to_string(element);
                 
                 if (element_str.type == VALUE_STRING && element_str.data.string_value) {
@@ -831,6 +1186,19 @@ Value value_to_string(Value* value) {
                     }
                     strcat(result, element_str.data.string_value);
                     result_len += element_len;
+                } else {
+                    // Handle case where element_str conversion failed
+                    result = realloc(result, result_len + 5); // +5 for "null, "
+                    if (!result) {
+                        value_free(&element_str);
+                        return value_create_string("[]");
+                    }
+                    if (i > 0) {
+                        strcat(result, ", ");
+                        result_len += 2;
+                    }
+                    strcat(result, "null");
+                    result_len += 4;
                 }
                 value_free(&element_str);
             }
@@ -904,7 +1272,8 @@ Value value_add(Value* a, Value* b) {
         for (size_t i = 0; i < a->data.array_value.count; i++) {
             Value* element = (Value*)a->data.array_value.elements[i];
             if (element) {
-                value_array_push(&result, value_clone(element));
+                Value cloned_element = value_clone(element);
+                value_array_push(&result, cloned_element);
             }
         }
         
@@ -912,7 +1281,8 @@ Value value_add(Value* a, Value* b) {
         for (size_t i = 0; i < b->data.array_value.count; i++) {
             Value* element = (Value*)b->data.array_value.elements[i];
             if (element) {
-                value_array_push(&result, value_clone(element));
+                Value cloned_element = value_clone(element);
+                value_array_push(&result, cloned_element);
             }
         }
         
@@ -927,12 +1297,14 @@ Value value_add(Value* a, Value* b) {
         for (size_t i = 0; i < a->data.array_value.count; i++) {
             Value* element = (Value*)a->data.array_value.elements[i];
             if (element) {
-                value_array_push(&result, value_clone(element));
+                Value cloned_element = value_clone(element);
+                value_array_push(&result, cloned_element);
             }
         }
         
         // Add the single element
-        value_array_push(&result, value_clone(b));
+        Value cloned_b = value_clone(b);
+        value_array_push(&result, cloned_b);
         
         return result;
     }
@@ -1013,10 +1385,10 @@ void value_array_push(Value* array, Value element) {
         array->data.array_value.capacity = new_capacity;
     }
     
-    // Store the element (we need to clone it since we're storing a pointer)
+    // Store the element (element is already cloned by caller)
     Value* stored_element = (Value*)malloc(sizeof(Value));
     if (stored_element) {
-        *stored_element = value_clone(&element);
+        *stored_element = element; // Don't clone again - element is already cloned
         array->data.array_value.elements[array->data.array_value.count] = stored_element;
         array->data.array_value.count++;
     }
@@ -1178,6 +1550,10 @@ char** value_object_keys(Value* obj, size_t* count) {
 }
 
 Value value_function_call(Value* func, Value* args, size_t arg_count, Interpreter* interpreter, int line, int column) {
+    return value_function_call_with_self(func, args, arg_count, interpreter, NULL, line, column);
+}
+
+Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, Interpreter* interpreter, Value* self, int line, int column) {
     if (!func || func->type != VALUE_FUNCTION) {
         return value_create_null();
     }
@@ -1199,6 +1575,12 @@ Value value_function_call(Value* func, Value* args, size_t arg_count, Interprete
         // Create new environment for function execution
         Environment* func_env = environment_create(func->data.function_value.captured_environment);
         
+        // Set up self context if this is a method call
+        Value* old_self = interpreter->self_context;
+        if (self) {
+            interpreter->self_context = self;
+        }
+        
         // Set up function parameters
         if (func->data.function_value.parameters && func->data.function_value.parameter_count > 0) {
             for (size_t i = 0; i < func->data.function_value.parameter_count && i < arg_count; i++) {
@@ -1215,8 +1597,9 @@ Value value_function_call(Value* func, Value* args, size_t arg_count, Interprete
         // Execute function body
         Value result = interpreter_execute(interpreter, func->data.function_value.body);
         
-        // Restore environment
+        // Restore environment and self context
         interpreter->current_environment = old_env;
+        interpreter->self_context = old_self;
         
         // Clean up function environment
         environment_free(func_env);
@@ -1227,7 +1610,6 @@ Value value_function_call(Value* func, Value* args, size_t arg_count, Interprete
     return value_create_null();
 }
 
-static Value eval_node(Interpreter* interpreter, ASTNode* node);
 static Value eval_binary(Interpreter* interpreter, ASTNode* node) { 
     Value l = eval_node(interpreter, node->data.binary.left); 
     Value r = eval_node(interpreter, node->data.binary.right); 
@@ -1370,6 +1752,31 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
         case AST_NODE_NULL: return value_create_null();
         case AST_NODE_IDENTIFIER: {
             const char* name = node->data.identifier_value;
+            
+            // Handle 'self' specially for method calls
+            if (strcmp(name, "self") == 0) {
+                if (interpreter->self_context) {
+                    // Clone the self object to avoid double-free issues
+                    return value_clone(interpreter->self_context);
+                } else {
+                    interpreter_set_error(interpreter, "self is not available outside of method calls", node->line, node->column);
+                    return value_create_null();
+                }
+            }
+            
+            // Handle 'super' specially for method calls
+            if (strcmp(name, "super") == 0) {
+                if (interpreter->self_context) {
+                    // Return a special super object that allows calling parent methods
+                    Value super_obj = value_create_object(1);
+                    value_object_set_member(&super_obj, "__is_super__", value_create_boolean(1));
+                    return super_obj;
+                } else {
+                    interpreter_set_error(interpreter, "super is not available outside of method calls", node->line, node->column);
+                    return value_create_null();
+                }
+            }
+            
             Value result = environment_get(interpreter->current_environment, name);
             if (result.type == VALUE_NULL) {
                 result = environment_get(interpreter->global_environment, name);
@@ -1512,7 +1919,19 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     case VALUE_STRING: t = "String"; break;
                     case VALUE_RANGE: t = "Range"; break;
                     case VALUE_ARRAY: t = "Array"; break;
-                    case VALUE_OBJECT: t = "Object"; break;
+                    case VALUE_OBJECT: {
+                        // Check if this is a custom type (class instance)
+                        Value class_name_val = value_object_get(&v, "__class_name__");
+                        if (class_name_val.type == VALUE_STRING && class_name_val.data.string_value) {
+                            Value result = value_create_string(class_name_val.data.string_value);
+                            value_free(&class_name_val);
+                            value_free(&v);
+                            return result;
+                        }
+                        value_free(&class_name_val);
+                        t = "Object";
+                        break;
+                    }
                     case VALUE_FUNCTION: t = "Function"; break;
                     case VALUE_CLASS: t = "Class"; break;
                     case VALUE_MODULE: t = "Module"; break;
@@ -1635,7 +2054,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                             param_type = param_node->data.typed_parameter.parameter_type;
                             
                             // Type checking for typed parameters
-                            if (!value_matches_type(&args[i], param_type)) {
+                            if (!value_matches_type(&args[i], param_type, interpreter)) {
                                 char error_msg[512];
                                 snprintf(error_msg, sizeof(error_msg), 
                                     "Type mismatch: parameter '%s' expects %s but got %s", 
@@ -1701,9 +2120,9 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     interpreter->return_value = value_create_null();
                 }
                 
-                // Check return type if function has explicit return type
-                if (fn.data.function_value.return_type && 
-                    !value_matches_type(&rv, fn.data.function_value.return_type)) {
+                                // Check return type if function has explicit return type
+                if (fn.data.function_value.return_type &&
+                    !value_matches_type(&rv, fn.data.function_value.return_type, interpreter)) {
                     char error_msg[512];
                     snprintf(error_msg, sizeof(error_msg), 
                         "Return type mismatch: function expects %s but returned %s", 
@@ -1747,12 +2166,12 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             int truthy = value_is_truthy(&cond);
             value_free(&cond);
             if (truthy && node->data.if_statement.then_block) {
-                eval_node(interpreter, node->data.if_statement.then_block);
+                return eval_node(interpreter, node->data.if_statement.then_block);
             } else if (!truthy && node->data.if_statement.else_if_chain) {
                 // Handle else if chain
-                eval_node(interpreter, node->data.if_statement.else_if_chain);
+                return eval_node(interpreter, node->data.if_statement.else_if_chain);
             } else if (!truthy && node->data.if_statement.else_block) {
-                eval_node(interpreter, node->data.if_statement.else_block);
+                return eval_node(interpreter, node->data.if_statement.else_block);
             }
             return value_create_null();
         }
@@ -1922,7 +2341,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 Value element = eval_node(interpreter, node->data.array_literal.elements[i]);
 
                 value_array_push(&array, element);
-                value_free(&element);
+                // Don't free the element - it's now owned by the array
             }
 
             return array;
@@ -1987,7 +2406,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     return value_clone(&member_value);
                 }
             } else if (object.type == VALUE_OBJECT) {
-                // Handle object member access
+                // Handle object member access (fields only, methods are handled in function calls)
                 // Look for the member in the object
                 for (size_t i = 0; i < object.data.object_value.count; i++) {
                     if (object.data.object_value.keys[i] && strcmp(object.data.object_value.keys[i], member_name) == 0) {
@@ -1998,14 +2417,6 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                             return result;
                         }
                     }
-                }
-                
-                // If member not found in object, try to look up a global function with the same name
-                // This is a fallback for cases where the object member lookup fails
-                Value global_member = environment_get(interpreter->global_environment, member_name);
-                if (global_member.type != VALUE_NULL) {
-                    value_free(&object);
-                    return global_member;
                 }
             } else if (object.type == VALUE_STRING && strcmp(object.data.string_value, "namespace_marker") == 0) {
                 // This is a namespace marker, try to look up the prefixed function
@@ -2058,34 +2469,6 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             if (object.type == VALUE_NULL) {
                 snprintf(error_msg, sizeof(error_msg), "Cannot access member '%s' of null object", member_name);
             } else if (object.type == VALUE_OBJECT) {
-                // Check if this is a class instance with a __class_name__ reference
-                Value class_name_val = value_object_get(&object, "__class_name__");
-                if (class_name_val.type == VALUE_STRING && class_name_val.data.string_value) {
-                    // Look up the class by name in the global environment
-                    Value class_ref = environment_get(interpreter->global_environment, class_name_val.data.string_value);
-                    if (class_ref.type == VALUE_CLASS) {
-                        // Look for the method in the inheritance chain
-                        Value method = find_method_in_inheritance_chain(interpreter, &class_ref, member_name);
-                        if (method.type != VALUE_NULL) {
-                            value_free(&class_name_val);
-                            value_free(&class_ref);
-                            value_free(&object);
-                            return method;
-                        }
-                        
-                        // If not a method, check if it's a field
-                        // Look for the field in the instance object
-                        Value field_value = value_object_get(&object, member_name);
-                        if (field_value.type != VALUE_NULL) {
-                            value_free(&class_name_val);
-                            value_free(&class_ref);
-                            value_free(&object);
-                            return field_value;
-                        }
-                    }
-                    value_free(&class_ref);
-                }
-                value_free(&class_name_val);
                 snprintf(error_msg, sizeof(error_msg), "Member '%s' not found in object", member_name);
             } else {
                 snprintf(error_msg, sizeof(error_msg), "Cannot access member '%s' of %s", member_name, value_type_string(object.type));
@@ -2096,7 +2479,14 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
         }
         
         case AST_NODE_FUNCTION_CALL_EXPR: {
-            // Evaluate the function expression (could be identifier, member access, etc.)
+            // Check if this is a method call (function expression is member access)
+            if (node->data.function_call_expr.function->type == AST_NODE_MEMBER_ACCESS) {
+                // This is a method call like obj.method()
+                // Handle it directly here to avoid the complex method resolution
+                return handle_method_call(interpreter, node);
+            }
+            
+            // Regular function call - evaluate the function expression
             Value function_value = eval_node(interpreter, node->data.function_call_expr.function);
             
             // Evaluate all arguments
@@ -2673,12 +3063,27 @@ Value builtin_type(Interpreter* interpreter, Value* args, size_t arg_count, int 
             return value_create_string("Null");
         case VALUE_ARRAY:
             return value_create_string("Array");
-        case VALUE_OBJECT:
+        case VALUE_OBJECT: {
+            // Check if this is a custom type (class instance)
+            Value class_name_val = value_object_get(arg, "__class_name__");
+            if (class_name_val.type == VALUE_STRING && class_name_val.data.string_value) {
+                Value result = value_create_string(class_name_val.data.string_value);
+                value_free(&class_name_val);
+                return result;
+            }
+            value_free(&class_name_val);
             return value_create_string("Object");
+        }
         case VALUE_FUNCTION:
             return value_create_string("Function");
         case VALUE_RANGE:
             return value_create_string("Range");
+        case VALUE_CLASS:
+            return value_create_string("Class");
+        case VALUE_MODULE:
+            return value_create_string("Module");
+        case VALUE_ERROR:
+            return value_create_string("Error");
         default:
             return value_create_string("Unknown");
     }
@@ -2706,7 +3111,14 @@ Value builtin_assert(Interpreter* interpreter, Value* args, size_t arg_count, in
     
     return value_create_null();
 }
-Value builtin_str(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { Value v = {0}; return v; }
+Value builtin_str(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 1) {
+        interpreter_set_error(interpreter, "str() requires exactly 1 argument", line, column);
+        return value_create_null();
+    }
+    
+    return value_to_string(&args[0]);
+}
 Value builtin_int(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { Value v = {0}; return v; }
 Value builtin_float(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { Value v = {0}; return v; }
 Value builtin_bool(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { Value v = {0}; return v; }

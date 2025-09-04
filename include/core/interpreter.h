@@ -96,6 +96,7 @@ typedef struct {
     int continue_depth;
     int try_depth;
     const char* current_function_return_type;  // Track return type for type checking
+    Value* self_context; // Current self object for method calls
 } Interpreter;
 
 // Interpreter initialization and cleanup
@@ -186,6 +187,11 @@ char** value_object_keys(Value* obj, size_t* count);
 
 // Function execution
 Value value_function_call(Value* func, Value* args, size_t arg_count, Interpreter* interpreter, int line, int column);
+Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, Interpreter* interpreter, Value* self, int line, int column);
+
+// Method call handling
+Value handle_method_call(Interpreter* interpreter, ASTNode* call_node);
+Value handle_super_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name);
 
 // Execution functions
 Value interpreter_execute(Interpreter* interpreter, ASTNode* node);

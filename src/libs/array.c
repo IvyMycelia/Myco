@@ -18,14 +18,25 @@ Value builtin_array_push(Interpreter* interpreter, Value* args, size_t arg_count
         return value_create_null();
     }
     
-    // Clone the element to avoid memory issues
-    Value cloned_element = value_clone(&element);
+    // Create a new array with all existing elements plus the new element
+    Value result = value_create_array(array_arg.data.array_value.count + 1);
     
-    // Add to array
-    value_array_push(&array_arg, cloned_element);
+    // Copy all existing elements
+    for (size_t i = 0; i < array_arg.data.array_value.count; i++) {
+        Value* existing_element = (Value*)array_arg.data.array_value.elements[i];
+        if (existing_element) {
+            Value cloned_element = value_clone(existing_element);
+            value_array_push(&result, cloned_element);
+            // Don't free the cloned element - it's now owned by the array
+        }
+    }
     
-    // Return the modified array
-    return value_clone(&array_arg);
+    // Add the new element
+    Value cloned_new_element = value_clone(&element);
+    value_array_push(&result, cloned_new_element);
+    // Don't free the cloned element - it's now owned by the array
+    
+    return result;
 }
 
 Value builtin_array_pop(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {

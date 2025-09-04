@@ -14,7 +14,8 @@
 [x] **File I/O Operations**: Reading/writing files, directory operations
 [ ] **Network Programming**: HTTP client/server, socket programming
 [x] **Data Structures**: Hash maps, sets
-[ ] **Advanced Data Structures**: Trees, graphs, heaps, queues
+[x] **Advanced Data Structures**: Trees, graphs
+[ ] **Additional Data Structures**: Heaps, queues, stacks
 [ ] **Date/Time Handling**: Comprehensive date and time operations
 [ ] **Regular Expressions**: Pattern matching and text processing
 [ ] **JSON/XML Parsing**: Data serialization and deserialization

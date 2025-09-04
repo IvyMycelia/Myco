@@ -24,4 +24,10 @@ void register_all_builtin_libraries(Interpreter* interpreter) {
     
     // Register sets library
     sets_library_register(interpreter);
+    
+    // Register trees library
+    trees_library_register(interpreter);
+    
+    // Register graphs library
+    graphs_library_register(interpreter);
 }

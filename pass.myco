@@ -730,6 +730,26 @@ else:
     tests_failed = tests_failed + ["Sets library import"];
 end
 
+total_tests = total_tests + 1;
+use trees as trees;
+if type(trees) == "Object" or trees != Null:
+    print("✓ Trees library imported");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Trees library import failed");
+    tests_failed = tests_failed + ["Trees library import"];
+end
+
+total_tests = total_tests + 1;
+use graphs as graphs;
+if type(graphs) == "Object" or graphs != Null:
+    print("✓ Graphs library imported");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Graphs library import failed");
+    tests_failed = tests_failed + ["Graphs library import"];
+end
+
 print("\n10. Math Library Functions...");
 total_tests = total_tests + 1;
 let pi_value = math.Pi;
@@ -1046,8 +1066,140 @@ else:
     tests_failed = tests_failed + ["sets.clear()"];
 end
 
-print("\n=== 18. BUILT-IN FUNCTIONS ===");
-print("18.1. Type checking...");
+print("\n18. Trees Library Functions...");
+total_tests = total_tests + 1;
+let test_tree = trees.create();
+if type(test_tree) == "Object" and test_tree != Null:
+    print("✓ trees.create() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ trees.create() failed");
+    tests_failed = tests_failed + ["trees.create()"];
+end
+
+total_tests = total_tests + 1;
+let tree_size = trees.size(test_tree);
+if tree_size == 0:
+    print("✓ trees.size() returns correct initial size");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ trees.size() failed: " + str(tree_size));
+    tests_failed = tests_failed + ["trees.size()"];
+end
+
+total_tests = total_tests + 1;
+let tree_is_empty = trees.isEmpty(test_tree);
+if tree_is_empty == True:
+    print("✓ trees.isEmpty() returns correct initial state");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ trees.isEmpty() failed");
+    tests_failed = tests_failed + ["trees.isEmpty()"];
+end
+
+total_tests = total_tests + 1;
+let tree_insert = trees.insert(test_tree, "root");
+if type(tree_insert) == "String" and tree_insert != Null:
+    print("✓ trees.insert() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ trees.insert() failed");
+    tests_failed = tests_failed + ["trees.insert()"];
+end
+
+total_tests = total_tests + 1;
+let tree_search = trees.search(test_tree, "root");
+if type(tree_search) == "Boolean":
+    print("✓ trees.search() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ trees.search() failed");
+    tests_failed = tests_failed + ["trees.search()"];
+end
+
+total_tests = total_tests + 1;
+let tree_clear = trees.clear(test_tree);
+if tree_clear == Null:
+    print("✓ trees.clear() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ trees.clear() failed");
+    tests_failed = tests_failed + ["trees.clear()"];
+end
+
+print("\n19. Graphs Library Functions...");
+total_tests = total_tests + 1;
+let test_graph = graphs.create(False);  # Undirected graph
+if type(test_graph) == "Object" and test_graph != Null:
+    print("✓ graphs.create() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ graphs.create() failed");
+    tests_failed = tests_failed + ["graphs.create()"];
+end
+
+total_tests = total_tests + 1;
+let graph_size = graphs.size(test_graph);
+if graph_size == 0:
+    print("✓ graphs.size() returns correct initial size");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ graphs.size() failed: " + str(graph_size));
+    tests_failed = tests_failed + ["graphs.size()"];
+end
+
+total_tests = total_tests + 1;
+let graph_is_empty = graphs.isEmpty(test_graph);
+if graph_is_empty == True:
+    print("✓ graphs.isEmpty() returns correct initial state");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ graphs.isEmpty() failed");
+    tests_failed = tests_failed + ["graphs.isEmpty()"];
+end
+
+total_tests = total_tests + 1;
+let graph_add_node = graphs.addNode(test_graph, "node1");
+if type(graph_add_node) == "String" and graph_add_node != Null:
+    print("✓ graphs.addNode() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ graphs.addNode() failed");
+    tests_failed = tests_failed + ["graphs.addNode()"];
+end
+
+total_tests = total_tests + 1;
+let graph_add_edge = graphs.addEdge(test_graph, "node1", "node2");
+if type(graph_add_edge) == "String" and graph_add_edge != Null:
+    print("✓ graphs.addEdge() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ graphs.addEdge() failed");
+    tests_failed = tests_failed + ["graphs.addEdge()"];
+end
+
+total_tests = total_tests + 1;
+let graph_clear = graphs.clear(test_graph);
+if graph_clear == Null:
+    print("✓ graphs.clear() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ graphs.clear() failed");
+    tests_failed = tests_failed + ["graphs.clear()"];
+end
+
+total_tests = total_tests + 1;
+let directed_graph = graphs.create(True);  # Directed graph
+if type(directed_graph) == "Object" and directed_graph != Null:
+    print("✓ graphs.create() with directed parameter successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ graphs.create() with directed parameter failed");
+    tests_failed = tests_failed + ["graphs.create() directed"];
+end
+
+print("\n=== 20. BUILT-IN FUNCTIONS ===");
+print("20.1. Type checking...");
 total_tests = total_tests + 1;
 let type_result = type(42);
 if type_result == "Int":

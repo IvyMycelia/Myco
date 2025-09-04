@@ -24,6 +24,12 @@ void maps_library_register(Interpreter* interpreter);
 // Sets library registration
 void sets_library_register(Interpreter* interpreter);
 
+// Trees library registration
+void trees_library_register(Interpreter* interpreter);
+
+// Graphs library registration
+void graphs_library_register(Interpreter* interpreter);
+
 // Register all built-in libraries
 void register_all_builtin_libraries(Interpreter* interpreter);
 

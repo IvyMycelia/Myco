@@ -30,6 +30,15 @@ void trees_library_register(Interpreter* interpreter);
 // Graphs library registration
 void graphs_library_register(Interpreter* interpreter);
 
+// Heaps library registration
+void heaps_library_register(Interpreter* interpreter);
+
+// Queues library registration
+void queues_library_register(Interpreter* interpreter);
+
+// Stacks library registration
+void stacks_library_register(Interpreter* interpreter);
+
 // Register all built-in libraries
 void register_all_builtin_libraries(Interpreter* interpreter);
 

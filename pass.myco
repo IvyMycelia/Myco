@@ -1294,7 +1294,245 @@ else:
     tests_failed = tests_failed + ["graphs.create() directed"];
 end
 
-print("\n=== 20. BUILT-IN FUNCTIONS ===");
+print("\n20. Heaps Library Functions...");
+total_tests = total_tests + 1;
+let test_heap = heaps.create(True);  # Max heap
+if type(test_heap) == "Object" and test_heap != Null:
+    print("✓ heaps.create() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ heaps.create() failed");
+    tests_failed = tests_failed + ["heaps.create()"];
+end
+
+total_tests = total_tests + 1;
+let heap_size = heaps.size(test_heap);
+if heap_size == 0:
+    print("✓ heaps.size() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ heaps.size() failed");
+    tests_failed = tests_failed + ["heaps.size()"];
+end
+
+total_tests = total_tests + 1;
+let heap_empty = heaps.isEmpty(test_heap);
+if heap_empty == True:
+    print("✓ heaps.isEmpty() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ heaps.isEmpty() failed");
+    tests_failed = tests_failed + ["heaps.isEmpty()"];
+end
+
+total_tests = total_tests + 1;
+test_heap = heaps.insert(test_heap, 10);
+test_heap = heaps.insert(test_heap, 5);
+test_heap = heaps.insert(test_heap, 15);
+let heap_size_after = heaps.size(test_heap);
+if heap_size_after == 3:
+    print("✓ heaps.insert() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ heaps.insert() failed");
+    tests_failed = tests_failed + ["heaps.insert()"];
+end
+
+total_tests = total_tests + 1;
+let heap_peek = heaps.peek(test_heap);
+if heap_peek == 15:  # Max heap should have 15 at root
+    print("✓ heaps.peek() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ heaps.peek() failed");
+    tests_failed = tests_failed + ["heaps.peek()"];
+end
+
+total_tests = total_tests + 1;
+test_heap = heaps.extract(test_heap);  # Get new heap after extraction
+let heap_size_after_extract = heaps.size(test_heap);
+if heap_size_after_extract == 2:  # Should have 2 elements left (10, 5)
+    print("✓ heaps.extract() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ heaps.extract() failed");
+    tests_failed = tests_failed + ["heaps.extract()"];
+end
+
+total_tests = total_tests + 1;
+test_heap = heaps.clear(test_heap);
+let heap_clear_size = heaps.size(test_heap);
+if heap_clear_size == 0:
+    print("✓ heaps.clear() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ heaps.clear() failed");
+    tests_failed = tests_failed + ["heaps.clear()"];
+end
+
+print("\n21. Queues Library Functions...");
+total_tests = total_tests + 1;
+let test_queue = queues.create();
+if type(test_queue) == "Object" and test_queue != Null:
+    print("✓ queues.create() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ queues.create() failed");
+    tests_failed = tests_failed + ["queues.create()"];
+end
+
+total_tests = total_tests + 1;
+let queue_size = queues.size(test_queue);
+if queue_size == 0:
+    print("✓ queues.size() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ queues.size() failed");
+    tests_failed = tests_failed + ["queues.size()"];
+end
+
+total_tests = total_tests + 1;
+let queue_empty = queues.isEmpty(test_queue);
+if queue_empty == True:
+    print("✓ queues.isEmpty() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ queues.isEmpty() failed");
+    tests_failed = tests_failed + ["queues.isEmpty()"];
+end
+
+total_tests = total_tests + 1;
+test_queue = queues.enqueue(test_queue, "first");
+test_queue = queues.enqueue(test_queue, "second");
+test_queue = queues.enqueue(test_queue, "third");
+let queue_size_after = queues.size(test_queue);
+if queue_size_after == 3:
+    print("✓ queues.enqueue() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ queues.enqueue() failed");
+    tests_failed = tests_failed + ["queues.enqueue()"];
+end
+
+total_tests = total_tests + 1;
+let queue_front = queues.front(test_queue);
+if queue_front == "first":
+    print("✓ queues.front() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ queues.front() failed");
+    tests_failed = tests_failed + ["queues.front()"];
+end
+
+total_tests = total_tests + 1;
+let queue_back = queues.back(test_queue);
+if queue_back == "third":
+    print("✓ queues.back() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ queues.back() failed");
+    tests_failed = tests_failed + ["queues.back()"];
+end
+
+total_tests = total_tests + 1;
+test_queue = queues.dequeue(test_queue);  # Get new queue after dequeue
+let queue_size_after_dequeue = queues.size(test_queue);
+if queue_size_after_dequeue == 2:  # Should have 2 elements left ("second", "third")
+    print("✓ queues.dequeue() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ queues.dequeue() failed");
+    tests_failed = tests_failed + ["queues.dequeue()"];
+end
+
+total_tests = total_tests + 1;
+test_queue = queues.clear(test_queue);
+let queue_clear_size = queues.size(test_queue);
+if queue_clear_size == 0:
+    print("✓ queues.clear() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ queues.clear() failed");
+    tests_failed = tests_failed + ["queues.clear()"];
+end
+
+print("\n22. Stacks Library Functions...");
+total_tests = total_tests + 1;
+let test_stack = stacks.create();
+if type(test_stack) == "Object" and test_stack != Null:
+    print("✓ stacks.create() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ stacks.create() failed");
+    tests_failed = tests_failed + ["stacks.create()"];
+end
+
+total_tests = total_tests + 1;
+let stack_size = stacks.size(test_stack);
+if stack_size == 0:
+    print("✓ stacks.size() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ stacks.size() failed");
+    tests_failed = tests_failed + ["stacks.size()"];
+end
+
+total_tests = total_tests + 1;
+let stack_empty = stacks.isEmpty(test_stack);
+if stack_empty == True:
+    print("✓ stacks.isEmpty() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ stacks.isEmpty() failed");
+    tests_failed = tests_failed + ["stacks.isEmpty()"];
+end
+
+total_tests = total_tests + 1;
+test_stack = stacks.push(test_stack, "bottom");
+test_stack = stacks.push(test_stack, "middle");
+test_stack = stacks.push(test_stack, "top");
+let stack_size_after = stacks.size(test_stack);
+if stack_size_after == 3:
+    print("✓ stacks.push() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ stacks.push() failed");
+    tests_failed = tests_failed + ["stacks.push()"];
+end
+
+total_tests = total_tests + 1;
+let stack_top = stacks.top(test_stack);
+if stack_top == "top":
+    print("✓ stacks.top() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ stacks.top() failed");
+    tests_failed = tests_failed + ["stacks.top()"];
+end
+
+total_tests = total_tests + 1;
+test_stack = stacks.pop(test_stack);  # Get new stack after pop
+let stack_size_after_pop = stacks.size(test_stack);
+if stack_size_after_pop == 2:  # Should have 2 elements left ("bottom", "middle")
+    print("✓ stacks.pop() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ stacks.pop() failed");
+    tests_failed = tests_failed + ["stacks.pop()"];
+end
+
+total_tests = total_tests + 1;
+test_stack = stacks.clear(test_stack);
+let stack_clear_size = stacks.size(test_stack);
+if stack_clear_size == 0:
+    print("✓ stacks.clear() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ stacks.clear() failed");
+    tests_failed = tests_failed + ["stacks.clear()"];
+end
+
+print("\n=== 23. BUILT-IN FUNCTIONS ===");
 print("20.1. Type checking...");
 total_tests = total_tests + 1;
 let type_result = type(42);

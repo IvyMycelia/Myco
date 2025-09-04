@@ -378,6 +378,9 @@ ASTNode* parser_parse_statement(Parser* parser) {
             } else if (strcmp(token->text, "return") == 0) {
                 parser_advance(parser);  // Consume the 'return' keyword
                 return parser_parse_return_statement(parser);
+            } else if (strcmp(token->text, "throw") == 0) {
+                parser_advance(parser);  // Consume the 'throw' keyword
+                return parser_parse_throw_statement(parser);
             } else if (strcmp(token->text, "spore") == 0) {
                 parser_advance(parser);  // Consume the 'spore' keyword
                 return parser_parse_spore_statement(parser);
@@ -1921,8 +1924,22 @@ ASTNode* parser_parse_throw_statement(Parser* parser) {
         return NULL;
     }
     
-    // TODO: Implement throw statement parsing logic
-    return NULL;  // Not implemented yet
+    // The 'throw' keyword has already been consumed by the statement parser
+    
+    // Parse the expression to throw (required)
+    ASTNode* value = parser_parse_expression(parser);
+    if (!value) {
+        parser_error(parser, "Expected expression after 'throw'");
+        return NULL;
+    }
+    
+    // Expect semicolon or end of statement
+    if (parser_check(parser, TOKEN_SEMICOLON)) {
+        parser_advance(parser);  // Consume semicolon
+    }
+    
+    return ast_create_throw(value, parser->previous_token ? parser->previous_token->line : 0, 
+                           parser->previous_token ? parser->previous_token->column : 0);
 }
 
 /**

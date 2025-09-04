@@ -82,6 +82,15 @@ typedef struct Environment {
     size_t capacity;
 } Environment;
 
+// Call stack frame for stack traces
+typedef struct CallFrame {
+    const char* function_name;    // Function or method name
+    const char* file_name;        // Source file name
+    int line;                     // Line number
+    int column;                   // Column number
+    struct CallFrame* next;       // Next frame in stack
+} CallFrame;
+
 // Interpreter structure
 typedef struct {
     Environment* global_environment;
@@ -97,6 +106,13 @@ typedef struct {
     int try_depth;
     const char* current_function_return_type;  // Track return type for type checking
     Value* self_context; // Current self object for method calls
+    
+    // Enhanced error handling
+    CallFrame* call_stack;        // Call stack for stack traces
+    int stack_depth;              // Current stack depth
+    int max_stack_depth;          // Maximum allowed stack depth
+    int recursion_count;          // Recursion counter for limit detection
+    int max_recursion_depth;      // Maximum recursion depth
 } Interpreter;
 
 // Interpreter initialization and cleanup
@@ -226,6 +242,17 @@ void interpreter_set_error(Interpreter* interpreter, const char* message, int li
 void interpreter_clear_error(Interpreter* interpreter);
 int interpreter_has_error(Interpreter* interpreter);
 int interpreter_has_return(Interpreter* interpreter);
+
+// Enhanced error handling with stack traces
+void interpreter_push_call_frame(Interpreter* interpreter, const char* function_name, const char* file_name, int line, int column);
+void interpreter_pop_call_frame(Interpreter* interpreter);
+void interpreter_print_stack_trace(Interpreter* interpreter);
+void interpreter_set_error_with_stack(Interpreter* interpreter, const char* message, int line, int column);
+
+// Exception handling
+void interpreter_throw_exception(Interpreter* interpreter, const char* message, int line, int column);
+int interpreter_has_exception(Interpreter* interpreter);
+void interpreter_clear_exception(Interpreter* interpreter);
 
 // Built-in functions
 Value builtin_print(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);

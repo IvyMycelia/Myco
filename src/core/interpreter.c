@@ -24,6 +24,13 @@ Interpreter* interpreter_create(void) {
     interpreter->current_function_return_type = NULL;
     interpreter->self_context = NULL;
     
+    // Enhanced error handling initialization
+    interpreter->call_stack = NULL;
+    interpreter->stack_depth = 0;
+    interpreter->max_stack_depth = 1000;  // Reasonable limit
+    interpreter->recursion_count = 0;
+    interpreter->max_recursion_depth = 100;  // Reasonable limit
+    
     // Setup global env
     interpreter->global_environment = environment_create(NULL);
     interpreter->current_environment = interpreter->global_environment;
@@ -36,6 +43,17 @@ void interpreter_free(Interpreter* interpreter) {
         if (interpreter->error_message) {
             free(interpreter->error_message);
         }
+        
+        // Clean up call stack
+        CallFrame* frame = interpreter->call_stack;
+        while (frame) {
+            CallFrame* next = frame->next;
+            free((void*)frame->function_name);
+            free((void*)frame->file_name);
+            free(frame);
+            frame = next;
+        }
+        
         if (interpreter->global_environment) {
             environment_free(interpreter->global_environment);
         }
@@ -2195,6 +2213,26 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             interpreter->has_return = 1;
             return value_create_null();
         }
+        case AST_NODE_THROW: {
+            // Evaluate the expression to throw
+            Value throw_value = value_create_null();
+            if (node->data.throw_statement.value) {
+                throw_value = eval_node(interpreter, node->data.throw_statement.value);
+            }
+            
+            // Convert the value to a string for the error message
+            Value error_string = value_to_string(&throw_value);
+            const char* error_message = error_string.type == VALUE_STRING ? error_string.data.string_value : "Unknown exception";
+            
+            // Set error with stack trace
+            interpreter_throw_exception(interpreter, error_message, node->line, node->column);
+            
+            // Clean up
+            value_free(&throw_value);
+            value_free(&error_string);
+            
+            return value_create_null();
+        }
         case AST_NODE_ASSIGNMENT: {
             // Evaluate the value to assign
             Value value = eval_node(interpreter, node->data.assignment.value);
@@ -2851,30 +2889,79 @@ Value interpreter_execute_module(Interpreter* interpreter, ASTNode* node) { Valu
 Value interpreter_execute_package(Interpreter* interpreter, ASTNode* node) { Value v = {0}; return v; }
 
 void interpreter_set_return(Interpreter* interpreter, Value value) {}
-// Fungus-themed error code definitions
+// Comprehensive error code definitions with categories
 typedef enum {
+    // Runtime Errors (1000-1999)
     MYCO_ERROR_DIVISION_BY_ZERO = 1001,        // SPORE_SPLIT - Division by zero
-    MYCO_ERROR_UNDEFINED_VARIABLE = 1002,      // MYCELIUM_MISSING - Undefined variable
-    MYCO_ERROR_ARRAY_INDEX_OUT_OF_BOUNDS = 1003, // CAP_OVERFLOW - Array index out of bounds
-    MYCO_ERROR_ARRAY_INDEX_NON_ARRAY = 1004,   // STEM_INDEX - Array index on non-array
-    MYCO_ERROR_ARRAY_INDEX_NON_NUMBER = 1005,  // SPORE_TYPE - Array index with non-number
+    MYCO_ERROR_UNDEFINED_VARIABLE = 1002,      // LOST_IN_THE_MYCELIUM - Undefined variable
+    MYCO_ERROR_ARRAY_INDEX_OUT_OF_BOUNDS = 1003, // MUSHROOM_TOO_BIG - Array index out of bounds
+    MYCO_ERROR_ARRAY_INDEX_NON_ARRAY = 1004,   // NOT_A_MUSHROOM - Array index on non-array
+    MYCO_ERROR_ARRAY_INDEX_NON_NUMBER = 1005,  // SPORE_TYPE_MISMATCH - Array index with non-number
     MYCO_ERROR_STRING_INDEX_OUT_OF_BOUNDS = 1006, // HYPHAE_OVERFLOW - String index out of bounds
-    MYCO_ERROR_STRING_INDEX_NON_STRING = 1007, // STEM_STRING - String index on non-string
-    MYCO_ERROR_STRING_INDEX_NON_NUMBER = 1008, // HYPHAE_TYPE - String index with non-number
-    MYCO_ERROR_MEMBER_ACCESS_NON_OBJECT = 1009, // CAP_ACCESS - Member access on non-object
-    MYCO_ERROR_FUNCTION_CALL_NON_FUNCTION = 1010, // SPORE_CALL - Function call on non-function
-    MYCO_ERROR_UNDEFINED_FUNCTION = 1011,      // FUNGUS_MISSING - Undefined function
-    MYCO_ERROR_WRONG_ARGUMENT_COUNT = 1012,    // SPORE_COUNT - Wrong argument count
-    MYCO_ERROR_WRONG_ARGUMENT_TYPE = 1013,     // SPORE_TYPE - Wrong argument type
-    MYCO_ERROR_MODULO_BY_ZERO = 1014,          // SPORE_MODULO - Modulo by zero
-    MYCO_ERROR_POWER_INVALID_BASE = 1015,      // CAP_POWER - Power with invalid base
-    MYCO_ERROR_UNKNOWN = 1999                  // UNKNOWN_FUNGUS - Unknown error
+    MYCO_ERROR_STRING_INDEX_NON_STRING = 1007, // NOT_A_STEM - String index on non-string
+    MYCO_ERROR_STRING_INDEX_NON_NUMBER = 1008, // HYPHAE_TYPE_MISMATCH - String index with non-number
+    MYCO_ERROR_MEMBER_ACCESS_NON_OBJECT = 1009, // CAP_ACCESS_DENIED - Member access on non-object
+    MYCO_ERROR_FUNCTION_CALL_NON_FUNCTION = 1010, // SPORE_CALL_FAILED - Function call on non-function
+    MYCO_ERROR_UNDEFINED_FUNCTION = 1011,      // FUNGUS_NOT_FOUND - Undefined function
+    MYCO_ERROR_WRONG_ARGUMENT_COUNT = 1012,    // SPORE_COUNT_MISMATCH - Wrong argument count
+    MYCO_ERROR_WRONG_ARGUMENT_TYPE = 1013,     // SPORE_TYPE_MISMATCH - Wrong argument type
+    MYCO_ERROR_MODULO_BY_ZERO = 1014,          // SPORE_MODULO_FAILED - Modulo by zero
+    MYCO_ERROR_POWER_INVALID_BASE = 1015,      // CAP_POWER_FAILED - Power with invalid base
+    
+    // Memory Errors (2000-2999)
+    MYCO_ERROR_OUT_OF_MEMORY = 2001,           // MYCELIUM_EXHAUSTED - Out of memory
+    MYCO_ERROR_NULL_POINTER = 2002,            // DEAD_SPORE - Null pointer access
+    MYCO_ERROR_DOUBLE_FREE = 2003,             // SPORE_ALREADY_RELEASED - Double free
+    MYCO_ERROR_MEMORY_CORRUPTION = 2004,       // CONTAMINATED_MYCELIUM - Memory corruption
+    
+    // Type System Errors (3000-3999)
+    MYCO_ERROR_TYPE_MISMATCH = 3001,           // SPORE_TYPE_CONFLICT - Type mismatch
+    MYCO_ERROR_INVALID_CAST = 3002,            // SPORE_TRANSFORMATION_FAILED - Invalid type cast
+    MYCO_ERROR_UNSUPPORTED_OPERATION = 3003,   // UNSUPPORTED_SPORE_OPERATION - Unsupported operation
+    MYCO_ERROR_INVALID_RETURN_TYPE = 3004,     // SPORE_RETURN_TYPE_MISMATCH - Invalid return type
+    
+    // Class and Object Errors (4000-4999)
+    MYCO_ERROR_CLASS_NOT_FOUND = 4001,         // FUNGUS_SPECIES_UNKNOWN - Class not found
+    MYCO_ERROR_METHOD_NOT_FOUND = 4002,        // SPORE_METHOD_MISSING - Method not found
+    MYCO_ERROR_INSTANTIATION_FAILED = 4003,    // SPORE_GERMINATION_FAILED - Object instantiation failed
+    MYCO_ERROR_INHERITANCE_ERROR = 4004,       // SPORE_LINEAGE_BROKEN - Inheritance error
+    MYCO_ERROR_ACCESS_VIOLATION = 4005,        // CAP_ACCESS_DENIED - Access violation
+    
+    // Exception System Errors (5000-5999)
+    MYCO_ERROR_EXCEPTION_THROWN = 5001,        // SPORE_EXPLOSION - Exception thrown
+    MYCO_ERROR_UNHANDLED_EXCEPTION = 5002,     // UNCONTROLLED_SPORE_RELEASE - Unhandled exception
+    MYCO_ERROR_EXCEPTION_IN_CATCH = 5003,      // SPORE_CHAIN_REACTION - Exception in catch block
+    MYCO_ERROR_FINALLY_ERROR = 5004,           // SPORE_CLEANUP_FAILED - Error in finally block
+    
+    // I/O and System Errors (6000-6999)
+    MYCO_ERROR_FILE_NOT_FOUND = 6001,          // SPORE_FILE_MISSING - File not found
+    MYCO_ERROR_PERMISSION_DENIED = 6002,       // CAP_ACCESS_DENIED - Permission denied
+    MYCO_ERROR_IO_ERROR = 6003,                // SPORE_IO_FAILED - I/O error
+    MYCO_ERROR_NETWORK_ERROR = 6004,           // SPORE_NETWORK_FAILED - Network error
+    
+    // Syntax and Parse Errors (7000-7999)
+    MYCO_ERROR_SYNTAX_ERROR = 7001,            // SPORE_SYNTAX_CORRUPTED - Syntax error
+    MYCO_ERROR_UNEXPECTED_TOKEN = 7002,        // UNEXPECTED_SPORE - Unexpected token
+    MYCO_ERROR_MISSING_TOKEN = 7003,           // MISSING_SPORE - Missing token
+    MYCO_ERROR_INVALID_EXPRESSION = 7004,      // CORRUPTED_SPORE_EXPRESSION - Invalid expression
+    
+    // System and Environment Errors (8000-8999)
+    MYCO_ERROR_STACK_OVERFLOW = 8001,          // MYCELIUM_STACK_OVERFLOW - Stack overflow
+    MYCO_ERROR_RECURSION_LIMIT = 8002,         // SPORE_RECURSION_LIMIT - Recursion limit exceeded
+    MYCO_ERROR_TIMEOUT = 8003,                 // SPORE_TIMEOUT - Operation timeout
+    MYCO_ERROR_SYSTEM_ERROR = 8004,            // SYSTEM_SPORE_FAILURE - System error
+    
+    // Unknown and Generic Errors (9000-9999)
+    MYCO_ERROR_UNKNOWN = 9999,                 // UNKNOWN_FUNGUS - Unknown error
+    MYCO_ERROR_INTERNAL = 9998,                // INTERNAL_SPORE_FAILURE - Internal error
+    MYCO_ERROR_NOT_IMPLEMENTED = 9997          // SPORE_NOT_DEVELOPED - Not implemented
 } MycoErrorCode;
 
-// Get error code from message
+// Get error code from message with comprehensive pattern matching
 static MycoErrorCode get_error_code(const char* message) {
     if (!message) return MYCO_ERROR_UNKNOWN;
     
+    // Runtime Errors (1000-1999)
     if (strstr(message, "Division by zero")) return MYCO_ERROR_DIVISION_BY_ZERO;
     if (strstr(message, "Undefined variable")) return MYCO_ERROR_UNDEFINED_VARIABLE;
     if (strstr(message, "Array index out of bounds")) return MYCO_ERROR_ARRAY_INDEX_OUT_OF_BOUNDS;
@@ -2883,7 +2970,7 @@ static MycoErrorCode get_error_code(const char* message) {
     if (strstr(message, "String index out of bounds")) return MYCO_ERROR_STRING_INDEX_OUT_OF_BOUNDS;
     if (strstr(message, "Cannot index non-string value")) return MYCO_ERROR_STRING_INDEX_NON_STRING;
     if (strstr(message, "String index must be a number")) return MYCO_ERROR_STRING_INDEX_NON_NUMBER;
-    if (strstr(message, "Member access not yet fully implemented")) return MYCO_ERROR_MEMBER_ACCESS_NON_OBJECT;
+    if (strstr(message, "Member access") && strstr(message, "non-object")) return MYCO_ERROR_MEMBER_ACCESS_NON_OBJECT;
     if (strstr(message, "Cannot call non-function")) return MYCO_ERROR_FUNCTION_CALL_NON_FUNCTION;
     if (strstr(message, "Undefined function")) return MYCO_ERROR_UNDEFINED_FUNCTION;
     if (strstr(message, "requires exactly") || strstr(message, "too many arguments")) return MYCO_ERROR_WRONG_ARGUMENT_COUNT;
@@ -2891,6 +2978,50 @@ static MycoErrorCode get_error_code(const char* message) {
     if (strstr(message, "Modulo by zero")) return MYCO_ERROR_MODULO_BY_ZERO;
     if (strstr(message, "Power with invalid base")) return MYCO_ERROR_POWER_INVALID_BASE;
     
+    // Memory Errors (2000-2999)
+    if (strstr(message, "Out of memory") || strstr(message, "malloc failed")) return MYCO_ERROR_OUT_OF_MEMORY;
+    if (strstr(message, "Null pointer") || strstr(message, "NULL pointer")) return MYCO_ERROR_NULL_POINTER;
+    if (strstr(message, "Double free") || strstr(message, "pointer being freed was not allocated")) return MYCO_ERROR_DOUBLE_FREE;
+    if (strstr(message, "Memory corruption") || strstr(message, "corrupted")) return MYCO_ERROR_MEMORY_CORRUPTION;
+    
+    // Type System Errors (3000-3999)
+    if (strstr(message, "Type mismatch") || strstr(message, "type mismatch")) return MYCO_ERROR_TYPE_MISMATCH;
+    if (strstr(message, "Invalid cast") || strstr(message, "Cannot cast")) return MYCO_ERROR_INVALID_CAST;
+    if (strstr(message, "Unsupported operation")) return MYCO_ERROR_UNSUPPORTED_OPERATION;
+    if (strstr(message, "Invalid return type")) return MYCO_ERROR_INVALID_RETURN_TYPE;
+    
+    // Class and Object Errors (4000-4999)
+    if (strstr(message, "Class not found")) return MYCO_ERROR_CLASS_NOT_FOUND;
+    if (strstr(message, "Method not found")) return MYCO_ERROR_METHOD_NOT_FOUND;
+    if (strstr(message, "Instantiation failed") || strstr(message, "Cannot instantiate")) return MYCO_ERROR_INSTANTIATION_FAILED;
+    if (strstr(message, "Inheritance error") || strstr(message, "Parent class")) return MYCO_ERROR_INHERITANCE_ERROR;
+    if (strstr(message, "Access violation") || strstr(message, "Access denied")) return MYCO_ERROR_ACCESS_VIOLATION;
+    
+    // Exception System Errors (5000-5999)
+    if (strstr(message, "Exception thrown") || strstr(message, "throw")) return MYCO_ERROR_EXCEPTION_THROWN;
+    if (strstr(message, "Unhandled exception")) return MYCO_ERROR_UNHANDLED_EXCEPTION;
+    if (strstr(message, "Exception in catch")) return MYCO_ERROR_EXCEPTION_IN_CATCH;
+    if (strstr(message, "Error in finally")) return MYCO_ERROR_FINALLY_ERROR;
+    
+    // I/O and System Errors (6000-6999)
+    if (strstr(message, "File not found") || strstr(message, "No such file")) return MYCO_ERROR_FILE_NOT_FOUND;
+    if (strstr(message, "Permission denied")) return MYCO_ERROR_PERMISSION_DENIED;
+    if (strstr(message, "I/O error") || strstr(message, "Input/output error")) return MYCO_ERROR_IO_ERROR;
+    if (strstr(message, "Network error") || strstr(message, "Connection failed")) return MYCO_ERROR_NETWORK_ERROR;
+    
+    // Syntax and Parse Errors (7000-7999)
+    if (strstr(message, "Syntax error") || strstr(message, "Parse error")) return MYCO_ERROR_SYNTAX_ERROR;
+    if (strstr(message, "Unexpected token") || strstr(message, "Unexpected")) return MYCO_ERROR_UNEXPECTED_TOKEN;
+    if (strstr(message, "Missing token") || strstr(message, "Expected")) return MYCO_ERROR_MISSING_TOKEN;
+    if (strstr(message, "Invalid expression")) return MYCO_ERROR_INVALID_EXPRESSION;
+    
+    // System and Environment Errors (8000-8999)
+    if (strstr(message, "Stack overflow")) return MYCO_ERROR_STACK_OVERFLOW;
+    if (strstr(message, "Recursion limit") || strstr(message, "too deep")) return MYCO_ERROR_RECURSION_LIMIT;
+    if (strstr(message, "Timeout") || strstr(message, "timed out")) return MYCO_ERROR_TIMEOUT;
+    if (strstr(message, "System error")) return MYCO_ERROR_SYSTEM_ERROR;
+    
+    // Generic fallback
     return MYCO_ERROR_UNKNOWN;
 }
 
@@ -2901,18 +3032,67 @@ static const char* get_fungus_error_name(MycoErrorCode code) {
         case MYCO_ERROR_UNDEFINED_VARIABLE: return "LOST_IN_THE_MYCELIUM";
         case MYCO_ERROR_ARRAY_INDEX_OUT_OF_BOUNDS: return "MUSHROOM_TOO_BIG";
         case MYCO_ERROR_ARRAY_INDEX_NON_ARRAY: return "NOT_A_MUSHROOM";
-        case MYCO_ERROR_ARRAY_INDEX_NON_NUMBER: return "SPORE_CONFUSION";
-        case MYCO_ERROR_STRING_INDEX_OUT_OF_BOUNDS: return "HYPHAE_TOO_LONG";
-        case MYCO_ERROR_STRING_INDEX_NON_STRING: return "NOT_A_HYPHAE";
-        case MYCO_ERROR_STRING_INDEX_NON_NUMBER: return "HYPHAE_CONFUSION";
-        case MYCO_ERROR_MEMBER_ACCESS_NON_OBJECT: return "NO_CAP";
-        case MYCO_ERROR_FUNCTION_CALL_NON_FUNCTION: return "NOT_SPORULATING";
-        case MYCO_ERROR_UNDEFINED_FUNCTION: return "EXTINCT_FUNGUS";
-        case MYCO_ERROR_WRONG_ARGUMENT_COUNT: return "WRONG_SPORE_COUNT";
-        case MYCO_ERROR_WRONG_ARGUMENT_TYPE: return "TOXIC_SPORE";
-        case MYCO_ERROR_MODULO_BY_ZERO: return "SPORE_REMAINDER";
-        case MYCO_ERROR_POWER_INVALID_BASE: return "POWERLESS_MUSHROOM";
-        default: return "MYSTERY_MUSHROOM";
+        case MYCO_ERROR_ARRAY_INDEX_NON_NUMBER: return "SPORE_TYPE_MISMATCH";
+        case MYCO_ERROR_STRING_INDEX_OUT_OF_BOUNDS: return "HYPHAE_OVERFLOW";
+        case MYCO_ERROR_STRING_INDEX_NON_STRING: return "NOT_A_STEM";
+        case MYCO_ERROR_STRING_INDEX_NON_NUMBER: return "HYPHAE_TYPE_MISMATCH";
+        case MYCO_ERROR_MEMBER_ACCESS_NON_OBJECT: return "CAP_ACCESS_DENIED";
+        case MYCO_ERROR_FUNCTION_CALL_NON_FUNCTION: return "SPORE_CALL_FAILED";
+        case MYCO_ERROR_UNDEFINED_FUNCTION: return "FUNGUS_NOT_FOUND";
+        case MYCO_ERROR_WRONG_ARGUMENT_COUNT: return "SPORE_COUNT_MISMATCH";
+        case MYCO_ERROR_WRONG_ARGUMENT_TYPE: return "SPORE_TYPE_MISMATCH";
+        case MYCO_ERROR_MODULO_BY_ZERO: return "SPORE_MODULO_FAILED";
+        case MYCO_ERROR_POWER_INVALID_BASE: return "CAP_POWER_FAILED";
+        
+        // Memory Errors (2000-2999)
+        case MYCO_ERROR_OUT_OF_MEMORY: return "MYCELIUM_EXHAUSTED";
+        case MYCO_ERROR_NULL_POINTER: return "DEAD_SPORE";
+        case MYCO_ERROR_DOUBLE_FREE: return "SPORE_ALREADY_RELEASED";
+        case MYCO_ERROR_MEMORY_CORRUPTION: return "CONTAMINATED_MYCELIUM";
+        
+        // Type System Errors (3000-3999)
+        case MYCO_ERROR_TYPE_MISMATCH: return "SPORE_TYPE_CONFLICT";
+        case MYCO_ERROR_INVALID_CAST: return "SPORE_TRANSFORMATION_FAILED";
+        case MYCO_ERROR_UNSUPPORTED_OPERATION: return "UNSUPPORTED_SPORE_OPERATION";
+        case MYCO_ERROR_INVALID_RETURN_TYPE: return "SPORE_RETURN_TYPE_MISMATCH";
+        
+        // Class and Object Errors (4000-4999)
+        case MYCO_ERROR_CLASS_NOT_FOUND: return "FUNGUS_SPECIES_UNKNOWN";
+        case MYCO_ERROR_METHOD_NOT_FOUND: return "SPORE_METHOD_MISSING";
+        case MYCO_ERROR_INSTANTIATION_FAILED: return "SPORE_GERMINATION_FAILED";
+        case MYCO_ERROR_INHERITANCE_ERROR: return "SPORE_LINEAGE_BROKEN";
+        case MYCO_ERROR_ACCESS_VIOLATION: return "CAP_ACCESS_DENIED";
+        
+        // Exception System Errors (5000-5999)
+        case MYCO_ERROR_EXCEPTION_THROWN: return "SPORE_EXPLOSION";
+        case MYCO_ERROR_UNHANDLED_EXCEPTION: return "UNCONTROLLED_SPORE_RELEASE";
+        case MYCO_ERROR_EXCEPTION_IN_CATCH: return "SPORE_CHAIN_REACTION";
+        case MYCO_ERROR_FINALLY_ERROR: return "SPORE_CLEANUP_FAILED";
+        
+        // I/O and System Errors (6000-6999)
+        case MYCO_ERROR_FILE_NOT_FOUND: return "SPORE_FILE_MISSING";
+        case MYCO_ERROR_PERMISSION_DENIED: return "CAP_ACCESS_DENIED";
+        case MYCO_ERROR_IO_ERROR: return "SPORE_IO_FAILED";
+        case MYCO_ERROR_NETWORK_ERROR: return "SPORE_NETWORK_FAILED";
+        
+        // Syntax and Parse Errors (7000-7999)
+        case MYCO_ERROR_SYNTAX_ERROR: return "SPORE_SYNTAX_CORRUPTED";
+        case MYCO_ERROR_UNEXPECTED_TOKEN: return "UNEXPECTED_SPORE";
+        case MYCO_ERROR_MISSING_TOKEN: return "MISSING_SPORE";
+        case MYCO_ERROR_INVALID_EXPRESSION: return "CORRUPTED_SPORE_EXPRESSION";
+        
+        // System and Environment Errors (8000-8999)
+        case MYCO_ERROR_STACK_OVERFLOW: return "MYCELIUM_STACK_OVERFLOW";
+        case MYCO_ERROR_RECURSION_LIMIT: return "SPORE_RECURSION_LIMIT";
+        case MYCO_ERROR_TIMEOUT: return "SPORE_TIMEOUT";
+        case MYCO_ERROR_SYSTEM_ERROR: return "SYSTEM_SPORE_FAILURE";
+        
+        // Unknown and Generic Errors (9000-9999)
+        case MYCO_ERROR_UNKNOWN: return "UNKNOWN_FUNGUS";
+        case MYCO_ERROR_INTERNAL: return "INTERNAL_SPORE_FAILURE";
+        case MYCO_ERROR_NOT_IMPLEMENTED: return "SPORE_NOT_DEVELOPED";
+        
+        default: return "UNKNOWN_FUNGUS";
     }
 }
 
@@ -2949,6 +3129,87 @@ static const char* get_error_solution(MycoErrorCode code) {
             return "Check if the divisor is zero before using modulo. Use conditional logic or ensure the divisor is non-zero.";
         case MYCO_ERROR_POWER_INVALID_BASE:
             return "Ensure the base is valid for the power operation. Negative bases with fractional exponents are not supported.";
+        
+        // Memory Errors (2000-2999)
+        case MYCO_ERROR_OUT_OF_MEMORY:
+            return "The program has run out of memory. Try reducing memory usage or increasing available memory.";
+        case MYCO_ERROR_NULL_POINTER:
+            return "A null pointer was accessed. Check that objects are properly initialized before use.";
+        case MYCO_ERROR_DOUBLE_FREE:
+            return "Memory was freed twice. This indicates a bug in memory management - check for duplicate free() calls.";
+        case MYCO_ERROR_MEMORY_CORRUPTION:
+            return "Memory corruption detected. This may be due to buffer overflows or use-after-free bugs.";
+        
+        // Type System Errors (3000-3999)
+        case MYCO_ERROR_TYPE_MISMATCH:
+            return "Types don't match for this operation. Convert values to compatible types or use appropriate operators.";
+        case MYCO_ERROR_INVALID_CAST:
+            return "Cannot convert between these types. Use explicit type conversion functions if available.";
+        case MYCO_ERROR_UNSUPPORTED_OPERATION:
+            return "This operation is not supported for the given types. Check the documentation for supported operations.";
+        case MYCO_ERROR_INVALID_RETURN_TYPE:
+            return "Return value type doesn't match function signature. Ensure return type matches the declared type.";
+        
+        // Class and Object Errors (4000-4999)
+        case MYCO_ERROR_CLASS_NOT_FOUND:
+            return "Class not found. Check the class name for typos or ensure the class is defined before use.";
+        case MYCO_ERROR_METHOD_NOT_FOUND:
+            return "Method not found in class. Check the method name for typos or ensure the method is defined.";
+        case MYCO_ERROR_INSTANTIATION_FAILED:
+            return "Failed to create object instance. Check constructor arguments and class definition.";
+        case MYCO_ERROR_INHERITANCE_ERROR:
+            return "Inheritance error. Check parent class definition and inheritance chain.";
+        case MYCO_ERROR_ACCESS_VIOLATION:
+            return "Access violation. Check permissions and ensure proper object initialization.";
+        
+        // Exception System Errors (5000-5999)
+        case MYCO_ERROR_EXCEPTION_THROWN:
+            return "An exception was thrown. Use try/catch blocks to handle exceptions gracefully.";
+        case MYCO_ERROR_UNHANDLED_EXCEPTION:
+            return "Unhandled exception. Wrap risky code in try/catch blocks to handle potential errors.";
+        case MYCO_ERROR_EXCEPTION_IN_CATCH:
+            return "Exception occurred in catch block. Ensure catch blocks don't throw exceptions.";
+        case MYCO_ERROR_FINALLY_ERROR:
+            return "Error in finally block. Keep finally blocks simple and avoid operations that can fail.";
+        
+        // I/O and System Errors (6000-6999)
+        case MYCO_ERROR_FILE_NOT_FOUND:
+            return "File not found. Check the file path and ensure the file exists.";
+        case MYCO_ERROR_PERMISSION_DENIED:
+            return "Permission denied. Check file permissions and user access rights.";
+        case MYCO_ERROR_IO_ERROR:
+            return "I/O error occurred. Check disk space, file locks, and system resources.";
+        case MYCO_ERROR_NETWORK_ERROR:
+            return "Network error. Check network connection and server availability.";
+        
+        // Syntax and Parse Errors (7000-7999)
+        case MYCO_ERROR_SYNTAX_ERROR:
+            return "Syntax error in code. Check for missing semicolons, brackets, or keywords.";
+        case MYCO_ERROR_UNEXPECTED_TOKEN:
+            return "Unexpected token found. Check syntax and ensure proper statement structure.";
+        case MYCO_ERROR_MISSING_TOKEN:
+            return "Missing required token. Check for missing operators, keywords, or punctuation.";
+        case MYCO_ERROR_INVALID_EXPRESSION:
+            return "Invalid expression. Check operator precedence and expression structure.";
+        
+        // System and Environment Errors (8000-8999)
+        case MYCO_ERROR_STACK_OVERFLOW:
+            return "Stack overflow. Reduce recursion depth or increase stack size.";
+        case MYCO_ERROR_RECURSION_LIMIT:
+            return "Recursion limit exceeded. Use iterative solutions or increase recursion limit.";
+        case MYCO_ERROR_TIMEOUT:
+            return "Operation timed out. Optimize code or increase timeout limits.";
+        case MYCO_ERROR_SYSTEM_ERROR:
+            return "System error occurred. Check system resources and configuration.";
+        
+        // Unknown and Generic Errors (9000-9999)
+        case MYCO_ERROR_UNKNOWN:
+            return "Unknown error occurred. Check the Myco documentation for more information.";
+        case MYCO_ERROR_INTERNAL:
+            return "Internal error in Myco interpreter. This may be a bug - please report it.";
+        case MYCO_ERROR_NOT_IMPLEMENTED:
+            return "This feature is not yet implemented. Check the Myco roadmap for planned features.";
+        
         default:
             return "Check the Myco documentation for more information about this error type.";
     }
@@ -3144,6 +3405,93 @@ void interpreter_register_builtins(Interpreter* interpreter) {
 const char* value_type_to_string(ValueType type) { switch (type) { case VALUE_NULL: return "Null"; case VALUE_BOOLEAN: return "Bool"; case VALUE_NUMBER: return "Number"; case VALUE_STRING: return "String"; case VALUE_ARRAY: return "Array"; case VALUE_OBJECT: return "Object"; case VALUE_FUNCTION: return "Function"; case VALUE_CLASS: return "Class"; case VALUE_MODULE: return "Module"; case VALUE_ERROR: return "Error"; default: return "Unknown"; } }
 void value_print(Value* value) { Value s = value_to_string(value); if (s.type == VALUE_STRING && s.data.string_value) { printf("%s", s.data.string_value); } value_free(&s); }
 void value_print_debug(Value* value) { value_print(value); }
+
+// Enhanced error handling with stack traces
+void interpreter_push_call_frame(Interpreter* interpreter, const char* function_name, const char* file_name, int line, int column) {
+    if (!interpreter) return;
+    
+    // Check stack depth limit
+    if (interpreter->stack_depth >= interpreter->max_stack_depth) {
+        interpreter_set_error(interpreter, "Stack overflow: maximum call depth exceeded", line, column);
+        return;
+    }
+    
+    CallFrame* frame = malloc(sizeof(CallFrame));
+    if (!frame) {
+        interpreter_set_error(interpreter, "Out of memory: cannot create call frame", line, column);
+        return;
+    }
+    
+    frame->function_name = function_name ? strdup(function_name) : strdup("<unknown>");
+    frame->file_name = file_name ? strdup(file_name) : strdup("<unknown>");
+    frame->line = line;
+    frame->column = column;
+    frame->next = interpreter->call_stack;
+    
+    interpreter->call_stack = frame;
+    interpreter->stack_depth++;
+}
+
+void interpreter_pop_call_frame(Interpreter* interpreter) {
+    if (!interpreter || !interpreter->call_stack) return;
+    
+    CallFrame* frame = interpreter->call_stack;
+    interpreter->call_stack = frame->next;
+    interpreter->stack_depth--;
+    
+    free((void*)frame->function_name);
+    free((void*)frame->file_name);
+    free(frame);
+}
+
+void interpreter_print_stack_trace(Interpreter* interpreter) {
+    if (!interpreter || !interpreter->call_stack) return;
+    
+    fprintf(stderr, "\nStack trace:\n");
+    CallFrame* frame = interpreter->call_stack;
+    int depth = 0;
+    
+    while (frame) {
+        fprintf(stderr, "  %d. %s at %s:%d:%d\n", 
+                depth, frame->function_name, frame->file_name, frame->line, frame->column);
+        frame = frame->next;
+        depth++;
+    }
+    fprintf(stderr, "\n");
+}
+
+void interpreter_set_error_with_stack(Interpreter* interpreter, const char* message, int line, int column) {
+    if (!interpreter) return;
+    
+    // Set the error
+    interpreter_set_error(interpreter, message, line, column);
+    
+    // Print stack trace if available
+    if (interpreter->call_stack) {
+        interpreter_print_stack_trace(interpreter);
+    }
+}
+
+// Exception handling
+void interpreter_throw_exception(Interpreter* interpreter, const char* message, int line, int column) {
+    if (!interpreter) return;
+    
+    // Set error with stack trace
+    interpreter_set_error_with_stack(interpreter, message, line, column);
+    
+    // Mark as exception (could be used for different handling)
+    // For now, we'll use the same error mechanism
+}
+
+int interpreter_has_exception(Interpreter* interpreter) {
+    return interpreter ? interpreter->has_error : 0;
+}
+
+void interpreter_clear_exception(Interpreter* interpreter) {
+    if (interpreter) {
+        interpreter_clear_error(interpreter);
+    }
+}
 
 
 

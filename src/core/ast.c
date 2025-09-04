@@ -249,6 +249,19 @@ ASTNode* ast_create_return(ASTNode* value, int line, int column) {
     return node;
 }
 
+ASTNode* ast_create_throw(ASTNode* value, int line, int column) {
+    ASTNode* node = malloc(sizeof(ASTNode));
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_THROW;
+    node->data.throw_statement.value = value;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
 ASTNode* ast_create_try_catch(ASTNode* try_block, const char* catch_var, ASTNode* catch_block, ASTNode* finally_block, int line, int column) {
     ASTNode* node = malloc(sizeof(ASTNode));
     if (!node) return NULL;

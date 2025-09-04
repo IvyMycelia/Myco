@@ -23,6 +23,7 @@ typedef enum {
     AST_NODE_RETURN,
     AST_NODE_BREAK,
     AST_NODE_CONTINUE,
+    AST_NODE_THROW,
     AST_NODE_TRY_CATCH,
     AST_NODE_SWITCH,
     AST_NODE_MATCH,
@@ -158,6 +159,11 @@ typedef struct ASTNode {
         struct {
             struct ASTNode* value;
         } return_statement;
+        
+        // Throw statement
+        struct {
+            struct ASTNode* value;
+        } throw_statement;
         
         // Try-catch
         struct {
@@ -308,6 +314,7 @@ ASTNode* ast_create_while_loop(ASTNode* condition, ASTNode* body, int line, int 
 ASTNode* ast_create_for_loop(const char* iterator, ASTNode* collection, ASTNode* body, int line, int column);
 ASTNode* ast_create_block(ASTNode** statements, size_t statement_count, int line, int column);
 ASTNode* ast_create_return(ASTNode* value, int line, int column);
+ASTNode* ast_create_throw(ASTNode* value, int line, int column);
 ASTNode* ast_create_try_catch(ASTNode* try_block, const char* catch_var, ASTNode* catch_block, ASTNode* finally_block, int line, int column);
 ASTNode* ast_create_switch(ASTNode* expression, ASTNode** cases, size_t case_count, ASTNode* default_case, int line, int column);
 ASTNode* ast_create_match(ASTNode* expression, ASTNode** patterns, size_t pattern_count, int line, int column);

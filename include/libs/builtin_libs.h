@@ -12,6 +12,9 @@ void string_library_register(Interpreter* interpreter);
 // Array library registration
 void array_library_register(Interpreter* interpreter);
 
+// File library registration
+void file_library_register(Interpreter* interpreter);
+
 // Register all built-in libraries
 void register_all_builtin_libraries(Interpreter* interpreter);
 

@@ -2821,6 +2821,82 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 }
                 
                 return value_create_null();
+            } else if (strcmp(library_name, "file") == 0) {
+                // Handle file library
+                if (specific_items && item_count > 0) {
+                    // Import specific file functions
+                    for (size_t i = 0; i < item_count; i++) {
+                        const char* item_name = specific_items[i];
+                        const char* alias_name = specific_aliases ? specific_aliases[i] : item_name;
+                        
+                        // Look up the file function and bind it
+                        char* prefixed_name = malloc(strlen("file_") + strlen(item_name) + 1);
+                        sprintf(prefixed_name, "file_%s", item_name);
+                        Value file_func = environment_get(interpreter->global_environment, prefixed_name);
+                        free(prefixed_name);
+                        
+                        if (file_func.type == VALUE_FUNCTION) {
+                            environment_define(interpreter->current_environment, alias_name, value_clone(&file_func));
+                        } else {
+                            // Function not found, create a placeholder
+                            environment_define(interpreter->current_environment, alias_name, value_create_string("file_function_not_found"));
+                        }
+                    }
+                } else {
+                    // Import all file functions
+                    const char* file_functions[] = {"read", "write", "append", "exists", "size", "delete", "read_lines", "write_lines"};
+                    for (size_t i = 0; i < sizeof(file_functions) / sizeof(file_functions[0]); i++) {
+                        char* prefixed_name = malloc(strlen("file_") + strlen(file_functions[i]) + 1);
+                        sprintf(prefixed_name, "file_%s", file_functions[i]);
+                        Value file_func = environment_get(interpreter->global_environment, prefixed_name);
+                        free(prefixed_name);
+                        
+                        if (file_func.type == VALUE_FUNCTION) {
+                            environment_define(interpreter->current_environment, file_functions[i], value_clone(&file_func));
+                        }
+                    }
+                    
+                    // If there's a general alias, bind prefixed functions
+                    if (alias) {
+                        // Bind all file functions with the alias prefix
+                        // This allows file.read() to work by looking up file_read
+                        const char* file_functions[] = {"read", "write", "append", "exists", "size", "delete", "read_lines", "write_lines"};
+                        for (size_t i = 0; i < sizeof(file_functions) / sizeof(file_functions[0]); i++) {
+                            char* prefixed_name = malloc(strlen("file_") + strlen(file_functions[i]) + 1);
+                            sprintf(prefixed_name, "file_%s", file_functions[i]);
+                            Value file_func = environment_get(interpreter->global_environment, prefixed_name);
+                            free(prefixed_name);
+                            
+                            if (file_func.type == VALUE_FUNCTION) {
+                                // Create prefixed name: alias_function
+                                char* alias_prefixed_name = malloc(strlen(alias) + strlen(file_functions[i]) + 2);
+                                sprintf(alias_prefixed_name, "%s_%s", alias, file_functions[i]);
+                                environment_define(interpreter->current_environment, alias_prefixed_name, value_clone(&file_func));
+                                free(alias_prefixed_name);
+                            }
+                        }
+                        
+                        // Also bind individual functions to the current environment for convenience
+                        // This allows both file.read() and read() to work
+                        
+                        // Create an object for the alias with all file functions as members
+                        Value file_object = value_create_object(8);
+                        const char* file_functions_obj[] = {"read", "write", "append", "exists", "size", "delete", "read_lines", "write_lines"};
+                        for (size_t i = 0; i < sizeof(file_functions_obj) / sizeof(file_functions_obj[0]); i++) {
+                            char* prefixed_name = malloc(strlen("file_") + strlen(file_functions_obj[i]) + 1);
+                            sprintf(prefixed_name, "file_%s", file_functions_obj[i]);
+                            Value file_func = environment_get(interpreter->global_environment, prefixed_name);
+                            free(prefixed_name);
+                            
+                            if (file_func.type == VALUE_FUNCTION) {
+                                value_object_set_member(&file_object, file_functions_obj[i], file_func);
+                            }
+                        }
+                        environment_define(interpreter->current_environment, alias, file_object);
+                    }
+                }
+                
+                return value_create_null();
             }
             
             // TODO: Implement file-based imports

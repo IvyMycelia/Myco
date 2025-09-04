@@ -12,4 +12,7 @@ void register_all_builtin_libraries(Interpreter* interpreter) {
     
     // Register array library
     array_library_register(interpreter);
+    
+    // Register file library
+    file_library_register(interpreter);
 }

@@ -690,6 +690,16 @@ else:
     tests_failed = tests_failed + ["Array library import"];
 end
 
+total_tests = total_tests + 1;
+use file as file;
+if type(file) == "Object" or file != Null:
+    print("✓ File library imported");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ File library import failed");
+    tests_failed = tests_failed + ["File library import"];
+end
+
 print("\n10. Math Library Functions...");
 total_tests = total_tests + 1;
 let pi_value = math.Pi;
@@ -748,8 +758,50 @@ total_tests = total_tests + 1;
 print("✓ Array library imported successfully");
 tests_passed = tests_passed + 1;
 
-print("\n=== 13. BUILT-IN FUNCTIONS ===");
-print("13.1. Type checking...");
+print("\n13. File Library Functions...");
+total_tests = total_tests + 1;
+let test_content = "Hello, Myco File System!";
+let write_result = file.write("test_file.txt", test_content);
+if write_result == Null:
+    print("✓ File write successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ File write failed");
+    tests_failed = tests_failed + ["File write"];
+end
+
+total_tests = total_tests + 1;
+let exists_result = file.exists("test_file.txt");
+if exists_result == True:
+    print("✓ File exists check successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ File exists check failed");
+    tests_failed = tests_failed + ["File exists"];
+end
+
+total_tests = total_tests + 1;
+let read_result = file.read("test_file.txt");
+if read_result != Null and type(read_result) == "String":
+    print("✓ File read successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ File read failed");
+    tests_failed = tests_failed + ["File read"];
+end
+
+total_tests = total_tests + 1;
+let delete_result = file.delete("test_file.txt");
+if delete_result == Null:
+    print("✓ File delete successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ File delete failed");
+    tests_failed = tests_failed + ["File delete"];
+end
+
+print("\n=== 14. BUILT-IN FUNCTIONS ===");
+print("14.1. Type checking...");
 total_tests = total_tests + 1;
 let type_result = type(42);
 if type_result == "Int":

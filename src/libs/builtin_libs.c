@@ -30,4 +30,13 @@ void register_all_builtin_libraries(Interpreter* interpreter) {
     
     // Register graphs library
     graphs_library_register(interpreter);
+    
+    // Register heaps library
+    heaps_library_register(interpreter);
+    
+    // Register queues library
+    queues_library_register(interpreter);
+    
+    // Register stacks library
+    stacks_library_register(interpreter);
 }

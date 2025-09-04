@@ -16,7 +16,7 @@
 [x] **Data Structures**: Hash maps, sets
 [x] **Advanced Data Structures**: Trees, graphs
 [x] **Enhanced Array Operations**: Filter, map, reduce, find, sort, slice, join, contains, indexOf, unique, concat, fill
-[ ] **Additional Data Structures**: Heaps, queues, stacks
+[x] **Additional Data Structures**: Heaps, queues, stacks
 [ ] **Date/Time Handling**: Comprehensive date and time operations
 [ ] **Regular Expressions**: Pattern matching and text processing
 [ ] **JSON/XML Parsing**: Data serialization and deserialization

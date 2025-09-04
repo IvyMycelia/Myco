@@ -56,19 +56,25 @@ Value builtin_map_keys(Interpreter* interpreter, Value* args, size_t arg_count, 
     size_t count;
     Value* keys = value_hash_map_keys(&map, &count);
     
-    if (!keys) {
+    if (!keys || count == 0) {
         return value_create_array(0);
     }
     
-    // For now, just return a simple message indicating the keys exist
-    // TODO: Fix array creation to properly handle the keys
-    char message[100];
-    snprintf(message, sizeof(message), "Map has %zu keys", count);
+    // Create array to hold the keys
+    Value array = value_create_array(count);
     
-    // Free the keys array
+    // Clone each key and store in the array
+    for (size_t i = 0; i < count; i++) {
+        Value cloned_key = value_clone(&keys[i]);
+        array.data.array_value.elements[i] = malloc(sizeof(Value));
+        *((Value*)array.data.array_value.elements[i]) = cloned_key;
+    }
+    array.data.array_value.count = count;
+    
+    // Free the original keys array
     free(keys);
     
-    return value_create_string(strdup(message));
+    return array;
 }
 
 Value builtin_map_delete(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {

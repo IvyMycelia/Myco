@@ -1607,7 +1607,7 @@ class TestClass:
 end
 # Test that we can actually instantiate the class
 let test_instance = TestClass("TestName");
-if type(test_instance) == "Object" and test_instance.name == "TestName":
+if type(test_instance) == "TestClass" and test_instance.name == "TestName":
     print("✓ Basic class parsing");
     tests_passed = tests_passed + 1;
 else:
@@ -1622,7 +1622,7 @@ class Person:
 end
 # Test that we can actually instantiate the class with multiple fields
 let person_instance = Person("Alice", 30);
-if type(person_instance) == "Object" and person_instance.name == "Alice" and person_instance.age == 30:
+if type(person_instance) == "Person" and person_instance.name == "Alice" and person_instance.age == 30:
     print("✓ Class with typed fields");
     tests_passed = tests_passed + 1;
 else:
@@ -1637,7 +1637,7 @@ class DefaultClass:
 end
 # Test that default values are actually set
 let default_instance = DefaultClass();
-if type(default_instance) == "Object" and default_instance.name == "Default" and default_instance.count == 0:
+if type(default_instance) == "DefaultClass" and default_instance.name == "Default" and default_instance.count == 0:
     print("✓ Class with default field values");
     tests_passed = tests_passed + 1;
 else:
@@ -1650,7 +1650,7 @@ class SimpleClass:
     let value: Int
 end
 let s: SimpleClass = SimpleClass(42);
-if type(s) == "Object" and s.value == 42:
+if type(s) == "SimpleClass" and s.value == 42:
     print("✓ Class instantiation");
     tests_passed = tests_passed + 1;
 else:
@@ -1668,7 +1668,7 @@ end
 let m: MethodClass = MethodClass("World");
 # Test that the method actually works
 let greeting = m.greet();
-if type(m) == "Object" and greeting == "Hello, World":
+if type(m) == "MethodClass" and greeting == "Hello, World":
     print("✓ Class with methods");
     tests_passed = tests_passed + 1;
 else:
@@ -1686,7 +1686,7 @@ end
 let self_test: SelfClass = SelfClass(100);
 # Test that self references work
 let retrieved_value = self_test.getValue();
-if type(self_test) == "Object" and retrieved_value == 100:
+if type(self_test) == "SelfClass" and retrieved_value == 100:
     print("✓ Class with self references");
     tests_passed = tests_passed + 1;
 else:
@@ -1702,7 +1702,7 @@ class MixedClass:
 end
 let mixed: MixedClass = MixedClass("Alice", 25);
 # Test that mixed field types work
-if type(mixed) == "Object" and mixed.name == "Alice" and mixed.age == 25 and mixed.active == true:
+if type(mixed) == "MixedClass" and mixed.name == "Alice" and mixed.age == 25 and mixed.active == true:
     print("✓ Class with mixed field types");
     tests_passed = tests_passed + 1;
 else:
@@ -1724,7 +1724,7 @@ let typed: TypedMethodClass = TypedMethodClass(5);
 # Test that typed methods work
 let incremented = typed.increment();
 let class_name = typed.getName();
-if type(typed) == "Object" and incremented == 6 and class_name == "TypedMethodClass":
+if type(typed) == "TypedMethodClass" and incremented == 6 and class_name == "TypedMethodClass":
     print("✓ Class with typed methods");
     tests_passed = tests_passed + 1;
 else:
@@ -1742,7 +1742,7 @@ end
 let untyped: UntypedMethodClass = UntypedMethodClass("data");
 # Test that untyped methods work (they should return null)
 let result = untyped.process();
-if type(untyped) == "Object" and (result == Null or result == 0):
+if type(untyped) == "UntypedMethodClass" and (result == Null or result == 0):
     print("✓ Class with untyped methods");
     tests_passed = tests_passed + 1;
 else:
@@ -1765,7 +1765,7 @@ end
 let complex: ComplexClass = ComplexClass(10, 5);
 # Test that complex method bodies work
 let calculation = complex.calculate();
-if type(complex) == "Object" and calculation == 20:  # 10 > 5, so 10 * 2 = 20
+if type(complex) == "ComplexClass" and calculation == 20:  # 10 > 5, so 10 * 2 = 20
     print("✓ Class with complex method bodies");
     tests_passed = tests_passed + 1;
 else:
@@ -1791,7 +1791,7 @@ class Dog extends Animal:
 end
 # Test that inheritance actually works by creating a Dog instance
 let test_dog = Dog("Rex");
-if type(test_dog) == "Object" and test_dog.name == "Rex":
+if type(test_dog) == "Dog" and test_dog.name == "Rex":
     print("✓ Basic inheritance parsing");
     total_tests = total_tests + 1;
     tests_passed = tests_passed + 1;
@@ -1832,7 +1832,7 @@ class Puppy extends Dog:
 end
 # Test that multi-level inheritance actually works
 let test_puppy = Puppy("Max", 6);
-if type(test_puppy) == "Object" and test_puppy.name == "Max" and test_puppy.age == 6:
+if type(test_puppy) == "Puppy" and test_puppy.name == "Max" and test_puppy.age == 6:
     print("✓ Multi-level inheritance parsing");
     total_tests = total_tests + 1;
     tests_passed = tests_passed + 1;
@@ -1858,7 +1858,7 @@ class Cat extends Animal:
 end
 # Test that inheritance without method override works
 let test_cat = Cat("Whiskers", "Orange");
-if type(test_cat) == "Object" and test_cat.name == "Whiskers" and test_cat.color == "Orange":
+if type(test_cat) == "Cat" and test_cat.name == "Whiskers" and test_cat.color == "Orange":
     print("✓ Inheritance without method override");
     total_tests = total_tests + 1;
     tests_passed = tests_passed + 1;
@@ -1884,7 +1884,7 @@ class Lion extends WildAnimal:
 end
 # Test that complex inheritance chain works
 let test_lion = Lion("Simba", "Savanna", "Golden");
-if type(test_lion) == "Object" and test_lion.name == "Simba" and test_lion.habitat == "Savanna" and test_lion.mane_color == "Golden":
+if type(test_lion) == "Lion" and test_lion.name == "Simba" and test_lion.habitat == "Savanna" and test_lion.mane_color == "Golden":
     print("✓ Complex inheritance chain");
     total_tests = total_tests + 1;
     tests_passed = tests_passed + 1;

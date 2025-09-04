@@ -814,6 +814,102 @@ total_tests = total_tests + 1;
 print("✓ Array library imported successfully");
 tests_passed = tests_passed + 1;
 
+print("\n13.1. Enhanced Array Operations...");
+total_tests = total_tests + 1;
+let test_array = [1, 2, 3, 4, 5];
+let joined_result = array.join(test_array, ", ");
+if type(joined_result) == "String" and joined_result != Null:
+    print("✓ array.join() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ array.join() failed");
+    tests_failed = tests_failed + ["array.join()"];
+end
+
+total_tests = total_tests + 1;
+let contains_result = array.contains(test_array, 3);
+if contains_result == True:
+    print("✓ array.contains() with existing value");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ array.contains() with existing value failed");
+    tests_failed = tests_failed + ["array.contains() existing"];
+end
+
+total_tests = total_tests + 1;
+let contains_missing = array.contains(test_array, 6);
+if contains_missing == False:
+    print("✓ array.contains() with missing value");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ array.contains() with missing value failed");
+    tests_failed = tests_failed + ["array.contains() missing"];
+end
+
+total_tests = total_tests + 1;
+let index_of_result = array.indexOf(test_array, 3);
+if index_of_result == 2:
+    print("✓ array.indexOf() with existing value");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ array.indexOf() with existing value failed");
+    tests_failed = tests_failed + ["array.indexOf() existing"];
+end
+
+total_tests = total_tests + 1;
+let index_of_missing = array.indexOf(test_array, 6);
+if index_of_missing == -1:
+    print("✓ array.indexOf() with missing value");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ array.indexOf() with missing value failed");
+    tests_failed = tests_failed + ["array.indexOf() missing"];
+end
+
+total_tests = total_tests + 1;
+let duplicates_array = [1, 2, 2, 3, 3, 3, 4];
+let unique_result = array.unique(duplicates_array);
+if type(unique_result) == "Array" and unique_result != Null:
+    print("✓ array.unique() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ array.unique() failed");
+    tests_failed = tests_failed + ["array.unique()"];
+end
+
+total_tests = total_tests + 1;
+let array1 = [1, 2, 3];
+let array2 = [4, 5, 6];
+let concat_result = array.concat(array1, array2);
+if type(concat_result) == "Array" and concat_result != Null:
+    print("✓ array.concat() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ array.concat() failed");
+    tests_failed = tests_failed + ["array.concat()"];
+end
+
+total_tests = total_tests + 1;
+let slice_result = array.slice(test_array, 1, 4);
+if type(slice_result) == "Array" and slice_result != Null:
+    print("✓ array.slice() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ array.slice() failed");
+    tests_failed = tests_failed + ["array.slice()"];
+end
+
+total_tests = total_tests + 1;
+let fill_array = [];
+array.fill(fill_array, "test", 3);
+if type(fill_array) == "Array":
+    print("✓ array.fill() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ array.fill() failed");
+    tests_failed = tests_failed + ["array.fill()"];
+end
+
 print("\n14. File Library Functions...");
 total_tests = total_tests + 1;
 let test_content = "Hello, Myco File System!";

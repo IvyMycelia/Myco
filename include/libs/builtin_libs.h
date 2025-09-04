@@ -15,6 +15,9 @@ void array_library_register(Interpreter* interpreter);
 // File library registration
 void file_library_register(Interpreter* interpreter);
 
+// Directory library registration
+void dir_library_register(Interpreter* interpreter);
+
 // Register all built-in libraries
 void register_all_builtin_libraries(Interpreter* interpreter);
 

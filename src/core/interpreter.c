@@ -2897,6 +2897,82 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 }
                 
                 return value_create_null();
+            } else if (strcmp(library_name, "dir") == 0) {
+                // Handle directory library
+                if (specific_items && item_count > 0) {
+                    // Import specific directory functions
+                    for (size_t i = 0; i < item_count; i++) {
+                        const char* item_name = specific_items[i];
+                        const char* alias_name = specific_aliases ? specific_aliases[i] : item_name;
+                        
+                        // Look up the directory function and bind it
+                        char* prefixed_name = malloc(strlen("dir_") + strlen(item_name) + 1);
+                        sprintf(prefixed_name, "dir_%s", item_name);
+                        Value dir_func = environment_get(interpreter->global_environment, prefixed_name);
+                        free(prefixed_name);
+                        
+                        if (dir_func.type == VALUE_FUNCTION) {
+                            environment_define(interpreter->current_environment, alias_name, value_clone(&dir_func));
+                        } else {
+                            // Function not found, create a placeholder
+                            environment_define(interpreter->current_environment, alias_name, value_create_string("dir_function_not_found"));
+                        }
+                    }
+                } else {
+                    // Import all directory functions
+                    const char* dir_functions[] = {"list", "create", "remove", "exists", "current", "change", "info"};
+                    for (size_t i = 0; i < sizeof(dir_functions) / sizeof(dir_functions[0]); i++) {
+                        char* prefixed_name = malloc(strlen("dir_") + strlen(dir_functions[i]) + 1);
+                        sprintf(prefixed_name, "dir_%s", dir_functions[i]);
+                        Value dir_func = environment_get(interpreter->global_environment, prefixed_name);
+                        free(prefixed_name);
+                        
+                        if (dir_func.type == VALUE_FUNCTION) {
+                            environment_define(interpreter->current_environment, dir_functions[i], value_clone(&dir_func));
+                        }
+                    }
+                    
+                    // If there's a general alias, bind prefixed functions
+                    if (alias) {
+                        // Bind all directory functions with the alias prefix
+                        // This allows dir.list() to work by looking up dir_list
+                        const char* dir_functions[] = {"list", "create", "remove", "exists", "current", "change", "info"};
+                        for (size_t i = 0; i < sizeof(dir_functions) / sizeof(dir_functions[0]); i++) {
+                            char* prefixed_name = malloc(strlen("dir_") + strlen(dir_functions[i]) + 1);
+                            sprintf(prefixed_name, "dir_%s", dir_functions[i]);
+                            Value dir_func = environment_get(interpreter->global_environment, prefixed_name);
+                            free(prefixed_name);
+                            
+                            if (dir_func.type == VALUE_FUNCTION) {
+                                // Create prefixed name: alias_function
+                                char* alias_prefixed_name = malloc(strlen(alias) + strlen(dir_functions[i]) + 2);
+                                sprintf(alias_prefixed_name, "%s_%s", alias, dir_functions[i]);
+                                environment_define(interpreter->current_environment, alias_prefixed_name, value_clone(&dir_func));
+                                free(alias_prefixed_name);
+                            }
+                        }
+                        
+                        // Also bind individual functions to the current environment for convenience
+                        // This allows both dir.list() and list() to work
+                        
+                        // Create an object for the alias with all directory functions as members
+                        Value dir_object = value_create_object(7);
+                        const char* dir_functions_obj[] = {"list", "create", "remove", "exists", "current", "change", "info"};
+                        for (size_t i = 0; i < sizeof(dir_functions_obj) / sizeof(dir_functions_obj[0]); i++) {
+                            char* prefixed_name = malloc(strlen("dir_") + strlen(dir_functions_obj[i]) + 1);
+                            sprintf(prefixed_name, "dir_%s", dir_functions_obj[i]);
+                            Value dir_func = environment_get(interpreter->global_environment, prefixed_name);
+                            free(prefixed_name);
+                            
+                            if (dir_func.type == VALUE_FUNCTION) {
+                                value_object_set_member(&dir_object, dir_functions_obj[i], dir_func);
+                            }
+                        }
+                        environment_define(interpreter->current_environment, alias, dir_object);
+                    }
+                }
+                
+                return value_create_null();
             }
             
             // TODO: Implement file-based imports
@@ -3347,8 +3423,151 @@ int interpreter_has_return(Interpreter* interpreter) {
     return interpreter ? interpreter->has_return : 0;
 }
 
-Value builtin_print(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { (void)interpreter; for (size_t i = 0; i < arg_count; i++) { Value s = value_to_string(&args[i]); if (s.type == VALUE_STRING && s.data.string_value) { printf("%s", s.data.string_value); } value_free(&s); if (i + 1 < arg_count) printf(" "); } printf("\n"); fflush(stdout); return value_create_null(); }
-Value builtin_input(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { Value v = {0}; return v; }
+Value builtin_print(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    (void)interpreter; // Suppress unused parameter warning
+    (void)line; // Suppress unused parameter warning
+    (void)column; // Suppress unused parameter warning
+    
+    if (arg_count == 0) {
+        printf("\n");
+        fflush(stdout);
+        return value_create_null();
+    }
+    
+    // Check if first argument is a format string (contains %)
+    Value first_arg = args[0];
+    if (first_arg.type == VALUE_STRING && first_arg.data.string_value) {
+        const char* format_str = first_arg.data.string_value;
+        if (strstr(format_str, "%") != NULL) {
+            // Format string detected - use printf-style formatting
+            if (arg_count == 1) {
+                // Just the format string, no arguments
+                printf("%s\n", format_str);
+            } else {
+                // Format string with arguments
+                // For now, support basic %s, %d, %f formatting
+                // This is a simplified implementation
+                const char* current = format_str;
+                size_t arg_index = 1;
+                
+                while (*current && arg_index < arg_count) {
+                    if (*current == '%' && *(current + 1) != '\0') {
+                        current++; // Skip the %
+                        switch (*current) {
+                            case 's': {
+                                // String formatting
+                                if (arg_index < arg_count) {
+                                    Value s = value_to_string(&args[arg_index]);
+                                    if (s.type == VALUE_STRING && s.data.string_value) {
+                                        printf("%s", s.data.string_value);
+                                    }
+                                    value_free(&s);
+                                    arg_index++;
+                                }
+                                break;
+                            }
+                            case 'd': {
+                                // Integer formatting
+                                if (arg_index < arg_count) {
+                                    Value v = args[arg_index];
+                                    if (v.type == VALUE_NUMBER) {
+                                        printf("%.0f", v.data.number_value);
+                                    } else {
+                                        printf("0");
+                                    }
+                                    arg_index++;
+                                }
+                                break;
+                            }
+                            case 'f': {
+                                // Float formatting
+                                if (arg_index < arg_count) {
+                                    Value v = args[arg_index];
+                                    if (v.type == VALUE_NUMBER) {
+                                        printf("%f", v.data.number_value);
+                                    } else {
+                                        printf("0.0");
+                                    }
+                                    arg_index++;
+                                }
+                                break;
+                            }
+                            default:
+                                // Unknown format specifier, print as-is
+                                printf("%c", *current);
+                                break;
+                        }
+                    } else {
+                        printf("%c", *current);
+                    }
+                    current++;
+                }
+                printf("\n");
+            }
+        } else {
+            // No format string, treat as regular print
+            for (size_t i = 0; i < arg_count; i++) {
+                Value s = value_to_string(&args[i]);
+                if (s.type == VALUE_STRING && s.data.string_value) {
+                    printf("%s", s.data.string_value);
+                }
+                value_free(&s);
+                if (i + 1 < arg_count) printf(" ");
+            }
+            printf("\n");
+        }
+    } else {
+        // First argument is not a string, treat as regular print
+        for (size_t i = 0; i < arg_count; i++) {
+            Value s = value_to_string(&args[i]);
+            if (s.type == VALUE_STRING && s.data.string_value) {
+                printf("%s", s.data.string_value);
+            }
+            value_free(&s);
+            if (i + 1 < arg_count) printf(" ");
+        }
+        printf("\n");
+    }
+    
+    fflush(stdout);
+    return value_create_null();
+}
+Value builtin_input(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    (void)interpreter; // Suppress unused parameter warning
+    (void)line; // Suppress unused parameter warning
+    (void)column; // Suppress unused parameter warning
+    
+    // Print prompt if provided
+    if (arg_count > 0) {
+        Value prompt = args[0];
+        if (prompt.type == VALUE_STRING) {
+            printf("%s", prompt.data.string_value);
+            fflush(stdout);
+        }
+    }
+    
+    // Read input from stdin
+    char* buffer = NULL;
+    size_t buffer_size = 0;
+    ssize_t bytes_read = getline(&buffer, &buffer_size, stdin);
+    
+    if (bytes_read == -1) {
+        // Error reading input or EOF
+        if (buffer) {
+            free(buffer);
+        }
+        return value_create_string("");
+    }
+    
+    // Remove newline character if present
+    if (bytes_read > 0 && buffer[bytes_read - 1] == '\n') {
+        buffer[bytes_read - 1] = '\0';
+    }
+    
+    Value result = value_create_string(buffer);
+    free(buffer);
+    return result;
+}
 Value builtin_len(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     (void)interpreter; // Suppress unused parameter warning
     (void)line; // Suppress unused parameter warning

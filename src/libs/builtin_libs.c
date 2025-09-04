@@ -15,4 +15,7 @@ void register_all_builtin_libraries(Interpreter* interpreter) {
     
     // Register file library
     file_library_register(interpreter);
+    
+    // Register directory library
+    dir_library_register(interpreter);
 }

@@ -172,7 +172,7 @@ int value_matches_type(Value* value, const char* type_name, Interpreter* interpr
 }
 
 
-Value value_create_null(void) { Value v; v.type = VALUE_NULL; return v; }
+Value value_create_null(void) { Value v = {0}; v.type = VALUE_NULL; return v; }
 Value value_create_boolean(int value) { Value v; v.type = VALUE_BOOLEAN; v.data.boolean_value = value ? 1 : 0; return v; }
 Value value_create_number(double value) { Value v; v.type = VALUE_NUMBER; v.data.number_value = value; return v; }
 /**
@@ -977,6 +977,7 @@ void value_free(Value* value) {
 Value value_clone(Value* value) { 
     if (!value) { Value v = {0}; return v; } 
     switch (value->type) { 
+        case VALUE_NULL: return value_create_null();
         case VALUE_NUMBER: return value_create_number(value->data.number_value); 
         case VALUE_BOOLEAN: return value_create_boolean(value->data.boolean_value); 
         case VALUE_STRING: return value_create_string(value->data.string_value); 
@@ -1054,6 +1055,20 @@ Value value_clone(Value* value) {
                 value->data.class_value.parent_class_name,
                 value->data.class_value.class_body,
                 value->data.class_value.class_environment
+            );
+        }
+        case VALUE_MODULE: {
+            // Clone the module value
+            return value_create_module(
+                value->data.module_value.module_name,
+                value->data.module_value.exports
+            );
+        }
+        case VALUE_ERROR: {
+            // Clone the error value
+            return value_create_error(
+                value->data.error_value.error_message,
+                value->data.error_value.error_code
             );
         }
         default: return value_create_null(); 

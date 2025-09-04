@@ -7,10 +7,12 @@
 typedef struct {
     int interpret;
     int compile;
+    int build;
     int debug;
     int target;
     char* input_source;
     char* output_file;
+    char* architecture;
     int help;
     int version;
 } ArgumentConfig;

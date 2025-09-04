@@ -97,6 +97,12 @@ int codegen_generate_c_import(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_module(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_package(CodeGenContext* context, ASTNode* node);
 
+// Helper functions for specific expression types
+int codegen_generate_c_literal(CodeGenContext* context, ASTNode* node);
+int codegen_generate_c_identifier(CodeGenContext* context, ASTNode* node);
+int codegen_generate_c_member_access(CodeGenContext* context, ASTNode* node);
+int codegen_generate_c_array_access(CodeGenContext* context, ASTNode* node);
+
 // Assembly code generation
 int compiler_generate_assembly(CompilerConfig* config, ASTNode* ast, const char* output_file);
 int codegen_generate_x86_64(CodeGenContext* context, ASTNode* ast);

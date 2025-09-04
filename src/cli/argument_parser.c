@@ -11,10 +11,12 @@ int parse_arguments(int argc, char* argv[], ArgumentConfig* config) {
     // Initialize config
     config->interpret = 0;
     config->compile = 0;
+    config->build = 0;
     config->debug = 0;
     config->target = TARGET_C;
     config->input_source = NULL;
     config->output_file = NULL;
+    config->architecture = NULL;
     config->help = 0;
     config->version = 0;
     
@@ -44,6 +46,8 @@ int parse_arguments(int argc, char* argv[], ArgumentConfig* config) {
             config->interpret = 1;
         } else if (strcmp(argv[i], "--compile") == 0 || strcmp(argv[i], "-c") == 0) {
             config->compile = 1;
+        } else if (strcmp(argv[i], "--build") == 0 || strcmp(argv[i], "-b") == 0) {
+            config->build = 1;
         } else if (strcmp(argv[i], "--debug") == 0 || strcmp(argv[i], "-d") == 0) {
             config->debug = 1;
         } else if (strcmp(argv[i], "--target") == 0 || strcmp(argv[i], "-t") == 0) {
@@ -75,6 +79,14 @@ int parse_arguments(int argc, char* argv[], ArgumentConfig* config) {
                 fprintf(stderr, "Error: --output requires an argument\n");
                 return MYCO_ERROR_CLI;
             }
+        } else if (strcmp(argv[i], "--architecture") == 0 || strcmp(argv[i], "-a") == 0) {
+            if (i + 1 < argc) {
+                i++;
+                config->architecture = argv[i];
+            } else {
+                fprintf(stderr, "Error: --architecture requires an argument\n");
+                return MYCO_ERROR_CLI;
+            }
         } else {
             fprintf(stderr, "Error: Unknown argument '%s'\n", argv[i]);
             return MYCO_ERROR_CLI;
@@ -82,7 +94,7 @@ int parse_arguments(int argc, char* argv[], ArgumentConfig* config) {
     }
     
     // Default to interpretation if no mode specified
-    if (!config->interpret && !config->compile) {
+    if (!config->interpret && !config->compile && !config->build) {
         config->interpret = 1;
     }
     
@@ -101,15 +113,19 @@ void print_usage(const char* program_name) {
     printf("  -h, --help              Show this help message\n");
     printf("  -v, --version           Show version information\n");
     printf("  -i, --interpret         Interpret the input (default)\n");
-    printf("  -c, --compile           Compile the input\n");
+    printf("  -c, --compile           Compile the input to intermediate code\n");
+    printf("  -b, --build             Build executable from input\n");
     printf("  -d, --debug             Enable debug mode\n");
     printf("  -t, --target <target>   Set compilation target (c, x86_64, arm64, wasm, bytecode)\n");
+    printf("  -a, --architecture <arch> Set target architecture (arm64, x86_64, arm, x86)\n");
     printf("  -o, --output <file>     Set output file\n");
     printf("\n");
     printf("Examples:\n");
     printf("  %s script.myco\n", program_name);
     printf("  %s script.myco --debug\n", program_name);
     printf("  %s script.myco --compile --target c --output script.c\n", program_name);
+    printf("  %s script.myco --build --architecture arm64\n", program_name);
+    printf("  %s script.myco --build --architecture x86_64 --output myapp\n", program_name);
     printf("  %s `print(\"Hello, World!\");`\n", program_name);
 }
 

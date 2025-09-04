@@ -36,7 +36,7 @@
 [ ] **Debugger**: Step through debugging with breakpoints
 [ ] **Profiler**: Performance analysis and bottleneck identification
 [ ] **Package Manager**: Dependency management and distribution
-[ ] **Documentation Generator**: Auto[ ]generated API documentation
+[ ] **Documentation Generator**: Automatically generated API documentation
 [ ] **Code Formatter**: Consistent code styling
 
 ### 5. **Concurrency & Parallelism**

@@ -89,9 +89,19 @@ Value builtin_set_clear(Interpreter* interpreter, Value* args, size_t arg_count,
         return value_create_null();
     }
     
-    // For now, just return success message
-    // TODO: Implement proper clear operation
-    return value_create_string(strdup("Set cleared"));
+    // Get all elements and remove them
+    Value array = value_set_to_array(set);
+    if (array.type == VALUE_ARRAY) {
+        for (size_t i = 0; i < array.data.array_value.count; i++) {
+            Value* element = (Value*)array.data.array_value.elements[i];
+            if (element) {
+                value_set_remove(set, *element);
+            }
+        }
+        value_free(&array);
+    }
+    
+    return value_create_null();
 }
 
 Value builtin_set_to_array(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -107,13 +117,8 @@ Value builtin_set_to_array(Interpreter* interpreter, Value* args, size_t arg_cou
         return value_create_null();
     }
     
-    // For now, return a simple message
-    // TODO: Fix array creation to properly handle set elements
-    char message[100];
-    size_t size = value_set_size(&set);
-    snprintf(message, sizeof(message), "Set has %zu elements", size);
-    
-    return value_create_string(strdup(message));
+    // Use the built-in value_set_to_array function
+    return value_set_to_array(&set);
 }
 
 Value builtin_set_union(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -130,14 +135,34 @@ Value builtin_set_union(Interpreter* interpreter, Value* args, size_t arg_count,
         return value_create_null();
     }
     
-    // For now, return a simple message
-    // TODO: Implement proper union operation
-    size_t size1 = value_set_size(&set1);
-    size_t size2 = value_set_size(&set2);
-    char message[100];
-    snprintf(message, sizeof(message), "Union of sets with %zu and %zu elements", size1, size2);
+    // Create new set for the union
+    Value result = value_create_set(16);
     
-    return value_create_string(strdup(message));
+    // Add all elements from set1
+    Value array1 = value_set_to_array(&set1);
+    if (array1.type == VALUE_ARRAY) {
+        for (size_t i = 0; i < array1.data.array_value.count; i++) {
+            Value* element = (Value*)array1.data.array_value.elements[i];
+            if (element) {
+                value_set_add(&result, *element);
+            }
+        }
+        value_free(&array1);
+    }
+    
+    // Add all elements from set2
+    Value array2 = value_set_to_array(&set2);
+    if (array2.type == VALUE_ARRAY) {
+        for (size_t i = 0; i < array2.data.array_value.count; i++) {
+            Value* element = (Value*)array2.data.array_value.elements[i];
+            if (element) {
+                value_set_add(&result, *element);
+            }
+        }
+        value_free(&array2);
+    }
+    
+    return result;
 }
 
 Value builtin_set_intersection(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -154,14 +179,22 @@ Value builtin_set_intersection(Interpreter* interpreter, Value* args, size_t arg
         return value_create_null();
     }
     
-    // For now, return a simple message
-    // TODO: Implement proper intersection operation
-    size_t size1 = value_set_size(&set1);
-    size_t size2 = value_set_size(&set2);
-    char message[100];
-    snprintf(message, sizeof(message), "Intersection of sets with %zu and %zu elements", size1, size2);
+    // Create new set for the intersection
+    Value result = value_create_set(16);
     
-    return value_create_string(strdup(message));
+    // Get elements from set1 and check if they exist in set2
+    Value array1 = value_set_to_array(&set1);
+    if (array1.type == VALUE_ARRAY) {
+        for (size_t i = 0; i < array1.data.array_value.count; i++) {
+            Value* element = (Value*)array1.data.array_value.elements[i];
+            if (element && value_set_has(&set2, *element)) {
+                value_set_add(&result, *element);
+            }
+        }
+        value_free(&array1);
+    }
+    
+    return result;
 }
 
 // Register the sets library

@@ -915,7 +915,7 @@ end
 
 total_tests = total_tests + 1;
 let map_keys = maps.keys(test_map);
-if type(map_keys) == "String" and map_keys != Null:
+if type(map_keys) == "Array" and map_keys != Null:
     print("✓ maps.keys() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1007,7 +1007,7 @@ end
 
 total_tests = total_tests + 1;
 let set_to_array = sets.toArray(test_set);
-if type(set_to_array) == "String" and set_to_array != Null:
+if type(set_to_array) == "Array" and set_to_array != Null:
     print("✓ sets.toArray() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1018,7 +1018,7 @@ end
 total_tests = total_tests + 1;
 let other_set = {"grape", "orange", "kiwi"};
 let union_result = sets.union(test_set, other_set);
-if type(union_result) == "String" and union_result != Null:
+if type(union_result) == "Set" and union_result != Null:
     print("✓ sets.union() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1028,7 +1028,7 @@ end
 
 total_tests = total_tests + 1;
 let intersection_result = sets.intersection(test_set, other_set);
-if type(intersection_result) == "String" and intersection_result != Null:
+if type(intersection_result) == "Set" and intersection_result != Null:
     print("✓ sets.intersection() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1038,7 +1038,7 @@ end
 
 total_tests = total_tests + 1;
 let clear_result = sets.clear(test_set);
-if type(clear_result) == "String" and clear_result != Null:
+if clear_result == Null:
     print("✓ sets.clear() successful");
     tests_passed = tests_passed + 1;
 else:

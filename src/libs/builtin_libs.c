@@ -48,4 +48,7 @@ void register_all_builtin_libraries(Interpreter* interpreter) {
 
     // Register json library
     json_library_register(interpreter);
+
+    // Register http library
+    http_library_register(interpreter);
 }

@@ -3249,6 +3249,129 @@ end
 
 
 
+# 26. HTTP Library Functions
+print("\n=== 26. HTTP Library Functions ===");
+
+# Test HTTP library import
+use http as http;
+total_tests = total_tests + 1;
+if type(http) == "Object":
+    print("✓ HTTP library import works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ HTTP library import failed");
+    tests_failed = tests_failed + ["HTTP library import"];
+end
+
+# Test http.get() - basic GET request
+total_tests = total_tests + 1;
+let get_response = http.get("https://httpbin.org/get");
+if type(get_response) == "Object" and get_response.status_code == 200:
+    print("✓ http.get() works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ http.get() failed");
+    tests_failed = tests_failed + ["http.get()"];
+end
+
+# Test http.post() - basic POST request
+total_tests = total_tests + 1;
+let post_data = '{"test": "data"}';
+let post_response = http.post("https://httpbin.org/post", post_data);
+if type(post_response) == "Object" and post_response.status_code == 200:
+    print("✓ http.post() works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ http.post() failed");
+    tests_failed = tests_failed + ["http.post()"];
+end
+
+# Test http.put() - basic PUT request
+total_tests = total_tests + 1;
+let put_data = '{"id": 1, "name": "test"}';
+let put_response = http.put("https://httpbin.org/put", put_data);
+if type(put_response) == "Object" and put_response.status_code == 200:
+    print("✓ http.put() works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ http.put() failed");
+    tests_failed = tests_failed + ["http.put()"];
+end
+
+# Test http.delete() - basic DELETE request
+total_tests = total_tests + 1;
+let delete_response = http.delete("https://httpbin.org/delete");
+if type(delete_response) == "Object" and delete_response.status_code == 200:
+    print("✓ http.delete() works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ http.delete() failed");
+    tests_failed = tests_failed + ["http.delete()"];
+end
+
+# Test response object properties
+total_tests = total_tests + 1;
+if type(get_response) == "Object":
+    let has_status_code = get_response.status_code != Null;
+    let has_status_text = get_response.status_text != Null;
+    let has_body = get_response.body != Null;
+    let has_success = get_response.success != Null;
+    if has_status_code and has_status_text and has_body and has_success:
+        print("✓ HTTP response object has all required properties");
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ HTTP response object missing properties");
+        tests_failed = tests_failed + ["HTTP response properties"];
+    end
+else:
+    print("✗ HTTP response object test failed");
+    tests_failed = tests_failed + ["HTTP response properties"];
+end
+
+# Test http.status_ok() - check if status is successful
+total_tests = total_tests + 1;
+let status_ok = http.status_ok(get_response);
+if type(status_ok) == "Boolean":
+    print("✓ http.status_ok() works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ http.status_ok() failed");
+    tests_failed = tests_failed + ["http.status_ok()"];
+end
+
+# Test http.get_header() - get response header
+total_tests = total_tests + 1;
+let content_type = http.get_header(get_response, "content-type");
+if type(content_type) == "String" or content_type == Null:
+    print("✓ http.get_header() works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ http.get_header() failed");
+    tests_failed = tests_failed + ["http.get_header()"];
+end
+
+# Test http.get_json() - get JSON response
+total_tests = total_tests + 1;
+let json_response = http.get_json(get_response);
+if type(json_response) == "String" or json_response == Null:
+    print("✓ http.get_json() works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ http.get_json() failed");
+    tests_failed = tests_failed + ["http.get_json()"];
+end
+
+# Test error handling with invalid URL
+total_tests = total_tests + 1;
+let error_response = http.get("https://invalid-url-that-does-not-exist.com");
+if type(error_response) == "Object":
+    print("✓ HTTP error handling works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ HTTP error handling failed");
+    tests_failed = tests_failed + ["HTTP error handling"];
+end
+
 # Nothing After This Pointer
 # Below Are The Results, Never Change
 # Put Any Additions Above These Three Lines

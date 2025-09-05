@@ -20,6 +20,7 @@
 [x] **Date/Time Handling**: Comprehensive date and time operations
 [x] **Regular Expressions**: Pattern matching and text processing
 [x] **JSON/XML Parsing**: Data serialization and deserialization
+[x] **Network Programming**: HTTP client/server, socket programming
 
 ### 3. **Advanced Language Features**
 

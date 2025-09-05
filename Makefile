@@ -96,7 +96,7 @@ MAIN_EXECUTABLE = $(BIN_DIR)/myco
 TEST_EXECUTABLE = $(BIN_DIR)/myco_test
 
 # Libraries
-LIBS = -lm
+LIBS = -lm -lcurl
 
 # Default target
 .PHONY: all

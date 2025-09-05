@@ -45,4 +45,7 @@ void register_all_builtin_libraries(Interpreter* interpreter) {
     
     // Register regex library
     regex_library_register(interpreter);
+
+    // Register json library
+    json_library_register(interpreter);
 }

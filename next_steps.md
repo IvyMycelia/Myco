@@ -18,8 +18,8 @@
 [x] **Enhanced Array Operations**: Filter, map, reduce, find, sort, slice, join, contains, indexOf, unique, concat, fill
 [x] **Additional Data Structures**: Heaps, queues, stacks
 [x] **Date/Time Handling**: Comprehensive date and time operations
-[ ] **Regular Expressions**: Pattern matching and text processing
-[ ] **JSON/XML Parsing**: Data serialization and deserialization
+[x] **Regular Expressions**: Pattern matching and text processing
+[x] **JSON/XML Parsing**: Data serialization and deserialization
 
 ### 3. **Advanced Language Features**
 

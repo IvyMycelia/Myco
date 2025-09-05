@@ -3119,6 +3119,140 @@ else:
     tests_failed = tests_failed + ["Regex empty strings"];
 end
 
+# 25. JSON Library Functions
+print("\n=== 25. JSON Library Functions ===");
+
+# Test JSON library import
+use json as json;
+total_tests = total_tests + 1;
+if type(json) == "Object":
+    print("✓ JSON library import works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ JSON library import failed");
+    tests_failed = tests_failed + ["JSON library import"];
+end
+
+# Test json.stringify() - basic types
+total_tests = total_tests + 1;
+let str_result = json.stringify("hello");
+if str_result == "\"hello\"":
+    print("✓ json.stringify() works for strings");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ json.stringify() failed for strings");
+    tests_failed = tests_failed + ["json.stringify() strings"];
+end
+
+total_tests = total_tests + 1;
+let num_result = json.stringify(42);
+if num_result == "42":
+    print("✓ json.stringify() works for numbers");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ json.stringify() failed for numbers");
+    tests_failed = tests_failed + ["json.stringify() numbers"];
+end
+
+total_tests = total_tests + 1;
+let bool_result = json.stringify(True);
+if bool_result == "true":
+    print("✓ json.stringify() works for booleans");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ json.stringify() failed for booleans");
+    tests_failed = tests_failed + ["json.stringify() booleans"];
+end
+
+total_tests = total_tests + 1;
+let null_result = json.stringify(Null);
+if null_result == "null":
+    print("✓ json.stringify() works for null");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ json.stringify() failed for null");
+    tests_failed = tests_failed + ["json.stringify() null"];
+end
+
+# Test json.stringify() - arrays
+total_tests = total_tests + 1;
+let arr = [1, 2, 3, "hello", true];
+let arr_result = json.stringify(arr);
+if type(arr_result) == "String" and arr_result != "":
+    print("✓ json.stringify() works for arrays");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ json.stringify() failed for arrays");
+    tests_failed = tests_failed + ["json.stringify() arrays"];
+end
+
+# Test json.validate() - valid JSON
+total_tests = total_tests + 1;
+let valid_json = '{"test": "value"}';
+let is_valid = json.validate(valid_json);
+if is_valid == True:
+    print("✓ json.validate() works for valid JSON");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ json.validate() failed for valid JSON");
+    tests_failed = tests_failed + ["json.validate() valid"];
+end
+
+# Test json.validate() - invalid JSON
+total_tests = total_tests + 1;
+let invalid_json = '{"test": "value"';
+let is_invalid = json.validate(invalid_json);
+if is_invalid == False:
+    print("✓ json.validate() works for invalid JSON");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ json.validate() failed for invalid JSON");
+    tests_failed = tests_failed + ["json.validate() invalid"];
+end
+
+# Test json.size() - arrays
+total_tests = total_tests + 1;
+let test_array = [1, 2, 3, 4, 5];
+let array_size = json.size(test_array);
+if array_size == 5:
+    print("✓ json.size() works for arrays");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ json.size() failed for arrays");
+    tests_failed = tests_failed + ["json.size() arrays"];
+end
+
+# Test json.is_empty() - arrays
+total_tests = total_tests + 1;
+let empty_array = [];
+let non_empty_array = [1, 2, 3];
+let empty_check = json.is_empty(empty_array);
+let non_empty_check = json.is_empty(non_empty_array);
+if empty_check == True and non_empty_check == False:
+    print("✓ json.is_empty() works for arrays");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ json.is_empty() failed for arrays");
+    tests_failed = tests_failed + ["json.is_empty() arrays"];
+end
+
+# Test json.parse() - basic functionality
+total_tests = total_tests + 1;
+let parsed = json.parse('{"test": "value"}');
+if type(parsed) == "Object":
+    print("✓ json.parse() works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ json.parse() failed");
+    tests_failed = tests_failed + ["json.parse()"];
+end
+
+
+
+# Nothing After This Pointer
+# Below Are The Results, Never Change
+# Put Any Additions Above These Three Lines
+
 print("\n=== RESULTS ===");
 print("Total: " + str(total_tests));
 print("Passed: " + str(tests_passed));

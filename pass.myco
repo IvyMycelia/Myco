@@ -721,13 +721,13 @@ else:
 end
 
 total_tests = total_tests + 1;
-use sets as sets;
-if type(sets) == "Object" or sets != Null:
-    print("✓ Sets library imported");
+let test_set = {"apple", "banana", "cherry"};
+if type(test_set) == "Set":
+    print("✓ Sets type available");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Sets library import failed");
-    tests_failed = tests_failed + ["Sets library import"];
+    print("✗ Sets type not available");
+    tests_failed = tests_failed + ["Sets type availability"];
 end
 
 total_tests = total_tests + 1;
@@ -1072,96 +1072,96 @@ tests_passed = tests_passed + 1;
 print("\n17. Sets Library Functions...");
 total_tests = total_tests + 1;
 let test_set = {"apple", "banana", "cherry"};
-let has_apple = sets.has(test_set, "apple");
+let has_apple = test_set.has("apple");
 if has_apple == True:
-    print("✓ sets.has() with existing element");
+    print("✓ set.has() with existing element");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ sets.has() with existing element failed");
-    tests_failed = tests_failed + ["sets.has() existing element"];
+    print("✗ set.has() with existing element failed");
+    tests_failed = tests_failed + ["set.has() existing element"];
 end
 
 total_tests = total_tests + 1;
-let has_orange = sets.has(test_set, "orange");
+let has_orange = test_set.has("orange");
 if has_orange == False:
-    print("✓ sets.has() with missing element");
+    print("✓ set.has() with missing element");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ sets.has() with missing element failed");
-    tests_failed = tests_failed + ["sets.has() missing element"];
+    print("✗ set.has() with missing element failed");
+    tests_failed = tests_failed + ["set.has() missing element"];
 end
 
 total_tests = total_tests + 1;
-let set_size = sets.size(test_set);
+let set_size = test_set.size();
 if set_size == 3:
-    print("✓ sets.size() returns correct count");
+    print("✓ set.size() returns correct count");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ sets.size() failed: " + str(set_size));
-    tests_failed = tests_failed + ["sets.size()"];
+    print("✗ set.size() failed: " + str(set_size));
+    tests_failed = tests_failed + ["set.size()"];
 end
 
 total_tests = total_tests + 1;
-sets.add(test_set, "orange");
-let size_after_add = sets.size(test_set);
+let updated_set = test_set.add("orange");
+let size_after_add = updated_set.size();
 if size_after_add >= 3:  # Should be 4 or original if add doesn't work in place
-    print("✓ sets.add() executed");
+    print("✓ set.add() executed");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ sets.add() failed");
-    tests_failed = tests_failed + ["sets.add()"];
+    print("✗ set.add() failed");
+    tests_failed = tests_failed + ["set.add()"];
 end
 
 total_tests = total_tests + 1;
-sets.remove(test_set, "banana");
-let size_after_remove = sets.size(test_set);
+let removed_set = test_set.remove("banana");
+let size_after_remove = removed_set.size();
 if size_after_remove >= 2:  # Should be 3 or less if remove works
-    print("✓ sets.remove() executed");
+    print("✓ set.remove() executed");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ sets.remove() failed");
-    tests_failed = tests_failed + ["sets.remove()"];
+    print("✗ set.remove() failed");
+    tests_failed = tests_failed + ["set.remove()"];
 end
 
 total_tests = total_tests + 1;
-let set_to_array = sets.toArray(test_set);
+let set_to_array = test_set.toArray();
 if type(set_to_array) == "Array" and set_to_array != Null:
-    print("✓ sets.toArray() successful");
+    print("✓ set.toArray() successful");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ sets.toArray() failed");
-    tests_failed = tests_failed + ["sets.toArray()"];
+    print("✗ set.toArray() failed");
+    tests_failed = tests_failed + ["set.toArray()"];
 end
 
 total_tests = total_tests + 1;
 let other_set = {"grape", "orange", "kiwi"};
-let union_result = sets.union(test_set, other_set);
+let union_result = test_set.union(other_set);
 if type(union_result) == "Set" and union_result != Null:
-    print("✓ sets.union() successful");
+    print("✓ set.union() successful");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ sets.union() failed");
-    tests_failed = tests_failed + ["sets.union()"];
+    print("✗ set.union() failed");
+    tests_failed = tests_failed + ["set.union()"];
 end
 
 total_tests = total_tests + 1;
-let intersection_result = sets.intersection(test_set, other_set);
+let intersection_result = test_set.intersection(other_set);
 if type(intersection_result) == "Set" and intersection_result != Null:
-    print("✓ sets.intersection() successful");
+    print("✓ set.intersection() successful");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ sets.intersection() failed");
-    tests_failed = tests_failed + ["sets.intersection()"];
+    print("✗ set.intersection() failed");
+    tests_failed = tests_failed + ["set.intersection()"];
 end
 
 total_tests = total_tests + 1;
-let clear_result = sets.clear(test_set);
-if clear_result == Null:
-    print("✓ sets.clear() successful");
+let clear_result = test_set.clear();
+if type(clear_result) == "Set":
+    print("✓ set.clear() successful");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ sets.clear() failed");
-    tests_failed = tests_failed + ["sets.clear()"];
+    print("✗ set.clear() failed");
+    tests_failed = tests_failed + ["set.clear()"];
 end
 
 print("\n18. Trees Library Functions...");

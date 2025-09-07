@@ -6,6 +6,7 @@
 #include "libs/math.h"
 #include "libs/array.h"
 #include "libs/string.h"
+#include "libs/sets.h"
 
 // Placeholder interpreter implementation
 // This will be replaced with the full implementation
@@ -725,6 +726,55 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node) {
             }
         } else {
             interpreter_set_error(interpreter, "Unknown string method", call_node->line, call_node->column);
+        }
+        
+        // Clean up arguments
+        for (size_t i = 0; i < arg_count + 1; i++) {
+            value_free(&args[i]);
+        }
+        free(args);
+        value_free(&object);
+        return result;
+    }
+    
+    // Handle set method calls directly
+    if (object.type == VALUE_SET) {
+        // Evaluate all arguments
+        size_t arg_count = call_node->data.function_call_expr.argument_count;
+        Value* args = arg_count > 0 ? (Value*)calloc(arg_count + 1, sizeof(Value)) : (Value*)calloc(1, sizeof(Value));
+        if (!args) {
+            value_free(&object);
+            return value_create_null();
+        }
+        
+        // First argument is the set itself
+        args[0] = value_clone(&object);
+        
+        // Add the method arguments
+        for (size_t i = 0; i < arg_count; i++) {
+            args[i + 1] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+        }
+        
+        // Call the appropriate set method
+        Value result = value_create_null();
+        if (strcmp(method_name, "add") == 0) {
+            result = builtin_set_add(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "has") == 0) {
+            result = builtin_set_has(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "remove") == 0) {
+            result = builtin_set_remove(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "size") == 0) {
+            result = builtin_set_size(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "clear") == 0) {
+            result = builtin_set_clear(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "toArray") == 0) {
+            result = builtin_set_to_array(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "union") == 0) {
+            result = builtin_set_union(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "intersection") == 0) {
+            result = builtin_set_intersection(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else {
+            interpreter_set_error(interpreter, "Unknown set method", call_node->line, call_node->column);
         }
         
         // Clean up arguments
@@ -3238,6 +3288,10 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             } else if (strcmp(library_name, "array") == 0) {
                 // Array library is no longer imported - methods are called directly on arrays
                 interpreter_set_error(interpreter, "Array library import is no longer supported. Use array.method() syntax instead.", node->line, node->column);
+                return value_create_null();
+            } else if (strcmp(library_name, "sets") == 0) {
+                // Sets library is no longer imported - methods are called directly on sets
+                interpreter_set_error(interpreter, "Sets library import is no longer supported. Use set.method() syntax instead.", node->line, node->column);
                 return value_create_null();
             } else if (strcmp(library_name, "file") == 0) {
                 // Handle file library

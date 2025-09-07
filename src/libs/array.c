@@ -686,28 +686,6 @@ Value builtin_array_fill(Interpreter* interpreter, Value* args, size_t arg_count
 void array_library_register(Interpreter* interpreter) {
     if (!interpreter || !interpreter->global_environment) return;
     
-    // Create array object with methods
-    Value array_obj = value_create_object(16);
-    
-    // Add methods to array object
-    value_object_set_member(&array_obj, "push", value_create_builtin_function(builtin_array_push));
-    value_object_set_member(&array_obj, "pop", value_create_builtin_function(builtin_array_pop));
-    value_object_set_member(&array_obj, "insert", value_create_builtin_function(builtin_array_insert));
-    value_object_set_member(&array_obj, "remove", value_create_builtin_function(builtin_array_remove));
-    value_object_set_member(&array_obj, "reverse", value_create_builtin_function(builtin_array_reverse));
-    value_object_set_member(&array_obj, "sort", value_create_builtin_function(builtin_array_sort));
-    value_object_set_member(&array_obj, "filter", value_create_builtin_function(builtin_array_filter));
-    value_object_set_member(&array_obj, "map", value_create_builtin_function(builtin_array_map));
-    value_object_set_member(&array_obj, "reduce", value_create_builtin_function(builtin_array_reduce));
-    value_object_set_member(&array_obj, "find", value_create_builtin_function(builtin_array_find));
-    value_object_set_member(&array_obj, "slice", value_create_builtin_function(builtin_array_slice));
-    value_object_set_member(&array_obj, "join", value_create_builtin_function(builtin_array_join));
-    value_object_set_member(&array_obj, "contains", value_create_builtin_function(builtin_array_contains));
-    value_object_set_member(&array_obj, "indexOf", value_create_builtin_function(builtin_array_index_of));
-    value_object_set_member(&array_obj, "unique", value_create_builtin_function(builtin_array_unique));
-    value_object_set_member(&array_obj, "concat", value_create_builtin_function(builtin_array_concat));
-    value_object_set_member(&array_obj, "fill", value_create_builtin_function(builtin_array_fill));
-    
-    // Register the array object
-    environment_define(interpreter->global_environment, "array", array_obj);
+    // Array methods are now called directly on array values, not as global functions
+    // No need to register global functions or objects anymore
 }

@@ -150,31 +150,35 @@ let result37 = math.abs(5, 10);
 print("38. Math Function with Division by Zero:");
 let result38 = math.abs(5 / 0);
 
-print("39. String Library Undefined Function:");
-use string as str;
-let result39 = str.undefined_function();
+print("39. String Method on Undefined Variable:");
+let result39 = undefined_var.upper();
 
-print("40. String Function with Wrong Argument Type:");
-let result40 = str.upper(42);
+print("40. String Method with Wrong Argument Type:");
+let test_str = "hello";
+let result40 = test_str.upper(42);
 
-print("41. String Function with Too Many Arguments:");
-let result41 = str.upper("hello", "world");
+print("41. String Method with Too Many Arguments:");
+let test_str2 = "hello";
+let result41 = test_str2.upper("world");
 
-print("42. String Function with Division by Zero:");
-let result42 = str.upper(5 / 0);
+print("42. String Method with Division by Zero:");
+let test_str3 = "hello";
+let result42 = test_str3.upper(5 / 0);
 
-print("43. Array Library Undefined Function:");
-use array as arr;
-let result43 = arr.undefined_function();
+print("43. Array Method on Undefined Variable:");
+let result43 = undefined_arr.push(1);
 
-print("44. Array Function with Wrong Argument Type:");
-let result44 = arr.push("not_an_array", 5);
+print("44. Array Method with Wrong Argument Type:");
+let test_arr = "not_an_array";
+let result44 = test_arr.push(5);
 
-print("45. Array Function with Too Many Arguments:");
-let result45 = arr.push([1, 2], 3, 4);
+print("45. Array Method with Too Many Arguments:");
+let test_arr2 = [1, 2];
+let result45 = test_arr2.push(3, 4);
 
-print("46. Array Function with Division by Zero:");
-let result46 = arr.push([1, 2], 5 / 0);
+print("46. Array Method with Division by Zero:");
+let test_arr3 = [1, 2];
+let result46 = test_arr3.push(5 / 0);
 
 print("=== CONTROL FLOW ERRORS ===");
 print("47. Error in If Condition:");
@@ -507,20 +511,19 @@ catch error:
     print("✓ Caught math exception: " + error);
 end
 
-print("113. Exception with String Function:");
+print("113. Exception with String Method:");
 try:
-    use string as str;
-    throw "String error: " + str.upper("hello");
+    let test_str4 = "hello";
+    throw "String error: " + test_str4.upper();
 catch error:
     print("✓ Caught string exception: " + error);
 end
 
-print("114. Exception with Array Function:");
+print("114. Exception with Array Method:");
 try:
-    use array as arr;
-    let test_arr = [1, 2, 3];
-    arr.push(test_arr, 4);
-    throw "Array error: " + str(len(test_arr));
+    let test_arr4 = [1, 2, 3];
+    test_arr4.push(4);
+    throw "Array error: " + str(len(test_arr4));
 catch error:
     print("✓ Caught array exception: " + error);
 end

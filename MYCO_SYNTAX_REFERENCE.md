@@ -110,7 +110,6 @@ arr.join(separator);                          # CORRECT: var.method()
 
 ```myco
 use math as math;                             # Import math library
-use string as string;                         # Import string library
 use file as file;                             # Import file library
 use maps as maps;                             # Import maps library
 use sets as sets;                             # Import sets library

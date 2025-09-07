@@ -443,15 +443,6 @@ Value builtin_string_repeat(Interpreter* interpreter, Value* args, size_t arg_co
 void string_library_register(Interpreter* interpreter) {
     if (!interpreter || !interpreter->global_environment) return;
     
-    // Register functions
-    environment_define(interpreter->global_environment, "upper", value_create_builtin_function(builtin_string_upper));
-    environment_define(interpreter->global_environment, "lower", value_create_builtin_function(builtin_string_lower));
-    environment_define(interpreter->global_environment, "trim", value_create_builtin_function(builtin_string_trim));
-    environment_define(interpreter->global_environment, "split", value_create_builtin_function(builtin_string_split));
-    environment_define(interpreter->global_environment, "join", value_create_builtin_function(builtin_string_join));
-    environment_define(interpreter->global_environment, "contains", value_create_builtin_function(builtin_string_contains));
-    environment_define(interpreter->global_environment, "starts_with", value_create_builtin_function(builtin_string_starts_with));
-    environment_define(interpreter->global_environment, "ends_with", value_create_builtin_function(builtin_string_ends_with));
-    environment_define(interpreter->global_environment, "replace", value_create_builtin_function(builtin_string_replace));
-    environment_define(interpreter->global_environment, "repeat", value_create_builtin_function(builtin_string_repeat));
+    // String methods are now called directly on string values, not as global functions
+    // No need to register global functions anymore
 }

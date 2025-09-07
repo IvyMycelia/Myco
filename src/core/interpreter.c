@@ -3232,124 +3232,12 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 
                 return value_create_null();
             } else if (strcmp(library_name, "string") == 0) {
-                // Handle string library
-                if (specific_items && item_count > 0) {
-                    // Import specific string functions
-                    for (size_t i = 0; i < item_count; i++) {
-                        const char* item_name = specific_items[i];
-                        const char* alias_name = specific_aliases ? specific_aliases[i] : item_name;
-                        
-                        // Look up the string function and bind it
-                        Value string_func = environment_get(interpreter->global_environment, item_name);
-                        if (string_func.type == VALUE_FUNCTION) {
-                            environment_define(interpreter->current_environment, alias_name, value_clone(&string_func));
-                        } else {
-                            // Function not found, create a placeholder
-                            environment_define(interpreter->current_environment, alias_name, value_create_string("string_function_not_found"));
-                        }
-                    }
-                } else {
-                    // Import all string functions
-                    const char* string_functions[] = {"upper", "lower", "trim", "split", "join", "contains", "starts_with", "ends_with", "replace", "repeat"};
-                    for (size_t i = 0; i < sizeof(string_functions) / sizeof(string_functions[0]); i++) {
-                        Value string_func = environment_get(interpreter->global_environment, string_functions[i]);
-                        if (string_func.type == VALUE_FUNCTION) {
-                            environment_define(interpreter->current_environment, string_functions[i], value_clone(&string_func));
-                        }
-                    }
-                    
-                    // If there's a general alias, bind prefixed functions
-                    if (alias) {
-                        // Bind all string functions with the alias prefix
-                        // This allows str.upper() to work by looking up str_upper
-                        const char* string_functions[] = {"upper", "lower", "trim", "split", "join", "contains", "starts_with", "ends_with", "replace", "repeat"};
-                        for (size_t i = 0; i < sizeof(string_functions) / sizeof(string_functions[0]); i++) {
-                            Value string_func = environment_get(interpreter->global_environment, string_functions[i]);
-                            if (string_func.type == VALUE_FUNCTION) {
-                                // Create prefixed name: alias_function
-                                char* prefixed_name = malloc(strlen(alias) + strlen(string_functions[i]) + 2);
-                                sprintf(prefixed_name, "%s_%s", alias, string_functions[i]);
-                                environment_define(interpreter->current_environment, prefixed_name, value_clone(&string_func));
-                                free(prefixed_name);
-                            }
-                        }
-                        
-                        // Also bind individual functions to the current environment for convenience
-                        // This allows both str.upper() and upper() to work
-                        
-                        // Bind the alias name to a special marker value for member access
-                        // This allows str.upper to work by looking up str_upper
-                        environment_define(interpreter->current_environment, alias, value_create_string("namespace_marker"));
-                    }
-                }
-                
+                // String library is no longer imported - methods are called directly on strings
+                interpreter_set_error(interpreter, "String library import is no longer supported. Use string.method() syntax instead.", node->line, node->column);
                 return value_create_null();
             } else if (strcmp(library_name, "array") == 0) {
-                // Handle array library
-                if (specific_items && item_count > 0) {
-                    // Import specific array functions
-                    for (size_t i = 0; i < item_count; i++) {
-                        const char* item_name = specific_items[i];
-                        const char* alias_name = specific_aliases ? specific_aliases[i] : item_name;
-                        
-                        // Look up the array function and bind it
-                        Value array_func = environment_get(interpreter->global_environment, item_name);
-                        if (array_func.type == VALUE_FUNCTION) {
-                            environment_define(interpreter->current_environment, alias_name, value_clone(&array_func));
-                        } else {
-                            // Function not found, create a placeholder
-                            environment_define(interpreter->current_environment, alias_name, value_create_string("array_function_not_found"));
-                        }
-                    }
-                } else {
-                    // Import all array functions
-                    const char* array_functions[] = {"push", "pop", "insert", "remove", "reverse", "sort", "filter", "map", "reduce", "find", "slice"};
-                    for (size_t i = 0; i < sizeof(array_functions) / sizeof(array_functions[0]); i++) {
-                        Value array_func = environment_get(interpreter->global_environment, array_functions[i]);
-                        if (array_func.type == VALUE_FUNCTION) {
-                            environment_define(interpreter->current_environment, array_functions[i], value_clone(&array_func));
-                        }
-                    }
-                    
-                    // If there's a general alias, bind prefixed functions
-                    if (alias) {
-                        // Bind all array functions with the alias prefix
-                        // This allows arr.push() to work by looking up arr_push
-                        const char* array_functions[] = {"push", "pop", "insert", "remove", "reverse", "sort", "filter", "map", "reduce", "find", "slice"};
-                        for (size_t i = 0; i < sizeof(array_functions) / sizeof(array_functions[0]); i++) {
-                            Value array_func = environment_get(interpreter->global_environment, array_functions[i]);
-                            if (array_func.type == VALUE_FUNCTION) {
-                                // Create prefixed name: alias_function
-                                char* prefixed_name = malloc(strlen(alias) + strlen(array_functions[i]) + 2);
-                                sprintf(prefixed_name, "%s_%s", alias, array_functions[i]);
-                                environment_define(interpreter->current_environment, prefixed_name, value_clone(&array_func));
-                                free(prefixed_name);
-                            }
-                        }
-                        
-                        // Also bind individual functions to the current environment for convenience
-                        // This allows both arr.push() and push() to work
-                        
-                        // Create an object for the alias with all array functions as members
-                        // Get the existing array object from the global environment
-                        Value existing_array = environment_get(interpreter->global_environment, "array");
-                        if (existing_array.type == VALUE_OBJECT) {
-                            // Clone the existing array object
-                            Value array_object = value_create_object(existing_array.data.object_value.capacity);
-                            for (size_t i = 0; i < existing_array.data.object_value.count; i++) {
-                                if (existing_array.data.object_value.keys[i] && existing_array.data.object_value.values[i]) {
-                                    value_object_set_member(&array_object, existing_array.data.object_value.keys[i], *((Value*)existing_array.data.object_value.values[i]));
-                                }
-                            }
-                            environment_define(interpreter->current_environment, alias, array_object);
-                        } else {
-                            // Fallback: create empty object if array not found
-                            Value array_object = value_create_object(11);
-                            environment_define(interpreter->current_environment, alias, array_object);
-                        }
-                    }
-                }
-                
+                // Array library is no longer imported - methods are called directly on arrays
+                interpreter_set_error(interpreter, "Array library import is no longer supported. Use array.method() syntax instead.", node->line, node->column);
                 return value_create_null();
             } else if (strcmp(library_name, "file") == 0) {
                 // Handle file library

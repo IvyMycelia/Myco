@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "libs/math.h"
+#include "libs/array.h"
 
 // Placeholder interpreter implementation
 // This will be replaced with the full implementation
@@ -607,6 +608,75 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node) {
     // Evaluate the object (this is the key part that was causing issues)
     Value object = eval_node(interpreter, member_access->data.member_access.object);
     
+    // Handle array method calls directly
+    if (object.type == VALUE_ARRAY) {
+        // Evaluate all arguments
+        size_t arg_count = call_node->data.function_call_expr.argument_count;
+        Value* args = arg_count > 0 ? (Value*)calloc(arg_count + 1, sizeof(Value)) : (Value*)calloc(1, sizeof(Value));
+        if (!args) {
+            value_free(&object);
+            return value_create_null();
+        }
+        
+        // First argument is the array itself
+        args[0] = value_clone(&object);
+        
+        // Add the method arguments
+        for (size_t i = 0; i < arg_count; i++) {
+            args[i + 1] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+        }
+        
+        // Call the appropriate array method
+        Value result = value_create_null();
+        if (strcmp(method_name, "push") == 0) {
+            result = builtin_array_push(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "pop") == 0) {
+            result = builtin_array_pop(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "insert") == 0) {
+            result = builtin_array_insert(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "remove") == 0) {
+            result = builtin_array_remove(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "reverse") == 0) {
+            result = builtin_array_reverse(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "sort") == 0) {
+            result = builtin_array_sort(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "filter") == 0) {
+            result = builtin_array_filter(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "map") == 0) {
+            result = builtin_array_map(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "reduce") == 0) {
+            result = builtin_array_reduce(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "find") == 0) {
+            result = builtin_array_find(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "join") == 0) {
+            result = builtin_array_join(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "contains") == 0) {
+            result = builtin_array_contains(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "indexOf") == 0) {
+            result = builtin_array_index_of(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "unique") == 0) {
+            result = builtin_array_unique(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "concat") == 0) {
+            result = builtin_array_concat(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "slice") == 0) {
+            result = builtin_array_slice(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "fill") == 0) {
+            result = builtin_array_fill(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "length") == 0) {
+            result = value_create_number((double)value_array_length(&object));
+        } else {
+            interpreter_set_error(interpreter, "Unknown array method", call_node->line, call_node->column);
+        }
+        
+        // Clean up arguments
+        for (size_t i = 0; i < arg_count + 1; i++) {
+            value_free(&args[i]);
+        }
+        free(args);
+        value_free(&object);
+        return result;
+    }
+    
     // Check if this is a super call
     if (object.type == VALUE_OBJECT) {
         Value is_super = value_object_get(&object, "__is_super__");
@@ -620,7 +690,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node) {
     
     if (object.type != VALUE_OBJECT) {
         value_free(&object);
-        interpreter_set_error(interpreter, "Method calls can only be made on objects", call_node->line, call_node->column);
+        interpreter_set_error(interpreter, "Method calls can only be made on objects or arrays", call_node->line, call_node->column);
         return value_create_null();
     }
     

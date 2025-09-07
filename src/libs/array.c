@@ -120,7 +120,7 @@ Value builtin_array_insert(Interpreter* interpreter, Value* args, size_t arg_cou
     memcpy(array_arg.data.array_value.elements[index], &cloned_element, sizeof(Value));
     array_arg.data.array_value.count++;
     
-    return value_create_null();
+    return value_clone(&array_arg);
 }
 
 Value builtin_array_remove(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -164,7 +164,7 @@ Value builtin_array_remove(Interpreter* interpreter, Value* args, size_t arg_cou
     
     array_arg.data.array_value.count--;
     
-    return value_create_null();
+    return value_clone(&array_arg);
 }
 
 Value builtin_array_reverse(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -189,7 +189,7 @@ Value builtin_array_reverse(Interpreter* interpreter, Value* args, size_t arg_co
         array_arg.data.array_value.elements[array_len - 1 - i] = temp;
     }
     
-    return value_create_null();
+    return value_clone(&array_arg);
 }
 
 Value builtin_array_sort(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -224,7 +224,7 @@ Value builtin_array_sort(Interpreter* interpreter, Value* args, size_t arg_count
         }
     }
     
-    return value_create_null();
+    return value_clone(&array_arg);
 }
 
 Value builtin_array_filter(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -679,7 +679,7 @@ Value builtin_array_fill(Interpreter* interpreter, Value* args, size_t arg_count
         value_array_push(&array_arg, cloned_value);
     }
     
-    return value_create_null();
+    return value_clone(&array_arg);
 }
 
 // Register array library with interpreter

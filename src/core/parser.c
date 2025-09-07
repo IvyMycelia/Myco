@@ -18,6 +18,7 @@ static ASTNode* parser_parse_hash_map_key(Parser* parser);
 static ASTNode* parser_parse_try_catch_statement(Parser* parser);
 static ASTNode* parser_parse_use_statement(Parser* parser);
 static ASTNode* parser_collect_block(Parser* parser, int stop_on_else, int* saw_else);
+static ASTNode* parser_parse_member_access_chain(Parser* parser, ASTNode* base);
 
 /**
  * @brief Initialize a new parser with a lexer
@@ -1026,7 +1027,83 @@ ASTNode* parser_parse_primary(Parser* parser) {
         
         ASTNode* literal = ast_create_string(token->data.string_value, token->line, token->column);
         if (literal) {
-            return literal;
+            // Check for member access: "string".method
+            if (parser_check(parser, TOKEN_DOT)) {
+                parser_advance(parser); // consume '.'
+                
+                // Parse the member name (must be an identifier)
+                if (!parser_check(parser, TOKEN_IDENTIFIER)) {
+                    parser_error(parser, "Expected member name after '.'");
+                    ast_free(literal);
+                    return NULL;
+                }
+                
+                Token* member_token = parser_peek(parser);
+                parser_advance(parser); // consume member name
+                
+                // Create member access node
+                ASTNode* member_access = ast_create_member_access(literal, member_token->text, token->line, token->column);
+                if (!member_access) {
+                    ast_free(literal);
+                    return NULL;
+                }
+                
+                // Check for function calls on the member access: "string".method(args)
+                if (parser_check(parser, TOKEN_LEFT_PAREN)) {
+                    parser_advance(parser); // consume '('
+                    
+                    ASTNode** args = NULL;
+                    size_t arg_count = 0;
+                    size_t arg_capacity = 0;
+                    
+                    // Parse optional arguments
+                    if (!parser_check(parser, TOKEN_RIGHT_PAREN)) {
+                        while (1) {
+                            ASTNode* arg = parser_parse_expression(parser);
+                            if (!arg) {
+                                parser_error(parser, "Function call arguments must be valid expressions");
+                                break;
+                            }
+                            if (arg_count == arg_capacity) {
+                                size_t new_cap = arg_capacity == 0 ? 4 : arg_capacity * 2;
+                                ASTNode** new_args = (ASTNode**)realloc(args, new_cap * sizeof(ASTNode*));
+                                if (!new_args) {
+                                    parser_error(parser, "Out of memory while parsing arguments");
+                                    break;
+                                }
+                                args = new_args;
+                                arg_capacity = new_cap;
+                            }
+                            args[arg_count++] = arg;
+                            if (parser_check(parser, TOKEN_COMMA)) {
+                                parser_advance(parser);
+                                continue;
+                            }
+                            break;
+                        }
+                    }
+                    
+                    if (!parser_match(parser, TOKEN_RIGHT_PAREN)) {
+                        parser_error(parser, "Expected ')' after arguments");
+                    }
+                    
+                    // Create function call expression node
+                    ASTNode* call = ast_create_function_call_expr(member_access, args, arg_count, token->line, token->column);
+                    if (call) {
+                        // Check for additional method chaining
+                        return parser_parse_member_access_chain(parser, call);
+                    } else {
+                        ast_free(member_access);
+                        return NULL;
+                    }
+                } else {
+                    // Just member access, no function call
+                    return member_access;
+                }
+            } else {
+                // No member access, just return the literal
+                return literal;
+            }
         }
     }
     
@@ -1215,7 +1292,8 @@ ASTNode* parser_parse_primary(Parser* parser) {
                     return member_access;
                 }
                 
-                return call;
+                // Check for additional method chaining
+                return parser_parse_member_access_chain(parser, call);
             }
             
             return member_access;
@@ -3423,7 +3501,87 @@ static ASTNode* parser_parse_array_literal(Parser* parser) {
     // Check if array is empty []
     if (parser_check(parser, TOKEN_RIGHT_BRACKET)) {
         parser_advance(parser);  // Consume the closing bracket
-        return ast_create_array_literal(NULL, 0, parser->previous_token->line, parser->previous_token->column);
+        ASTNode* array_literal = ast_create_array_literal(NULL, 0, parser->previous_token->line, parser->previous_token->column);
+        if (array_literal) {
+            // Check for member access: [].method
+            if (parser_check(parser, TOKEN_DOT)) {
+                parser_advance(parser); // consume '.'
+                
+                // Parse the member name (must be an identifier)
+                if (!parser_check(parser, TOKEN_IDENTIFIER)) {
+                    parser_error(parser, "Expected member name after '.'");
+                    ast_free(array_literal);
+                    return NULL;
+                }
+                
+                Token* member_token = parser_peek(parser);
+                parser_advance(parser); // consume member name
+                
+                // Create member access node
+                ASTNode* member_access = ast_create_member_access(array_literal, member_token->text, parser->previous_token->line, parser->previous_token->column);
+                if (!member_access) {
+                    ast_free(array_literal);
+                    return NULL;
+                }
+                
+                // Check for function calls on the member access: [].method(args)
+                if (parser_check(parser, TOKEN_LEFT_PAREN)) {
+                    parser_advance(parser); // consume '('
+                    
+                    ASTNode** args = NULL;
+                    size_t arg_count = 0;
+                    size_t arg_capacity = 0;
+                    
+                    // Parse optional arguments
+                    if (!parser_check(parser, TOKEN_RIGHT_PAREN)) {
+                        while (1) {
+                            ASTNode* arg = parser_parse_expression(parser);
+                            if (!arg) {
+                                parser_error(parser, "Function call arguments must be valid expressions");
+                                break;
+                            }
+                            if (arg_count == arg_capacity) {
+                                size_t new_cap = arg_capacity == 0 ? 4 : arg_capacity * 2;
+                                ASTNode** new_args = (ASTNode**)realloc(args, new_cap * sizeof(ASTNode*));
+                                if (!new_args) {
+                                    parser_error(parser, "Out of memory while parsing arguments");
+                                    break;
+                                }
+                                args = new_args;
+                                arg_capacity = new_cap;
+                            }
+                            args[arg_count++] = arg;
+                            if (parser_check(parser, TOKEN_COMMA)) {
+                                parser_advance(parser);
+                                continue;
+                            }
+                            break;
+                        }
+                    }
+                    
+                    if (!parser_match(parser, TOKEN_RIGHT_PAREN)) {
+                        parser_error(parser, "Expected ')' after arguments");
+                    }
+                    
+                    // Create function call expression node
+                    ASTNode* call = ast_create_function_call_expr(member_access, args, arg_count, parser->previous_token->line, parser->previous_token->column);
+                    if (call) {
+                        // Check for additional method chaining
+                        return parser_parse_member_access_chain(parser, call);
+                    } else {
+                        ast_free(member_access);
+                        return NULL;
+                    }
+                } else {
+                    // Just member access, no function call
+                    return member_access;
+                }
+            } else {
+                // No member access, just return the array literal
+                return array_literal;
+            }
+        }
+        return array_literal;
     }
     
     // Parse first element
@@ -3489,7 +3647,87 @@ static ASTNode* parser_parse_array_literal(Parser* parser) {
         return NULL;
     }
     
-    return ast_create_array_literal(elements, element_count, parser->previous_token->line, parser->previous_token->column);
+    ASTNode* array_literal = ast_create_array_literal(elements, element_count, parser->previous_token->line, parser->previous_token->column);
+    if (array_literal) {
+        // Check for member access: [1, 2, 3].method
+        if (parser_check(parser, TOKEN_DOT)) {
+            parser_advance(parser); // consume '.'
+            
+            // Parse the member name (must be an identifier)
+            if (!parser_check(parser, TOKEN_IDENTIFIER)) {
+                parser_error(parser, "Expected member name after '.'");
+                ast_free(array_literal);
+                return NULL;
+            }
+            
+            Token* member_token = parser_peek(parser);
+            parser_advance(parser); // consume member name
+            
+            // Create member access node
+            ASTNode* member_access = ast_create_member_access(array_literal, member_token->text, parser->previous_token->line, parser->previous_token->column);
+            if (!member_access) {
+                ast_free(array_literal);
+                return NULL;
+            }
+            
+            // Check for function calls on the member access: [1, 2, 3].method(args)
+            if (parser_check(parser, TOKEN_LEFT_PAREN)) {
+                parser_advance(parser); // consume '('
+                
+                ASTNode** args = NULL;
+                size_t arg_count = 0;
+                size_t arg_capacity = 0;
+                
+                // Parse optional arguments
+                if (!parser_check(parser, TOKEN_RIGHT_PAREN)) {
+                    while (1) {
+                        ASTNode* arg = parser_parse_expression(parser);
+                        if (!arg) {
+                            parser_error(parser, "Function call arguments must be valid expressions");
+                            break;
+                        }
+                        if (arg_count == arg_capacity) {
+                            size_t new_cap = arg_capacity == 0 ? 4 : arg_capacity * 2;
+                            ASTNode** new_args = (ASTNode**)realloc(args, new_cap * sizeof(ASTNode*));
+                            if (!new_args) {
+                                parser_error(parser, "Out of memory while parsing arguments");
+                                break;
+                            }
+                            args = new_args;
+                            arg_capacity = new_cap;
+                        }
+                        args[arg_count++] = arg;
+                        if (parser_check(parser, TOKEN_COMMA)) {
+                            parser_advance(parser);
+                            continue;
+                        }
+                        break;
+                    }
+                }
+                
+                if (!parser_match(parser, TOKEN_RIGHT_PAREN)) {
+                    parser_error(parser, "Expected ')' after arguments");
+                }
+                
+                // Create function call expression node
+                ASTNode* call = ast_create_function_call_expr(member_access, args, arg_count, parser->previous_token->line, parser->previous_token->column);
+                if (call) {
+                    // Check for additional method chaining
+                    return parser_parse_member_access_chain(parser, call);
+                } else {
+                    ast_free(member_access);
+                    return NULL;
+                }
+            } else {
+                // Just member access, no function call
+                return member_access;
+            }
+        } else {
+            // No member access, just return the array literal
+            return array_literal;
+        }
+    }
+    return array_literal;
 }
 
 /**
@@ -3863,6 +4101,100 @@ static ASTNode* parser_parse_try_catch_statement(Parser* parser) {
     parser_advance(parser);  // Consume 'end'
     
     return ast_create_try_catch(try_block, catch_variable, catch_block, NULL, 0, 0);
+}
+
+/**
+ * @brief Parse member access chain after a base expression
+ * 
+ * This function handles method chaining like obj.method1().method2().method3()
+ * It continues parsing member access and function calls until there are no more dots.
+ * 
+ * @param parser The parser to use
+ * @param base The base expression to start the chain from
+ * @return AST node representing the complete member access chain
+ */
+static ASTNode* parser_parse_member_access_chain(Parser* parser, ASTNode* base) {
+    if (!parser || !base) {
+        return base;
+    }
+    
+    ASTNode* current = base;
+    
+    // Continue parsing member access chains while we see dots
+    while (parser_check(parser, TOKEN_DOT)) {
+        parser_advance(parser); // consume '.'
+        
+        // Parse the member name (must be an identifier)
+        if (!parser_check(parser, TOKEN_IDENTIFIER)) {
+            parser_error(parser, "Expected member name after '.'");
+            ast_free(current);
+            return NULL;
+        }
+        
+        Token* member_token = parser_peek(parser);
+        parser_advance(parser); // consume member name
+        
+        // Create member access node
+        ASTNode* member_access = ast_create_member_access(current, member_token->text, member_token->line, member_token->column);
+        if (!member_access) {
+            ast_free(current);
+            return NULL;
+        }
+        
+        // Check for function calls on the member access: obj.method(args)
+        if (parser_check(parser, TOKEN_LEFT_PAREN)) {
+            parser_advance(parser); // consume '('
+            
+            ASTNode** args = NULL;
+            size_t arg_count = 0;
+            size_t arg_capacity = 0;
+            
+            // Parse optional arguments
+            if (!parser_check(parser, TOKEN_RIGHT_PAREN)) {
+                while (1) {
+                    ASTNode* arg = parser_parse_expression(parser);
+                    if (!arg) {
+                        parser_error(parser, "Function call arguments must be valid expressions");
+                        break;
+                    }
+                    if (arg_count == arg_capacity) {
+                        size_t new_cap = arg_capacity == 0 ? 4 : arg_capacity * 2;
+                        ASTNode** new_args = (ASTNode**)realloc(args, new_cap * sizeof(ASTNode*));
+                        if (!new_args) {
+                            parser_error(parser, "Out of memory while parsing arguments");
+                            break;
+                        }
+                        args = new_args;
+                        arg_capacity = new_cap;
+                    }
+                    args[arg_count++] = arg;
+                    if (parser_check(parser, TOKEN_COMMA)) {
+                        parser_advance(parser);
+                        continue;
+                    }
+                    break;
+                }
+            }
+            
+            if (!parser_match(parser, TOKEN_RIGHT_PAREN)) {
+                parser_error(parser, "Expected ')' after arguments");
+            }
+            
+            // Create function call expression node
+            ASTNode* call = ast_create_function_call_expr(member_access, args, arg_count, member_token->line, member_token->column);
+            if (call) {
+                current = call;
+            } else {
+                ast_free(member_access);
+                return NULL;
+            }
+        } else {
+            // Just member access, no function call
+            current = member_access;
+        }
+    }
+    
+    return current;
 }
 
 static const char* get_error_suggestion(const char* message, Token* token) {

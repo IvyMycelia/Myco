@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include "libs/math.h"
 #include "libs/array.h"
+#include "libs/string.h"
 
 // Placeholder interpreter implementation
 // This will be replaced with the full implementation
@@ -666,6 +667,64 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node) {
             result = value_create_number((double)value_array_length(&object));
         } else {
             interpreter_set_error(interpreter, "Unknown array method", call_node->line, call_node->column);
+        }
+        
+        // Clean up arguments
+        for (size_t i = 0; i < arg_count + 1; i++) {
+            value_free(&args[i]);
+        }
+        free(args);
+        value_free(&object);
+        return result;
+    }
+    
+    // Handle string method calls directly
+    if (object.type == VALUE_STRING) {
+        // Evaluate all arguments
+        size_t arg_count = call_node->data.function_call_expr.argument_count;
+        Value* args = arg_count > 0 ? (Value*)calloc(arg_count + 1, sizeof(Value)) : (Value*)calloc(1, sizeof(Value));
+        if (!args) {
+            value_free(&object);
+            return value_create_null();
+        }
+        
+        // First argument is the string itself
+        args[0] = value_clone(&object);
+        
+        // Add the method arguments
+        for (size_t i = 0; i < arg_count; i++) {
+            args[i + 1] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+        }
+        
+        // Call the appropriate string method
+        Value result = value_create_null();
+        if (strcmp(method_name, "upper") == 0) {
+            result = builtin_string_upper(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "lower") == 0) {
+            result = builtin_string_lower(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "trim") == 0) {
+            result = builtin_string_trim(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "split") == 0) {
+            result = builtin_string_split(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "contains") == 0) {
+            result = builtin_string_contains(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "starts_with") == 0) {
+            result = builtin_string_starts_with(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "ends_with") == 0) {
+            result = builtin_string_ends_with(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "replace") == 0) {
+            result = builtin_string_replace(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "repeat") == 0) {
+            result = builtin_string_repeat(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "length") == 0) {
+            // Special case for length property
+            if (arg_count == 0) {
+                result = value_create_number((double)strlen(object.data.string_value));
+            } else {
+                interpreter_set_error(interpreter, "length() does not take arguments", call_node->line, call_node->column);
+            }
+        } else {
+            interpreter_set_error(interpreter, "Unknown string method", call_node->line, call_node->column);
         }
         
         // Clean up arguments

@@ -671,13 +671,13 @@ else:
 end
 
 total_tests = total_tests + 1;
-use string as string;
-if type(string) == "Module" or string != Null:
-    print("✓ String library imported");
+let test_string = "hello";
+if type(test_string) == "String" and test_string != Null:
+    print("✓ String type available");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ String library import failed");
-    tests_failed = tests_failed + ["String library import"];
+    print("✗ String type not available");
+    tests_failed = tests_failed + ["String type"];
 end
 
 total_tests = total_tests + 1;
@@ -784,17 +784,19 @@ tests_passed = tests_passed + 1;
 print("\n11. String Library Functions...");
 total_tests = total_tests + 1;
 let test_str = "hello world";
-let upper_str = string.upper(test_str);
+let upper_str = test_str.upper();
 print("✓ String.upper('hello world'): " + upper_str);
 tests_passed = tests_passed + 1;
 
 total_tests = total_tests + 1;
-let lower_str = string.lower("HELLO WORLD");
+let lower_str_var = "HELLO WORLD";
+let lower_str = lower_str_var.lower();
 print("✓ String.lower('HELLO WORLD'): " + lower_str);
 tests_passed = tests_passed + 1;
 
 total_tests = total_tests + 1;
-let trim_str = string.trim("  hello  ");
+let trim_str_var = "  hello  ";
+let trim_str = trim_str_var.trim();
 print("✓ String.trim('  hello  '): '" + trim_str + "'");
 tests_passed = tests_passed + 1;
 

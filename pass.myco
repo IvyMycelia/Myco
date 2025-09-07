@@ -681,13 +681,13 @@ else:
 end
 
 total_tests = total_tests + 1;
-use array as array;
-if type(array) == "Module" or array != Null:
-    print("✓ Array library imported");
+let test_array = [1, 2, 3];
+if type(test_array) == "Array" and test_array != Null:
+    print("✓ Array type available");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Array library import failed");
-    tests_failed = tests_failed + ["Array library import"];
+    print("✗ Array type not available");
+    tests_failed = tests_failed + ["Array type"];
 end
 
 total_tests = total_tests + 1;
@@ -817,7 +817,7 @@ tests_passed = tests_passed + 1;
 print("\n13.1. Enhanced Array Operations...");
 total_tests = total_tests + 1;
 let test_array = [1, 2, 3, 4, 5];
-let joined_result = array.join(test_array, ", ");
+let joined_result = test_array.join(", ");
 if type(joined_result) == "String" and joined_result != Null:
     print("✓ array.join() successful");
     tests_passed = tests_passed + 1;
@@ -827,7 +827,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let contains_result = array.contains(test_array, 3);
+let contains_result = test_array.contains(3);
 if contains_result == True:
     print("✓ array.contains() with existing value");
     tests_passed = tests_passed + 1;
@@ -837,7 +837,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let contains_missing = array.contains(test_array, 6);
+let contains_missing = test_array.contains(6);
 if contains_missing == False:
     print("✓ array.contains() with missing value");
     tests_passed = tests_passed + 1;
@@ -847,7 +847,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let index_of_result = array.indexOf(test_array, 3);
+let index_of_result = test_array.indexOf(3);
 if index_of_result == 2:
     print("✓ array.indexOf() with existing value");
     tests_passed = tests_passed + 1;
@@ -857,7 +857,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let index_of_missing = array.indexOf(test_array, 6);
+let index_of_missing = test_array.indexOf(6);
 if index_of_missing == -1:
     print("✓ array.indexOf() with missing value");
     tests_passed = tests_passed + 1;
@@ -868,7 +868,7 @@ end
 
 total_tests = total_tests + 1;
 let duplicates_array = [1, 2, 2, 3, 3, 3, 4];
-let unique_result = array.unique(duplicates_array);
+let unique_result = duplicates_array.unique();
 if type(unique_result) == "Array" and unique_result != Null:
     print("✓ array.unique() successful");
     tests_passed = tests_passed + 1;
@@ -880,7 +880,7 @@ end
 total_tests = total_tests + 1;
 let array1 = [1, 2, 3];
 let array2 = [4, 5, 6];
-let concat_result = array.concat(array1, array2);
+let concat_result = array1.concat(array2);
 if type(concat_result) == "Array" and concat_result != Null:
     print("✓ array.concat() successful");
     tests_passed = tests_passed + 1;
@@ -890,7 +890,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let slice_result = array.slice(test_array, 1, 4);
+let slice_result = test_array.slice(1, 4);
 if type(slice_result) == "Array" and slice_result != Null:
     print("✓ array.slice() successful");
     tests_passed = tests_passed + 1;
@@ -901,7 +901,7 @@ end
 
 total_tests = total_tests + 1;
 let fill_array = [];
-array.fill(fill_array, "test", 3);
+fill_array.fill("test", 3);
 if type(fill_array) == "Array":
     print("✓ array.fill() successful");
     tests_passed = tests_passed + 1;
@@ -2011,10 +2011,10 @@ end
 print("\n16.10. Complex function combinations...");
 func math_operations(a, b) -> Array:
     let results = [];
-    results = array.push(results, add(a, b));
-    results = array.push(results, multiply(a, b));
-    results = array.push(results, square(a));
-    results = array.push(results, square(b));
+    results = results.push(add(a, b));
+    results = results.push(multiply(a, b));
+    results = results.push(square(a));
+    results = results.push(square(b));
     return results;
 end
 

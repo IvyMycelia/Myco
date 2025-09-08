@@ -247,6 +247,8 @@ Value handle_stack_method_call(Interpreter* interpreter, ASTNode* call_node, con
 Value handle_server_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 Value handle_request_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 Value handle_response_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
+Value handle_route_group_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
+Value handle_server_library_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 
 // Request body parsing function declarations
 Value builtin_request_json(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);

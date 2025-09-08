@@ -821,6 +821,22 @@ Value handle_server_method_call(Interpreter* interpreter, ASTNode* call_node, co
         result = builtin_server_listen(interpreter, args, arg_count + 1, call_node->line, call_node->column);
     } else if (strcmp(method_name, "stop") == 0) {
         result = builtin_server_stop(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "use") == 0) {
+        result = builtin_server_use(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "group") == 0) {
+        result = builtin_server_group(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "close") == 0) {
+        result = builtin_server_close(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "get") == 0) {
+        result = builtin_server_get(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "post") == 0) {
+        result = builtin_server_post(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "put") == 0) {
+        result = builtin_server_put(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "delete") == 0) {
+        result = builtin_server_delete(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "static") == 0) {
+        result = builtin_server_static(interpreter, args, arg_count + 1, call_node->line, call_node->column);
     } else {
         interpreter_set_error(interpreter, "Unknown server method", call_node->line, call_node->column);
     }
@@ -968,6 +984,97 @@ Value handle_stack_method_call(Interpreter* interpreter, ASTNode* call_node, con
     
     // Clean up arguments
     for (size_t i = 0; i < arg_count + 1; i++) {
+        value_free(&args[i]);
+    }
+    free(args);
+    
+    return result;
+}
+
+// Helper function to handle route group method calls
+Value handle_route_group_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object) {
+    size_t arg_count = call_node->data.function_call_expr.argument_count;
+    Value* args = (Value*)calloc(arg_count + 1, sizeof(Value));
+    if (!args) {
+        interpreter_set_error(interpreter, "Out of memory", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // First argument is the route group object itself
+    args[0] = value_clone(&object);
+    
+    // Evaluate the remaining arguments
+    for (size_t i = 0; i < arg_count; i++) {
+        args[i + 1] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+    }
+    
+    Value result = value_create_null();
+    
+    if (strcmp(method_name, "get") == 0) {
+        result = builtin_group_get(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "post") == 0) {
+        result = builtin_group_post(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "put") == 0) {
+        result = builtin_group_put(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "delete") == 0) {
+        result = builtin_group_delete(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else {
+        interpreter_set_error(interpreter, "Unknown route group method", call_node->line, call_node->column);
+        result = value_create_null();
+    }
+    
+    // Clean up arguments
+    for (size_t i = 0; i < arg_count + 1; i++) {
+        value_free(&args[i]);
+    }
+    free(args);
+    
+    return result;
+}
+
+// Helper function to handle server library method calls
+Value handle_server_library_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object) {
+    size_t arg_count = call_node->data.function_call_expr.argument_count;
+    Value* args = (Value*)calloc(arg_count, sizeof(Value));
+    if (!args) {
+        interpreter_set_error(interpreter, "Out of memory", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Evaluate all arguments (no object as first argument for library methods)
+    for (size_t i = 0; i < arg_count; i++) {
+        args[i] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+    }
+    
+    Value result = value_create_null();
+    
+    if (strcmp(method_name, "create") == 0) {
+        result = builtin_server_create(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "listen") == 0) {
+        result = builtin_server_listen(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "stop") == 0) {
+        result = builtin_server_stop(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "get") == 0) {
+        result = builtin_server_get(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "post") == 0) {
+        result = builtin_server_post(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "put") == 0) {
+        result = builtin_server_put(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "delete") == 0) {
+        result = builtin_server_delete(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "static") == 0) {
+        result = builtin_server_static(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "now") == 0) {
+        result = builtin_server_now(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "sleep") == 0) {
+        result = builtin_server_sleep(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else {
+        interpreter_set_error(interpreter, "Unknown server library method", call_node->line, call_node->column);
+        result = value_create_null();
+    }
+    
+    // Clean up arguments
+    for (size_t i = 0; i < arg_count; i++) {
         value_free(&args[i]);
     }
     free(args);
@@ -1652,6 +1759,14 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                 // Handle response method calls
                 value_free(&class_name);
                 return handle_response_method_call(interpreter, call_node, method_name, object);
+            } else if (strcmp(class_name.data.string_value, "RouteGroup") == 0) {
+                // Handle route group method calls
+                value_free(&class_name);
+                return handle_route_group_method_call(interpreter, call_node, method_name, object);
+            } else if (strcmp(class_name.data.string_value, "ServerLibrary") == 0) {
+                // Handle server library method calls
+                value_free(&class_name);
+                return handle_server_library_method_call(interpreter, call_node, method_name, object);
             }
         }
         value_free(&class_name);

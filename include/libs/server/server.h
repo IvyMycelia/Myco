@@ -6,8 +6,25 @@
 #include <string.h>
 #include <stdbool.h>
 #include <pthread.h>
+#include <time.h>
+#include <unistd.h>
 #include <microhttpd.h>
 #include "../core/interpreter.h"
+
+// Server configuration structure
+typedef struct {
+    int port;
+    char* static_dir;
+    bool debug;
+    bool enable_gzip;
+    bool enable_cache;
+} ServerConfig;
+
+// Middleware structure
+typedef struct Middleware {
+    Value function;
+    struct Middleware* next;
+} Middleware;
 
 // Server configuration
 typedef struct {
@@ -15,6 +32,8 @@ typedef struct {
     bool running;
     struct MHD_Daemon* daemon;
     Interpreter* interpreter;
+    ServerConfig* config;
+    Middleware* middleware;
 } MycoServer;
 
 // Route parameter structure
@@ -73,6 +92,15 @@ Value builtin_server_post(Interpreter* interpreter, Value* args, size_t arg_coun
 Value builtin_server_put(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_server_delete(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_server_static(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_server_use(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_server_group(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_server_close(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_group_get(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_group_post(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_group_put(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_group_delete(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_server_now(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_server_sleep(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 
 // Request/Response object methods
 Value builtin_request_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
@@ -91,6 +119,7 @@ Value builtin_response_status(Interpreter* interpreter, Value* args, size_t arg_
 Value builtin_response_header(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_response_send_file(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_response_set_header(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_next_function(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 
 // Request/Response object creation and management
 Value create_request_object(MycoRequest* request);
@@ -103,7 +132,14 @@ Value execute_myco_function(Interpreter* interpreter, Value function, Value* arg
 
 // Internal server functions
 MycoServer* server_create(int port, Interpreter* interpreter);
+MycoServer* server_create_with_config(ServerConfig* config, Interpreter* interpreter);
 void server_free(MycoServer* server);
+ServerConfig* parse_server_config(Value config_obj);
+void free_server_config(ServerConfig* config);
+Middleware* middleware_create(Value function);
+void middleware_free(Middleware* middleware);
+void middleware_add(MycoServer* server, Value function);
+void execute_middleware(MycoServer* server, Value req_obj, Value res_obj, Value next_func);
 enum MHD_Result server_handle_request(void* cls, struct MHD_Connection* connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls);
 Route* route_create(const char* method, const char* path, Value handler);
 void route_free(Route* route);
@@ -115,6 +151,7 @@ RouteParam* route_params_find(RouteParam* params, const char* name);
 bool route_path_matches(const char* pattern, const char* path, RouteParam** params);
 char** split_path(const char* path);
 void free_path_segments(char** segments);
+bool validate_typed_parameter(const char* value, const char* type);
 
 // Static file serving functions
 StaticRoute* static_route_create(const char* url_prefix, const char* file_path);

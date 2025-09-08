@@ -1,6 +1,7 @@
 #include "interpreter.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 // Environment management functions
 Environment* environment_create(Environment* parent) {
@@ -130,6 +131,9 @@ void environment_assign(Environment* env, const char* name, Value value) {
     // Check parent environment
     if (env->parent) {
         environment_assign(env->parent, name, value);
+    } else {
+        // No parent, create new variable in current environment
+        environment_define(env, name, value);
     }
 }
 

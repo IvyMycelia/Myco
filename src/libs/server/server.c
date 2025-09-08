@@ -1,4 +1,5 @@
 #include "libs/server/server.h"
+#include <limits.h>
 
 // Global server instance (for simplicity, we'll support one server at a time)
 static MycoServer* g_server = NULL;
@@ -12,6 +13,9 @@ static char* g_response_body = NULL;
 // Global current request parameters (for access from request.param())
 RouteParam* g_current_request_params = NULL;
 
+// Global current route group prefix
+char* g_current_route_prefix = NULL;
+
 // Create a new server instance
 MycoServer* server_create(int port, Interpreter* interpreter) {
     MycoServer* server = (MycoServer*)malloc(sizeof(MycoServer));
@@ -21,6 +25,8 @@ MycoServer* server_create(int port, Interpreter* interpreter) {
     server->running = false;
     server->daemon = NULL;
     server->interpreter = interpreter;
+    server->config = NULL;
+    server->middleware = NULL;
     
     return server;
 }
@@ -31,6 +37,19 @@ void server_free(MycoServer* server) {
     
     if (server->daemon) {
         MHD_stop_daemon(server->daemon);
+    }
+    
+    // Free config
+    if (server->config) {
+        free_server_config(server->config);
+    }
+    
+    // Free middleware chain
+    Middleware* current = server->middleware;
+    while (current) {
+        Middleware* next = current->next;
+        middleware_free(current);
+        current = next;
     }
     
     free(server);
@@ -186,6 +205,22 @@ bool route_path_matches(const char* pattern, const char* path, RouteParam** para
             char* param_name = pattern_segments[i] + 1;  // Skip the ':'
             char* param_value = path_segments[i];
             
+            // Check for typed parameters (e.g., :id:int)
+            char* type_separator = strstr(param_name, ":");
+            if (type_separator) {
+                // Extract parameter name and type
+                *type_separator = '\0';  // Null-terminate the name
+                char* param_type = type_separator + 1;
+                
+                // Validate the parameter value against the type
+                if (!validate_typed_parameter(param_value, param_type)) {
+                    route_params_free(param_list);
+                    free_path_segments(pattern_segments);
+                    free_path_segments(path_segments);
+                    return false;
+                }
+            }
+            
             // Add to parameter list
             RouteParam* new_param = route_param_create(param_name, param_value);
             if (new_param) {
@@ -250,6 +285,51 @@ void free_path_segments(char** segments) {
         free(segments[i]);
     }
     free(segments);
+}
+
+// Validate a typed parameter value
+bool validate_typed_parameter(const char* value, const char* type) {
+    if (!value || !type) return false;
+    
+    if (strcmp(type, "int") == 0) {
+        // Check if the value is a valid integer
+        char* endptr;
+        long int_val = strtol(value, &endptr, 10);
+        return (*endptr == '\0' && int_val >= INT_MIN && int_val <= INT_MAX);
+    } else if (strcmp(type, "float") == 0) {
+        // Check if the value is a valid float
+        char* endptr;
+        strtof(value, &endptr);
+        return (*endptr == '\0');
+    } else if (strcmp(type, "string") == 0) {
+        // String type accepts any non-empty value
+        return (strlen(value) > 0);
+    } else if (strcmp(type, "uuid") == 0) {
+        // Basic UUID validation (8-4-4-4-12 format)
+        if (strlen(value) != 36) return false;
+        for (int i = 0; i < 36; i++) {
+            char c = value[i];
+            if (i == 8 || i == 13 || i == 18 || i == 23) {
+                if (c != '-') return false;
+            } else {
+                if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    } else if (strcmp(type, "email") == 0) {
+        // Basic email validation
+        if (strlen(value) == 0) return false;
+        char* at_pos = strchr(value, '@');
+        if (!at_pos || at_pos == value) return false;
+        char* dot_pos = strrchr(at_pos, '.');
+        if (!dot_pos || dot_pos <= at_pos + 1) return false;
+        return true;
+    }
+    
+    // Unknown type - reject
+    return false;
 }
 
 // Static file serving functions
@@ -559,6 +639,11 @@ enum MHD_Result server_handle_request(void* cls, struct MHD_Connection* connecti
     Value req_obj = create_request_object(request);
     Value res_obj = create_response_object(response);
     
+    // Execute middleware if any
+    if (g_server && g_server->middleware) {
+        execute_middleware(g_server, req_obj, res_obj, value_create_null());
+    }
+    
     // Call the route handler if it exists
     if (route->handler.type == VALUE_FUNCTION && g_interpreter) {
         // Execute the Myco route handler function
@@ -606,17 +691,30 @@ enum MHD_Result server_handle_request(void* cls, struct MHD_Connection* connecti
 // Create a new server
 Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "server.create() requires exactly 1 argument (port)", line, column);
+        interpreter_set_error(interpreter, "server.create() requires exactly 1 argument (port or config)", line, column);
         return value_create_null();
     }
     
-    Value port_val = args[0];
-    if (port_val.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "server.create() port must be a number", line, column);
+    Value arg = args[0];
+    ServerConfig* config = NULL;
+    int port = 8080; // Default port
+    
+    // Check if argument is a config object/map or just a port number
+    if (arg.type == VALUE_OBJECT || arg.type == VALUE_HASH_MAP) {
+        // Parse config object
+        config = parse_server_config(arg);
+        if (!config) {
+            interpreter_set_error(interpreter, "Invalid config object", line, column);
+            return value_create_null();
+        }
+        port = config->port;
+    } else if (arg.type == VALUE_NUMBER) {
+        // Just a port number
+        port = (int)arg.data.number_value;
+    } else {
+        interpreter_set_error(interpreter, "server.create() requires a port number or config object", line, column);
         return value_create_null();
     }
-    
-    int port = (int)port_val.data.number_value;
     
     // Free existing server if any
     if (g_server) {
@@ -624,9 +722,15 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
     }
     
     // Create new server
-    g_server = server_create(port, interpreter);
+    if (config) {
+        g_server = server_create_with_config(config, interpreter);
+    } else {
+        g_server = server_create(port, interpreter);
+    }
+    
     if (!g_server) {
         interpreter_set_error(interpreter, "Failed to create server", line, column);
+        if (config) free_server_config(config);
         return value_create_null();
     }
     
@@ -634,7 +738,7 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
     g_interpreter = interpreter;
     
     // Create server object for Myco
-    Value server_obj = value_create_object(6);
+    Value server_obj = value_create_object(15);
     value_object_set(&server_obj, "port", value_create_number(port));
     value_object_set(&server_obj, "running", value_create_boolean(false));
     value_object_set(&server_obj, "__class_name__", value_create_string("Server"));
@@ -642,6 +746,14 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
     // Add methods to the server object
     value_object_set(&server_obj, "listen", value_create_builtin_function(builtin_server_listen));
     value_object_set(&server_obj, "stop", value_create_builtin_function(builtin_server_stop));
+    value_object_set(&server_obj, "use", value_create_builtin_function(builtin_server_use));
+    value_object_set(&server_obj, "group", value_create_builtin_function(builtin_server_group));
+    value_object_set(&server_obj, "close", value_create_builtin_function(builtin_server_close));
+    value_object_set(&server_obj, "get", value_create_builtin_function(builtin_server_get));
+    value_object_set(&server_obj, "post", value_create_builtin_function(builtin_server_post));
+    value_object_set(&server_obj, "put", value_create_builtin_function(builtin_server_put));
+    value_object_set(&server_obj, "delete", value_create_builtin_function(builtin_server_delete));
+    value_object_set(&server_obj, "static", value_create_builtin_function(builtin_server_static));
     
     return server_obj;
 }
@@ -716,13 +828,14 @@ Value builtin_server_stop(Interpreter* interpreter, Value* args, size_t arg_coun
 
 // Register a GET route
 Value builtin_server_get(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
-    if (arg_count != 2) {
+    if (arg_count != 2 && arg_count != 3) {
         interpreter_set_error(interpreter, "server.get() requires exactly 2 arguments (path, handler)", line, column);
         return value_create_null();
     }
     
-    Value path_val = args[0];
-    Value handler_val = args[1];
+    // Handle both server library calls (2 args) and server object calls (3 args)
+    Value path_val = (arg_count == 3) ? args[1] : args[0];
+    Value handler_val = (arg_count == 3) ? args[2] : args[1];
     
     if (path_val.type != VALUE_STRING) {
         interpreter_set_error(interpreter, "server.get() path must be a string", line, column);
@@ -745,13 +858,14 @@ Value builtin_server_get(Interpreter* interpreter, Value* args, size_t arg_count
 
 // Register a POST route
 Value builtin_server_post(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
-    if (arg_count != 2) {
+    if (arg_count != 2 && arg_count != 3) {
         interpreter_set_error(interpreter, "server.post() requires exactly 2 arguments (path, handler)", line, column);
         return value_create_null();
     }
     
-    Value path_val = args[0];
-    Value handler_val = args[1];
+    // Handle both server library calls (2 args) and server object calls (3 args)
+    Value path_val = (arg_count == 3) ? args[1] : args[0];
+    Value handler_val = (arg_count == 3) ? args[2] : args[1];
     
     if (path_val.type != VALUE_STRING) {
         interpreter_set_error(interpreter, "server.post() path must be a string", line, column);
@@ -774,13 +888,14 @@ Value builtin_server_post(Interpreter* interpreter, Value* args, size_t arg_coun
 
 // Register a PUT route
 Value builtin_server_put(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
-    if (arg_count != 2) {
+    if (arg_count != 2 && arg_count != 3) {
         interpreter_set_error(interpreter, "server.put() requires exactly 2 arguments (path, handler)", line, column);
         return value_create_null();
     }
     
-    Value path_val = args[0];
-    Value handler_val = args[1];
+    // Handle both server library calls (2 args) and server object calls (3 args)
+    Value path_val = (arg_count == 3) ? args[1] : args[0];
+    Value handler_val = (arg_count == 3) ? args[2] : args[1];
     
     if (path_val.type != VALUE_STRING) {
         interpreter_set_error(interpreter, "server.put() path must be a string", line, column);
@@ -803,13 +918,14 @@ Value builtin_server_put(Interpreter* interpreter, Value* args, size_t arg_count
 
 // Register a DELETE route
 Value builtin_server_delete(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
-    if (arg_count != 2) {
+    if (arg_count != 2 && arg_count != 3) {
         interpreter_set_error(interpreter, "server.delete() requires exactly 2 arguments (path, handler)", line, column);
         return value_create_null();
     }
     
-    Value path_val = args[0];
-    Value handler_val = args[1];
+    // Handle both server library calls (2 args) and server object calls (3 args)
+    Value path_val = (arg_count == 3) ? args[1] : args[0];
+    Value handler_val = (arg_count == 3) ? args[2] : args[1];
     
     if (path_val.type != VALUE_STRING) {
         interpreter_set_error(interpreter, "server.delete() path must be a string", line, column);
@@ -832,13 +948,14 @@ Value builtin_server_delete(Interpreter* interpreter, Value* args, size_t arg_co
 
 // Register static file serving
 Value builtin_server_static(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
-    if (arg_count != 2) {
+    if (arg_count != 2 && arg_count != 3) {
         interpreter_set_error(interpreter, "server.static() requires exactly 2 arguments (url_prefix, file_path)", line, column);
         return value_create_null();
     }
     
-    Value url_prefix_val = args[0];
-    Value file_path_val = args[1];
+    // Handle both server library calls (2 args) and server object calls (3 args)
+    Value url_prefix_val = (arg_count == 3) ? args[1] : args[0];
+    Value file_path_val = (arg_count == 3) ? args[2] : args[1];
     
     if (url_prefix_val.type != VALUE_STRING) {
         interpreter_set_error(interpreter, "server.static() first argument must be a string (URL prefix)", line, column);
@@ -1097,7 +1214,7 @@ Value builtin_response_send(Interpreter* interpreter, Value* args, size_t arg_co
         value_object_set(&response_obj, "body", str_val);
     }
     
-    return value_create_null();
+    return response_obj; // Return response object for chaining
 }
 
 Value builtin_response_json(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -1127,7 +1244,7 @@ Value builtin_response_json(Interpreter* interpreter, Value* args, size_t arg_co
     }
     g_response_body = strdup(str_val.data.string_value);
     
-    return value_create_null();
+    return response_obj; // Return response object for chaining
 }
 
 Value builtin_response_status(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -1152,7 +1269,7 @@ Value builtin_response_status(Interpreter* interpreter, Value* args, size_t arg_
     // Set the status code
     value_object_set(&response_obj, "status_code", value_clone(&code_val));
     
-    return value_create_null();
+    return response_obj; // Return response object for chaining
 }
 
 Value builtin_response_header(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -1176,7 +1293,7 @@ Value builtin_response_header(Interpreter* interpreter, Value* args, size_t arg_
     }
     
     // For now, just return - TODO: implement header storage
-    return value_create_null();
+    return response_obj; // Return response object for chaining
 }
 
 Value builtin_response_send_file(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -1222,7 +1339,7 @@ Value builtin_response_send_file(Interpreter* interpreter, Value* args, size_t a
     }
     g_response_body = file_content;  // File content will be freed by libmicrohttpd
     
-    return value_create_null();
+    return response_obj; // Return response object for chaining
 }
 
 Value builtin_response_set_header(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -1250,7 +1367,7 @@ Value builtin_response_set_header(Interpreter* interpreter, Value* args, size_t 
     snprintf(header_key, sizeof(header_key), "header_%s", name_val.data.string_value);
     value_object_set(&response_obj, header_key, value_create_string(value_val.data.string_value));
     
-    return value_create_null();
+    return response_obj; // Return response object for chaining
 }
 
 // Register the server library
@@ -1258,7 +1375,8 @@ void server_library_register(Interpreter* interpreter) {
     if (!interpreter || !interpreter->global_environment) return;
     
     // Create server library object
-    Value server_lib = value_create_object(8);
+    Value server_lib = value_create_object(10);
+    value_object_set(&server_lib, "__class_name__", value_create_string("ServerLibrary"));
     value_object_set(&server_lib, "create", value_create_builtin_function(builtin_server_create));
     value_object_set(&server_lib, "listen", value_create_builtin_function(builtin_server_listen));
     value_object_set(&server_lib, "stop", value_create_builtin_function(builtin_server_stop));
@@ -1267,6 +1385,8 @@ void server_library_register(Interpreter* interpreter) {
     value_object_set(&server_lib, "put", value_create_builtin_function(builtin_server_put));
     value_object_set(&server_lib, "delete", value_create_builtin_function(builtin_server_delete));
     value_object_set(&server_lib, "static", value_create_builtin_function(builtin_server_static));
+    value_object_set(&server_lib, "now", value_create_builtin_function(builtin_server_now));
+    value_object_set(&server_lib, "sleep", value_create_builtin_function(builtin_server_sleep));
     
     // Register the library in global environment
     environment_define(interpreter->global_environment, "server", server_lib);
@@ -1449,6 +1569,68 @@ void free_response_object(MycoResponse* response) {
     free(response);
 }
 
+// Execute a Myco function from C with 3 parameters
+Value execute_myco_function_3(Interpreter* interpreter, Value function, Value* arg1, Value* arg2, Value* arg3) {
+    if (!interpreter || function.type != VALUE_FUNCTION) {
+        return value_create_null();
+    }
+    
+    // Check if this is a built-in function
+    if (function.data.function_value.body && function.data.function_value.parameters == NULL) {
+        // This is a built-in function - call it directly
+        Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = 
+            (Value (*)(Interpreter*, Value*, size_t, int, int))function.data.function_value.body;
+        
+        // Prepare arguments
+        Value args[3] = {*arg1, *arg2, *arg3};
+        return builtin_func(interpreter, args, 3, 0, 0);
+    }
+    
+    // Handle user-defined functions
+    if (function.data.function_value.body) {
+        // Save current environment
+        Environment* old_env = interpreter->current_environment;
+        
+        // Create new environment for function execution
+        Environment* func_env = environment_create(function.data.function_value.captured_environment);
+        
+        // Set up function parameters
+        if (function.data.function_value.parameter_count >= 3) {
+            // Set up the first parameter (req)
+            if (function.data.function_value.parameters[0]) {
+                environment_define(func_env, function.data.function_value.parameters[0]->data.identifier_value, *arg1);
+            }
+            // Set up the second parameter (res)
+            if (function.data.function_value.parameters[1]) {
+                environment_define(func_env, function.data.function_value.parameters[1]->data.identifier_value, *arg2);
+            }
+            // Set up the third parameter (next)
+            if (function.data.function_value.parameters[2]) {
+                environment_define(func_env, function.data.function_value.parameters[2]->data.identifier_value, *arg3);
+            }
+        }
+        
+        // Set current environment
+        interpreter->current_environment = func_env;
+        
+        // Execute function body
+        Value result = interpreter_execute(interpreter, function.data.function_value.body);
+        
+        // If the result is null and we have a return value, use that instead
+        if (result.type == VALUE_NULL && interpreter->has_return) {
+            result = interpreter->return_value;
+            interpreter->has_return = 0;
+        }
+        
+        // Restore environment
+        interpreter->current_environment = old_env;
+        
+        return result;
+    }
+    
+    return value_create_null();
+}
+
 // Execute a Myco function from C
 Value execute_myco_function(Interpreter* interpreter, Value function, Value* arg1, Value* arg2) {
     if (!interpreter || function.type != VALUE_FUNCTION) {
@@ -1503,6 +1685,426 @@ Value execute_myco_function(Interpreter* interpreter, Value function, Value* arg
         
         return result;
     }
+    
+    return value_create_null();
+}
+
+// Add middleware to server
+Value builtin_server_use(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 2) {
+        interpreter_set_error(interpreter, "app.use() requires exactly 2 arguments (server, middleware_function)", line, column);
+        return value_create_null();
+    }
+    
+    Value server_obj = args[0];
+    Value middleware_func = args[1];
+    
+    if (middleware_func.type != VALUE_FUNCTION) {
+        interpreter_set_error(interpreter, "app.use() middleware must be a function", line, column);
+        return value_create_null();
+    }
+    
+    if (!g_server) {
+        interpreter_set_error(interpreter, "No server created. Call server.create() first", line, column);
+        return value_create_null();
+    }
+    
+    // Add middleware to server
+    middleware_add(g_server, middleware_func);
+    
+    return value_create_null();
+}
+
+// Create route group
+Value builtin_server_group(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 2) {
+        interpreter_set_error(interpreter, "app.group() requires exactly 2 arguments (server, prefix)", line, column);
+        return value_create_null();
+    }
+    
+    Value server_obj = args[0];
+    Value prefix_val = args[1];
+    
+    if (prefix_val.type != VALUE_STRING) {
+        interpreter_set_error(interpreter, "app.group() prefix must be a string", line, column);
+        return value_create_null();
+    }
+    
+    // Store the prefix globally for route group functions to use
+    if (g_current_route_prefix) {
+        free(g_current_route_prefix);
+    }
+    g_current_route_prefix = strdup(prefix_val.data.string_value);
+    
+    // Create route group object with group-specific functions
+    Value group_obj = value_create_object(5);
+    value_object_set(&group_obj, "__class_name__", value_create_string("RouteGroup"));
+    value_object_set(&group_obj, "prefix", prefix_val);
+    value_object_set(&group_obj, "get", value_create_builtin_function(builtin_group_get));
+    value_object_set(&group_obj, "post", value_create_builtin_function(builtin_group_post));
+    value_object_set(&group_obj, "put", value_create_builtin_function(builtin_group_put));
+    value_object_set(&group_obj, "delete", value_create_builtin_function(builtin_group_delete));
+    
+    return group_obj;
+}
+
+// Close server
+Value builtin_server_close(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 1) {
+        interpreter_set_error(interpreter, "app.close() requires server object", line, column);
+        return value_create_null();
+    }
+    
+    Value server_obj = args[0];
+    
+    if (!g_server) {
+        interpreter_set_error(interpreter, "No server to close", line, column);
+        return value_create_null();
+    }
+    
+    // Stop the server
+    if (g_server->running && g_server->daemon) {
+        MHD_stop_daemon(g_server->daemon);
+        g_server->running = false;
+        g_server->daemon = NULL;
+    }
+    
+    // Update server object
+    value_object_set(&server_obj, "running", value_create_boolean(false));
+    
+    return value_create_null();
+}
+
+// Parse server configuration from Myco object
+ServerConfig* parse_server_config(Value config_obj) {
+    if (config_obj.type != VALUE_OBJECT && config_obj.type != VALUE_HASH_MAP) {
+        return NULL;
+    }
+    
+    ServerConfig* config = (ServerConfig*)malloc(sizeof(ServerConfig));
+    if (!config) return NULL;
+    
+    // Set defaults
+    config->port = 8080;
+    config->static_dir = NULL;
+    config->debug = false;
+    config->enable_gzip = false;
+    config->enable_cache = false;
+    
+    // Parse port
+    Value port_key = value_create_string("port");
+    Value port_val = value_hash_map_get(&config_obj, port_key);
+    if (port_val.type == VALUE_NUMBER) {
+        config->port = (int)port_val.data.number_value;
+    }
+    value_free(&port_key);
+    
+    // Parse static directory
+    Value static_dir_key = value_create_string("staticDir");
+    Value static_dir_val = value_hash_map_get(&config_obj, static_dir_key);
+    if (static_dir_val.type == VALUE_STRING) {
+        config->static_dir = strdup(static_dir_val.data.string_value);
+    }
+    value_free(&static_dir_key);
+    
+    // Parse debug flag
+    Value debug_key = value_create_string("debug");
+    Value debug_val = value_hash_map_get(&config_obj, debug_key);
+    if (debug_val.type == VALUE_BOOLEAN) {
+        config->debug = debug_val.data.boolean_value;
+    }
+    value_free(&debug_key);
+    
+    // Parse gzip flag
+    Value gzip_key = value_create_string("enableGzip");
+    Value gzip_val = value_hash_map_get(&config_obj, gzip_key);
+    if (gzip_val.type == VALUE_BOOLEAN) {
+        config->enable_gzip = gzip_val.data.boolean_value;
+    }
+    value_free(&gzip_key);
+    
+    // Parse cache flag
+    Value cache_key = value_create_string("enableCache");
+    Value cache_val = value_hash_map_get(&config_obj, cache_key);
+    if (cache_val.type == VALUE_BOOLEAN) {
+        config->enable_cache = cache_val.data.boolean_value;
+    }
+    value_free(&cache_key);
+    
+    return config;
+}
+
+// Free server configuration
+void free_server_config(ServerConfig* config) {
+    if (!config) return;
+    
+    if (config->static_dir) {
+        free(config->static_dir);
+    }
+    
+    free(config);
+}
+
+// Create server with configuration
+MycoServer* server_create_with_config(ServerConfig* config, Interpreter* interpreter) {
+    MycoServer* server = server_create(config->port, interpreter);
+    if (!server) return NULL;
+    
+    server->config = config;
+    server->middleware = NULL;
+    
+    return server;
+}
+
+// Create middleware
+Middleware* middleware_create(Value function) {
+    Middleware* middleware = (Middleware*)malloc(sizeof(Middleware));
+    if (!middleware) return NULL;
+    
+    middleware->function = function;
+    middleware->next = NULL;
+    
+    return middleware;
+}
+
+// Free middleware
+void middleware_free(Middleware* middleware) {
+    if (!middleware) return;
+    
+    value_free(&middleware->function);
+    free(middleware);
+}
+
+// Add middleware to server
+void middleware_add(MycoServer* server, Value function) {
+    if (!server) return;
+    
+    Middleware* new_middleware = middleware_create(function);
+    if (!new_middleware) return;
+    
+    // Add to the end of the middleware chain
+    if (!server->middleware) {
+        server->middleware = new_middleware;
+    } else {
+        Middleware* current = server->middleware;
+        while (current->next) {
+            current = current->next;
+        }
+        current->next = new_middleware;
+    }
+}
+
+// Next function for middleware
+Value builtin_next_function(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    // This function is called when middleware calls next()
+    // For now, it just returns null - the middleware chain execution
+    // will be handled by the execute_middleware function
+    return value_create_null();
+}
+
+// Execute middleware chain
+void execute_middleware(MycoServer* server, Value req_obj, Value res_obj, Value next_func) {
+    if (!server || !server->middleware) return;
+    
+    // For now, just execute the first middleware
+    // TODO: Implement proper middleware chain execution with next() function
+    Middleware* current = server->middleware;
+    if (current && current->function.type == VALUE_FUNCTION) {
+        // Create next function for middleware
+        Value next_func_obj = value_create_builtin_function(builtin_next_function);
+        
+        // Execute middleware with req, res, and next parameters
+        execute_myco_function_3(g_interpreter, current->function, &req_obj, &res_obj, &next_func_obj);
+        
+        value_free(&next_func_obj);
+    }
+}
+
+// Route group functions that apply the prefix to routes
+Value builtin_group_get(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 3) {
+        interpreter_set_error(interpreter, "group.get() requires exactly 2 arguments (path, handler)", line, column);
+        return value_create_null();
+    }
+    
+    Value group_obj = args[0];  // Group object (ignored)
+    Value path_val = args[1];   // Path
+    Value handler = args[2];    // Handler
+    
+    if (path_val.type != VALUE_STRING) {
+        interpreter_set_error(interpreter, "group.get() path must be a string", line, column);
+        return value_create_null();
+    }
+    
+    if (handler.type != VALUE_FUNCTION) {
+        interpreter_set_error(interpreter, "group.get() handler must be a function", line, column);
+        return value_create_null();
+    }
+    
+    // Combine prefix with path
+    char* full_path = malloc(strlen(g_current_route_prefix) + strlen(path_val.data.string_value) + 1);
+    strcpy(full_path, g_current_route_prefix);
+    strcat(full_path, path_val.data.string_value);
+    
+    // Create route with the full path
+    Route* route = route_create("GET", full_path, handler);
+    if (!route) {
+        free(full_path);
+        interpreter_set_error(interpreter, "Failed to create route", line, column);
+        return value_create_null();
+    }
+    
+    // Add route to global routes
+    route_add(route);
+    free(full_path);
+    
+    return value_create_null();
+}
+
+Value builtin_group_post(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 3) {
+        interpreter_set_error(interpreter, "group.post() requires exactly 2 arguments (path, handler)", line, column);
+        return value_create_null();
+    }
+    
+    Value group_obj = args[0];  // Group object (ignored)
+    Value path_val = args[1];   // Path
+    Value handler = args[2];    // Handler
+    
+    if (path_val.type != VALUE_STRING) {
+        interpreter_set_error(interpreter, "group.post() path must be a string", line, column);
+        return value_create_null();
+    }
+    
+    if (handler.type != VALUE_FUNCTION) {
+        interpreter_set_error(interpreter, "group.post() handler must be a function", line, column);
+        return value_create_null();
+    }
+    
+    // Combine prefix with path
+    char* full_path = malloc(strlen(g_current_route_prefix) + strlen(path_val.data.string_value) + 1);
+    strcpy(full_path, g_current_route_prefix);
+    strcat(full_path, path_val.data.string_value);
+    
+    // Create route with the full path
+    Route* route = route_create("POST", full_path, handler);
+    if (!route) {
+        free(full_path);
+        interpreter_set_error(interpreter, "Failed to create route", line, column);
+        return value_create_null();
+    }
+    
+    // Add route to global routes
+    route_add(route);
+    free(full_path);
+    
+    return value_create_null();
+}
+
+Value builtin_group_put(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 3) {
+        interpreter_set_error(interpreter, "group.put() requires exactly 2 arguments (path, handler)", line, column);
+        return value_create_null();
+    }
+    
+    Value group_obj = args[0];  // Group object (ignored)
+    Value path_val = args[1];   // Path
+    Value handler = args[2];    // Handler
+    
+    if (path_val.type != VALUE_STRING) {
+        interpreter_set_error(interpreter, "group.put() path must be a string", line, column);
+        return value_create_null();
+    }
+    
+    if (handler.type != VALUE_FUNCTION) {
+        interpreter_set_error(interpreter, "group.put() handler must be a function", line, column);
+        return value_create_null();
+    }
+    
+    // Combine prefix with path
+    char* full_path = malloc(strlen(g_current_route_prefix) + strlen(path_val.data.string_value) + 1);
+    strcpy(full_path, g_current_route_prefix);
+    strcat(full_path, path_val.data.string_value);
+    
+    // Create route with the full path
+    Route* route = route_create("PUT", full_path, handler);
+    if (!route) {
+        free(full_path);
+        interpreter_set_error(interpreter, "Failed to create route", line, column);
+        return value_create_null();
+    }
+    
+    // Add route to global routes
+    route_add(route);
+    free(full_path);
+    
+    return value_create_null();
+}
+
+Value builtin_group_delete(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 3) {
+        interpreter_set_error(interpreter, "group.delete() requires exactly 2 arguments (path, handler)", line, column);
+        return value_create_null();
+    }
+    
+    Value group_obj = args[0];  // Group object (ignored)
+    Value path_val = args[1];   // Path
+    Value handler = args[2];    // Handler
+    
+    if (path_val.type != VALUE_STRING) {
+        interpreter_set_error(interpreter, "group.delete() path must be a string", line, column);
+        return value_create_null();
+    }
+    
+    if (handler.type != VALUE_FUNCTION) {
+        interpreter_set_error(interpreter, "group.delete() handler must be a function", line, column);
+        return value_create_null();
+    }
+    
+    // Combine prefix with path
+    char* full_path = malloc(strlen(g_current_route_prefix) + strlen(path_val.data.string_value) + 1);
+    strcpy(full_path, g_current_route_prefix);
+    strcat(full_path, path_val.data.string_value);
+    
+    // Create route with the full path
+    Route* route = route_create("DELETE", full_path, handler);
+    if (!route) {
+        free(full_path);
+        interpreter_set_error(interpreter, "Failed to create route", line, column);
+        return value_create_null();
+    }
+    
+    // Add route to global routes
+    route_add(route);
+    free(full_path);
+    
+    return value_create_null();
+}
+
+// Async server functions
+Value builtin_server_now(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    // For now, return current time as a simple number
+    // In a real implementation, this would be async
+    time_t current_time = time(NULL);
+    return value_create_number((double)current_time);
+}
+
+Value builtin_server_sleep(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 1) {
+        interpreter_set_error(interpreter, "server.sleep() requires exactly 1 argument (seconds)", line, column);
+        return value_create_null();
+    }
+    
+    Value seconds_val = args[0];
+    if (seconds_val.type != VALUE_NUMBER) {
+        interpreter_set_error(interpreter, "server.sleep() seconds must be a number", line, column);
+        return value_create_null();
+    }
+    
+    // For now, use blocking sleep
+    // In a real implementation, this would be async
+    int seconds = (int)seconds_val.data.number_value;
+    sleep(seconds);
     
     return value_create_null();
 }

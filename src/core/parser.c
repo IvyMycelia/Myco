@@ -1020,7 +1020,7 @@ ASTNode* parser_parse_primary(Parser* parser) {
             if (parser_check(parser, TOKEN_DOT)) {
                 return parser_parse_member_access_chain(parser, literal);
             } else {
-                return literal;
+            return literal;
             }
         }
     }
@@ -1107,7 +1107,7 @@ ASTNode* parser_parse_primary(Parser* parser) {
                 }
             } else {
                 // No member access, just return the literal
-                return literal;
+            return literal;
             }
         }
     }
@@ -1125,7 +1125,7 @@ ASTNode* parser_parse_primary(Parser* parser) {
             if (parser_check(parser, TOKEN_DOT)) {
                 return parser_parse_member_access_chain(parser, literal);
             } else {
-                return literal;
+            return literal;
             }
         }
     }
@@ -1142,7 +1142,7 @@ ASTNode* parser_parse_primary(Parser* parser) {
             if (parser_check(parser, TOKEN_DOT)) {
                 return parser_parse_member_access_chain(parser, literal);
             } else {
-                return literal;
+            return literal;
             }
         }
     }
@@ -1848,12 +1848,7 @@ ASTNode* parser_parse_while_loop(Parser* parser) {
     if (!parser) {
         return NULL;
     }
-    // Expect 'while'
-    if (!(parser_check(parser, TOKEN_KEYWORD) && parser->current_token && parser->current_token->text && strcmp(parser->current_token->text, "while") == 0)) {
-        parser_error(parser, "Expected 'while'");
-        return NULL;
-    }
-    parser_advance(parser); // consume 'while'
+    // 'while' token has already been consumed by the statement parser
 
     // Parse condition
     ASTNode* condition = parser_parse_expression(parser);

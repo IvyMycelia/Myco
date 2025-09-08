@@ -17,6 +17,7 @@
 #include "libs/heaps.h"
 #include "libs/queues.h"
 #include "libs/stacks.h"
+#include "libs/server/server.h"
 
 // Placeholder interpreter implementation
 // This will be replaced with the full implementation
@@ -797,6 +798,124 @@ Value handle_queue_method_call(Interpreter* interpreter, ASTNode* call_node, con
     return result;
 }
 
+// Helper function to handle server method calls
+Value handle_server_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object) {
+    size_t arg_count = call_node->data.function_call_expr.argument_count;
+    Value* args = (Value*)calloc(arg_count + 1, sizeof(Value));
+    if (!args) {
+        interpreter_set_error(interpreter, "Out of memory", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // First argument is the server object itself
+    args[0] = value_clone(&object);
+    
+    // Evaluate the remaining arguments
+    for (size_t i = 0; i < arg_count; i++) {
+        args[i + 1] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+    }
+    
+    Value result = value_create_null();
+    
+    if (strcmp(method_name, "listen") == 0) {
+        result = builtin_server_listen(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "stop") == 0) {
+        result = builtin_server_stop(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else {
+        interpreter_set_error(interpreter, "Unknown server method", call_node->line, call_node->column);
+    }
+    
+    // Clean up arguments
+    for (size_t i = 0; i < arg_count + 1; i++) {
+        value_free(&args[i]);
+    }
+    free(args);
+    
+    return result;
+}
+
+// Helper function to handle request method calls
+Value handle_request_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object) {
+    size_t arg_count = call_node->data.function_call_expr.argument_count;
+    Value* args = (Value*)calloc(arg_count + 1, sizeof(Value));
+    if (!args) {
+        interpreter_set_error(interpreter, "Out of memory", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // First argument is the request object itself
+    args[0] = value_clone(&object);
+    
+    // Evaluate the remaining arguments
+    for (size_t i = 0; i < arg_count; i++) {
+        args[i + 1] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+    }
+    
+    Value result = value_create_null();
+    
+    if (strcmp(method_name, "method") == 0) {
+        result = builtin_request_method(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "url") == 0) {
+        result = builtin_request_url(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "path") == 0) {
+        result = builtin_request_path(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "body") == 0) {
+        result = builtin_request_body(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "header") == 0) {
+        result = builtin_request_header(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else {
+        interpreter_set_error(interpreter, "Unknown request method", call_node->line, call_node->column);
+    }
+    
+    // Clean up arguments
+    for (size_t i = 0; i < arg_count + 1; i++) {
+        value_free(&args[i]);
+    }
+    free(args);
+    
+    return result;
+}
+
+// Helper function to handle response method calls
+Value handle_response_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object) {
+    size_t arg_count = call_node->data.function_call_expr.argument_count;
+    Value* args = (Value*)calloc(arg_count + 1, sizeof(Value));
+    if (!args) {
+        interpreter_set_error(interpreter, "Out of memory", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // First argument is the response object itself
+    args[0] = value_clone(&object);
+    
+    // Evaluate the remaining arguments
+    for (size_t i = 0; i < arg_count; i++) {
+        args[i + 1] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+    }
+    
+    Value result = value_create_null();
+    
+    if (strcmp(method_name, "send") == 0) {
+        result = builtin_response_send(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "json") == 0) {
+        result = builtin_response_json(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "status") == 0) {
+        result = builtin_response_status(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "header") == 0) {
+        result = builtin_response_header(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else {
+        interpreter_set_error(interpreter, "Unknown response method", call_node->line, call_node->column);
+    }
+    
+    // Clean up arguments
+    for (size_t i = 0; i < arg_count + 1; i++) {
+        value_free(&args[i]);
+    }
+    free(args);
+    
+    return result;
+}
+
 Value handle_stack_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object) {
     // Pass the object directly to the builtin functions
     
@@ -1509,6 +1628,18 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                 // Handle stack method calls
                 value_free(&class_name);
                 return handle_stack_method_call(interpreter, call_node, method_name, object);
+            } else if (strcmp(class_name.data.string_value, "Server") == 0) {
+                // Handle server method calls
+                value_free(&class_name);
+                return handle_server_method_call(interpreter, call_node, method_name, object);
+            } else if (strcmp(class_name.data.string_value, "Request") == 0) {
+                // Handle request method calls
+                value_free(&class_name);
+                return handle_request_method_call(interpreter, call_node, method_name, object);
+            } else if (strcmp(class_name.data.string_value, "Response") == 0) {
+                // Handle response method calls
+                value_free(&class_name);
+                return handle_response_method_call(interpreter, call_node, method_name, object);
             }
         }
         value_free(&class_name);

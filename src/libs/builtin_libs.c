@@ -51,4 +51,7 @@ void register_all_builtin_libraries(Interpreter* interpreter) {
 
     // Register http library
     http_library_register(interpreter);
+    
+    // Register server library
+    server_library_register(interpreter);
 }

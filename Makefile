@@ -96,7 +96,7 @@ MAIN_EXECUTABLE = $(BIN_DIR)/myco
 TEST_EXECUTABLE = $(BIN_DIR)/myco_test
 
 # Libraries
-LIBS = -lm -lcurl
+LIBS = -lm -lcurl -L/opt/homebrew/opt/libmicrohttpd/lib -lmicrohttpd
 
 # Default target
 .PHONY: all
@@ -129,7 +129,7 @@ $(MAIN_EXECUTABLE): $(OBJ_FILES) | $(BIN_DIR)
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c $(HEADER_FILES) | $(BUILD_DIR)
 	@echo "Compiling $<..."
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -I$(INCLUDE_DIR) -I$(INCLUDE_DIR)/core -I$(INCLUDE_DIR)/compilation -I$(INCLUDE_DIR)/runtime -I$(INCLUDE_DIR)/cli -I$(INCLUDE_DIR)/utils -c $< -o $@
+	$(CC) $(CFLAGS) -I$(INCLUDE_DIR) -I$(INCLUDE_DIR)/core -I$(INCLUDE_DIR)/compilation -I$(INCLUDE_DIR)/runtime -I$(INCLUDE_DIR)/cli -I$(INCLUDE_DIR)/utils -I/opt/homebrew/opt/libmicrohttpd/include -c $< -o $@
 
 # Test executable
 .PHONY: test

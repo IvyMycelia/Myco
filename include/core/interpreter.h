@@ -248,6 +248,11 @@ Value handle_server_method_call(Interpreter* interpreter, ASTNode* call_node, co
 Value handle_request_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 Value handle_response_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 
+// Request body parsing function declarations
+Value builtin_request_json(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_request_form(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_request_query(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+
 // Execution functions
 Value interpreter_execute(Interpreter* interpreter, ASTNode* node);
 Value interpreter_execute_program(Interpreter* interpreter, ASTNode* node);

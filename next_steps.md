@@ -21,6 +21,7 @@
 [x] **Regular Expressions**: Pattern matching and text processing
 [x] **JSON/XML Parsing**: Data serialization and deserialization
 [x] **Network Programming**: HTTP client/server, socket programming
+[ ] **Web Development**: WebSocket support, WebAssembly support
 
 ### 3. **Advanced Language Features**
 

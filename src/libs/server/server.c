@@ -3,6 +3,7 @@
 // Global server instance (for simplicity, we'll support one server at a time)
 static MycoServer* g_server = NULL;
 static Route* g_routes = NULL;
+static StaticRoute* g_static_routes = NULL;
 static Interpreter* g_interpreter = NULL; // Store interpreter reference for route handlers
 
 // Global response body storage
@@ -251,11 +252,262 @@ void free_path_segments(char** segments) {
     free(segments);
 }
 
+// Static file serving functions
+StaticRoute* static_route_create(const char* url_prefix, const char* file_path) {
+    StaticRoute* route = (StaticRoute*)malloc(sizeof(StaticRoute));
+    if (!route) return NULL;
+    
+    route->url_prefix = strdup(url_prefix);
+    route->file_path = strdup(file_path);
+    route->next = NULL;
+    
+    return route;
+}
+
+void static_route_free(StaticRoute* route) {
+    if (!route) return;
+    
+    free(route->url_prefix);
+    free(route->file_path);
+    free(route);
+}
+
+void static_route_add(StaticRoute* route) {
+    if (!route) return;
+    
+    if (!g_static_routes) {
+        g_static_routes = route;
+    } else {
+        StaticRoute* current = g_static_routes;
+        while (current->next) {
+            current = current->next;
+        }
+        current->next = route;
+    }
+}
+
+StaticRoute* static_route_match(const char* url) {
+    StaticRoute* current = g_static_routes;
+    while (current) {
+        size_t prefix_len = strlen(current->url_prefix);
+        // Check for exact prefix match (not just starts with)
+        if (strncmp(url, current->url_prefix, prefix_len) == 0) {
+            // Make sure it's either exactly the prefix or followed by a slash
+            if (url[prefix_len] == '\0' || url[prefix_len] == '/') {
+                return current;
+            }
+        }
+        current = current->next;
+    }
+    return NULL;
+}
+
+// Get MIME type based on file extension
+char* get_mime_type(const char* filename) {
+    if (!filename) return "application/octet-stream";
+    
+    const char* ext = strrchr(filename, '.');
+    if (!ext) return "application/octet-stream";
+    
+    ext++; // Skip the dot
+    
+    if (strcmp(ext, "html") == 0 || strcmp(ext, "htm") == 0) return "text/html";
+    if (strcmp(ext, "css") == 0) return "text/css";
+    if (strcmp(ext, "js") == 0) return "application/javascript";
+    if (strcmp(ext, "json") == 0) return "application/json";
+    if (strcmp(ext, "png") == 0) return "image/png";
+    if (strcmp(ext, "jpg") == 0 || strcmp(ext, "jpeg") == 0) return "image/jpeg";
+    if (strcmp(ext, "gif") == 0) return "image/gif";
+    if (strcmp(ext, "svg") == 0) return "image/svg+xml";
+    if (strcmp(ext, "ico") == 0) return "image/x-icon";
+    if (strcmp(ext, "txt") == 0) return "text/plain";
+    if (strcmp(ext, "xml") == 0) return "application/xml";
+    if (strcmp(ext, "pdf") == 0) return "application/pdf";
+    
+    return "application/octet-stream";
+}
+
+// Check if file exists
+bool file_exists(const char* path) {
+    if (!path) return false;
+    
+    FILE* file = fopen(path, "r");
+    if (file) {
+        fclose(file);
+        return true;
+    }
+    return false;
+}
+
+// Read file content
+char* read_file_content(const char* path, size_t* size) {
+    if (!path || !size) return NULL;
+    
+    FILE* file = fopen(path, "rb");
+    if (!file) return NULL;
+    
+    // Get file size
+    fseek(file, 0, SEEK_END);
+    *size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+    
+    // Allocate buffer
+    char* content = (char*)malloc(*size + 1);
+    if (!content) {
+        fclose(file);
+        return NULL;
+    }
+    
+    // Read content
+    size_t bytes_read = fread(content, 1, *size, file);
+    fclose(file);
+    
+    if (bytes_read != *size) {
+        free(content);
+        return NULL;
+    }
+    
+    content[*size] = '\0';
+    return content;
+}
+
+// Request body parsing functions
+Value parse_json_body(const char* body) {
+    if (!body || strlen(body) == 0) {
+        return value_create_null();
+    }
+    
+    // For now, return a simple object representation
+    // TODO: Implement proper JSON parsing
+    Value obj = value_create_object(4);
+    value_object_set(&obj, "__class_name__", value_create_string("JSON"));
+    value_object_set(&obj, "raw", value_create_string(body));
+    
+    return obj;
+}
+
+Value parse_form_body(const char* body) {
+    if (!body || strlen(body) == 0) {
+        return value_create_null();
+    }
+    
+    // Parse form data (key=value&key2=value2)
+    Value obj = value_create_object(4);
+    value_object_set(&obj, "__class_name__", value_create_string("FormData"));
+    
+    char* body_copy = strdup(body);
+    char* token = strtok(body_copy, "&");
+    
+    while (token) {
+        char* equal_pos = strchr(token, '=');
+        if (equal_pos) {
+            *equal_pos = '\0';
+            char* key = url_decode(token);
+            char* value = url_decode(equal_pos + 1);
+            
+            value_object_set(&obj, key, value_create_string(value));
+            
+            free(key);
+            free(value);
+        }
+        token = strtok(NULL, "&");
+    }
+    
+    free(body_copy);
+    return obj;
+}
+
+Value parse_query_string(const char* query_string) {
+    if (!query_string || strlen(query_string) == 0) {
+        return value_create_null();
+    }
+    
+    // Parse query string (?key=value&key2=value2)
+    Value obj = value_create_object(4);
+    value_object_set(&obj, "__class_name__", value_create_string("QueryParams"));
+    
+    char* query_copy = strdup(query_string);
+    char* token = strtok(query_copy, "&");
+    
+    while (token) {
+        char* equal_pos = strchr(token, '=');
+        if (equal_pos) {
+            *equal_pos = '\0';
+            char* key = url_decode(token);
+            char* value = url_decode(equal_pos + 1);
+            
+            value_object_set(&obj, key, value_create_string(value));
+            
+            free(key);
+            free(value);
+        }
+        token = strtok(NULL, "&");
+    }
+    
+    free(query_copy);
+    return obj;
+}
+
+char* url_decode(const char* str) {
+    if (!str) return NULL;
+    
+    size_t len = strlen(str);
+    char* decoded = (char*)malloc(len + 1);
+    if (!decoded) return NULL;
+    
+    size_t j = 0;
+    for (size_t i = 0; i < len; i++) {
+        if (str[i] == '%' && i + 2 < len) {
+            char hex[3] = {str[i+1], str[i+2], '\0'};
+            int value = (int)strtol(hex, NULL, 16);
+            decoded[j++] = (char)value;
+            i += 2;
+        } else if (str[i] == '+') {
+            decoded[j++] = ' ';
+        } else {
+            decoded[j++] = str[i];
+        }
+    }
+    decoded[j] = '\0';
+    
+    return decoded;
+}
+
 // HTTP request handler for libmicrohttpd
 enum MHD_Result server_handle_request(void* cls, struct MHD_Connection* connection, 
                                      const char* url, const char* method, const char* version,
                                      const char* upload_data, size_t* upload_data_size, 
                                      void** con_cls) {
+    
+    // Check for static file serving first (only for GET requests)
+    if (strcmp(method, "GET") == 0) {
+        StaticRoute* static_route = static_route_match(url);
+        if (static_route) {
+            // Build the full file path
+            char file_path[1024];
+            snprintf(file_path, sizeof(file_path), "%s%s", static_route->file_path, url + strlen(static_route->url_prefix));
+            
+            // Check if file exists
+            if (file_exists(file_path)) {
+                size_t file_size;
+                char* file_content = read_file_content(file_path, &file_size);
+                if (file_content) {
+                    // Get MIME type
+                    char* mime_type = get_mime_type(file_path);
+                    
+                    // Create response with proper MIME type
+                    struct MHD_Response* mhd_response = MHD_create_response_from_buffer(
+                        file_size, (void*)file_content, MHD_RESPMEM_MUST_FREE);
+                    
+                    MHD_add_response_header(mhd_response, "Content-Type", mime_type);
+                    
+                    enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_OK, mhd_response);
+                    MHD_destroy_response(mhd_response);
+                    return ret;
+                }
+            }
+        }
+    }
     
     // Find matching route
     Route* route = route_match(g_routes, method, url);
@@ -285,6 +537,9 @@ enum MHD_Result server_handle_request(void* cls, struct MHD_Connection* connecti
         MHD_destroy_response(mhd_response);
         return ret;
     }
+    
+    // For now, skip query string parsing - it's complex with libmicrohttpd
+    // TODO: Implement proper query string extraction
     
     // Create HTTP response
     MycoResponse* response = create_http_response();
@@ -575,6 +830,35 @@ Value builtin_server_delete(Interpreter* interpreter, Value* args, size_t arg_co
     return value_create_null();
 }
 
+// Register static file serving
+Value builtin_server_static(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 2) {
+        interpreter_set_error(interpreter, "server.static() requires exactly 2 arguments (url_prefix, file_path)", line, column);
+        return value_create_null();
+    }
+    
+    Value url_prefix_val = args[0];
+    Value file_path_val = args[1];
+    
+    if (url_prefix_val.type != VALUE_STRING) {
+        interpreter_set_error(interpreter, "server.static() first argument must be a string (URL prefix)", line, column);
+        return value_create_null();
+    }
+    
+    if (file_path_val.type != VALUE_STRING) {
+        interpreter_set_error(interpreter, "server.static() second argument must be a string (file path)", line, column);
+        return value_create_null();
+    }
+    
+    // Create and add static route
+    StaticRoute* static_route = static_route_create(url_prefix_val.data.string_value, file_path_val.data.string_value);
+    if (static_route) {
+        static_route_add(static_route);
+    }
+    
+    return value_create_null();
+}
+
 // Request method implementations
 Value builtin_request_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
@@ -704,6 +988,72 @@ Value builtin_request_param(Interpreter* interpreter, Value* args, size_t arg_co
     return value_create_null();
 }
 
+Value builtin_request_json(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 1) {
+        interpreter_set_error(interpreter, "request.json() takes no arguments", line, column);
+        return value_create_null();
+    }
+    
+    Value request_obj = args[0];
+    
+    if (request_obj.type != VALUE_OBJECT) {
+        interpreter_set_error(interpreter, "request.json() first argument must be a request object", line, column);
+        return value_create_null();
+    }
+    
+    // Get the request body from the request object
+    Value body_val = value_object_get(&request_obj, "body");
+    if (body_val.type == VALUE_STRING) {
+        return parse_json_body(body_val.data.string_value);
+    }
+    
+    return value_create_null();
+}
+
+Value builtin_request_form(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 1) {
+        interpreter_set_error(interpreter, "request.form() takes no arguments", line, column);
+        return value_create_null();
+    }
+    
+    Value request_obj = args[0];
+    
+    if (request_obj.type != VALUE_OBJECT) {
+        interpreter_set_error(interpreter, "request.form() first argument must be a request object", line, column);
+        return value_create_null();
+    }
+    
+    // Get the request body from the request object
+    Value body_val = value_object_get(&request_obj, "body");
+    if (body_val.type == VALUE_STRING) {
+        return parse_form_body(body_val.data.string_value);
+    }
+    
+    return value_create_null();
+}
+
+Value builtin_request_query(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 1) {
+        interpreter_set_error(interpreter, "request.query() takes no arguments", line, column);
+        return value_create_null();
+    }
+    
+    Value request_obj = args[0];
+    
+    if (request_obj.type != VALUE_OBJECT) {
+        interpreter_set_error(interpreter, "request.query() first argument must be a request object", line, column);
+        return value_create_null();
+    }
+    
+    // Get the query string from the request object
+    Value query_val = value_object_get(&request_obj, "query_string");
+    if (query_val.type == VALUE_STRING) {
+        return parse_query_string(query_val.data.string_value);
+    }
+    
+    return value_create_null();
+}
+
 // Response method implementations
 Value builtin_response_send(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
@@ -771,6 +1121,12 @@ Value builtin_response_json(Interpreter* interpreter, Value* args, size_t arg_co
     Value str_val = value_to_string(&data_val);
     value_object_set(&response_obj, "body", str_val);
     
+    // Also set the global response body for the final response
+    if (g_response_body) {
+        free(g_response_body);
+    }
+    g_response_body = strdup(str_val.data.string_value);
+    
     return value_create_null();
 }
 
@@ -823,6 +1179,80 @@ Value builtin_response_header(Interpreter* interpreter, Value* args, size_t arg_
     return value_create_null();
 }
 
+Value builtin_response_send_file(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 2) {
+        interpreter_set_error(interpreter, "response.sendFile() requires exactly 2 arguments (response, file_path)", line, column);
+        return value_create_null();
+    }
+    
+    Value response_obj = args[0];
+    Value file_path_val = args[1];
+    
+    if (response_obj.type != VALUE_OBJECT) {
+        interpreter_set_error(interpreter, "response.sendFile() first argument must be a response object", line, column);
+        return value_create_null();
+    }
+    
+    if (file_path_val.type != VALUE_STRING) {
+        interpreter_set_error(interpreter, "response.sendFile() second argument must be a string (file path)", line, column);
+        return value_create_null();
+    }
+    
+    // Check if file exists
+    if (!file_exists(file_path_val.data.string_value)) {
+        interpreter_set_error(interpreter, "File not found", line, column);
+        return value_create_null();
+    }
+    
+    // Read file content
+    size_t file_size;
+    char* file_content = read_file_content(file_path_val.data.string_value, &file_size);
+    if (!file_content) {
+        interpreter_set_error(interpreter, "Failed to read file", line, column);
+        return value_create_null();
+    }
+    
+    // Set content type based on file extension
+    char* mime_type = get_mime_type(file_path_val.data.string_value);
+    value_object_set(&response_obj, "content_type", value_create_string(mime_type));
+    
+    // Set the file content as response body
+    if (g_response_body) {
+        free(g_response_body);
+    }
+    g_response_body = file_content;  // File content will be freed by libmicrohttpd
+    
+    return value_create_null();
+}
+
+Value builtin_response_set_header(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 3) {
+        interpreter_set_error(interpreter, "response.setHeader() requires exactly 3 arguments (response, name, value)", line, column);
+        return value_create_null();
+    }
+    
+    Value response_obj = args[0];
+    Value name_val = args[1];
+    Value value_val = args[2];
+    
+    if (response_obj.type != VALUE_OBJECT) {
+        interpreter_set_error(interpreter, "response.setHeader() first argument must be a response object", line, column);
+        return value_create_null();
+    }
+    
+    if (name_val.type != VALUE_STRING || value_val.type != VALUE_STRING) {
+        interpreter_set_error(interpreter, "response.setHeader() name and value must be strings", line, column);
+        return value_create_null();
+    }
+    
+    // Store header in response object (for now, just store as properties)
+    char header_key[256];
+    snprintf(header_key, sizeof(header_key), "header_%s", name_val.data.string_value);
+    value_object_set(&response_obj, header_key, value_create_string(value_val.data.string_value));
+    
+    return value_create_null();
+}
+
 // Register the server library
 void server_library_register(Interpreter* interpreter) {
     if (!interpreter || !interpreter->global_environment) return;
@@ -836,6 +1266,7 @@ void server_library_register(Interpreter* interpreter) {
     value_object_set(&server_lib, "post", value_create_builtin_function(builtin_server_post));
     value_object_set(&server_lib, "put", value_create_builtin_function(builtin_server_put));
     value_object_set(&server_lib, "delete", value_create_builtin_function(builtin_server_delete));
+    value_object_set(&server_lib, "static", value_create_builtin_function(builtin_server_static));
     
     // Register the library in global environment
     environment_define(interpreter->global_environment, "server", server_lib);
@@ -867,6 +1298,12 @@ Value create_request_object(MycoRequest* request) {
         value_object_set(&req_obj, "path", value_create_string(""));
     }
     
+    if (request->query_string) {
+        value_object_set(&req_obj, "query_string", value_create_string(request->query_string));
+    } else {
+        value_object_set(&req_obj, "query_string", value_create_string(""));
+    }
+    
     if (request->body) {
         value_object_set(&req_obj, "body", value_create_string(request->body));
     } else {
@@ -876,6 +1313,9 @@ Value create_request_object(MycoRequest* request) {
     // Add request methods
     value_object_set(&req_obj, "header", value_create_builtin_function(builtin_request_header));
     value_object_set(&req_obj, "param", value_create_builtin_function(builtin_request_param));
+    value_object_set(&req_obj, "json", value_create_builtin_function(builtin_request_json));
+    value_object_set(&req_obj, "form", value_create_builtin_function(builtin_request_form));
+    value_object_set(&req_obj, "query", value_create_builtin_function(builtin_request_query));
     
     return req_obj;
 }
@@ -907,6 +1347,8 @@ Value create_response_object(MycoResponse* response) {
     value_object_set(&res_obj, "json", value_create_builtin_function(builtin_response_json));
     value_object_set(&res_obj, "status", value_create_builtin_function(builtin_response_status));
     value_object_set(&res_obj, "header", value_create_builtin_function(builtin_response_header));
+    value_object_set(&res_obj, "sendFile", value_create_builtin_function(builtin_response_send_file));
+    value_object_set(&res_obj, "setHeader", value_create_builtin_function(builtin_response_set_header));
     
     return res_obj;
 }
@@ -919,8 +1361,26 @@ MycoRequest* parse_http_request(struct MHD_Connection* connection, const char* u
     // Initialize request
     request->method = method ? strdup(method) : NULL;
     request->url = url ? strdup(url) : NULL;
-    request->path = url ? strdup(url) : NULL; // For now, path is same as URL
-    request->query_string = NULL;
+    
+    // Extract path and query string from URL
+    if (url) {
+        char* query_pos = strchr(url, '?');
+        if (query_pos) {
+            // Split URL into path and query string
+            size_t path_len = query_pos - url;
+            request->path = (char*)malloc(path_len + 1);
+            strncpy(request->path, url, path_len);
+            request->path[path_len] = '\0';
+            
+            request->query_string = strdup(query_pos + 1);
+        } else {
+            request->path = strdup(url);
+            request->query_string = NULL;
+        }
+    } else {
+        request->path = NULL;
+        request->query_string = NULL;
+    }
     request->body = NULL;
     request->headers = NULL;
     request->header_count = 0;

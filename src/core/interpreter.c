@@ -865,6 +865,12 @@ Value handle_request_method_call(Interpreter* interpreter, ASTNode* call_node, c
         result = builtin_request_header(interpreter, args, arg_count + 1, call_node->line, call_node->column);
     } else if (strcmp(method_name, "param") == 0) {
         result = builtin_request_param(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "json") == 0) {
+        result = builtin_request_json(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "form") == 0) {
+        result = builtin_request_form(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "query") == 0) {
+        result = builtin_request_query(interpreter, args, arg_count + 1, call_node->line, call_node->column);
     } else {
         interpreter_set_error(interpreter, "Unknown request method", call_node->line, call_node->column);
     }
@@ -905,6 +911,10 @@ Value handle_response_method_call(Interpreter* interpreter, ASTNode* call_node, 
         result = builtin_response_status(interpreter, args, arg_count + 1, call_node->line, call_node->column);
     } else if (strcmp(method_name, "header") == 0) {
         result = builtin_response_header(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "sendFile") == 0) {
+        result = builtin_response_send_file(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "setHeader") == 0) {
+        result = builtin_response_set_header(interpreter, args, arg_count + 1, call_node->line, call_node->column);
     } else {
         interpreter_set_error(interpreter, "Unknown response method", call_node->line, call_node->column);
     }

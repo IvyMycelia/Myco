@@ -24,6 +24,13 @@ typedef struct RouteParam {
     struct RouteParam* next;
 } RouteParam;
 
+// Static route structure
+typedef struct StaticRoute {
+    char* url_prefix;
+    char* file_path;
+    struct StaticRoute* next;
+} StaticRoute;
+
 // Route structure
 typedef struct Route {
     char* method;
@@ -65,6 +72,7 @@ Value builtin_server_get(Interpreter* interpreter, Value* args, size_t arg_count
 Value builtin_server_post(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_server_put(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_server_delete(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_server_static(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 
 // Request/Response object methods
 Value builtin_request_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
@@ -73,11 +81,16 @@ Value builtin_request_path(Interpreter* interpreter, Value* args, size_t arg_cou
 Value builtin_request_body(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_request_header(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_request_param(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_request_json(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_request_form(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_request_query(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 
 Value builtin_response_send(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_response_json(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_response_status(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_response_header(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_response_send_file(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_response_set_header(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 
 // Request/Response object creation and management
 Value create_request_object(MycoRequest* request);
@@ -102,6 +115,21 @@ RouteParam* route_params_find(RouteParam* params, const char* name);
 bool route_path_matches(const char* pattern, const char* path, RouteParam** params);
 char** split_path(const char* path);
 void free_path_segments(char** segments);
+
+// Static file serving functions
+StaticRoute* static_route_create(const char* url_prefix, const char* file_path);
+void static_route_free(StaticRoute* route);
+void static_route_add(StaticRoute* route);
+StaticRoute* static_route_match(const char* url);
+char* get_mime_type(const char* filename);
+bool file_exists(const char* path);
+char* read_file_content(const char* path, size_t* size);
+
+// Request body parsing functions
+Value parse_json_body(const char* body);
+Value parse_form_body(const char* body);
+Value parse_query_string(const char* query_string);
+char* url_decode(const char* str);
 
 // Library registration function
 void server_library_register(Interpreter* interpreter);

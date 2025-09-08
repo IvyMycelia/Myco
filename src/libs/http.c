@@ -548,9 +548,18 @@ Value builtin_http_status_ok(Interpreter* interpreter, Value* args, size_t arg_c
         return value_create_null();
     }
     
-    // Check if status_code exists and is in 200-299 range
-    // For now, return true
-    return value_create_boolean(true);
+    // Get the status_code from the response object
+    Value status_code_val = value_object_get(&response, "status_code");
+    if (status_code_val.type != VALUE_NUMBER) {
+        value_free(&status_code_val);
+        return value_create_boolean(false);
+    }
+    
+    int status_code = (int)status_code_val.data.number_value;
+    value_free(&status_code_val);
+    
+    // Check if status code is in 200-299 range (success)
+    return value_create_boolean(status_code >= 200 && status_code < 300);
 }
 
 Value builtin_http_get_header(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -559,7 +568,33 @@ Value builtin_http_get_header(Interpreter* interpreter, Value* args, size_t arg_
         return value_create_null();
     }
     
-    // For now, return null
+    Value response_val = args[0];
+    Value header_name_val = args[1];
+    
+    if (response_val.type != VALUE_OBJECT) {
+        interpreter_set_error(interpreter, "http.get_header() first argument must be a response object", line, column);
+        return value_create_null();
+    }
+    
+    if (header_name_val.type != VALUE_STRING) {
+        interpreter_set_error(interpreter, "http.get_header() second argument must be a string (header name)", line, column);
+        return value_create_null();
+    }
+    
+    const char* header_name = header_name_val.data.string_value;
+    
+    // Check for common headers that are stored in the response object
+    if (strcasecmp(header_name, "content-type") == 0) {
+        Value content_type_val = value_object_get(&response_val, "content_type");
+        if (content_type_val.type == VALUE_STRING) {
+            Value result = value_clone(&content_type_val);
+            value_free(&content_type_val);
+            return result;
+        }
+        value_free(&content_type_val);
+    }
+    
+    // For other headers, return null (headers array not currently stored in response object)
     return value_create_null();
 }
 
@@ -575,8 +610,17 @@ Value builtin_http_get_json(Interpreter* interpreter, Value* args, size_t arg_co
         return value_create_null();
     }
     
-    // For now, return the body as JSON
-    return value_create_string("{}");
+    // Get the response body
+    Value body_val = value_object_get(&response, "body");
+    if (body_val.type != VALUE_STRING) {
+        value_free(&body_val);
+        return value_create_null();
+    }
+    
+    // For now, return the body as a string (JSON parsing would require a JSON library)
+    Value result = value_clone(&body_val);
+    value_free(&body_val);
+    return result;
 }
 
 // Additional HTTP methods

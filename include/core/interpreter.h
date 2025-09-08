@@ -244,6 +244,9 @@ Value handle_graph_method_call(Interpreter* interpreter, ASTNode* call_node, con
 Value handle_heap_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 Value handle_queue_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 Value handle_stack_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
+Value handle_server_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
+Value handle_request_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
+Value handle_response_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 
 // Execution functions
 Value interpreter_execute(Interpreter* interpreter, ASTNode* node);

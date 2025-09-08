@@ -8,6 +8,10 @@
 #include <pthread.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <zlib.h>
+#include <signal.h>
 #include <microhttpd.h>
 #include "../core/interpreter.h"
 
@@ -26,6 +30,22 @@ typedef struct Middleware {
     struct Middleware* next;
 } Middleware;
 
+// File watcher structure
+typedef struct FileWatcher {
+    char* watch_path;
+    Value callback;
+    bool active;
+    pthread_t thread;
+    time_t last_check;
+} FileWatcher;
+
+// Signal handler structure
+typedef struct SignalHandler {
+    int signal;
+    Value callback;
+    struct SignalHandler* next;
+} SignalHandler;
+
 // Server configuration
 typedef struct {
     int port;
@@ -34,6 +54,8 @@ typedef struct {
     Interpreter* interpreter;
     ServerConfig* config;
     Middleware* middleware;
+    FileWatcher* file_watcher;
+    SignalHandler* signal_handlers;
 } MycoServer;
 
 // Route parameter structure
@@ -47,6 +69,9 @@ typedef struct RouteParam {
 typedef struct StaticRoute {
     char* url_prefix;
     char* file_path;
+    bool enable_gzip;
+    bool enable_cache;
+    int cache_duration; // in seconds
     struct StaticRoute* next;
 } StaticRoute;
 
@@ -101,6 +126,8 @@ Value builtin_group_put(Interpreter* interpreter, Value* args, size_t arg_count,
 Value builtin_group_delete(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_server_now(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_server_sleep(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_server_watch(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_server_onSignal(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 
 // Request/Response object methods
 Value builtin_request_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
@@ -161,6 +188,20 @@ StaticRoute* static_route_match(const char* url);
 char* get_mime_type(const char* filename);
 bool file_exists(const char* path);
 char* read_file_content(const char* path, size_t* size);
+char* compress_gzip(const char* data, size_t data_size, size_t* compressed_size);
+bool should_compress_file(const char* filename);
+char* get_cache_headers(int cache_duration);
+
+// File watching functions
+FileWatcher* file_watcher_create(const char* path, Value callback);
+void file_watcher_free(FileWatcher* watcher);
+void* file_watcher_thread(void* arg);
+
+// Signal handling functions
+SignalHandler* signal_handler_create(int signal, Value callback);
+void signal_handler_free(SignalHandler* handler);
+void signal_handler_register(MycoServer* server, int signal_num, Value callback);
+void signal_handler_execute(int signal);
 
 // Request body parsing functions
 Value parse_json_body(const char* body);

@@ -96,7 +96,7 @@ MAIN_EXECUTABLE = $(BIN_DIR)/myco
 TEST_EXECUTABLE = $(BIN_DIR)/myco_test
 
 # Libraries
-LIBS = -lm -lcurl -L/opt/homebrew/opt/libmicrohttpd/lib -lmicrohttpd
+LIBS = -lm -lcurl -lz -L/opt/homebrew/opt/libmicrohttpd/lib -lmicrohttpd
 
 # Default target
 .PHONY: all

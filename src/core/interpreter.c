@@ -837,6 +837,10 @@ Value handle_server_method_call(Interpreter* interpreter, ASTNode* call_node, co
         result = builtin_server_delete(interpreter, args, arg_count + 1, call_node->line, call_node->column);
     } else if (strcmp(method_name, "static") == 0) {
         result = builtin_server_static(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "watch") == 0) {
+        result = builtin_server_watch(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "onSignal") == 0) {
+        result = builtin_server_onSignal(interpreter, args, arg_count + 1, call_node->line, call_node->column);
     } else {
         interpreter_set_error(interpreter, "Unknown server method", call_node->line, call_node->column);
     }
@@ -1068,6 +1072,10 @@ Value handle_server_library_method_call(Interpreter* interpreter, ASTNode* call_
         result = builtin_server_now(interpreter, args, arg_count, call_node->line, call_node->column);
     } else if (strcmp(method_name, "sleep") == 0) {
         result = builtin_server_sleep(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "watch") == 0) {
+        result = builtin_server_watch(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "onSignal") == 0) {
+        result = builtin_server_onSignal(interpreter, args, arg_count, call_node->line, call_node->column);
     } else {
         interpreter_set_error(interpreter, "Unknown server library method", call_node->line, call_node->column);
         result = value_create_null();
@@ -4126,6 +4134,13 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 interpreter_set_error(interpreter, error_msg, node->line, node->column);
                 value_free(&object);
                 return value_create_null();
+            } else if (object.type == VALUE_HASH_MAP) {
+                // Handle hash map member access (e.g., config.port, config.debug)
+                Value key = value_create_string(member_name);
+                Value result = value_hash_map_get(&object, key);
+                value_free(&key);
+                value_free(&object);
+                return result;
             } else if (object.type == VALUE_STRING && strcmp(object.data.string_value, "namespace_marker") == 0) {
                 // This is a namespace marker, try to look up the prefixed function
                 // For example: math.Pi -> math_Pi, str.upper -> str_upper

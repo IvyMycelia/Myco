@@ -3144,14 +3144,17 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 }
             }
             
-            Value result = environment_get(interpreter->current_environment, name);
-            if (result.type == VALUE_NULL) {
+            Value result;
+            // Check if the variable exists in current environment first
+            if (environment_exists(interpreter->current_environment, name)) {
+                result = environment_get(interpreter->current_environment, name);
+            } else if (environment_exists(interpreter->global_environment, name)) {
                 result = environment_get(interpreter->global_environment, name);
-                if (result.type == VALUE_NULL) {
-                    char error_msg[256];
-                    snprintf(error_msg, sizeof(error_msg), "\"%s\" is Undefined", name);
-                    interpreter_set_error(interpreter, error_msg, node->line, node->column);
-                }
+            } else {
+                char error_msg[256];
+                snprintf(error_msg, sizeof(error_msg), "\"%s\" is Undefined", name);
+                interpreter_set_error(interpreter, error_msg, node->line, node->column);
+                result = value_create_null();
             }
             return result;
         }
@@ -3948,7 +3951,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     return handle_method_call(interpreter, node, object);
                 }
                 value_free(&object);
-                return value_create_null(); // Prevent continuing to regular function call path
+                // Continue to regular function call path for module function calls
             }
             
             // Regular function call - evaluate the function expression

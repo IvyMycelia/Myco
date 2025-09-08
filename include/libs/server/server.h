@@ -17,10 +17,19 @@ typedef struct {
     Interpreter* interpreter;
 } MycoServer;
 
+// Route parameter structure
+typedef struct RouteParam {
+    char* name;
+    char* value;
+    struct RouteParam* next;
+} RouteParam;
+
 // Route structure
 typedef struct Route {
     char* method;
     char* path;
+    char* pattern;  // The original pattern with :param syntax
+    RouteParam* params;  // Extracted parameters from the request
     Value handler;  // Store the actual Myco function value
     struct Route* next;
 } Route;
@@ -63,6 +72,7 @@ Value builtin_request_url(Interpreter* interpreter, Value* args, size_t arg_coun
 Value builtin_request_path(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_request_body(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_request_header(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_request_param(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 
 Value builtin_response_send(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_response_json(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
@@ -85,6 +95,13 @@ enum MHD_Result server_handle_request(void* cls, struct MHD_Connection* connecti
 Route* route_create(const char* method, const char* path, Value handler);
 void route_free(Route* route);
 Route* route_match(Route* routes, const char* method, const char* path);
+RouteParam* route_param_create(const char* name, const char* value);
+void route_param_free(RouteParam* param);
+void route_params_free(RouteParam* params);
+RouteParam* route_params_find(RouteParam* params, const char* name);
+bool route_path_matches(const char* pattern, const char* path, RouteParam** params);
+char** split_path(const char* path);
+void free_path_segments(char** segments);
 
 // Library registration function
 void server_library_register(Interpreter* interpreter);

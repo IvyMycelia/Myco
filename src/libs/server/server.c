@@ -8,6 +8,9 @@ static Interpreter* g_interpreter = NULL; // Store interpreter reference for rou
 // Global response body storage
 static char* g_response_body = NULL;
 
+// Global current request parameters (for access from request.param())
+RouteParam* g_current_request_params = NULL;
+
 // Create a new server instance
 MycoServer* server_create(int port, Interpreter* interpreter) {
     MycoServer* server = (MycoServer*)malloc(sizeof(MycoServer));
@@ -32,6 +35,48 @@ void server_free(MycoServer* server) {
     free(server);
 }
 
+// Create a new route parameter
+RouteParam* route_param_create(const char* name, const char* value) {
+    RouteParam* param = (RouteParam*)malloc(sizeof(RouteParam));
+    if (!param) return NULL;
+    
+    param->name = strdup(name);
+    param->value = strdup(value);
+    param->next = NULL;
+    
+    return param;
+}
+
+// Free a route parameter
+void route_param_free(RouteParam* param) {
+    if (!param) return;
+    
+    free(param->name);
+    free(param->value);
+    free(param);
+}
+
+// Free all route parameters
+void route_params_free(RouteParam* params) {
+    while (params) {
+        RouteParam* next = params->next;
+        route_param_free(params);
+        params = next;
+    }
+}
+
+// Find a route parameter by name
+RouteParam* route_params_find(RouteParam* params, const char* name) {
+    RouteParam* current = params;
+    while (current) {
+        if (strcmp(current->name, name) == 0) {
+            return current;
+        }
+        current = current->next;
+    }
+    return NULL;
+}
+
 // Create a new route
 Route* route_create(const char* method, const char* path, Value handler) {
     Route* route = (Route*)malloc(sizeof(Route));
@@ -39,6 +84,8 @@ Route* route_create(const char* method, const char* path, Value handler) {
     
     route->method = strdup(method);
     route->path = strdup(path);
+    route->pattern = strdup(path);  // Store the original pattern
+    route->params = NULL;  // Initialize params to NULL
     route->handler = value_clone(&handler);  // Clone the function value
     route->next = NULL;
     
@@ -51,6 +98,8 @@ void route_free(Route* route) {
     
     free(route->method);
     free(route->path);
+    free(route->pattern);
+    route_params_free(route->params);  // Free all parameters
     value_free(&route->handler);  // Free the function value
     free(route);
 }
@@ -70,16 +119,136 @@ void route_add(Route* route) {
     }
 }
 
-// Match a route based on method and path
+// Match a route based on method and path, extracting parameters
 Route* route_match(Route* routes, const char* method, const char* path) {
     Route* current = routes;
     while (current) {
-        if (strcmp(current->method, method) == 0 && strcmp(current->path, path) == 0) {
-            return current;
+        if (strcmp(current->method, method) == 0) {
+            // Check if this route matches the path (with parameter extraction)
+            RouteParam* extracted_params = NULL;
+            if (route_path_matches(current->pattern, path, &extracted_params)) {
+                // Clear any existing parameters
+                route_params_free(current->params);
+                // Set the extracted parameters
+                current->params = extracted_params;
+                return current;
+            }
         }
         current = current->next;
     }
     return NULL;
+}
+
+// Check if a route pattern matches a path and extract parameters
+bool route_path_matches(const char* pattern, const char* path, RouteParam** params) {
+    if (!pattern || !path) return false;
+    
+    // Simple exact match first
+    if (strcmp(pattern, path) == 0) {
+        *params = NULL;
+        return true;
+    }
+    
+    // Check for parameterized routes (containing :)
+    if (strstr(pattern, ":") == NULL) {
+        return false;  // No parameters, and not exact match
+    }
+    
+    // Split pattern and path into segments
+    char** pattern_segments = split_path(pattern);
+    char** path_segments = split_path(path);
+    
+    if (!pattern_segments || !path_segments) {
+        free_path_segments(pattern_segments);
+        free_path_segments(path_segments);
+        return false;
+    }
+    
+    // Count segments
+    int pattern_count = 0;
+    int path_count = 0;
+    while (pattern_segments[pattern_count]) pattern_count++;
+    while (path_segments[path_count]) path_count++;
+    
+    // Must have same number of segments
+    if (pattern_count != path_count) {
+        free_path_segments(pattern_segments);
+        free_path_segments(path_segments);
+        return false;
+    }
+    
+    // Match each segment
+    RouteParam* param_list = NULL;
+    for (int i = 0; i < pattern_count; i++) {
+        if (pattern_segments[i][0] == ':') {
+            // This is a parameter - extract the name and value
+            char* param_name = pattern_segments[i] + 1;  // Skip the ':'
+            char* param_value = path_segments[i];
+            
+            // Add to parameter list
+            RouteParam* new_param = route_param_create(param_name, param_value);
+            if (new_param) {
+                new_param->next = param_list;
+                param_list = new_param;
+            }
+        } else {
+            // This is a literal segment - must match exactly
+            if (strcmp(pattern_segments[i], path_segments[i]) != 0) {
+                route_params_free(param_list);
+                free_path_segments(pattern_segments);
+                free_path_segments(path_segments);
+                return false;
+            }
+        }
+    }
+    
+    *params = param_list;
+    free_path_segments(pattern_segments);
+    free_path_segments(path_segments);
+    return true;
+}
+
+// Split a path into segments
+char** split_path(const char* path) {
+    if (!path) return NULL;
+    
+    // Count segments
+    int segment_count = 1;
+    for (const char* p = path; *p; p++) {
+        if (*p == '/') segment_count++;
+    }
+    
+    // Allocate array
+    char** segments = (char**)calloc(segment_count + 1, sizeof(char*));
+    if (!segments) return NULL;
+    
+    // Split the path
+    char* path_copy = strdup(path);
+    if (!path_copy) {
+        free(segments);
+        return NULL;
+    }
+    
+    int i = 0;
+    char* token = strtok(path_copy, "/");
+    while (token && i < segment_count) {
+        segments[i] = strdup(token);
+        token = strtok(NULL, "/");
+        i++;
+    }
+    
+    free(path_copy);
+    return segments;
+}
+
+// Free path segments array
+void free_path_segments(char** segments) {
+    if (!segments) return;
+    
+    for (int i = 0; segments[i]; i++) {
+        free(segments[i]);
+    }
+    free(segments);
 }
 
 // HTTP request handler for libmicrohttpd
@@ -100,6 +269,10 @@ enum MHD_Result server_handle_request(void* cls, struct MHD_Connection* connecti
         MHD_destroy_response(mhd_response);
         return ret;
     }
+    
+    // Store the matched route's parameters for this request
+    RouteParam* request_params = route->params;
+    g_current_request_params = request_params;  // Set global for request.param() access
     
     // Parse the HTTP request
     MycoRequest* request = parse_http_request(connection, url, method);
@@ -168,6 +341,9 @@ enum MHD_Result server_handle_request(void* cls, struct MHD_Connection* connecti
     value_free(&res_obj);
     free_request_object(request);
     free_response_object(response);
+    
+    // Clear global request parameters
+    g_current_request_params = NULL;
     
     return ret;
 }
@@ -495,6 +671,39 @@ Value builtin_request_header(Interpreter* interpreter, Value* args, size_t arg_c
     return value_create_string("");
 }
 
+Value builtin_request_param(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 2) {
+        interpreter_set_error(interpreter, "request.param() requires exactly 2 arguments (request, param_name)", line, column);
+        return value_create_null();
+    }
+    
+    Value request_obj = args[0];
+    Value param_name_val = args[1];
+    
+    if (request_obj.type != VALUE_OBJECT) {
+        interpreter_set_error(interpreter, "request.param() first argument must be a request object", line, column);
+        return value_create_null();
+    }
+    
+    if (param_name_val.type != VALUE_STRING) {
+        interpreter_set_error(interpreter, "request.param() second argument must be a string (parameter name)", line, column);
+        return value_create_null();
+    }
+    
+    // Find the parameter in the current request's parameters
+    // We need to store the current request parameters globally for access
+    extern RouteParam* g_current_request_params;
+    if (g_current_request_params) {
+        RouteParam* param = route_params_find(g_current_request_params, param_name_val.data.string_value);
+        if (param) {
+            return value_create_string(param->value);
+        }
+    }
+    
+    // Parameter not found
+    return value_create_null();
+}
+
 // Response method implementations
 Value builtin_response_send(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
@@ -666,6 +875,7 @@ Value create_request_object(MycoRequest* request) {
     
     // Add request methods
     value_object_set(&req_obj, "header", value_create_builtin_function(builtin_request_header));
+    value_object_set(&req_obj, "param", value_create_builtin_function(builtin_request_param));
     
     return req_obj;
 }

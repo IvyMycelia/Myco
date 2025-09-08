@@ -863,6 +863,8 @@ Value handle_request_method_call(Interpreter* interpreter, ASTNode* call_node, c
         result = builtin_request_body(interpreter, args, arg_count + 1, call_node->line, call_node->column);
     } else if (strcmp(method_name, "header") == 0) {
         result = builtin_request_header(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "param") == 0) {
+        result = builtin_request_param(interpreter, args, arg_count + 1, call_node->line, call_node->column);
     } else {
         interpreter_set_error(interpreter, "Unknown request method", call_node->line, call_node->column);
     }

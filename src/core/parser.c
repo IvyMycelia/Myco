@@ -1036,8 +1036,8 @@ ASTNode* parser_parse_primary(Parser* parser) {
             if (parser_check(parser, TOKEN_DOT)) {
                 parser_advance(parser); // consume '.'
                 
-                // Parse the member name (must be an identifier)
-                if (!parser_check(parser, TOKEN_IDENTIFIER)) {
+                // Parse the member name (can be identifier or keyword)
+                if (!parser_check(parser, TOKEN_IDENTIFIER) && !parser_check(parser, TOKEN_KEYWORD)) {
                     parser_error(parser, "Expected member name after '.'");
                     ast_free(literal);
                     return NULL;
@@ -1242,8 +1242,8 @@ ASTNode* parser_parse_primary(Parser* parser) {
         if (parser_check(parser, TOKEN_DOT)) {
             parser_advance(parser); // consume '.'
             
-            // Parse the member name (must be an identifier)
-            if (!parser_check(parser, TOKEN_IDENTIFIER)) {
+            // Parse the member name (can be identifier or keyword)
+            if (!parser_check(parser, TOKEN_IDENTIFIER) && !parser_check(parser, TOKEN_KEYWORD)) {
                 parser_error(parser, "Expected member name after '.'");
                 ast_free(base);
                 return NULL;
@@ -3517,8 +3517,8 @@ static ASTNode* parser_parse_array_literal(Parser* parser) {
             if (parser_check(parser, TOKEN_DOT)) {
                 parser_advance(parser); // consume '.'
                 
-                // Parse the member name (must be an identifier)
-                if (!parser_check(parser, TOKEN_IDENTIFIER)) {
+                // Parse the member name (can be identifier or keyword)
+                if (!parser_check(parser, TOKEN_IDENTIFIER) && !parser_check(parser, TOKEN_KEYWORD)) {
                     parser_error(parser, "Expected member name after '.'");
                     ast_free(array_literal);
                     return NULL;
@@ -3663,8 +3663,8 @@ static ASTNode* parser_parse_array_literal(Parser* parser) {
         if (parser_check(parser, TOKEN_DOT)) {
             parser_advance(parser); // consume '.'
             
-            // Parse the member name (must be an identifier)
-            if (!parser_check(parser, TOKEN_IDENTIFIER)) {
+            // Parse the member name (can be identifier or keyword)
+            if (!parser_check(parser, TOKEN_IDENTIFIER) && !parser_check(parser, TOKEN_KEYWORD)) {
                 parser_error(parser, "Expected member name after '.'");
                 ast_free(array_literal);
                 return NULL;
@@ -4134,8 +4134,8 @@ static ASTNode* parser_parse_member_access_chain(Parser* parser, ASTNode* base) 
     while (parser_check(parser, TOKEN_DOT)) {
         parser_advance(parser); // consume '.'
         
-        // Parse the member name (must be an identifier)
-        if (!parser_check(parser, TOKEN_IDENTIFIER)) {
+        // Parse the member name (can be identifier or keyword)
+        if (!parser_check(parser, TOKEN_IDENTIFIER) && !parser_check(parser, TOKEN_KEYWORD)) {
             parser_error(parser, "Expected member name after '.'");
             ast_free(current);
             return NULL;

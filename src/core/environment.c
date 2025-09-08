@@ -114,8 +114,16 @@ void environment_assign(Environment* env, const char* name, Value value) {
     
     int index = environment_find_index(env, name);
     if (index >= 0) {
+        // Check if this is a self-assignment (same memory address)
+        if (&env->values[index] == &value) {
+            // Self-assignment: just return without doing anything
+            return;
+        }
+        
+        // Clone the new value first, then free the old one
+        Value new_value = value_clone(&value);
         value_free(&env->values[index]);
-        env->values[index] = value_clone(&value);
+        env->values[index] = new_value;
         return;
     }
     

@@ -132,34 +132,40 @@ Value builtin_tree_create(Interpreter* interpreter, Value* args, size_t arg_coun
     // Store tree pointer in a custom value type
     // For now, return a simple object representation
     Value tree_obj = value_create_object(16);
-    value_object_set(&tree_obj, "type", value_create_string(strdup("Tree")));
+    value_object_set(&tree_obj, "__class_name__", value_create_string(strdup("Tree")));
     value_object_set(&tree_obj, "size", value_create_number(0));
+    
+    // Set the type field for method call support
+    tree_obj.type = VALUE_OBJECT;
+    
+    // Store the actual tree pointer for internal use
+    value_object_set(&tree_obj, "__tree_ptr__", value_create_number((double)(uintptr_t)tree));
     
     return tree_obj;
 }
 
 Value builtin_tree_insert(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "trees.insert() expects exactly 2 arguments: tree and value", line, column);
+        interpreter_set_error(interpreter, "tree.insert() expects exactly 1 argument: value", line, column);
         return value_create_null();
     }
     
-    Value tree_obj = args[0];
+    Value* tree_obj = &args[0];
     Value data = args[1];
     
-    if (tree_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "trees.insert() first argument must be a tree object", line, column);
+    if (tree_obj->type != VALUE_OBJECT) {
+        interpreter_set_error(interpreter, "tree.insert() can only be called on a tree object", line, column);
         return value_create_null();
     }
     
     // For now, just return success
     // TODO: Implement actual tree insertion
-    return value_create_string(strdup("Value inserted into tree"));
+    return value_clone(tree_obj);
 }
 
 Value builtin_tree_search(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "trees.search() expects exactly 2 arguments: tree and value", line, column);
+        interpreter_set_error(interpreter, "tree.search() expects exactly 1 argument: value", line, column);
         return value_create_null();
     }
     
@@ -167,7 +173,7 @@ Value builtin_tree_search(Interpreter* interpreter, Value* args, size_t arg_coun
     Value data = args[1];
     
     if (tree_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "trees.search() first argument must be a tree object", line, column);
+        interpreter_set_error(interpreter, "tree.search() can only be called on a tree object", line, column);
         return value_create_null();
     }
     
@@ -178,14 +184,14 @@ Value builtin_tree_search(Interpreter* interpreter, Value* args, size_t arg_coun
 
 Value builtin_tree_size(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "trees.size() expects exactly 1 argument: tree", line, column);
+        interpreter_set_error(interpreter, "tree.size() expects no arguments", line, column);
         return value_create_null();
     }
     
     Value tree_obj = args[0];
     
     if (tree_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "trees.size() argument must be a tree object", line, column);
+        interpreter_set_error(interpreter, "tree.size() can only be called on a tree object", line, column);
         return value_create_null();
     }
     
@@ -200,14 +206,14 @@ Value builtin_tree_size(Interpreter* interpreter, Value* args, size_t arg_count,
 
 Value builtin_tree_is_empty(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "trees.isEmpty() expects exactly 1 argument: tree", line, column);
+        interpreter_set_error(interpreter, "tree.isEmpty() expects no arguments", line, column);
         return value_create_null();
     }
     
     Value tree_obj = args[0];
     
     if (tree_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "trees.isEmpty() argument must be a tree object", line, column);
+        interpreter_set_error(interpreter, "tree.isEmpty() can only be called on a tree object", line, column);
         return value_create_null();
     }
     
@@ -222,38 +228,31 @@ Value builtin_tree_is_empty(Interpreter* interpreter, Value* args, size_t arg_co
 
 Value builtin_tree_clear(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "trees.clear() expects exactly 1 argument: tree", line, column);
+        interpreter_set_error(interpreter, "tree.clear() expects no arguments", line, column);
         return value_create_null();
     }
     
     Value* tree_obj = &args[0];
     
     if (tree_obj->type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "trees.clear() argument must be a tree object", line, column);
+        interpreter_set_error(interpreter, "tree.clear() can only be called on a tree object", line, column);
         return value_create_null();
     }
     
     // Clear the tree by setting size to 0
     value_object_set(tree_obj, "size", value_create_number(0));
     
-    return value_create_null();
+    return value_clone(tree_obj);
 }
 
 // Register the trees library
 void trees_library_register(Interpreter* interpreter) {
-    if (!interpreter) return;
+    if (!interpreter || !interpreter->global_environment) return;
     
-    // Create trees module
-    Value trees_module = value_create_object(16);
+    // Create trees object with factory functions
+    Value trees_obj = value_create_object(16);
+    value_object_set(&trees_obj, "create", value_create_builtin_function(builtin_tree_create));
     
-    // Tree functions
-    value_object_set(&trees_module, "create", value_create_builtin_function(builtin_tree_create));
-    value_object_set(&trees_module, "insert", value_create_builtin_function(builtin_tree_insert));
-    value_object_set(&trees_module, "search", value_create_builtin_function(builtin_tree_search));
-    value_object_set(&trees_module, "size", value_create_builtin_function(builtin_tree_size));
-    value_object_set(&trees_module, "isEmpty", value_create_builtin_function(builtin_tree_is_empty));
-    value_object_set(&trees_module, "clear", value_create_builtin_function(builtin_tree_clear));
-    
-    // Register the module
-    environment_define(interpreter->global_environment, "trees", trees_module);
+    // Register the trees object
+    environment_define(interpreter->global_environment, "trees", trees_obj);
 }

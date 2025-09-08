@@ -7,7 +7,7 @@
 // Map operations
 Value builtin_map_has(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "maps.has() expects exactly 2 arguments: map and key", line, column);
+        interpreter_set_error(interpreter, "map.has() expects exactly 1 argument: key", line, column);
         return value_create_null();
     }
     
@@ -15,7 +15,7 @@ Value builtin_map_has(Interpreter* interpreter, Value* args, size_t arg_count, i
     Value key = args[1];
     
     if (map.type != VALUE_HASH_MAP) {
-        interpreter_set_error(interpreter, "maps.has() first argument must be a hash map", line, column);
+        interpreter_set_error(interpreter, "map.has() can only be called on a hash map", line, column);
         return value_create_null();
     }
     
@@ -25,14 +25,14 @@ Value builtin_map_has(Interpreter* interpreter, Value* args, size_t arg_count, i
 
 Value builtin_map_size(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "maps.size() expects exactly 1 argument: map", line, column);
+        interpreter_set_error(interpreter, "map.size() expects no arguments", line, column);
         return value_create_null();
     }
     
     Value map = args[0];
     
     if (map.type != VALUE_HASH_MAP) {
-        interpreter_set_error(interpreter, "maps.size() argument must be a hash map", line, column);
+        interpreter_set_error(interpreter, "map.size() can only be called on a hash map", line, column);
         return value_create_null();
     }
     
@@ -42,14 +42,14 @@ Value builtin_map_size(Interpreter* interpreter, Value* args, size_t arg_count, 
 
 Value builtin_map_keys(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "maps.keys() expects exactly 1 argument: map", line, column);
+        interpreter_set_error(interpreter, "map.keys() expects no arguments", line, column);
         return value_create_null();
     }
     
     Value map = args[0];
     
     if (map.type != VALUE_HASH_MAP) {
-        interpreter_set_error(interpreter, "maps.keys() argument must be a hash map", line, column);
+        interpreter_set_error(interpreter, "map.keys() can only be called on a hash map", line, column);
         return value_create_null();
     }
     
@@ -79,7 +79,7 @@ Value builtin_map_keys(Interpreter* interpreter, Value* args, size_t arg_count, 
 
 Value builtin_map_delete(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "maps.delete() expects exactly 2 arguments: map and key", line, column);
+        interpreter_set_error(interpreter, "map.delete() expects exactly 1 argument: key", line, column);
         return value_create_null();
     }
     
@@ -87,24 +87,24 @@ Value builtin_map_delete(Interpreter* interpreter, Value* args, size_t arg_count
     Value key = args[1];
     
     if (map->type != VALUE_HASH_MAP) {
-        interpreter_set_error(interpreter, "maps.delete() first argument must be a hash map", line, column);
+        interpreter_set_error(interpreter, "map.delete() can only be called on a hash map", line, column);
         return value_create_null();
     }
     
     value_hash_map_delete(map, key);
-    return value_create_null();
+    return value_clone(map);
 }
 
 Value builtin_map_clear(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "maps.clear() expects exactly 1 argument: map", line, column);
+        interpreter_set_error(interpreter, "map.clear() expects no arguments", line, column);
         return value_create_null();
     }
     
     Value* map = &args[0];
     
     if (map->type != VALUE_HASH_MAP) {
-        interpreter_set_error(interpreter, "maps.clear() argument must be a hash map", line, column);
+        interpreter_set_error(interpreter, "map.clear() can only be called on a hash map", line, column);
         return value_create_null();
     }
     
@@ -119,12 +119,12 @@ Value builtin_map_clear(Interpreter* interpreter, Value* args, size_t arg_count,
         free(keys);
     }
     
-    return value_create_null();
+    return value_clone(map);
 }
 
 Value builtin_map_update(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "maps.update() expects exactly 2 arguments: map and other_map", line, column);
+        interpreter_set_error(interpreter, "map.update() expects exactly 1 argument: other_map", line, column);
         return value_create_null();
     }
     
@@ -132,7 +132,7 @@ Value builtin_map_update(Interpreter* interpreter, Value* args, size_t arg_count
     Value other_map = args[1];
     
     if (map->type != VALUE_HASH_MAP || other_map.type != VALUE_HASH_MAP) {
-        interpreter_set_error(interpreter, "maps.update() both arguments must be hash maps", line, column);
+        interpreter_set_error(interpreter, "map.update() argument must be a hash map", line, column);
         return value_create_null();
     }
     
@@ -149,24 +149,13 @@ Value builtin_map_update(Interpreter* interpreter, Value* args, size_t arg_count
         free(keys);
     }
     
-    return value_create_null();
+    return value_clone(map);
 }
 
 // Register the maps library
 void maps_library_register(Interpreter* interpreter) {
     if (!interpreter) return;
     
-    // Create maps module
-    Value maps_module = value_create_object(16);
-    
-    // Map functions
-    value_object_set(&maps_module, "has", value_create_builtin_function(builtin_map_has));
-    value_object_set(&maps_module, "size", value_create_builtin_function(builtin_map_size));
-    value_object_set(&maps_module, "keys", value_create_builtin_function(builtin_map_keys));
-    value_object_set(&maps_module, "delete", value_create_builtin_function(builtin_map_delete));
-    value_object_set(&maps_module, "clear", value_create_builtin_function(builtin_map_clear));
-    value_object_set(&maps_module, "update", value_create_builtin_function(builtin_map_update));
-    
-    // Register the module
-    environment_define(interpreter->global_environment, "maps", maps_module);
+    // Map methods are now called directly on hash map values, not as global functions
+    // No need to register global functions anymore
 }

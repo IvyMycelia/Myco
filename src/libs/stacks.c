@@ -13,6 +13,7 @@ Value builtin_stack_create(Interpreter* interpreter, Value* args, size_t arg_cou
     
     // Create a new stack object
     Value stack = value_create_object(16);
+    value_object_set_member(&stack, "__class_name__", value_create_string(strdup("Stack")));
     value_object_set_member(&stack, "elements", value_create_array(0));
     value_object_set_member(&stack, "size", value_create_number(0.0));
     
@@ -21,7 +22,7 @@ Value builtin_stack_create(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_stack_push(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "push() requires exactly 2 arguments: stack and value", line, column);
+        interpreter_set_error(interpreter, "stack.push() expects exactly 1 argument: value", line, column);
         return value_create_null();
     }
     
@@ -29,7 +30,7 @@ Value builtin_stack_push(Interpreter* interpreter, Value* args, size_t arg_count
     Value value = args[1];
     
     if (stack_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "push() first argument must be a stack object", line, column);
+        interpreter_set_error(interpreter, "stack.push() can only be called on stack objects", line, column);
         return value_create_null();
     }
     
@@ -61,6 +62,7 @@ Value builtin_stack_push(Interpreter* interpreter, Value* args, size_t arg_count
     value_array_push(&new_elements, cloned_value);
     
     // Set the new stack components
+    value_object_set_member(&new_stack, "__class_name__", value_create_string(strdup("Stack")));
     value_object_set_member(&new_stack, "elements", new_elements);
     value_object_set_member(&new_stack, "size", new_size);
     
@@ -69,14 +71,14 @@ Value builtin_stack_push(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_stack_pop(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "pop() requires exactly 1 argument: stack", line, column);
+        interpreter_set_error(interpreter, "stack.pop() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value stack_arg = args[0];
     
     if (stack_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "pop() argument must be a stack object", line, column);
+        interpreter_set_error(interpreter, "stack.pop() can only be called on stack objects", line, column);
         return value_create_null();
     }
     
@@ -128,6 +130,7 @@ Value builtin_stack_pop(Interpreter* interpreter, Value* args, size_t arg_count,
     }
     
     // Set the new stack components
+    value_object_set_member(&new_stack, "__class_name__", value_create_string(strdup("Stack")));
     value_object_set_member(&new_stack, "elements", new_elements);
     value_object_set_member(&new_stack, "size", new_size);
     
@@ -136,14 +139,14 @@ Value builtin_stack_pop(Interpreter* interpreter, Value* args, size_t arg_count,
 
 Value builtin_stack_top(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "top() requires exactly 1 argument: stack", line, column);
+        interpreter_set_error(interpreter, "stack.top() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value stack_arg = args[0];
     
     if (stack_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "top() argument must be a stack object", line, column);
+        interpreter_set_error(interpreter, "stack.top() can only be called on stack objects", line, column);
         return value_create_null();
     }
     
@@ -173,14 +176,14 @@ Value builtin_stack_top(Interpreter* interpreter, Value* args, size_t arg_count,
 
 Value builtin_stack_size(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "size() requires exactly 1 argument: stack", line, column);
+        interpreter_set_error(interpreter, "stack.size() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value stack_arg = args[0];
     
     if (stack_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "size() argument must be a stack object", line, column);
+        interpreter_set_error(interpreter, "stack.size() can only be called on stack objects", line, column);
         return value_create_null();
     }
     
@@ -197,14 +200,14 @@ Value builtin_stack_size(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_stack_isEmpty(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "isEmpty() requires exactly 1 argument: stack", line, column);
+        interpreter_set_error(interpreter, "stack.isEmpty() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value stack_arg = args[0];
     
     if (stack_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "isEmpty() argument must be a stack object", line, column);
+        interpreter_set_error(interpreter, "stack.isEmpty() can only be called on stack objects", line, column);
         return value_create_null();
     }
     
@@ -221,19 +224,20 @@ Value builtin_stack_isEmpty(Interpreter* interpreter, Value* args, size_t arg_co
 
 Value builtin_stack_clear(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "clear() requires exactly 1 argument: stack", line, column);
+        interpreter_set_error(interpreter, "stack.clear() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value stack_arg = args[0];
     
     if (stack_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "clear() argument must be a stack object", line, column);
+        interpreter_set_error(interpreter, "stack.clear() can only be called on stack objects", line, column);
         return value_create_null();
     }
     
     // Return empty stack
     Value empty_stack = value_create_object(16);
+    value_object_set_member(&empty_stack, "__class_name__", value_create_string(strdup("Stack")));
     value_object_set_member(&empty_stack, "elements", value_create_array(0));
     value_object_set_member(&empty_stack, "size", value_create_number(0.0));
     
@@ -244,17 +248,9 @@ Value builtin_stack_clear(Interpreter* interpreter, Value* args, size_t arg_coun
 void stacks_library_register(Interpreter* interpreter) {
     if (!interpreter || !interpreter->global_environment) return;
     
-    // Create stacks object with methods
+    // Create stacks object with factory functions
     Value stacks_obj = value_create_object(16);
-    
-    // Add methods to stacks object
-    value_object_set_member(&stacks_obj, "create", value_create_builtin_function(builtin_stack_create));
-    value_object_set_member(&stacks_obj, "push", value_create_builtin_function(builtin_stack_push));
-    value_object_set_member(&stacks_obj, "pop", value_create_builtin_function(builtin_stack_pop));
-    value_object_set_member(&stacks_obj, "top", value_create_builtin_function(builtin_stack_top));
-    value_object_set_member(&stacks_obj, "size", value_create_builtin_function(builtin_stack_size));
-    value_object_set_member(&stacks_obj, "isEmpty", value_create_builtin_function(builtin_stack_isEmpty));
-    value_object_set_member(&stacks_obj, "clear", value_create_builtin_function(builtin_stack_clear));
+    value_object_set(&stacks_obj, "create", value_create_builtin_function(builtin_stack_create));
     
     // Register the stacks object
     environment_define(interpreter->global_environment, "stacks", stacks_obj);

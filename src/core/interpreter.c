@@ -3,10 +3,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+
+// ANSI color codes for terminal output
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
 #include "libs/math.h"
 #include "libs/array.h"
 #include "libs/string.h"
 #include "libs/sets.h"
+#include "libs/maps.h"
+#include "libs/trees.h"
+#include "libs/graphs.h"
+#include "libs/heaps.h"
+#include "libs/queues.h"
+#include "libs/stacks.h"
 
 // Placeholder interpreter implementation
 // This will be replaced with the full implementation
@@ -601,14 +611,427 @@ Value handle_super_method_call(Interpreter* interpreter, ASTNode* call_node, con
     return result;
 }
 
+Value handle_tree_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object) {
+    // Pass the object directly to the builtin functions
+    
+    // Evaluate all arguments and add object as first argument
+    size_t arg_count = call_node->data.function_call_expr.argument_count;
+    Value* args = (Value*)calloc(arg_count + 1, sizeof(Value));
+    if (!args) {
+        interpreter_set_error(interpreter, "Memory allocation failed", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Add object as first argument
+    args[0] = value_clone(&object);
+    
+    for (size_t i = 0; i < arg_count; i++) {
+        args[i + 1] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+    }
+    
+    Value result = value_create_null();
+    
+    // Call the appropriate tree method
+    if (strcmp(method_name, "insert") == 0) {
+        result = builtin_tree_insert(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "search") == 0) {
+        result = builtin_tree_search(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "size") == 0) {
+        result = builtin_tree_size(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "isEmpty") == 0) {
+        result = builtin_tree_is_empty(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "clear") == 0) {
+        result = builtin_tree_clear(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else {
+        interpreter_set_error(interpreter, "Unknown tree method", call_node->line, call_node->column);
+        result = value_create_null();
+    }
+    
+    // Clean up arguments
+    for (size_t i = 0; i < arg_count + 1; i++) {
+        value_free(&args[i]);
+    }
+    free(args);
+    
+    return result;
+}
+
+Value handle_graph_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object) {
+    // Pass the object directly to the builtin functions
+    
+    // Evaluate all arguments and add object as first argument
+    size_t arg_count = call_node->data.function_call_expr.argument_count;
+    Value* args = (Value*)calloc(arg_count + 1, sizeof(Value));
+    if (!args) {
+        interpreter_set_error(interpreter, "Memory allocation failed", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Add object as first argument
+    args[0] = value_clone(&object);
+    
+    for (size_t i = 0; i < arg_count; i++) {
+        args[i + 1] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+    }
+    
+    Value result = value_create_null();
+    
+    // Call the appropriate graph method
+    if (strcmp(method_name, "add_node") == 0) {
+        result = builtin_graph_add_node(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "add_edge") == 0) {
+        result = builtin_graph_add_edge(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "size") == 0) {
+        result = builtin_graph_size(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "is_empty") == 0) {
+        result = builtin_graph_is_empty(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "clear") == 0) {
+        result = builtin_graph_clear(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else {
+        interpreter_set_error(interpreter, "Unknown graph method", call_node->line, call_node->column);
+        result = value_create_null();
+    }
+    
+    // Clean up arguments
+    for (size_t i = 0; i < arg_count + 1; i++) {
+        value_free(&args[i]);
+    }
+    free(args);
+    
+    return result;
+}
+
+Value handle_heap_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object) {
+    // Pass the object directly to the builtin functions
+    
+    // Evaluate all arguments and add object as first argument
+    size_t arg_count = call_node->data.function_call_expr.argument_count;
+    Value* args = (Value*)calloc(arg_count + 1, sizeof(Value));
+    if (!args) {
+        interpreter_set_error(interpreter, "Memory allocation failed", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Add object as first argument
+    args[0] = value_clone(&object);
+    
+    for (size_t i = 0; i < arg_count; i++) {
+        args[i + 1] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+    }
+    
+    Value result = value_create_null();
+    
+    // Call the appropriate heap method
+    if (strcmp(method_name, "insert") == 0) {
+        result = builtin_heap_insert(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "extract") == 0) {
+        result = builtin_heap_extract(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "peek") == 0) {
+        result = builtin_heap_peek(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "size") == 0) {
+        result = builtin_heap_size(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "isEmpty") == 0) {
+        result = builtin_heap_isEmpty(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "clear") == 0) {
+        result = builtin_heap_clear(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else {
+        interpreter_set_error(interpreter, "Unknown heap method", call_node->line, call_node->column);
+        result = value_create_null();
+    }
+    
+    // Clean up arguments
+    for (size_t i = 0; i < arg_count + 1; i++) {
+        value_free(&args[i]);
+    }
+    free(args);
+    
+    return result;
+}
+
+Value handle_queue_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object) {
+    // Pass the object directly to the builtin functions
+    
+    // Evaluate all arguments and add object as first argument
+    size_t arg_count = call_node->data.function_call_expr.argument_count;
+    Value* args = (Value*)calloc(arg_count + 1, sizeof(Value));
+    if (!args) {
+        interpreter_set_error(interpreter, "Memory allocation failed", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Add object as first argument
+    args[0] = value_clone(&object);
+    
+    for (size_t i = 0; i < arg_count; i++) {
+        args[i + 1] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+    }
+    
+    Value result = value_create_null();
+    
+    // Call the appropriate queue method
+    if (strcmp(method_name, "enqueue") == 0) {
+        result = builtin_queue_enqueue(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "dequeue") == 0) {
+        result = builtin_queue_dequeue(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "front") == 0) {
+        result = builtin_queue_front(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "back") == 0) {
+        result = builtin_queue_back(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "size") == 0) {
+        result = builtin_queue_size(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "isEmpty") == 0) {
+        result = builtin_queue_isEmpty(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "clear") == 0) {
+        result = builtin_queue_clear(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else {
+        interpreter_set_error(interpreter, "Unknown queue method", call_node->line, call_node->column);
+        result = value_create_null();
+    }
+    
+    // Clean up arguments
+    for (size_t i = 0; i < arg_count + 1; i++) {
+        value_free(&args[i]);
+    }
+    free(args);
+    
+    return result;
+}
+
+Value handle_stack_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object) {
+    // Pass the object directly to the builtin functions
+    
+    // Evaluate all arguments and add object as first argument
+    size_t arg_count = call_node->data.function_call_expr.argument_count;
+    Value* args = (Value*)calloc(arg_count + 1, sizeof(Value));
+    if (!args) {
+        interpreter_set_error(interpreter, "Memory allocation failed", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Add object as first argument
+    args[0] = value_clone(&object);
+    
+    for (size_t i = 0; i < arg_count; i++) {
+        args[i + 1] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+    }
+    
+    Value result = value_create_null();
+    
+    // Call the appropriate stack method
+    if (strcmp(method_name, "push") == 0) {
+        result = builtin_stack_push(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "pop") == 0) {
+        result = builtin_stack_pop(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "top") == 0) {
+        result = builtin_stack_top(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "size") == 0) {
+        result = builtin_stack_size(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "isEmpty") == 0) {
+        result = builtin_stack_isEmpty(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "clear") == 0) {
+        result = builtin_stack_clear(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else {
+        interpreter_set_error(interpreter, "Unknown stack method", call_node->line, call_node->column);
+        result = value_create_null();
+    }
+    
+    // Clean up arguments
+    for (size_t i = 0; i < arg_count + 1; i++) {
+        value_free(&args[i]);
+    }
+    free(args);
+    
+    return result;
+}
+
 // Helper function to handle method calls
-Value handle_method_call(Interpreter* interpreter, ASTNode* call_node) {
+Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value object) {
     // Get the object and method name from the member access
     ASTNode* member_access = call_node->data.function_call_expr.function;
     const char* method_name = member_access->data.member_access.member_name;
     
-    // Evaluate the object (this is the key part that was causing issues)
-    Value object = eval_node(interpreter, member_access->data.member_access.object);
+    // Handle namespace marker method calls (e.g., math.abs(-5))
+    if (object.type == VALUE_STRING && strcmp(object.data.string_value, "namespace_marker") == 0) {
+        // This is a namespace marker, try to look up the prefixed function
+        // Get the alias name from the member access object
+        const char* alias_name = NULL;
+        if (member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
+            alias_name = member_access->data.member_access.object->data.identifier_value;
+        }
+        
+        if (alias_name) {
+            // Construct the prefixed function name
+            char prefixed_name[256];
+            snprintf(prefixed_name, sizeof(prefixed_name), "%s_%s", alias_name, method_name);
+            
+            // Look up the prefixed function
+            Value prefixed_value = environment_get(interpreter->current_environment, prefixed_name);
+            if (prefixed_value.type != VALUE_NULL) {
+                // Found the prefixed function, call it
+                size_t arg_count = call_node->data.function_call_expr.argument_count;
+                Value* args = arg_count > 0 ? (Value*)calloc(arg_count, sizeof(Value)) : NULL;
+                if (arg_count > 0 && !args) {
+                    value_free(&object);
+                    return value_create_null();
+                }
+                
+                for (size_t i = 0; i < arg_count; i++) {
+                    args[i] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+                }
+                
+                Value result = value_clone(&prefixed_value);
+                if (result.type == VALUE_FUNCTION && result.data.function_value.body) {
+                    Value (*func)(Interpreter*, Value*, size_t, int, int) = (Value (*)(Interpreter*, Value*, size_t, int, int))result.data.function_value.body;
+                    Value call_result = func(interpreter, args, arg_count, call_node->line, call_node->column);
+                    value_free(&result);
+                    value_free(&object);
+                    
+                    // Clean up arguments
+                    for (size_t i = 0; i < arg_count; i++) {
+                        value_free(&args[i]);
+                    }
+                    free(args);
+                    
+                    return call_result;
+                }
+                
+                value_free(&result);
+                value_free(&object);
+                
+                // Clean up arguments
+                for (size_t i = 0; i < arg_count; i++) {
+                    value_free(&args[i]);
+                }
+                free(args);
+                
+                return value_create_null();
+            }
+        }
+        
+        // Fallback: try to look up the member directly
+        Value member_value = environment_get(interpreter->current_environment, method_name);
+        if (member_value.type != VALUE_NULL) {
+            // Found the member, call it
+            size_t arg_count = call_node->data.function_call_expr.argument_count;
+            Value* args = arg_count > 0 ? (Value*)calloc(arg_count, sizeof(Value)) : NULL;
+            if (arg_count > 0 && !args) {
+                value_free(&object);
+                return value_create_null();
+            }
+            
+            for (size_t i = 0; i < arg_count; i++) {
+                args[i] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+            }
+            
+            Value result = value_clone(&member_value);
+            if (result.type == VALUE_FUNCTION && result.data.function_value.body) {
+                Value (*func)(Interpreter*, Value*, size_t, int, int) = (Value (*)(Interpreter*, Value*, size_t, int, int))result.data.function_value.body;
+                Value call_result = func(interpreter, args, arg_count, call_node->line, call_node->column);
+                value_free(&result);
+                value_free(&object);
+                
+                // Clean up arguments
+                for (size_t i = 0; i < arg_count; i++) {
+                    value_free(&args[i]);
+                }
+                free(args);
+                
+                return call_result;
+            }
+            
+            value_free(&result);
+            value_free(&object);
+            
+            // Clean up arguments
+            for (size_t i = 0; i < arg_count; i++) {
+                value_free(&args[i]);
+            }
+            free(args);
+            
+            return value_create_null();
+        }
+        
+        // No function found
+        value_free(&object);
+        char error_msg[256];
+        snprintf(error_msg, sizeof(error_msg), "Cannot access member '%s' of Module", method_name);
+        interpreter_set_error(interpreter, error_msg, call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Handle universal type method for all value types
+    if (strcmp(method_name, "type") == 0) {
+        // No arguments needed for type method
+        if (call_node->data.function_call_expr.argument_count > 0) {
+            value_free(&object);
+            interpreter_set_error(interpreter, "type() method takes no arguments", call_node->line, call_node->column);
+            return value_create_null();
+        }
+        
+        // Use the existing builtin_type function logic
+        Value result = value_create_null();
+        switch (object.type) {
+            case VALUE_NUMBER:
+                // Check if it's an integer or float
+                if (object.data.number_value == (int)object.data.number_value) {
+                    result = value_create_string("Int");
+                } else {
+                    result = value_create_string("Float");
+                }
+                break;
+            case VALUE_STRING:
+                result = value_create_string("String");
+                break;
+            case VALUE_BOOLEAN:
+                result = value_create_string("Boolean");
+                break;
+            case VALUE_NULL:
+                result = value_create_string("Null");
+                break;
+            case VALUE_ARRAY:
+                result = value_create_string("Array");
+                break;
+            case VALUE_OBJECT: {
+                // Check if this is a custom type (class instance)
+                Value class_name_val = value_object_get(&object, "__class_name__");
+                if (class_name_val.type == VALUE_STRING && class_name_val.data.string_value) {
+                    result = value_create_string(class_name_val.data.string_value);
+                    value_free(&class_name_val);
+                } else {
+                    value_free(&class_name_val);
+                    result = value_create_string("Object");
+                }
+                break;
+            }
+            case VALUE_FUNCTION:
+                result = value_create_string("Function");
+                break;
+            case VALUE_RANGE:
+                result = value_create_string("Range");
+                break;
+            case VALUE_HASH_MAP:
+                result = value_create_string("Map");
+                break;
+            case VALUE_SET:
+                result = value_create_string("Set");
+                break;
+            case VALUE_CLASS:
+                result = value_create_string("Class");
+                break;
+            case VALUE_MODULE:
+                result = value_create_string("Module");
+                break;
+            case VALUE_ERROR:
+                result = value_create_string("Error");
+                break;
+            default:
+                result = value_create_string("Unknown");
+                break;
+        }
+        
+        value_free(&object);
+        return result;
+    }
     
     // Handle array method calls directly
     if (object.type == VALUE_ARRAY) {
@@ -786,6 +1209,271 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node) {
         return result;
     }
     
+    // Handle hash map method calls directly
+    if (object.type == VALUE_HASH_MAP) {
+        // Evaluate all arguments
+        size_t arg_count = call_node->data.function_call_expr.argument_count;
+        Value* args = arg_count > 0 ? (Value*)calloc(arg_count + 1, sizeof(Value)) : (Value*)calloc(1, sizeof(Value));
+        if (!args) {
+            value_free(&object);
+            return value_create_null();
+        }
+        
+        // First argument is the hash map itself
+        args[0] = value_clone(&object);
+        
+        // Add the method arguments
+        for (size_t i = 0; i < arg_count; i++) {
+            args[i + 1] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+        }
+        
+        // Call the appropriate hash map method
+        Value result = value_create_null();
+        if (strcmp(method_name, "has") == 0) {
+            result = builtin_map_has(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "size") == 0) {
+            result = builtin_map_size(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "keys") == 0) {
+            result = builtin_map_keys(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "delete") == 0) {
+            result = builtin_map_delete(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "clear") == 0) {
+            result = builtin_map_clear(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else if (strcmp(method_name, "update") == 0) {
+            result = builtin_map_update(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        } else {
+            interpreter_set_error(interpreter, "Unknown hash map method", call_node->line, call_node->column);
+        }
+        
+        // Clean up arguments
+        for (size_t i = 0; i < arg_count + 1; i++) {
+            value_free(&args[i]);
+        }
+        free(args);
+        value_free(&object);
+        return result;
+    }
+    
+    // Handle tree method calls directly
+    if (object.type == VALUE_OBJECT) {
+        // Check if this is a tree object by looking for the "__class_name__" field
+        Value type_value = value_object_get(&object, "__class_name__");
+        if (type_value.type == VALUE_STRING && 
+            type_value.data.string_value && 
+            strcmp(type_value.data.string_value, "Tree") == 0) {
+            
+            value_free(&type_value);
+            
+            // Evaluate all arguments
+            size_t arg_count = call_node->data.function_call_expr.argument_count;
+            Value* args = arg_count > 0 ? (Value*)calloc(arg_count + 1, sizeof(Value)) : (Value*)calloc(1, sizeof(Value));
+            if (!args) {
+                value_free(&object);
+                return value_create_null();
+            }
+            
+            // First argument is the tree object itself
+            args[0] = value_clone(&object);
+            
+            // Add the method arguments
+            for (size_t i = 0; i < arg_count; i++) {
+                args[i + 1] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+            }
+            
+            // Call the appropriate tree method
+            Value result = value_create_null();
+            if (strcmp(method_name, "insert") == 0) {
+                result = builtin_tree_insert(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else if (strcmp(method_name, "search") == 0) {
+                result = builtin_tree_search(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else if (strcmp(method_name, "size") == 0) {
+                result = builtin_tree_size(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else if (strcmp(method_name, "isEmpty") == 0) {
+                result = builtin_tree_is_empty(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else if (strcmp(method_name, "clear") == 0) {
+                result = builtin_tree_clear(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else {
+                interpreter_set_error(interpreter, "Unknown tree method", call_node->line, call_node->column);
+            }
+            
+            // Clean up arguments
+            for (size_t i = 0; i < arg_count + 1; i++) {
+                value_free(&args[i]);
+            }
+            free(args);
+            value_free(&object);
+            return result;
+        }
+        value_free(&type_value);
+    }
+    
+    // Handle heap method calls directly
+    else if (object.type == VALUE_OBJECT) {
+        // Check if this is a heap object by looking for the "__class_name__" field
+        Value type_value = value_object_get(&object, "__class_name__");
+        if (type_value.type == VALUE_STRING && 
+            type_value.data.string_value && 
+            strcmp(type_value.data.string_value, "Heap") == 0) {
+            
+            value_free(&type_value);
+            
+            // Evaluate all arguments
+            size_t arg_count = call_node->data.function_call_expr.argument_count;
+            Value* args = arg_count > 0 ? (Value*)calloc(arg_count + 1, sizeof(Value)) : (Value*)calloc(1, sizeof(Value));
+            if (!args) {
+                value_free(&object);
+                return value_create_null();
+            }
+            
+            // First argument is the heap object itself
+            args[0] = value_clone(&object);
+            
+            // Add the method arguments
+            for (size_t i = 0; i < arg_count; i++) {
+                args[i + 1] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+            }
+            
+            // Call the appropriate heap method
+            Value result = value_create_null();
+            if (strcmp(method_name, "insert") == 0) {
+                result = builtin_heap_insert(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else if (strcmp(method_name, "extract") == 0) {
+                result = builtin_heap_extract(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else if (strcmp(method_name, "peek") == 0) {
+                result = builtin_heap_peek(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else if (strcmp(method_name, "size") == 0) {
+                result = builtin_heap_size(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else if (strcmp(method_name, "isEmpty") == 0) {
+                result = builtin_heap_isEmpty(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else if (strcmp(method_name, "clear") == 0) {
+                result = builtin_heap_clear(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else {
+                interpreter_set_error(interpreter, "Unknown heap method", call_node->line, call_node->column);
+            }
+            
+            // Clean up arguments
+            for (size_t i = 0; i < arg_count + 1; i++) {
+                value_free(&args[i]);
+            }
+            free(args);
+            value_free(&object);
+            return result;
+        }
+        value_free(&type_value);
+    }
+    
+    // Handle queue method calls directly
+    else if (object.type == VALUE_OBJECT) {
+        // Check if this is a queue object by looking for the "__class_name__" field
+        Value type_value = value_object_get(&object, "__class_name__");
+        if (type_value.type == VALUE_STRING && 
+            type_value.data.string_value && 
+            strcmp(type_value.data.string_value, "Queue") == 0) {
+            
+            value_free(&type_value);
+            
+            // Evaluate all arguments
+            size_t arg_count = call_node->data.function_call_expr.argument_count;
+            Value* args = arg_count > 0 ? (Value*)calloc(arg_count + 1, sizeof(Value)) : (Value*)calloc(1, sizeof(Value));
+            if (!args) {
+                value_free(&object);
+                return value_create_null();
+            }
+            
+            // First argument is the queue object itself
+            args[0] = value_clone(&object);
+            
+            // Add the method arguments
+            for (size_t i = 0; i < arg_count; i++) {
+                args[i + 1] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+            }
+            
+            // Call the appropriate queue method
+            Value result = value_create_null();
+            if (strcmp(method_name, "enqueue") == 0) {
+                result = builtin_queue_enqueue(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else if (strcmp(method_name, "dequeue") == 0) {
+                result = builtin_queue_dequeue(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else if (strcmp(method_name, "front") == 0) {
+                result = builtin_queue_front(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else if (strcmp(method_name, "back") == 0) {
+                result = builtin_queue_back(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else if (strcmp(method_name, "size") == 0) {
+                result = builtin_queue_size(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else if (strcmp(method_name, "isEmpty") == 0) {
+                result = builtin_queue_isEmpty(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else if (strcmp(method_name, "clear") == 0) {
+                result = builtin_queue_clear(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else {
+                interpreter_set_error(interpreter, "Unknown queue method", call_node->line, call_node->column);
+            }
+            
+            // Clean up arguments
+            for (size_t i = 0; i < arg_count + 1; i++) {
+                value_free(&args[i]);
+            }
+            free(args);
+            value_free(&object);
+            return result;
+        }
+        value_free(&type_value);
+    }
+    
+    // Handle stack method calls directly
+    else if (object.type == VALUE_OBJECT) {
+        // Check if this is a stack object by looking for the "__class_name__" field
+        Value type_value = value_object_get(&object, "__class_name__");
+        if (type_value.type == VALUE_STRING && 
+            type_value.data.string_value && 
+            strcmp(type_value.data.string_value, "Stack") == 0) {
+            
+            value_free(&type_value);
+            
+            // Evaluate all arguments
+            size_t arg_count = call_node->data.function_call_expr.argument_count;
+            Value* args = arg_count > 0 ? (Value*)calloc(arg_count + 1, sizeof(Value)) : (Value*)calloc(1, sizeof(Value));
+            if (!args) {
+                value_free(&object);
+                return value_create_null();
+            }
+            
+            // First argument is the stack object itself
+            args[0] = value_clone(&object);
+            
+            // Add the method arguments
+            for (size_t i = 0; i < arg_count; i++) {
+                args[i + 1] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+            }
+            
+            // Call the appropriate stack method
+            Value result = value_create_null();
+            if (strcmp(method_name, "push") == 0) {
+                result = builtin_stack_push(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else if (strcmp(method_name, "pop") == 0) {
+                result = builtin_stack_pop(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else if (strcmp(method_name, "top") == 0) {
+                result = builtin_stack_top(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else if (strcmp(method_name, "size") == 0) {
+                result = builtin_stack_size(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else if (strcmp(method_name, "isEmpty") == 0) {
+                result = builtin_stack_isEmpty(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else if (strcmp(method_name, "clear") == 0) {
+                result = builtin_stack_clear(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+            } else {
+                interpreter_set_error(interpreter, "Unknown stack method", call_node->line, call_node->column);
+            }
+            
+            // Clean up arguments
+            for (size_t i = 0; i < arg_count + 1; i++) {
+                value_free(&args[i]);
+            }
+            free(args);
+            value_free(&object);
+            return result;
+        }
+        value_free(&type_value);
+    }
+    
     // Check if this is a super call
     if (object.type == VALUE_OBJECT) {
         Value is_super = value_object_get(&object, "__is_super__");
@@ -797,9 +1485,138 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node) {
         value_free(&is_super);
     }
     
-    if (object.type != VALUE_OBJECT) {
+    // Check if this is a custom object method call (Tree, Graph, Heap, Queue, Stack)
+    if (object.type == VALUE_OBJECT) {
+        Value class_name = value_object_get(&object, "__class_name__");
+        if (class_name.type == VALUE_STRING) {
+            if (strcmp(class_name.data.string_value, "Tree") == 0) {
+                // Handle tree method calls
+                value_free(&class_name);
+                return handle_tree_method_call(interpreter, call_node, method_name, object);
+            } else if (strcmp(class_name.data.string_value, "Graph") == 0) {
+                // Handle graph method calls
+                value_free(&class_name);
+                return handle_graph_method_call(interpreter, call_node, method_name, object);
+            } else if (strcmp(class_name.data.string_value, "Heap") == 0) {
+                // Handle heap method calls
+                value_free(&class_name);
+                return handle_heap_method_call(interpreter, call_node, method_name, object);
+            } else if (strcmp(class_name.data.string_value, "Queue") == 0) {
+                // Handle queue method calls
+                value_free(&class_name);
+                return handle_queue_method_call(interpreter, call_node, method_name, object);
+            } else if (strcmp(class_name.data.string_value, "Stack") == 0) {
+                // Handle stack method calls
+                value_free(&class_name);
+                return handle_stack_method_call(interpreter, call_node, method_name, object);
+            }
+        }
+        value_free(&class_name);
+    }
+    
+    if (object.type != VALUE_OBJECT && object.type != VALUE_MODULE) {
         value_free(&object);
-        interpreter_set_error(interpreter, "Method calls can only be made on objects or arrays", call_node->line, call_node->column);
+        interpreter_set_error(interpreter, "Method calls can only be made on objects, arrays, or modules", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Handle Module type - look up prefixed functions
+    if (object.type == VALUE_MODULE) {
+        // Handle special methods for modules
+        if (strcmp(method_name, "type") == 0) {
+            value_free(&object);
+            return value_create_string("Module");
+        }
+        
+        const char* module_name = object.data.module_value.module_name;
+        if (module_name) {
+            // Look up the prefixed function or constant (e.g., math_Pi, math_abs)
+            char* prefixed_name = malloc(strlen(module_name) + strlen(method_name) + 2);
+            sprintf(prefixed_name, "%s_%s", module_name, method_name);
+            Value module_item = environment_get(interpreter->current_environment, prefixed_name);
+            
+            // If not found in current environment, try global environment for constants
+            if (module_item.type == VALUE_NULL) {
+                module_item = environment_get(interpreter->global_environment, method_name);
+            }
+            free(prefixed_name);
+            
+            if (module_item.type == VALUE_FUNCTION) {
+                // Evaluate arguments
+                size_t arg_count = call_node->data.function_call_expr.argument_count;
+                Value* args = (Value*)calloc(arg_count, sizeof(Value));
+                if (!args) {
+                    value_free(&object);
+                    interpreter_set_error(interpreter, "Memory allocation failed", call_node->line, call_node->column);
+                    return value_create_null();
+                }
+                
+                for (size_t i = 0; i < arg_count; i++) {
+                    args[i] = eval_node(interpreter, call_node->data.function_call_expr.arguments[i]);
+                }
+                
+                if (interpreter->has_error) {
+                    for (size_t i = 0; i < arg_count; i++) {
+                        value_free(&args[i]);
+                    }
+                    free(args);
+                    value_free(&object);
+                    return value_create_null();
+                }
+                
+                // Call the function - check if it's a built-in function
+                Value result = value_create_null();
+                if (module_item.data.function_value.body && 
+                    module_item.data.function_value.parameters == NULL && 
+                    module_item.data.function_value.parameter_count == 0) {
+                    // This is a built-in function - call it directly
+                    Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = 
+                        (Value (*)(Interpreter*, Value*, size_t, int, int))module_item.data.function_value.body;
+                    result = builtin_func(interpreter, args, arg_count, call_node->line, call_node->column);
+                } else {
+                    // This is a user-defined function - not supported for modules
+                    interpreter_set_error(interpreter, "Module functions must be built-in", call_node->line, call_node->column);
+                }
+                
+                // Clean up arguments
+                for (size_t i = 0; i < arg_count; i++) {
+                    value_free(&args[i]);
+                }
+                free(args);
+                value_free(&object);
+                
+                return result;
+            } else if (module_item.type != VALUE_NULL) {
+                // This is a constant (like math_Pi, math_E)
+                value_free(&object);
+                return value_clone(&module_item);
+            }
+        }
+        
+        // If no function found, try to access as a constant
+        if (strcmp(method_name, "Pi") == 0 && strcmp(module_name, "math") == 0) {
+            value_free(&object);
+            return value_create_number(3.141592653589793);
+        } else if (strcmp(method_name, "E") == 0 && strcmp(module_name, "math") == 0) {
+            value_free(&object);
+            return value_create_number(2.718281828459045);
+        } else if (strcmp(method_name, "Tau") == 0 && strcmp(module_name, "math") == 0) {
+            value_free(&object);
+            return value_create_number(6.283185307179586);
+        } else if (strcmp(method_name, "Sqrt2") == 0 && strcmp(module_name, "math") == 0) {
+            value_free(&object);
+            return value_create_number(1.4142135623730951);
+        } else if (strcmp(method_name, "Sqrt3") == 0 && strcmp(module_name, "math") == 0) {
+            value_free(&object);
+            return value_create_number(1.7320508075688772);
+        } else if (strcmp(method_name, "Phi") == 0 && strcmp(module_name, "math") == 0) {
+            value_free(&object);
+            return value_create_number(1.618033988749895);
+        }
+        
+        // No function or constant found
+        value_free(&object);
+        interpreter_set_error(interpreter, "Cannot access member", call_node->line, call_node->column);
         return value_create_null();
     }
     
@@ -1014,7 +1831,13 @@ Value create_class_instance(Interpreter* interpreter, Value* class_value, ASTNod
     return instance;
 }
 
-Value value_create_module(const char* name, void* exports) { Value v = {0}; return v; }
+Value value_create_module(const char* name, void* exports) {
+    Value v = {0};
+    v.type = VALUE_MODULE;
+    v.data.module_value.module_name = name ? strdup(name) : NULL;
+    v.data.module_value.exports = exports;
+    return v;
+}
 Value value_create_error(const char* message, int code) { Value v = {0}; return v; }
 
 void value_free(Value* value) { 
@@ -2325,7 +3148,9 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             if (result.type == VALUE_NULL) {
                 result = environment_get(interpreter->global_environment, name);
                 if (result.type == VALUE_NULL) {
-                    interpreter_set_error(interpreter, "Undefined variable", node->line, node->column);
+                    char error_msg[256];
+                    snprintf(error_msg, sizeof(error_msg), "\"%s\" is Undefined", name);
+                    interpreter_set_error(interpreter, error_msg, node->line, node->column);
                 }
             }
             return result;
@@ -2337,7 +3162,6 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 init = eval_node(interpreter, node->data.variable_declaration.initial_value);
             }
             environment_define(interpreter->current_environment, var_name, init);
-            value_free(&init);
             return value_create_null();
         }
         case AST_NODE_BINARY_OP: return eval_binary(interpreter, node);
@@ -2443,57 +3267,13 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 value_free(&v);
                 return value_create_number(out);
             }
-            if (strcmp(func_name, "type") == 0) {
-                size_t n = node->data.function_call.argument_count;
-                if (n == 0) return value_create_string("Null");
-                Value v = eval_node(interpreter, node->data.function_call.arguments[0]);
-                const char* t = "<Value>";
-                switch (v.type) {
-                    case VALUE_NULL: t = "Null"; break;
-                    case VALUE_BOOLEAN: t = "Boolean"; break;
-                    case VALUE_NUMBER: {
-                        // Check if it's a float (has decimal part)
-                        if (v.data.number_value == (long long)v.data.number_value) {
-                            t = "Int";
-                        } else {
-                            t = "Float";
-                        }
-                        break;
-                    }
-                    case VALUE_STRING: t = "String"; break;
-                    case VALUE_RANGE: t = "Range"; break;
-                    case VALUE_ARRAY: t = "Array"; break;
-                    case VALUE_OBJECT: {
-                        // Check if this is a custom type (class instance)
-                        Value class_name_val = value_object_get(&v, "__class_name__");
-                        if (class_name_val.type == VALUE_STRING && class_name_val.data.string_value) {
-                            Value result = value_create_string(class_name_val.data.string_value);
-                            value_free(&class_name_val);
-                            value_free(&v);
-                            return result;
-                        }
-                        value_free(&class_name_val);
-                        t = "Object";
-                        break;
-                    }
-                    case VALUE_FUNCTION: t = "Function"; break;
-                    case VALUE_HASH_MAP: t = "HashMap"; break;
-                    case VALUE_SET: t = "Set"; break;
-                    case VALUE_CLASS: t = "Class"; break;
-                    case VALUE_MODULE: t = "Module"; break;
-                    case VALUE_ERROR: t = "Error"; break;
-                }
-                
-                value_free(&v);
-                return value_create_string(t);
-            }
             // Look up function in environment
             Value fn = environment_get(interpreter->current_environment, func_name);
             
             // Check if this is a built-in function by checking if it's a known builtin
             // Built-in functions are registered in the global environment with specific names
             const char* builtin_names[] = {
-                "print", "uprint", "str", "len", "type", "assert", "input", "int", "float", "bool",
+                "print", "uprint", "str", "len", "assert", "input", "int", "float", "bool",
                 "abs", "min", "max", "sqrt", "pow", "round", "floor", "ceil", "sin", "cos", "tan",
                 "upper", "lower", "trim", "push", "pop", "insert", "remove", "reverse", "sort", 
                 "filter", "map", "reduce", "find", "slice"
@@ -2789,6 +3569,8 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 environment_assign(interpreter->current_environment, node->data.assignment.variable_name, value);
             }
             
+            // Free the value after assignment
+            value_free(&value);
             return value_create_null();
         }
         case AST_NODE_FUNCTION: {
@@ -3036,6 +3818,53 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                         }
                     }
                 }
+            } else if (object.type == VALUE_MODULE) {
+                // Handle Module member access (e.g., math.Pi, math.E)
+                const char* module_name = object.data.module_value.module_name;
+                
+                // Handle special properties for modules
+                if (strcmp(member_name, "type") == 0) {
+                    value_free(&object);
+                    return value_create_string("Module");
+                }
+                
+                if (module_name) {
+                    // Look up the prefixed function or constant (e.g., math_Pi, math_abs)
+                    char* prefixed_name = malloc(strlen(module_name) + strlen(member_name) + 2);
+                    sprintf(prefixed_name, "%s_%s", module_name, member_name);
+                    Value module_item = environment_get(interpreter->current_environment, prefixed_name);
+                    free(prefixed_name);
+                    
+                    // If not found in current environment, try global environment for prefixed functions
+                    if (module_item.type == VALUE_NULL) {
+                        char* prefixed_name_global = malloc(strlen(module_name) + strlen(member_name) + 2);
+                        sprintf(prefixed_name_global, "%s_%s", module_name, member_name);
+                        module_item = environment_get(interpreter->global_environment, prefixed_name_global);
+                        free(prefixed_name_global);
+                    }
+                    
+                    // If still not found, try looking for the function without prefix (for backward compatibility)
+                    if (module_item.type == VALUE_NULL) {
+                        module_item = environment_get(interpreter->global_environment, member_name);
+                    }
+                    
+                    // If still not found, try looking in the current environment without prefix
+                    if (module_item.type == VALUE_NULL) {
+                        module_item = environment_get(interpreter->current_environment, member_name);
+                    }
+                    
+                    if (module_item.type != VALUE_NULL) {
+                        value_free(&object);
+                        return value_clone(&module_item);
+                    }
+                }
+                
+                // No member found - provide helpful error message
+                char error_msg[256];
+                snprintf(error_msg, sizeof(error_msg), "Cannot access member '%s' of Module '%s'", member_name, module_name ? module_name : "unknown");
+                interpreter_set_error(interpreter, error_msg, node->line, node->column);
+                value_free(&object);
+                return value_create_null();
             } else if (object.type == VALUE_STRING && strcmp(object.data.string_value, "namespace_marker") == 0) {
                 // This is a namespace marker, try to look up the prefixed function
                 // For example: math.Pi -> math_Pi, str.upper -> str_upper
@@ -3099,9 +3928,27 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
         case AST_NODE_FUNCTION_CALL_EXPR: {
             // Check if this is a method call (function expression is member access)
             if (node->data.function_call_expr.function->type == AST_NODE_MEMBER_ACCESS) {
-                // This is a method call like obj.method()
-                // Handle it directly here to avoid the complex method resolution
-                return handle_method_call(interpreter, node);
+                // First, evaluate the member access to see what type of object we have
+                Value object = eval_node(interpreter, node->data.function_call_expr.function->data.member_access.object);
+                
+                // Check if this is a module method call (like math.type()) vs module function call (like file.write())
+                if (object.type == VALUE_MODULE) {
+                    // Check if this is a special method like type()
+                    const char* method_name = node->data.function_call_expr.function->data.member_access.member_name;
+                    if (strcmp(method_name, "type") == 0) {
+                        // This is a module method call like math.type() - handle directly
+                        value_free(&object);
+                        return value_create_string("Module");
+                    } else {
+                        // This is a module function call like file.write() - handle as regular function call
+                        // The member access already returned the function, so we can proceed with regular function call
+                    }
+                } else {
+                    // This is an object method call like obj.method() - use method call handling
+                    return handle_method_call(interpreter, node, object);
+                }
+                value_free(&object);
+                return value_create_null(); // Prevent continuing to regular function call path
             }
             
             // Regular function call - evaluate the function expression
@@ -3215,9 +4062,9 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
         }
         case AST_NODE_ERROR: {
             // Report the error but continue execution
-            fprintf(stderr, "Runtime Error at line %d, column %d: %s\n", 
-                    node->line, node->column, 
-                    node->data.error_node.error_message ? node->data.error_node.error_message : "Unknown error");
+            fprintf(stderr, ANSI_COLOR_RED "Error: %s (Line %d, Column %d)\n" ANSI_COLOR_RESET, 
+                    node->data.error_node.error_message ? node->data.error_node.error_message : "Unknown error",
+                    node->line, node->column);
             return value_create_null();
         }
         
@@ -3273,11 +4120,11 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     }
                 }
                 
-                // If there's a general alias, bind the namespace marker to it
+                // If there's a general alias, bind the module object to it
                 if (alias) {
-                    // Bind the alias to a special namespace marker string
-                    // This allows the member access system to detect it and look up prefixed functions
-                    environment_define(interpreter->current_environment, alias, value_create_string("namespace_marker"));
+                    // Create a proper module object
+                    Value module_obj = value_create_module("math", NULL);
+                    environment_define(interpreter->current_environment, alias, module_obj);
                 }
                 
                 return value_create_null();
@@ -3292,6 +4139,18 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             } else if (strcmp(library_name, "sets") == 0) {
                 // Sets library is no longer imported - methods are called directly on sets
                 interpreter_set_error(interpreter, "Sets library import is no longer supported. Use set.method() syntax instead.", node->line, node->column);
+                return value_create_null();
+            } else if (strcmp(library_name, "graphs") == 0) {
+                // Graphs library is no longer imported - methods are called directly on graphs
+                interpreter_set_error(interpreter, "Graphs library import is no longer supported. Use graph.method() syntax instead.", node->line, node->column);
+                return value_create_null();
+            } else if (strcmp(library_name, "heaps") == 0) {
+                // Heaps library is no longer imported - methods are called directly on heaps
+                interpreter_set_error(interpreter, "Heaps library import is no longer supported. Use heap.method() syntax instead.", node->line, node->column);
+                return value_create_null();
+            } else if (strcmp(library_name, "queues") == 0) {
+                // Queues library is no longer imported - methods are called directly on queues
+                interpreter_set_error(interpreter, "Queues library import is no longer supported. Use queue.method() syntax instead.", node->line, node->column);
                 return value_create_null();
             } else if (strcmp(library_name, "file") == 0) {
                 // Handle file library
@@ -3351,20 +4210,9 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                         // Also bind individual functions to the current environment for convenience
                         // This allows both file.read() and read() to work
                         
-                        // Create an object for the alias with all file functions as members
-                        Value file_object = value_create_object(8);
-                        const char* file_functions_obj[] = {"read", "write", "append", "exists", "size", "delete", "read_lines", "write_lines"};
-                        for (size_t i = 0; i < sizeof(file_functions_obj) / sizeof(file_functions_obj[0]); i++) {
-                            char* prefixed_name = malloc(strlen("file_") + strlen(file_functions_obj[i]) + 1);
-                            sprintf(prefixed_name, "file_%s", file_functions_obj[i]);
-                            Value file_func = environment_get(interpreter->global_environment, prefixed_name);
-                            free(prefixed_name);
-                            
-                            if (file_func.type == VALUE_FUNCTION) {
-                                value_object_set_member(&file_object, file_functions_obj[i], file_func);
-                            }
-                        }
-                        environment_define(interpreter->current_environment, alias, file_object);
+                        // Create a proper module object for the alias
+                        Value file_module = value_create_module("file", NULL);
+                        environment_define(interpreter->current_environment, alias, file_module);
                     }
                 }
                 
@@ -3427,20 +4275,9 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                         // Also bind individual functions to the current environment for convenience
                         // This allows both dir.list() and list() to work
                         
-                        // Create an object for the alias with all directory functions as members
-                        Value dir_object = value_create_object(7);
-                        const char* dir_functions_obj[] = {"list", "create", "remove", "exists", "current", "change", "info"};
-                        for (size_t i = 0; i < sizeof(dir_functions_obj) / sizeof(dir_functions_obj[0]); i++) {
-                            char* prefixed_name = malloc(strlen("dir_") + strlen(dir_functions_obj[i]) + 1);
-                            sprintf(prefixed_name, "dir_%s", dir_functions_obj[i]);
-                            Value dir_func = environment_get(interpreter->global_environment, prefixed_name);
-                            free(prefixed_name);
-                            
-                            if (dir_func.type == VALUE_FUNCTION) {
-                                value_object_set_member(&dir_object, dir_functions_obj[i], dir_func);
-                            }
-                        }
-                        environment_define(interpreter->current_environment, alias, dir_object);
+                        // Create a proper module object for the alias
+                        Value dir_module = value_create_module("dir", NULL);
+                        environment_define(interpreter->current_environment, alias, dir_module);
                     }
                 }
                 
@@ -3839,10 +4676,6 @@ static const char* get_error_solution(MycoErrorCode code) {
     }
 }
 
-// ANSI color codes for terminal output
-#define ANSI_COLOR_RED     "\x1b[31m"
-#define ANSI_COLOR_RESET   "\x1b[0m"
-
 void interpreter_set_error(Interpreter* interpreter, const char* message, int line, int column) {
     if (!interpreter) return;
     
@@ -3869,9 +4702,9 @@ void interpreter_set_error(Interpreter* interpreter, const char* message, int li
     // Get fungus-themed error name
     const char* fungus_name = get_fungus_error_name(error_code);
     
-    // Print concise error message with color and fungus name
-    fprintf(stderr, ANSI_COLOR_RED "Error (%s) at Line %d, Column %d: %s\n" ANSI_COLOR_RESET, 
-            fungus_name, line, column, interpreter->error_message);
+    // Print clean, concise error message
+    fprintf(stderr, ANSI_COLOR_RED "Error: %s (Line %d, Column %d)\n" ANSI_COLOR_RESET, 
+            message, line, column);
 }
 
 void interpreter_clear_error(Interpreter* interpreter) {
@@ -4065,57 +4898,6 @@ Value builtin_len(Interpreter* interpreter, Value* args, size_t arg_count, int l
             return value_create_number(0);
     }
 }
-Value builtin_type(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
-    (void)interpreter; // Suppress unused parameter warning
-    (void)line; // Suppress unused parameter warning
-    (void)column; // Suppress unused parameter warning
-    
-    if (arg_count < 1) {
-        return value_create_string("Null");
-    }
-    
-    Value* arg = &args[0];
-    switch (arg->type) {
-        case VALUE_NUMBER:
-            // Check if it's an integer or float
-            if (arg->data.number_value == (int)arg->data.number_value) {
-                return value_create_string("Int");
-            } else {
-                return value_create_string("Float");
-            }
-        case VALUE_STRING:
-            return value_create_string("String");
-        case VALUE_BOOLEAN:
-            return value_create_string("Boolean");
-        case VALUE_NULL:
-            return value_create_string("Null");
-        case VALUE_ARRAY:
-            return value_create_string("Array");
-        case VALUE_OBJECT: {
-            // Check if this is a custom type (class instance)
-            Value class_name_val = value_object_get(arg, "__class_name__");
-            if (class_name_val.type == VALUE_STRING && class_name_val.data.string_value) {
-                Value result = value_create_string(class_name_val.data.string_value);
-                value_free(&class_name_val);
-                return result;
-            }
-            value_free(&class_name_val);
-            return value_create_string("Object");
-        }
-        case VALUE_FUNCTION:
-            return value_create_string("Function");
-        case VALUE_RANGE:
-            return value_create_string("Range");
-        case VALUE_CLASS:
-            return value_create_string("Class");
-        case VALUE_MODULE:
-            return value_create_string("Module");
-        case VALUE_ERROR:
-            return value_create_string("Error");
-        default:
-            return value_create_string("Unknown");
-    }
-}
 
 Value builtin_assert(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count < 2) {
@@ -4161,7 +4943,6 @@ void interpreter_register_builtins(Interpreter* interpreter) {
     environment_define(interpreter->global_environment, "uprint", v);
     environment_define(interpreter->global_environment, "str", v);
     environment_define(interpreter->global_environment, "len", v);
-    environment_define(interpreter->global_environment, "type", v);
     environment_define(interpreter->global_environment, "assert", v);
     value_free(&v);
     

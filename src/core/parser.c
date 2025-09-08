@@ -1016,7 +1016,12 @@ ASTNode* parser_parse_primary(Parser* parser) {
         
         ASTNode* literal = ast_create_number(token->data.number_value, token->line, token->column);
         if (literal) {
-            return literal;
+            // Check for member access: 42.method
+            if (parser_check(parser, TOKEN_DOT)) {
+                return parser_parse_member_access_chain(parser, literal);
+            } else {
+                return literal;
+            }
         }
     }
     
@@ -1116,7 +1121,12 @@ ASTNode* parser_parse_primary(Parser* parser) {
         int bool_value = (strcmp(token->text, "True") == 0) ? 1 : 0;
         ASTNode* literal = ast_create_bool(bool_value, token->line, token->column);
         if (literal) {
-            return literal;
+            // Check for member access: True.method
+            if (parser_check(parser, TOKEN_DOT)) {
+                return parser_parse_member_access_chain(parser, literal);
+            } else {
+                return literal;
+            }
         }
     }
     
@@ -1128,7 +1138,12 @@ ASTNode* parser_parse_primary(Parser* parser) {
         // Create null AST node
         ASTNode* literal = ast_create_null(token->line, token->column);
         if (literal) {
-            return literal;
+            // Check for member access: Null.method
+            if (parser_check(parser, TOKEN_DOT)) {
+                return parser_parse_member_access_chain(parser, literal);
+            } else {
+                return literal;
+            }
         }
     }
     

@@ -662,7 +662,7 @@ end
 print("\n9. Built-in Libraries...");
 total_tests = total_tests + 1;
 use math as math;
-if type(math) == "Module" or math != Null:
+if math.type() == "Module":
     print("✓ Math library imported");
     tests_passed = tests_passed + 1;
 else:
@@ -672,7 +672,7 @@ end
 
 total_tests = total_tests + 1;
 let test_string = "hello";
-if type(test_string) == "String" and test_string != Null:
+if test_string.type() == "String" and test_string != Null:
     print("✓ String type available");
     tests_passed = tests_passed + 1;
 else:
@@ -682,7 +682,7 @@ end
 
 total_tests = total_tests + 1;
 let test_array = [1, 2, 3];
-if type(test_array) == "Array" and test_array != Null:
+if test_array.type() == "Array" and test_array != Null:
     print("✓ Array type available");
     tests_passed = tests_passed + 1;
 else:
@@ -692,7 +692,7 @@ end
 
 total_tests = total_tests + 1;
 use file as file;
-if type(file) == "Object" or file != Null:
+if file.type() == "Module":
     print("✓ File library imported");
     tests_passed = tests_passed + 1;
 else:
@@ -702,7 +702,7 @@ end
 
 total_tests = total_tests + 1;
 use dir as dir;
-if type(dir) == "Object" or dir != Null:
+if dir.type() == "Module":
     print("✓ Directory library imported");
     tests_passed = tests_passed + 1;
 else:
@@ -711,18 +711,19 @@ else:
 end
 
 total_tests = total_tests + 1;
-use maps as maps;
-if type(maps) == "Object" or maps != Null:
-    print("✓ Maps library imported");
+# Check if maps library is available by testing if we can create a map
+let test_map = {name: "Alice", age: 30};
+if test_map.type() == "Map":
+    print("✓ Maps library available");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Maps library import failed");
-    tests_failed = tests_failed + ["Maps library import"];
+    print("✗ Maps library not available");
+    tests_failed = tests_failed + ["Maps library"];
 end
 
 total_tests = total_tests + 1;
 let test_set = {"apple", "banana", "cherry"};
-if type(test_set) == "Set":
+if test_set.type() == "Set":
     print("✓ Sets type available");
     tests_passed = tests_passed + 1;
 else:
@@ -731,8 +732,9 @@ else:
 end
 
 total_tests = total_tests + 1;
-use trees as trees;
-if type(trees) == "Object" or trees != Null:
+# Check if trees library is available by testing if we can create a tree
+let test_tree = trees.create();
+if test_tree.type() == "Tree":
     print("✓ Trees library imported");
     tests_passed = tests_passed + 1;
 else:
@@ -741,8 +743,9 @@ else:
 end
 
 total_tests = total_tests + 1;
-use graphs as graphs;
-if type(graphs) == "Object" or graphs != Null:
+# Check if graphs library is available by testing if we can create a graph
+let graphs_test = graphs.create();
+if graphs_test.type() == "Graph":
     print("✓ Graphs library imported");
     tests_passed = tests_passed + 1;
 else:
@@ -820,7 +823,7 @@ print("\n13.1. Enhanced Array Operations...");
 total_tests = total_tests + 1;
 let test_array = [1, 2, 3, 4, 5];
 let joined_result = test_array.join(", ");
-if type(joined_result) == "String" and joined_result != Null:
+if joined_result.type() == "String" and joined_result != Null:
     print("✓ array.join() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -871,7 +874,7 @@ end
 total_tests = total_tests + 1;
 let duplicates_array = [1, 2, 2, 3, 3, 3, 4];
 let unique_result = duplicates_array.unique();
-if type(unique_result) == "Array" and unique_result != Null:
+if unique_result.type() == "Array" and unique_result != Null:
     print("✓ array.unique() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -883,7 +886,7 @@ total_tests = total_tests + 1;
 let array1 = [1, 2, 3];
 let array2 = [4, 5, 6];
 let concat_result = array1.concat(array2);
-if type(concat_result) == "Array" and concat_result != Null:
+if concat_result.type() == "Array" and concat_result != Null:
     print("✓ array.concat() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -893,7 +896,7 @@ end
 
 total_tests = total_tests + 1;
 let slice_result = test_array.slice(1, 4);
-if type(slice_result) == "Array" and slice_result != Null:
+if slice_result.type() == "Array" and slice_result != Null:
     print("✓ array.slice() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -904,7 +907,7 @@ end
 total_tests = total_tests + 1;
 let fill_array = [];
 fill_array.fill("test", 3);
-if type(fill_array) == "Array":
+if fill_array.type() == "Array":
     print("✓ array.fill() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -936,7 +939,7 @@ end
 
 total_tests = total_tests + 1;
 let read_result = file.read("test_file.txt");
-if read_result != Null and type(read_result) == "String":
+if read_result != Null and read_result.type() == "String":
     print("✓ File read successful");
     tests_passed = tests_passed + 1;
 else:
@@ -957,7 +960,7 @@ end
 print("\n15. Directory Library Functions...");
 total_tests = total_tests + 1;
 let current_dir = dir.current();
-if current_dir != Null and type(current_dir) == "String":
+if current_dir != Null and current_dir.type() == "String":
     print("✓ Current directory successful");
     tests_passed = tests_passed + 1;
 else:
@@ -967,7 +970,7 @@ end
 
 total_tests = total_tests + 1;
 let files = dir.list(".");
-if files != Null and type(files) == "Array":
+if files != Null and files.type() == "Array":
     print("✓ Directory listing successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1002,7 +1005,7 @@ end
 print("\n16. Maps Library Functions...");
 total_tests = total_tests + 1;
 let test_map = {name: "Alice", age: 30, city: "NYC"};
-let has_name = maps.has(test_map, "name");
+let has_name = test_map.has("name");
 if has_name == True:
     print("✓ maps.has() with existing key");
     tests_passed = tests_passed + 1;
@@ -1012,7 +1015,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let has_missing = maps.has(test_map, "salary");
+let has_missing = test_map.has("salary");
 if has_missing == False:
     print("✓ maps.has() with missing key");
     tests_passed = tests_passed + 1;
@@ -1022,7 +1025,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let map_size = maps.size(test_map);
+let map_size = test_map.size();
 if map_size == 3:
     print("✓ maps.size() returns correct count");
     tests_passed = tests_passed + 1;
@@ -1032,8 +1035,8 @@ else:
 end
 
 total_tests = total_tests + 1;
-let map_keys = maps.keys(test_map);
-if type(map_keys) == "Array" and map_keys != Null:
+let map_keys = test_map.keys();
+if map_keys.type() == "Array" and map_keys != Null:
     print("✓ maps.keys() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1042,8 +1045,8 @@ else:
 end
 
 total_tests = total_tests + 1;
-maps.delete(test_map, "city");
-let size_after_delete = maps.size(test_map);
+test_map = test_map.delete("city");
+let size_after_delete = test_map.size();
 if size_after_delete >= 2:  # Should be 2 or original if delete doesn't work in place
     print("✓ maps.delete() executed");
     tests_passed = tests_passed + 1;
@@ -1054,8 +1057,8 @@ end
 
 total_tests = total_tests + 1;
 let update_map = {salary: 50000, department: "Engineering"};
-maps.update(test_map, update_map);
-let size_after_update = maps.size(test_map);
+test_map = test_map.update(update_map);
+let size_after_update = test_map.size();
 if size_after_update >= 2:  # Should maintain or increase size
     print("✓ maps.update() executed");
     tests_passed = tests_passed + 1;
@@ -1065,7 +1068,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-maps.clear(test_map);
+test_map = test_map.clear();
 print("✓ maps.clear() executed");
 tests_passed = tests_passed + 1;
 
@@ -1125,7 +1128,7 @@ end
 
 total_tests = total_tests + 1;
 let set_to_array = test_set.toArray();
-if type(set_to_array) == "Array" and set_to_array != Null:
+if set_to_array.type() == "Array" and set_to_array != Null:
     print("✓ set.toArray() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1136,7 +1139,7 @@ end
 total_tests = total_tests + 1;
 let other_set = {"grape", "orange", "kiwi"};
 let union_result = test_set.union(other_set);
-if type(union_result) == "Set" and union_result != Null:
+if union_result.type() == "Set" and union_result != Null:
     print("✓ set.union() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1146,7 +1149,7 @@ end
 
 total_tests = total_tests + 1;
 let intersection_result = test_set.intersection(other_set);
-if type(intersection_result) == "Set" and intersection_result != Null:
+if intersection_result.type() == "Set" and intersection_result != Null:
     print("✓ set.intersection() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1156,7 +1159,7 @@ end
 
 total_tests = total_tests + 1;
 let clear_result = test_set.clear();
-if type(clear_result) == "Set":
+if clear_result.type() == "Set":
     print("✓ set.clear() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1167,7 +1170,7 @@ end
 print("\n18. Trees Library Functions...");
 total_tests = total_tests + 1;
 let test_tree = trees.create();
-if type(test_tree) == "Object" and test_tree != Null:
+if test_tree.type() == "Tree" and test_tree != Null:
     print("✓ trees.create() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1176,7 +1179,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let tree_size = trees.size(test_tree);
+let tree_size = test_tree.size();
 if tree_size == 0:
     print("✓ trees.size() returns correct initial size");
     tests_passed = tests_passed + 1;
@@ -1186,7 +1189,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let tree_is_empty = trees.isEmpty(test_tree);
+let tree_is_empty = test_tree.isEmpty();
 if tree_is_empty == True:
     print("✓ trees.isEmpty() returns correct initial state");
     tests_passed = tests_passed + 1;
@@ -1196,8 +1199,8 @@ else:
 end
 
 total_tests = total_tests + 1;
-let tree_insert = trees.insert(test_tree, "root");
-if type(tree_insert) == "String" and tree_insert != Null:
+test_tree = test_tree.insert("root");
+if test_tree.type() == "Tree" and test_tree != Null:
     print("✓ trees.insert() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1206,8 +1209,8 @@ else:
 end
 
 total_tests = total_tests + 1;
-let tree_search = trees.search(test_tree, "root");
-if type(tree_search) == "Boolean":
+let tree_search = test_tree.search("root");
+if tree_search.type() == "Boolean":
     print("✓ trees.search() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1216,8 +1219,8 @@ else:
 end
 
 total_tests = total_tests + 1;
-let tree_clear = trees.clear(test_tree);
-if tree_clear == Null:
+test_tree = test_tree.clear();
+if test_tree.type() == "Tree" and test_tree != Null:
     print("✓ trees.clear() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1228,7 +1231,7 @@ end
 print("\n19. Graphs Library Functions...");
 total_tests = total_tests + 1;
 let test_graph = graphs.create(False);  # Undirected graph
-if type(test_graph) == "Object" and test_graph != Null:
+if test_graph.type() == "Graph" and test_graph != Null:
     print("✓ graphs.create() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1237,7 +1240,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let graph_size = graphs.size(test_graph);
+let graph_size = test_graph.size();
 if graph_size == 0:
     print("✓ graphs.size() returns correct initial size");
     tests_passed = tests_passed + 1;
@@ -1247,38 +1250,38 @@ else:
 end
 
 total_tests = total_tests + 1;
-let graph_is_empty = graphs.isEmpty(test_graph);
+let graph_is_empty = test_graph.is_empty();
 if graph_is_empty == True:
-    print("✓ graphs.isEmpty() returns correct initial state");
+    print("✓ graphs.is_empty() returns correct initial state");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ graphs.isEmpty() failed");
-    tests_failed = tests_failed + ["graphs.isEmpty()"];
+    print("✗ graphs.is_empty() failed");
+    tests_failed = tests_failed + ["graphs.is_empty()"];
 end
 
 total_tests = total_tests + 1;
-let graph_add_node = graphs.addNode(test_graph, "node1");
-if type(graph_add_node) == "String" and graph_add_node != Null:
-    print("✓ graphs.addNode() successful");
+test_graph = test_graph.add_node("node1");
+if test_graph.type() == "Graph" and test_graph != Null:
+    print("✓ graphs.add_node() successful");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ graphs.addNode() failed");
-    tests_failed = tests_failed + ["graphs.addNode()"];
+    print("✗ graphs.add_node() failed");
+    tests_failed = tests_failed + ["graphs.add_node()"];
 end
 
 total_tests = total_tests + 1;
-let graph_add_edge = graphs.addEdge(test_graph, "node1", "node2");
-if type(graph_add_edge) == "String" and graph_add_edge != Null:
-    print("✓ graphs.addEdge() successful");
+test_graph = test_graph.add_edge("node1", "node2");
+if test_graph.type() == "Graph" and test_graph != Null:
+    print("✓ graphs.add_edge() successful");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ graphs.addEdge() failed");
-    tests_failed = tests_failed + ["graphs.addEdge()"];
+    print("✗ graphs.add_edge() failed");
+    tests_failed = tests_failed + ["graphs.add_edge()"];
 end
 
 total_tests = total_tests + 1;
-let graph_clear = graphs.clear(test_graph);
-if graph_clear == Null:
+test_graph = test_graph.clear();
+if test_graph.type() == "Graph" and test_graph != Null:
     print("✓ graphs.clear() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1288,7 +1291,7 @@ end
 
 total_tests = total_tests + 1;
 let directed_graph = graphs.create(True);  # Directed graph
-if type(directed_graph) == "Object" and directed_graph != Null:
+if directed_graph.type() == "Graph" and directed_graph != Null:
     print("✓ graphs.create() with directed parameter successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1299,7 +1302,7 @@ end
 print("\n20. Heaps Library Functions...");
 total_tests = total_tests + 1;
 let test_heap = heaps.create(True);  # Max heap
-if type(test_heap) == "Object" and test_heap != Null:
+if test_heap.type() == "Heap" and test_heap != Null:
     print("✓ heaps.create() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1308,7 +1311,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let heap_size = heaps.size(test_heap);
+let heap_size = test_heap.size();
 if heap_size == 0:
     print("✓ heaps.size() successful");
     tests_passed = tests_passed + 1;
@@ -1318,7 +1321,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let heap_empty = heaps.isEmpty(test_heap);
+let heap_empty = test_heap.isEmpty();
 if heap_empty == True:
     print("✓ heaps.isEmpty() successful");
     tests_passed = tests_passed + 1;
@@ -1328,10 +1331,10 @@ else:
 end
 
 total_tests = total_tests + 1;
-test_heap = heaps.insert(test_heap, 10);
-test_heap = heaps.insert(test_heap, 5);
-test_heap = heaps.insert(test_heap, 15);
-let heap_size_after = heaps.size(test_heap);
+test_heap = test_heap.insert(10);
+test_heap = test_heap.insert(5);
+test_heap = test_heap.insert(15);
+let heap_size_after = test_heap.size();
 if heap_size_after == 3:
     print("✓ heaps.insert() successful");
     tests_passed = tests_passed + 1;
@@ -1341,7 +1344,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let heap_peek = heaps.peek(test_heap);
+let heap_peek = test_heap.peek();
 if heap_peek == 15:  # Max heap should have 15 at root
     print("✓ heaps.peek() successful");
     tests_passed = tests_passed + 1;
@@ -1351,8 +1354,8 @@ else:
 end
 
 total_tests = total_tests + 1;
-test_heap = heaps.extract(test_heap);  # Get new heap after extraction
-let heap_size_after_extract = heaps.size(test_heap);
+test_heap = test_heap.extract();  # Get new heap after extraction
+let heap_size_after_extract = test_heap.size();
 if heap_size_after_extract == 2:  # Should have 2 elements left (10, 5)
     print("✓ heaps.extract() successful");
     tests_passed = tests_passed + 1;
@@ -1362,8 +1365,8 @@ else:
 end
 
 total_tests = total_tests + 1;
-test_heap = heaps.clear(test_heap);
-let heap_clear_size = heaps.size(test_heap);
+test_heap = test_heap.clear();
+let heap_clear_size = test_heap.size();
 if heap_clear_size == 0:
     print("✓ heaps.clear() successful");
     tests_passed = tests_passed + 1;
@@ -1375,7 +1378,7 @@ end
 print("\n21. Queues Library Functions...");
 total_tests = total_tests + 1;
 let test_queue = queues.create();
-if type(test_queue) == "Object" and test_queue != Null:
+if test_queue.type() == "Queue" and test_queue != Null:
     print("✓ queues.create() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1384,7 +1387,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let queue_size = queues.size(test_queue);
+let queue_size = test_queue.size();
 if queue_size == 0:
     print("✓ queues.size() successful");
     tests_passed = tests_passed + 1;
@@ -1394,7 +1397,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let queue_empty = queues.isEmpty(test_queue);
+let queue_empty = test_queue.isEmpty();
 if queue_empty == True:
     print("✓ queues.isEmpty() successful");
     tests_passed = tests_passed + 1;
@@ -1404,10 +1407,10 @@ else:
 end
 
 total_tests = total_tests + 1;
-test_queue = queues.enqueue(test_queue, "first");
-test_queue = queues.enqueue(test_queue, "second");
-test_queue = queues.enqueue(test_queue, "third");
-let queue_size_after = queues.size(test_queue);
+test_queue = test_queue.enqueue("first");
+test_queue = test_queue.enqueue("second");
+test_queue = test_queue.enqueue("third");
+let queue_size_after = test_queue.size();
 if queue_size_after == 3:
     print("✓ queues.enqueue() successful");
     tests_passed = tests_passed + 1;
@@ -1417,7 +1420,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let queue_front = queues.front(test_queue);
+let queue_front = test_queue.front();
 if queue_front == "first":
     print("✓ queues.front() successful");
     tests_passed = tests_passed + 1;
@@ -1427,7 +1430,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let queue_back = queues.back(test_queue);
+let queue_back = test_queue.back();
 if queue_back == "third":
     print("✓ queues.back() successful");
     tests_passed = tests_passed + 1;
@@ -1437,8 +1440,8 @@ else:
 end
 
 total_tests = total_tests + 1;
-test_queue = queues.dequeue(test_queue);  # Get new queue after dequeue
-let queue_size_after_dequeue = queues.size(test_queue);
+test_queue = test_queue.dequeue();  # Get new queue after dequeue
+let queue_size_after_dequeue = test_queue.size();
 if queue_size_after_dequeue == 2:  # Should have 2 elements left ("second", "third")
     print("✓ queues.dequeue() successful");
     tests_passed = tests_passed + 1;
@@ -1448,8 +1451,8 @@ else:
 end
 
 total_tests = total_tests + 1;
-test_queue = queues.clear(test_queue);
-let queue_clear_size = queues.size(test_queue);
+test_queue = test_queue.clear();
+let queue_clear_size = test_queue.size();
 if queue_clear_size == 0:
     print("✓ queues.clear() successful");
     tests_passed = tests_passed + 1;
@@ -1461,7 +1464,7 @@ end
 print("\n22. Stacks Library Functions...");
 total_tests = total_tests + 1;
 let test_stack = stacks.create();
-if type(test_stack) == "Object" and test_stack != Null:
+if test_stack.type() == "Stack" and test_stack != Null:
     print("✓ stacks.create() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1470,7 +1473,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let stack_size = stacks.size(test_stack);
+let stack_size = test_stack.size();
 if stack_size == 0:
     print("✓ stacks.size() successful");
     tests_passed = tests_passed + 1;
@@ -1480,7 +1483,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let stack_empty = stacks.isEmpty(test_stack);
+let stack_empty = test_stack.isEmpty();
 if stack_empty == True:
     print("✓ stacks.isEmpty() successful");
     tests_passed = tests_passed + 1;
@@ -1490,10 +1493,10 @@ else:
 end
 
 total_tests = total_tests + 1;
-test_stack = stacks.push(test_stack, "bottom");
-test_stack = stacks.push(test_stack, "middle");
-test_stack = stacks.push(test_stack, "top");
-let stack_size_after = stacks.size(test_stack);
+test_stack = test_stack.push("bottom");
+test_stack = test_stack.push("middle");
+test_stack = test_stack.push("top");
+let stack_size_after = test_stack.size();
 if stack_size_after == 3:
     print("✓ stacks.push() successful");
     tests_passed = tests_passed + 1;
@@ -1503,7 +1506,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let stack_top = stacks.top(test_stack);
+let stack_top = test_stack.top();
 if stack_top == "top":
     print("✓ stacks.top() successful");
     tests_passed = tests_passed + 1;
@@ -1513,8 +1516,8 @@ else:
 end
 
 total_tests = total_tests + 1;
-test_stack = stacks.pop(test_stack);  # Get new stack after pop
-let stack_size_after_pop = stacks.size(test_stack);
+test_stack = test_stack.pop();  # Get new stack after pop
+let stack_size_after_pop = test_stack.size();
 if stack_size_after_pop == 2:  # Should have 2 elements left ("bottom", "middle")
     print("✓ stacks.pop() successful");
     tests_passed = tests_passed + 1;
@@ -1524,8 +1527,8 @@ else:
 end
 
 total_tests = total_tests + 1;
-test_stack = stacks.clear(test_stack);
-let stack_clear_size = stacks.size(test_stack);
+test_stack = test_stack.clear();
+let stack_clear_size = test_stack.size();
 if stack_clear_size == 0:
     print("✓ stacks.clear() successful");
     tests_passed = tests_passed + 1;
@@ -1537,62 +1540,62 @@ end
 print("\n=== 23. BUILT-IN FUNCTIONS ===");
 print("20.1. Type checking...");
 total_tests = total_tests + 1;
-let type_result = type(42);
+let type_result = 42.type();
 if type_result == "Int":
-    print("✓ type(42): " + type_result);
+    print("✓ 42.type(): " + type_result);
     tests_passed = tests_passed + 1;
 else:
-    print("✗ type(42): " + type_result);
+    print("✗ 42.type(): " + type_result);
     tests_failed = tests_failed + ["type(42)"];
 end
 
 total_tests = total_tests + 1;
-let type_float = type(3.14);
+let type_float = 3.14.type();
 if type_float == "Float":
-    print("✓ type(3.14): " + type_float);
+    print("✓ 3.14.type(): " + type_float);
     tests_passed = tests_passed + 1;
 else:
-    print("✗ type(3.14): " + type_float);
+    print("✗ 3.14.type(): " + type_float);
     tests_failed = tests_failed + ["type(3.14)"];
 end
 
 total_tests = total_tests + 1;
-let type_str = type("hello");
+let type_str = "hello".type();
 if type_str == "String":
-    print("✓ type('hello'): " + type_str);
+    print("✓ 'hello'.type(): " + type_str);
     tests_passed = tests_passed + 1;
 else:
-    print("✗ type('hello'): " + type_str);
+    print("✗ 'hello'.type(): " + type_str);
     tests_failed = tests_failed + ["type('hello')"];
 end
 
 total_tests = total_tests + 1;
-let type_bool = type(True);
+let type_bool = True.type();
 if type_bool == "Boolean":
-    print("✓ type(True): " + type_bool);
+    print("✓ True.type(): " + type_bool);
     tests_passed = tests_passed + 1;
 else:
-    print("✗ type(True): " + type_bool);
+    print("✗ True.type(): " + type_bool);
     tests_failed = tests_failed + ["type(True)"];
 end
 
 total_tests = total_tests + 1;
-let type_null = type(Null);
+let type_null = Null.type();
 if type_null == "Null":
-    print("✓ type(Null): " + type_null);
+    print("✓ Null.type(): " + type_null);
     tests_passed = tests_passed + 1;
 else:
-    print("✗ type(Null): " + type_null);
+    print("✗ Null.type(): " + type_null);
     tests_failed = tests_failed + ["type(Null)"];
 end
 
 total_tests = total_tests + 1;
-let type_array = type([1, 2, 3]);
+let type_array = [1, 2, 3].type();
 if type_array == "Array":
-    print("✓ type([1,2,3]): " + type_array);
+    print("✓ [1,2,3].type(): " + type_array);
     tests_passed = tests_passed + 1;
 else:
-    print("✗ type([1,2,3]): " + type_array);
+    print("✗ [1,2,3].type(): " + type_array);
     tests_failed = tests_failed + ["type([1,2,3])"];
 end
 
@@ -1778,7 +1781,7 @@ print("15.1. Division by zero (should continue execution)...");
 total_tests = total_tests + 1;
 let div_by_zero = 10 / 0;
 # Check that execution continues and we get a reasonable result (likely 0 or null)
-if div_by_zero == 0 or div_by_zero == Null or type(div_by_zero) == "Number":
+if div_by_zero == 0 or div_by_zero == Null or div_by_zero.type() == "Number":
     print("✓ Division by zero handled gracefully");
     tests_passed = tests_passed + 1;
 else:
@@ -1791,7 +1794,7 @@ total_tests = total_tests + 1;
 let test_arr = [1, 2, 3];
 let out_of_bounds = test_arr[10];
 # Check that execution continues and we get a reasonable result
-if out_of_bounds == Null or out_of_bounds == 0 or type(out_of_bounds) == "Number":
+if out_of_bounds == Null or out_of_bounds == 0 or out_of_bounds.type() == "Number":
     print("✓ Array out of bounds handled gracefully");
     tests_passed = tests_passed + 1;
 else:
@@ -1803,7 +1806,7 @@ print("\n15.3. Undefined variable (should continue execution)...");
 total_tests = total_tests + 1;
 let undefined_var = non_existent_variable;
 # Check that execution continues and we get a reasonable result
-if undefined_var == Null or type(undefined_var) == "String":
+if undefined_var == Null or undefined_var.type() == "String":
     print("✓ Undefined variable handled gracefully");
     tests_passed = tests_passed + 1;
 else:
@@ -1817,7 +1820,7 @@ func simple_greet():
 end
 
 total_tests = total_tests + 1;
-if type(simple_greet) == "Function":
+if simple_greet.type() == "Function":
     print("✓ Simple function definition (no params, no return)");
     tests_passed = tests_passed + 1;
 else:
@@ -1831,7 +1834,7 @@ func greet_with_name(name):
 end
 
 total_tests = total_tests + 1;
-if type(greet_with_name) == "Function":
+if greet_with_name.type() == "Function":
     print("✓ Function with single parameter (no return type)");
     tests_passed = tests_passed + 1;
 else:
@@ -1846,7 +1849,7 @@ func add_numbers(a, b):
 end
 
 total_tests = total_tests + 1;
-if type(add_numbers) == "Function":
+if add_numbers.type() == "Function":
     print("✓ Function with multiple parameters (no return type)");
     tests_passed = tests_passed + 1;
 else:
@@ -1868,7 +1871,7 @@ func get_greeting(name) -> String:
 end
 
 total_tests = total_tests + 1;
-if type(get_pi) == "Function" and type(multiply) == "Function" and type(get_greeting) == "Function":
+if get_pi.type() == "Function" and multiply.type() == "Function" and get_greeting.type() == "Function":
     print("✓ Function definitions with return types");
     tests_passed = tests_passed + 1;
 else:
@@ -1890,7 +1893,7 @@ func mixed_func3(a, b) -> Number:
 end
 
 total_tests = total_tests + 1;
-if type(mixed_func1) == "Function" and type(mixed_func2) == "Function" and type(mixed_func3) == "Function":
+if mixed_func1.type() == "Function" and mixed_func2.type() == "Function" and mixed_func3.type() == "Function":
     print("✓ Function definitions with mixed explicit/implicit types");
     tests_passed = tests_passed + 1;
 else:
@@ -1995,7 +1998,7 @@ let my_square = square;
 let my_add = add;
 
 total_tests = total_tests + 1;
-if type(my_square) == "Function" and type(my_add) == "Function":
+if my_square.type() == "Function" and my_add.type() == "Function":
     let square_result = my_square(4);
     let add_result = my_add(3, 7);
     if square_result == 16 and add_result == 10:
@@ -2050,7 +2053,7 @@ end
 total_tests = total_tests + 1;
 let counter1 = create_counter();
 let counter2 = create_counter();
-if type(counter1) == "Function" and type(counter2) == "Function":
+if counter1.type() == "Function" and counter2.type() == "Function":
     let count1 = counter1();
     let count2 = counter1();
     let count3 = counter2();
@@ -2116,9 +2119,9 @@ let mixed_lambda = func (x, y: Number) -> String:
 end;
 
 total_tests = total_tests + 1;
-if type(simple_lambda) == "Function" and type(add_lambda) == "Function" and 
-   type(multiply_lambda) == "Function" and type(greet_lambda) == "Function" and 
-   type(mixed_lambda) == "Function":
+if simple_lambda.type() == "Function" and add_lambda.type() == "Function" and 
+   multiply_lambda.type() == "Function" and greet_lambda.type() == "Function" and 
+   mixed_lambda.type() == "Function":
     print("✓ Lambda functions (anonymous functions)");
     tests_passed = tests_passed + 1;
 else:
@@ -2140,7 +2143,7 @@ let my_greet = func (name):
 end;
 
 total_tests = total_tests + 1;
-if type(my_square) == "Function" and type(my_add) == "Function" and type(my_greet) == "Function":
+if my_square.type() == "Function" and my_add.type() == "Function" and my_greet.type() == "Function":
     print("✓ Function variable assignments");
     tests_passed = tests_passed + 1;
 else:
@@ -2166,8 +2169,8 @@ let typed_param_lambda = func (x: Number, y: Number) -> Number:
 end;
 
 total_tests = total_tests + 1;
-if type(no_params_lambda) == "Function" and type(single_param_lambda) == "Function" and 
-   type(multi_param_lambda) == "Function" and type(typed_param_lambda) == "Function":
+if no_params_lambda.type() == "Function" and single_param_lambda.type() == "Function" and 
+   multi_param_lambda.type() == "Function" and typed_param_lambda.type() == "Function":
     print("✓ Lambda functions with different parameter types");
     tests_passed = tests_passed + 1;
 else:
@@ -2181,7 +2184,7 @@ func explicit_all(param: Int) -> String:
 end
 
 total_tests = total_tests + 1;
-if type(explicit_all) == "Function":
+if explicit_all.type() == "Function":
     let result = explicit_all(42);
     if result != Null:
         print("✓ Explicit function with all types");
@@ -2201,7 +2204,7 @@ func implicit_none(param):
 end
 
 total_tests = total_tests + 1;
-if type(implicit_none) == "Function":
+if implicit_none.type() == "Function":
     let result = implicit_none(42);
     if result != Null:
         print("✓ Implicit function with no types");
@@ -2221,7 +2224,7 @@ func mixed_param(param: Int):
 end
 
 total_tests = total_tests + 1;
-if type(mixed_param) == "Function":
+if mixed_param.type() == "Function":
     let result = mixed_param(42);
     if result != Null:
         print("✓ Mixed function - explicit parameter, implicit return");
@@ -2241,7 +2244,7 @@ func mixed_return(param) -> String:
 end
 
 total_tests = total_tests + 1;
-if type(mixed_return) == "Function":
+if mixed_return.type() == "Function":
     let result = mixed_return(42);
     if result != Null:
         print("✓ Mixed function - implicit parameter, explicit return");
@@ -2261,7 +2264,7 @@ let explicit_var: Function = func (param: Int) -> String:
 end;
 
 total_tests = total_tests + 1;
-if type(explicit_var) == "Function":
+if explicit_var.type() == "Function":
     let result = explicit_var(42);
     if result != Null:
         print("✓ Function variable with explicit types");
@@ -2281,7 +2284,7 @@ let implicit_var = func (param):
 end;
 
 total_tests = total_tests + 1;
-if type(implicit_var) == "Function":
+if implicit_var.type() == "Function":
     let result = implicit_var(42);
     if result != Null:
         print("✓ Function variable with implicit types");
@@ -2301,7 +2304,7 @@ let mixed_var: Function = func (param: Int):
 end;
 
 total_tests = total_tests + 1;
-if type(mixed_var) == "Function":
+if mixed_var.type() == "Function":
     let result = mixed_var(42);
     if result != Null:
         print("✓ Function variable with mixed types");
@@ -2321,7 +2324,7 @@ let mixed_return_var = func (param) -> String:
 end;
 
 total_tests = total_tests + 1;
-if type(mixed_return_var) == "Function":
+if mixed_return_var.type() == "Function":
     let result = mixed_return_var(42);
     if result != Null:
         print("✓ Function variable with mixed return type");
@@ -2393,7 +2396,7 @@ class TestClass:
 end
 # Test that we can actually instantiate the class
 let test_instance = TestClass("TestName");
-if type(test_instance) == "TestClass" and test_instance.name == "TestName":
+if test_instance.type() == "TestClass" and test_instance.name == "TestName":
     print("✓ Basic class parsing");
     tests_passed = tests_passed + 1;
 else:
@@ -2408,7 +2411,7 @@ class Person:
 end
 # Test that we can actually instantiate the class with multiple fields
 let person_instance = Person("Alice", 30);
-if type(person_instance) == "Person" and person_instance.name == "Alice" and person_instance.age == 30:
+if person_instance.type() == "Person" and person_instance.name == "Alice" and person_instance.age == 30:
     print("✓ Class with typed fields");
     tests_passed = tests_passed + 1;
 else:
@@ -2423,7 +2426,7 @@ class DefaultClass:
 end
 # Test that default values are actually set
 let default_instance = DefaultClass();
-if type(default_instance) == "DefaultClass" and default_instance.name == "Default" and default_instance.count == 0:
+if default_instance.type() == "DefaultClass" and default_instance.name == "Default" and default_instance.count == 0:
     print("✓ Class with default field values");
     tests_passed = tests_passed + 1;
 else:
@@ -2436,7 +2439,7 @@ class SimpleClass:
     let value: Int
 end
 let s: SimpleClass = SimpleClass(42);
-if type(s) == "SimpleClass" and s.value == 42:
+if s.type() == "SimpleClass" and s.value == 42:
     print("✓ Class instantiation");
     tests_passed = tests_passed + 1;
 else:
@@ -2454,7 +2457,7 @@ end
 let m: MethodClass = MethodClass("World");
 # Test that the method actually works
 let greeting = m.greet();
-if type(m) == "MethodClass" and greeting == "Hello, World":
+if m.type() == "MethodClass" and greeting == "Hello, World":
     print("✓ Class with methods");
     tests_passed = tests_passed + 1;
 else:
@@ -2472,7 +2475,7 @@ end
 let self_test: SelfClass = SelfClass(100);
 # Test that self references work
 let retrieved_value = self_test.getValue();
-if type(self_test) == "SelfClass" and retrieved_value == 100:
+if self_test.type() == "SelfClass" and retrieved_value == 100:
     print("✓ Class with self references");
     tests_passed = tests_passed + 1;
 else:
@@ -2488,7 +2491,7 @@ class MixedClass:
 end
 let mixed: MixedClass = MixedClass("Alice", 25);
 # Test that mixed field types work
-if type(mixed) == "MixedClass" and mixed.name == "Alice" and mixed.age == 25 and mixed.active == true:
+if mixed.type() == "MixedClass" and mixed.name == "Alice" and mixed.age == 25 and mixed.active == true:
     print("✓ Class with mixed field types");
     tests_passed = tests_passed + 1;
 else:
@@ -2510,7 +2513,7 @@ let typed: TypedMethodClass = TypedMethodClass(5);
 # Test that typed methods work
 let incremented = typed.increment();
 let class_name = typed.getName();
-if type(typed) == "TypedMethodClass" and incremented == 6 and class_name == "TypedMethodClass":
+if typed.type() == "TypedMethodClass" and incremented == 6 and class_name == "TypedMethodClass":
     print("✓ Class with typed methods");
     tests_passed = tests_passed + 1;
 else:
@@ -2528,7 +2531,7 @@ end
 let untyped: UntypedMethodClass = UntypedMethodClass("data");
 # Test that untyped methods work (they should return null)
 let result = untyped.process();
-if type(untyped) == "UntypedMethodClass" and (result == Null or result == 0):
+if untyped.type() == "UntypedMethodClass" and (result == Null or result == 0):
     print("✓ Class with untyped methods");
     tests_passed = tests_passed + 1;
 else:
@@ -2551,7 +2554,7 @@ end
 let complex: ComplexClass = ComplexClass(10, 5);
 # Test that complex method bodies work
 let calculation = complex.calculate();
-if type(complex) == "ComplexClass" and calculation == 20:  # 10 > 5, so 10 * 2 = 20
+if complex.type() == "ComplexClass" and calculation == 20:  # 10 > 5, so 10 * 2 = 20
     print("✓ Class with complex method bodies");
     tests_passed = tests_passed + 1;
 else:
@@ -2577,7 +2580,7 @@ class Dog extends Animal:
 end
 # Test that inheritance actually works by creating a Dog instance
 let test_dog = Dog("Rex");
-if type(test_dog) == "Dog" and test_dog.name == "Rex":
+if test_dog.type() == "Dog" and test_dog.name == "Rex":
     print("✓ Basic inheritance parsing");
     total_tests = total_tests + 1;
     tests_passed = tests_passed + 1;
@@ -2618,7 +2621,7 @@ class Puppy extends Dog:
 end
 # Test that multi-level inheritance actually works
 let test_puppy = Puppy("Max", 6);
-if type(test_puppy) == "Puppy" and test_puppy.name == "Max" and test_puppy.age == 6:
+if test_puppy.type() == "Puppy" and test_puppy.name == "Max" and test_puppy.age == 6:
     print("✓ Multi-level inheritance parsing");
     total_tests = total_tests + 1;
     tests_passed = tests_passed + 1;
@@ -2644,7 +2647,7 @@ class Cat extends Animal:
 end
 # Test that inheritance without method override works
 let test_cat = Cat("Whiskers", "Orange");
-if type(test_cat) == "Cat" and test_cat.name == "Whiskers" and test_cat.color == "Orange":
+if test_cat.type() == "Cat" and test_cat.name == "Whiskers" and test_cat.color == "Orange":
     print("✓ Inheritance without method override");
     total_tests = total_tests + 1;
     tests_passed = tests_passed + 1;
@@ -2670,7 +2673,7 @@ class Lion extends WildAnimal:
 end
 # Test that complex inheritance chain works
 let test_lion = Lion("Simba", "Savanna", "Golden");
-if type(test_lion) == "Lion" and test_lion.name == "Simba" and test_lion.habitat == "Savanna" and test_lion.mane_color == "Golden":
+if test_lion.type() == "Lion" and test_lion.name == "Simba" and test_lion.habitat == "Savanna" and test_lion.mane_color == "Golden":
     print("✓ Complex inheritance chain");
     total_tests = total_tests + 1;
     tests_passed = tests_passed + 1;
@@ -2714,7 +2717,7 @@ print("\n=== 23. Time Library Functions ===");
 # Test time library import
 use time as time;
 total_tests = total_tests + 1;
-if type(time) == "Object":
+if time.type() == "Object":
     print("✓ Time library import works");
     tests_passed = tests_passed + 1;
 else:
@@ -2724,7 +2727,7 @@ end
 # Test time.now()
 total_tests = total_tests + 1;
 let current_time = time.now();
-if type(current_time) == "Object":
+if current_time.type() == "Object":
     print("✓ time.now() returns time object");
     tests_passed = tests_passed + 1;
 else:
@@ -2734,7 +2737,7 @@ end
 # Test time.create()
 total_tests = total_tests + 1;
 let specific_time = time.create(2024, 1, 15, 14, 30, 0);
-if type(specific_time) == "Object":
+if specific_time.type() == "Object":
     print("✓ time.create() returns time object");
     tests_passed = tests_passed + 1;
 else:
@@ -2871,7 +2874,7 @@ print("\n=== 24. Regex Library Functions ===");
 # Test regex library import
 use regex as regex;
 total_tests = total_tests + 1;
-if type(regex) == "Object":
+if regex.type() == "Object":
     print("✓ Regex library import works");
     tests_passed = tests_passed + 1;
 else:
@@ -2882,7 +2885,7 @@ end
 # Test regex.match() - basic matching
 total_tests = total_tests + 1;
 let match_result = regex.match("hello", "hello world");
-if type(match_result) == "Object" and match_result != Null:
+if match_result.type() == "Object" and match_result != Null:
     print("✓ regex.match() returns match object");
     tests_passed = tests_passed + 1;
 else:
@@ -3101,7 +3104,7 @@ end
 total_tests = total_tests + 1;
 let invalid_pattern = regex.test("[", "test");
 # Should handle invalid regex gracefully
-if type(invalid_pattern) == "Boolean":
+if invalid_pattern.type() == "Boolean":
     print("✓ Regex error handling works");
     tests_passed = tests_passed + 1;
 else:
@@ -3113,7 +3116,7 @@ end
 total_tests = total_tests + 1;
 let empty_match = regex.match("", "hello");
 let empty_test = regex.test("", "hello");
-if (type(empty_match) == "Object" or empty_match == Null) and type(empty_test) == "Boolean":
+if (empty_match.type() == "Object" or empty_match == Null) and empty_test.type() == "Boolean":
     print("✓ Regex with empty strings works");
     tests_passed = tests_passed + 1;
 else:
@@ -3127,7 +3130,7 @@ print("\n=== 25. JSON Library Functions ===");
 # Test JSON library import
 use json as json;
 total_tests = total_tests + 1;
-if type(json) == "Object":
+if json.type() == "Object":
     print("✓ JSON library import works");
     tests_passed = tests_passed + 1;
 else:
@@ -3180,7 +3183,7 @@ end
 total_tests = total_tests + 1;
 let arr = [1, 2, 3, "hello", true];
 let arr_result = json.stringify(arr);
-if type(arr_result) == "String" and arr_result != "":
+if arr_result.type() == "String" and arr_result != "":
     print("✓ json.stringify() works for arrays");
     tests_passed = tests_passed + 1;
 else:
@@ -3241,7 +3244,7 @@ end
 # Test json.parse() - basic functionality
 total_tests = total_tests + 1;
 let parsed = json.parse('{"test": "value"}');
-if type(parsed) == "Object":
+if parsed.type() == "Object":
     print("✓ json.parse() works");
     tests_passed = tests_passed + 1;
 else:
@@ -3257,7 +3260,7 @@ print("\n=== 26. HTTP Library Functions ===");
 # Test HTTP library import
 use http as http;
 total_tests = total_tests + 1;
-if type(http) == "Object":
+if http.type() == "Object":
     print("✓ HTTP library import works");
     tests_passed = tests_passed + 1;
 else:
@@ -3268,7 +3271,7 @@ end
 # Test http.get() - basic GET request
 total_tests = total_tests + 1;
 let get_response = http.get("https://httpbin.org/get");
-if type(get_response) == "Object" and get_response.status_code == 200:
+if get_response.type() == "Object" and get_response.status_code == 200:
     print("✓ http.get() works");
     tests_passed = tests_passed + 1;
 else:
@@ -3280,7 +3283,7 @@ end
 total_tests = total_tests + 1;
 let post_data = '{"test": "data"}';
 let post_response = http.post("https://httpbin.org/post", post_data);
-if type(post_response) == "Object" and post_response.status_code == 200:
+if post_response.type() == "Object" and post_response.status_code == 200:
     print("✓ http.post() works");
     tests_passed = tests_passed + 1;
 else:
@@ -3292,7 +3295,7 @@ end
 total_tests = total_tests + 1;
 let put_data = '{"id": 1, "name": "test"}';
 let put_response = http.put("https://httpbin.org/put", put_data);
-if type(put_response) == "Object" and put_response.status_code == 200:
+if put_response.type() == "Object" and put_response.status_code == 200:
     print("✓ http.put() works");
     tests_passed = tests_passed + 1;
 else:
@@ -3303,7 +3306,7 @@ end
 # Test http.delete() - basic DELETE request
 total_tests = total_tests + 1;
 let delete_response = http.delete("https://httpbin.org/delete");
-if type(delete_response) == "Object" and delete_response.status_code == 200:
+if delete_response.type() == "Object" and delete_response.status_code == 200:
     print("✓ http.delete() works");
     tests_passed = tests_passed + 1;
 else:
@@ -3313,7 +3316,7 @@ end
 
 # Test response object properties
 total_tests = total_tests + 1;
-if type(get_response) == "Object":
+if get_response.type() == "Object":
     let has_status_code = get_response.status_code != Null;
     let has_status_text = get_response.status_text != Null;
     let has_body = get_response.body != Null;
@@ -3333,7 +3336,7 @@ end
 # Test http.status_ok() - check if status is successful
 total_tests = total_tests + 1;
 let status_ok = http.status_ok(get_response);
-if type(status_ok) == "Boolean":
+if status_ok.type() == "Boolean":
     print("✓ http.status_ok() works");
     tests_passed = tests_passed + 1;
 else:
@@ -3344,7 +3347,7 @@ end
 # Test http.get_header() - get response header
 total_tests = total_tests + 1;
 let content_type = http.get_header(get_response, "content-type");
-if type(content_type) == "String" or content_type == Null:
+if content_type.type() == "String" or content_type == Null:
     print("✓ http.get_header() works");
     tests_passed = tests_passed + 1;
 else:
@@ -3355,7 +3358,7 @@ end
 # Test http.get_json() - get JSON response
 total_tests = total_tests + 1;
 let json_response = http.get_json(get_response);
-if type(json_response) == "String" or json_response == Null:
+if json_response.type() == "String" or json_response == Null:
     print("✓ http.get_json() works");
     tests_passed = tests_passed + 1;
 else:
@@ -3366,7 +3369,7 @@ end
 # Test error handling with invalid URL
 total_tests = total_tests + 1;
 let error_response = http.get("https://invalid-url-that-does-not-exist.com");
-if type(error_response) == "Object":
+if error_response.type() == "Object":
     print("✓ HTTP error handling works");
     tests_passed = tests_passed + 1;
 else:

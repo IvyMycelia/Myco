@@ -27,6 +27,18 @@ Value builtin_math_abs(Interpreter* interpreter, Value* args, size_t arg_count, 
     }
 }
 
+// Math method functions (for number.method() syntax)
+Value builtin_number_abs(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 0) {
+        interpreter_set_error(interpreter, "abs() requires no arguments when called as a method", line, column);
+        return value_create_null();
+    }
+    
+    // The number value is passed as the object in method calls
+    // This will be handled by the interpreter when calling number.method()
+    return value_create_null(); // This should not be called directly
+}
+
 Value builtin_math_min(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
         interpreter_set_error(interpreter, "min() requires exactly 2 arguments", line, column);

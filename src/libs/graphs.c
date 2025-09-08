@@ -163,7 +163,7 @@ Value builtin_graph_create(Interpreter* interpreter, Value* args, size_t arg_cou
     // Store graph pointer in a custom value type
     // For now, return a simple object representation
     Value graph_obj = value_create_object(16);
-    value_object_set(&graph_obj, "type", value_create_string(strdup("Graph")));
+    value_object_set(&graph_obj, "__class_name__", value_create_string(strdup("Graph")));
     value_object_set(&graph_obj, "size", value_create_number(0));
     value_object_set(&graph_obj, "isDirected", value_create_boolean(is_directed));
     
@@ -172,7 +172,7 @@ Value builtin_graph_create(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_graph_add_node(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "graphs.addNode() expects exactly 2 arguments: graph and data", line, column);
+        interpreter_set_error(interpreter, "graph.addNode() expects exactly 1 argument: data", line, column);
         return value_create_null();
     }
     
@@ -180,18 +180,20 @@ Value builtin_graph_add_node(Interpreter* interpreter, Value* args, size_t arg_c
     Value data = args[1];
     
     if (graph_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "graphs.addNode() first argument must be a graph object", line, column);
+        interpreter_set_error(interpreter, "graph.addNode() can only be called on graph objects", line, column);
         return value_create_null();
     }
     
     // For now, just return success
     // TODO: Implement actual node addition
-    return value_create_string(strdup("Node added to graph"));
+    Value result = value_clone(&graph_obj);
+    value_object_set_member(&result, "__class_name__", value_create_string(strdup("Graph")));
+    return result;
 }
 
 Value builtin_graph_add_edge(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 3) {
-        interpreter_set_error(interpreter, "graphs.addEdge() expects exactly 3 arguments: graph, from_node, to_node", line, column);
+        interpreter_set_error(interpreter, "graph.addEdge() expects exactly 2 arguments: from_node, to_node", line, column);
         return value_create_null();
     }
     
@@ -200,25 +202,27 @@ Value builtin_graph_add_edge(Interpreter* interpreter, Value* args, size_t arg_c
     Value to_node = args[2];
     
     if (graph_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "graphs.addEdge() first argument must be a graph object", line, column);
+        interpreter_set_error(interpreter, "graph.addEdge() can only be called on graph objects", line, column);
         return value_create_null();
     }
     
     // For now, just return success
     // TODO: Implement actual edge addition
-    return value_create_string(strdup("Edge added to graph"));
+    Value result = value_clone(&graph_obj);
+    value_object_set_member(&result, "__class_name__", value_create_string(strdup("Graph")));
+    return result;
 }
 
 Value builtin_graph_size(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "graphs.size() expects exactly 1 argument: graph", line, column);
+        interpreter_set_error(interpreter, "graph.size() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value graph_obj = args[0];
     
     if (graph_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "graphs.size() argument must be a graph object", line, column);
+        interpreter_set_error(interpreter, "graph.size() can only be called on graph objects", line, column);
         return value_create_null();
     }
     
@@ -233,14 +237,14 @@ Value builtin_graph_size(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_graph_is_empty(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "graphs.isEmpty() expects exactly 1 argument: graph", line, column);
+        interpreter_set_error(interpreter, "graph.isEmpty() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value graph_obj = args[0];
     
     if (graph_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "graphs.isEmpty() argument must be a graph object", line, column);
+        interpreter_set_error(interpreter, "graph.isEmpty() can only be called on graph objects", line, column);
         return value_create_null();
     }
     
@@ -255,38 +259,31 @@ Value builtin_graph_is_empty(Interpreter* interpreter, Value* args, size_t arg_c
 
 Value builtin_graph_clear(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "graphs.clear() expects exactly 1 argument: graph", line, column);
+        interpreter_set_error(interpreter, "graph.clear() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value* graph_obj = &args[0];
     
     if (graph_obj->type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "graphs.clear() argument must be a graph object", line, column);
+        interpreter_set_error(interpreter, "graph.clear() can only be called on graph objects", line, column);
         return value_create_null();
     }
     
     // Clear the graph by setting size to 0
     value_object_set(graph_obj, "size", value_create_number(0));
     
-    return value_create_null();
+    return value_clone(graph_obj);
 }
 
 // Register the graphs library
 void graphs_library_register(Interpreter* interpreter) {
-    if (!interpreter) return;
+    if (!interpreter || !interpreter->global_environment) return;
     
-    // Create graphs module
-    Value graphs_module = value_create_object(16);
+    // Create graphs object with factory functions
+    Value graphs_obj = value_create_object(16);
+    value_object_set(&graphs_obj, "create", value_create_builtin_function(builtin_graph_create));
     
-    // Graph functions
-    value_object_set(&graphs_module, "create", value_create_builtin_function(builtin_graph_create));
-    value_object_set(&graphs_module, "addNode", value_create_builtin_function(builtin_graph_add_node));
-    value_object_set(&graphs_module, "addEdge", value_create_builtin_function(builtin_graph_add_edge));
-    value_object_set(&graphs_module, "size", value_create_builtin_function(builtin_graph_size));
-    value_object_set(&graphs_module, "isEmpty", value_create_builtin_function(builtin_graph_is_empty));
-    value_object_set(&graphs_module, "clear", value_create_builtin_function(builtin_graph_clear));
-    
-    // Register the module
-    environment_define(interpreter->global_environment, "graphs", graphs_module);
+    // Register the graphs object
+    environment_define(interpreter->global_environment, "graphs", graphs_obj);
 }

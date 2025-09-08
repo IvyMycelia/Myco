@@ -184,24 +184,12 @@ int interpret_source(const char* source, int debug) {
     Value result = interpreter_execute(interpreter, program);
     
     if (interpreter_has_error(interpreter)) {
-        // Check if this is a test suite that completed successfully
-        // by looking for the "ALL TESTS PASSED!" message in the output
-        // If it's a test suite, don't print the error as it's expected
-        if (strstr(interpreter->error_message, "Undefined variable") != NULL) {
-            // This is likely a test suite with expected undefined variable errors
-            // Clear the error and continue
-            interpreter_clear_error(interpreter);
-        } else {
-            printf("Error: %s (Line %d, Column %d)\n", 
-                   interpreter->error_message, 
-                   interpreter->error_line, 
-                   interpreter->error_column);
-            interpreter_free(interpreter);
-            ast_free(program);
-            parser_free(parser);
-            lexer_free(lexer);
-            return MYCO_ERROR_CLI;
-        }
+        // Errors are now printed live, so we just need to clean up
+        interpreter_free(interpreter);
+        ast_free(program);
+        parser_free(parser);
+        lexer_free(lexer);
+        return MYCO_ERROR_CLI;
     }
     
     if (debug) {

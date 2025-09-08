@@ -237,8 +237,13 @@ Value value_function_call(Value* func, Value* args, size_t arg_count, Interprete
 Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, Interpreter* interpreter, Value* self, int line, int column);
 
 // Method call handling
-Value handle_method_call(Interpreter* interpreter, ASTNode* call_node);
+Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value object);
 Value handle_super_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name);
+Value handle_tree_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
+Value handle_graph_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
+Value handle_heap_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
+Value handle_queue_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
+Value handle_stack_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 
 // Execution functions
 Value interpreter_execute(Interpreter* interpreter, ASTNode* node);

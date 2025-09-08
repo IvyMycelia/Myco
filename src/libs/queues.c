@@ -13,6 +13,7 @@ Value builtin_queue_create(Interpreter* interpreter, Value* args, size_t arg_cou
     
     // Create a new queue object
     Value queue = value_create_object(16);
+    value_object_set_member(&queue, "__class_name__", value_create_string(strdup("Queue")));
     value_object_set_member(&queue, "elements", value_create_array(0));
     value_object_set_member(&queue, "size", value_create_number(0.0));
     
@@ -21,7 +22,7 @@ Value builtin_queue_create(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_queue_enqueue(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "enqueue() requires exactly 2 arguments: queue and value", line, column);
+        interpreter_set_error(interpreter, "queue.enqueue() expects exactly 1 argument: value", line, column);
         return value_create_null();
     }
     
@@ -29,7 +30,7 @@ Value builtin_queue_enqueue(Interpreter* interpreter, Value* args, size_t arg_co
     Value value = args[1];
     
     if (queue_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "enqueue() first argument must be a queue object", line, column);
+        interpreter_set_error(interpreter, "queue.enqueue() can only be called on queue objects", line, column);
         return value_create_null();
     }
     
@@ -61,6 +62,7 @@ Value builtin_queue_enqueue(Interpreter* interpreter, Value* args, size_t arg_co
     value_array_push(&new_elements, cloned_value);
     
     // Set the new queue components
+    value_object_set_member(&new_queue, "__class_name__", value_create_string(strdup("Queue")));
     value_object_set_member(&new_queue, "elements", new_elements);
     value_object_set_member(&new_queue, "size", new_size);
     
@@ -69,14 +71,14 @@ Value builtin_queue_enqueue(Interpreter* interpreter, Value* args, size_t arg_co
 
 Value builtin_queue_dequeue(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "dequeue() requires exactly 1 argument: queue", line, column);
+        interpreter_set_error(interpreter, "queue.dequeue() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value queue_arg = args[0];
     
     if (queue_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "dequeue() argument must be a queue object", line, column);
+        interpreter_set_error(interpreter, "queue.dequeue() can only be called on queue objects", line, column);
         return value_create_null();
     }
     
@@ -127,6 +129,7 @@ Value builtin_queue_dequeue(Interpreter* interpreter, Value* args, size_t arg_co
     }
     
     // Set the new queue components
+    value_object_set_member(&new_queue, "__class_name__", value_create_string(strdup("Queue")));
     value_object_set_member(&new_queue, "elements", new_elements);
     value_object_set_member(&new_queue, "size", new_size);
     
@@ -135,14 +138,14 @@ Value builtin_queue_dequeue(Interpreter* interpreter, Value* args, size_t arg_co
 
 Value builtin_queue_front(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "front() requires exactly 1 argument: queue", line, column);
+        interpreter_set_error(interpreter, "queue.front() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value queue_arg = args[0];
     
     if (queue_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "front() argument must be a queue object", line, column);
+        interpreter_set_error(interpreter, "queue.front() can only be called on queue objects", line, column);
         return value_create_null();
     }
     
@@ -171,14 +174,14 @@ Value builtin_queue_front(Interpreter* interpreter, Value* args, size_t arg_coun
 
 Value builtin_queue_back(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "back() requires exactly 1 argument: queue", line, column);
+        interpreter_set_error(interpreter, "queue.back() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value queue_arg = args[0];
     
     if (queue_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "back() argument must be a queue object", line, column);
+        interpreter_set_error(interpreter, "queue.back() can only be called on queue objects", line, column);
         return value_create_null();
     }
     
@@ -208,14 +211,14 @@ Value builtin_queue_back(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_queue_size(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "size() requires exactly 1 argument: queue", line, column);
+        interpreter_set_error(interpreter, "queue.size() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value queue_arg = args[0];
     
     if (queue_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "size() argument must be a queue object", line, column);
+        interpreter_set_error(interpreter, "queue.size() can only be called on queue objects", line, column);
         return value_create_null();
     }
     
@@ -232,14 +235,14 @@ Value builtin_queue_size(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_queue_isEmpty(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "isEmpty() requires exactly 1 argument: queue", line, column);
+        interpreter_set_error(interpreter, "queue.isEmpty() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value queue_arg = args[0];
     
     if (queue_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "isEmpty() argument must be a queue object", line, column);
+        interpreter_set_error(interpreter, "queue.isEmpty() can only be called on queue objects", line, column);
         return value_create_null();
     }
     
@@ -256,19 +259,20 @@ Value builtin_queue_isEmpty(Interpreter* interpreter, Value* args, size_t arg_co
 
 Value builtin_queue_clear(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "clear() requires exactly 1 argument: queue", line, column);
+        interpreter_set_error(interpreter, "queue.clear() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value queue_arg = args[0];
     
     if (queue_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "clear() argument must be a queue object", line, column);
+        interpreter_set_error(interpreter, "queue.clear() can only be called on queue objects", line, column);
         return value_create_null();
     }
     
     // Return empty queue
     Value empty_queue = value_create_object(16);
+    value_object_set_member(&empty_queue, "__class_name__", value_create_string(strdup("Queue")));
     value_object_set_member(&empty_queue, "elements", value_create_array(0));
     value_object_set_member(&empty_queue, "size", value_create_number(0.0));
     
@@ -279,18 +283,9 @@ Value builtin_queue_clear(Interpreter* interpreter, Value* args, size_t arg_coun
 void queues_library_register(Interpreter* interpreter) {
     if (!interpreter || !interpreter->global_environment) return;
     
-    // Create queues object with methods
+    // Create queues object with factory functions
     Value queues_obj = value_create_object(16);
-    
-    // Add methods to queues object
-    value_object_set_member(&queues_obj, "create", value_create_builtin_function(builtin_queue_create));
-    value_object_set_member(&queues_obj, "enqueue", value_create_builtin_function(builtin_queue_enqueue));
-    value_object_set_member(&queues_obj, "dequeue", value_create_builtin_function(builtin_queue_dequeue));
-    value_object_set_member(&queues_obj, "front", value_create_builtin_function(builtin_queue_front));
-    value_object_set_member(&queues_obj, "back", value_create_builtin_function(builtin_queue_back));
-    value_object_set_member(&queues_obj, "size", value_create_builtin_function(builtin_queue_size));
-    value_object_set_member(&queues_obj, "isEmpty", value_create_builtin_function(builtin_queue_isEmpty));
-    value_object_set_member(&queues_obj, "clear", value_create_builtin_function(builtin_queue_clear));
+    value_object_set(&queues_obj, "create", value_create_builtin_function(builtin_queue_create));
     
     // Register the queues object
     environment_define(interpreter->global_environment, "queues", queues_obj);

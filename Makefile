@@ -84,9 +84,13 @@ DOCS_DIR = docs
 EXAMPLES_DIR = examples
 TOOLS_DIR = tools
 
-# Source files (recursive search through all subdirectories)
-SRC_FILES = $(shell find $(SRC_DIR) -name "*.c")
+# Source files (recursive search through all subdirectories, excluding LSP)
+SRC_FILES = $(shell find $(SRC_DIR) -name "*.c" ! -path "*/lsp/*")
 OBJ_FILES = $(SRC_FILES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+
+# LSP source files (separate from main build)
+LSP_SRC_FILES = $(shell find $(SRC_DIR)/lsp -name "*.c")
+LSP_OBJ_FILES = $(LSP_SRC_FILES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
 # Header files
 HEADER_FILES = $(wildcard $(INCLUDE_DIR)/*.h)
@@ -94,6 +98,7 @@ HEADER_FILES = $(wildcard $(INCLUDE_DIR)/*.h)
 # Main executable
 MAIN_EXECUTABLE = $(BIN_DIR)/myco
 TEST_EXECUTABLE = $(BIN_DIR)/myco_test
+LSP_EXECUTABLE = $(BIN_DIR)/myco-lsp
 
 # Libraries
 LIBS = -lm -lcurl -lz -L/opt/homebrew/opt/libmicrohttpd/lib -lmicrohttpd
@@ -112,6 +117,10 @@ debug: $(MAIN_EXECUTABLE)
 release: CFLAGS = $(RELEASE_CFLAGS)
 release: $(MAIN_EXECUTABLE)
 
+# LSP server build
+.PHONY: lsp
+lsp: $(LSP_EXECUTABLE)
+
 # Create build directories
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -125,11 +134,17 @@ $(MAIN_EXECUTABLE): $(OBJ_FILES) | $(BIN_DIR)
 	$(CC) $(OBJ_FILES) -o $@ $(LIBS)
 	@echo "Build complete: $@"
 
+# LSP executable
+$(LSP_EXECUTABLE): $(LSP_OBJ_FILES) $(BUILD_DIR)/core/interpreter.o $(BUILD_DIR)/core/lexer.o $(BUILD_DIR)/core/parser.o $(BUILD_DIR)/core/ast.o $(BUILD_DIR)/core/type_checker.o $(BUILD_DIR)/core/environment.o $(BUILD_DIR)/core/error_handling.o $(BUILD_DIR)/core/error_system.o $(BUILD_DIR)/core/jit_compiler.o $(BUILD_DIR)/runtime/memory.o $(BUILD_DIR)/runtime/myco_runtime.o $(BUILD_DIR)/libs/json.o $(BUILD_DIR)/libs/sets.o $(BUILD_DIR)/libs/math.o $(BUILD_DIR)/libs/builtin_libs.o $(BUILD_DIR)/libs/array.o $(BUILD_DIR)/libs/maps.o $(BUILD_DIR)/libs/string.o $(BUILD_DIR)/libs/server/server.o $(BUILD_DIR)/libs/stacks.o $(BUILD_DIR)/libs/dir.o $(BUILD_DIR)/libs/graphs.o $(BUILD_DIR)/libs/time.o $(BUILD_DIR)/libs/http.o $(BUILD_DIR)/libs/trees.o $(BUILD_DIR)/libs/file.o $(BUILD_DIR)/libs/queues.o $(BUILD_DIR)/libs/heaps.o $(BUILD_DIR)/libs/regex.o $(BUILD_DIR)/compilation/optimization/optimizer.o $(BUILD_DIR)/compilation/compiler.o | $(BIN_DIR)
+	@echo "Linking $@..."
+	$(CC) $(LSP_OBJ_FILES) $(BUILD_DIR)/core/interpreter.o $(BUILD_DIR)/core/lexer.o $(BUILD_DIR)/core/parser.o $(BUILD_DIR)/core/ast.o $(BUILD_DIR)/core/type_checker.o $(BUILD_DIR)/core/environment.o $(BUILD_DIR)/core/error_handling.o $(BUILD_DIR)/core/error_system.o $(BUILD_DIR)/core/jit_compiler.o $(BUILD_DIR)/runtime/memory.o $(BUILD_DIR)/runtime/myco_runtime.o $(BUILD_DIR)/libs/json.o $(BUILD_DIR)/libs/sets.o $(BUILD_DIR)/libs/math.o $(BUILD_DIR)/libs/builtin_libs.o $(BUILD_DIR)/libs/array.o $(BUILD_DIR)/libs/maps.o $(BUILD_DIR)/libs/string.o $(BUILD_DIR)/libs/server/server.o $(BUILD_DIR)/libs/stacks.o $(BUILD_DIR)/libs/dir.o $(BUILD_DIR)/libs/graphs.o $(BUILD_DIR)/libs/time.o $(BUILD_DIR)/libs/http.o $(BUILD_DIR)/libs/trees.o $(BUILD_DIR)/libs/file.o $(BUILD_DIR)/libs/queues.o $(BUILD_DIR)/libs/heaps.o $(BUILD_DIR)/libs/regex.o $(BUILD_DIR)/compilation/optimization/optimizer.o $(BUILD_DIR)/compilation/compiler.o -o $@ $(LIBS)
+	@echo "LSP server build complete: $@"
+
 # Object files (handle subdirectories)
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c $(HEADER_FILES) | $(BUILD_DIR)
 	@echo "Compiling $<..."
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -I$(INCLUDE_DIR) -I$(INCLUDE_DIR)/core -I$(INCLUDE_DIR)/compilation -I$(INCLUDE_DIR)/runtime -I$(INCLUDE_DIR)/cli -I$(INCLUDE_DIR)/utils -I/opt/homebrew/opt/libmicrohttpd/include -c $< -o $@
+	$(CC) $(CFLAGS) -I$(INCLUDE_DIR) -I$(INCLUDE_DIR)/core -I$(INCLUDE_DIR)/compilation -I$(INCLUDE_DIR)/runtime -I$(INCLUDE_DIR)/cli -I$(INCLUDE_DIR)/utils -I$(INCLUDE_DIR)/lsp -I/opt/homebrew/opt/libmicrohttpd/include -c $< -o $@
 
 # Test executable
 .PHONY: test

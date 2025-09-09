@@ -1,7 +1,11 @@
 #include "interpreter.h"
+#include "error_system.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+
+// Global error system instance
+static ErrorSystem* global_error_system = NULL;
 
 // Comprehensive error code definitions with categories
 typedef enum {
@@ -459,4 +463,150 @@ void interpreter_report_error_enhanced(Interpreter* interpreter, const char* mes
     
     // Set error in interpreter
     interpreter_set_error(interpreter, message, line, column);
+}
+
+// Error system initialization and management
+void error_system_initialize(void) {
+    if (!global_error_system) {
+        global_error_system = error_system_create();
+        if (global_error_system) {
+            error_enable_debug_mode(global_error_system, true);
+            error_enable_stack_trace(global_error_system, true);
+        }
+    }
+}
+
+void error_system_cleanup(void) {
+    if (global_error_system) {
+        error_system_free(global_error_system);
+        global_error_system = NULL;
+    }
+}
+
+ErrorSystem* error_system_get_global(void) {
+    if (!global_error_system) {
+        error_system_initialize();
+    }
+    return global_error_system;
+}
+
+// Enhanced error reporting with new error system
+void interpreter_report_error_enhanced_v2(Interpreter* interpreter, int error_code, const char* message, 
+                                         const char* file_name, int line, int column) {
+    if (!interpreter || !message) return;
+    
+    ErrorSystem* system = error_system_get_global();
+    if (!system) return;
+    
+    // Map old error codes to new error codes
+    ErrorCode new_code;
+    ErrorSeverity severity;
+    ErrorCategory category;
+    
+    if (error_code >= 1000 && error_code <= 1999) {
+        new_code = ERROR_SYNTAX_UNEXPECTED_TOKEN;
+        severity = ERROR_SEVERITY_ERROR;
+        category = ERROR_CATEGORY_SYNTAX;
+    } else if (error_code >= 2000 && error_code <= 2999) {
+        new_code = ERROR_SYNTAX_UNEXPECTED_TOKEN;
+        severity = ERROR_SEVERITY_ERROR;
+        category = ERROR_CATEGORY_SYNTAX;
+    } else if (error_code >= 3000 && error_code <= 3999) {
+        new_code = ERROR_SEMANTIC_UNDEFINED_VARIABLE;
+        severity = ERROR_SEVERITY_ERROR;
+        category = ERROR_CATEGORY_SEMANTIC;
+    } else if (error_code >= 4000 && error_code <= 4999) {
+        new_code = ERROR_RUNTIME_DIVISION_BY_ZERO;
+        severity = ERROR_SEVERITY_ERROR;
+        category = ERROR_CATEGORY_RUNTIME;
+    } else {
+        new_code = ERROR_USER_DEFINED;
+        severity = ERROR_SEVERITY_ERROR;
+        category = ERROR_CATEGORY_USER;
+    }
+    
+    // Create error with new system
+    ErrorInfo* error = error_create(new_code, severity, category, message, file_name, line, column);
+    if (error) {
+        // Add suggestion
+        const char* suggestion = get_error_solution(error_code);
+        if (suggestion) {
+            error_add_suggestion(error, suggestion);
+        }
+        
+        // Add context
+        char context[256];
+        const char* function_name = "main";
+        if (interpreter->call_stack && interpreter->call_stack->function_name) {
+            function_name = interpreter->call_stack->function_name;
+        }
+        snprintf(context, sizeof(context), "Interpreter error in function: %s", function_name);
+        error_add_context(error, context);
+        
+        // Report error
+        error_report(system, error);
+    }
+    
+    // Also set error in interpreter for backward compatibility
+    interpreter_set_error(interpreter, message, line, column);
+}
+
+// Try/catch/finally support for interpreter
+void interpreter_enter_try(Interpreter* interpreter) {
+    ErrorSystem* system = error_system_get_global();
+    if (system && system->exception_context) {
+        exception_enter_try(system->exception_context);
+    }
+}
+
+void interpreter_exit_try(Interpreter* interpreter) {
+    ErrorSystem* system = error_system_get_global();
+    if (system && system->exception_context) {
+        exception_exit_try(system->exception_context);
+    }
+}
+
+void interpreter_enter_catch(Interpreter* interpreter, const char* variable_name) {
+    ErrorSystem* system = error_system_get_global();
+    if (system && system->exception_context) {
+        exception_enter_catch(system->exception_context, variable_name);
+    }
+}
+
+void interpreter_exit_catch(Interpreter* interpreter) {
+    ErrorSystem* system = error_system_get_global();
+    if (system && system->exception_context) {
+        exception_exit_catch(system->exception_context);
+    }
+}
+
+void interpreter_enter_finally(Interpreter* interpreter) {
+    ErrorSystem* system = error_system_get_global();
+    if (system && system->exception_context) {
+        exception_enter_finally(system->exception_context);
+    }
+}
+
+void interpreter_exit_finally(Interpreter* interpreter) {
+    ErrorSystem* system = error_system_get_global();
+    if (system && system->exception_context) {
+        exception_exit_finally(system->exception_context);
+    }
+}
+
+int interpreter_has_exception(Interpreter* interpreter) {
+    ErrorSystem* system = error_system_get_global();
+    return system ? (exception_has_error(system) ? 1 : 0) : 0;
+}
+
+ErrorInfo* interpreter_catch_exception(Interpreter* interpreter) {
+    ErrorSystem* system = error_system_get_global();
+    return system ? exception_catch(system) : NULL;
+}
+
+void interpreter_clear_exception(Interpreter* interpreter) {
+    ErrorSystem* system = error_system_get_global();
+    if (system) {
+        exception_clear(system);
+    }
 }

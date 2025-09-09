@@ -2,6 +2,7 @@
 #define INTERPRETER_H
 
 #include "ast.h"
+#include "jit_compiler.h"
 #include <stddef.h>
 
 // Forward declarations
@@ -87,13 +88,13 @@ typedef struct {
 } Value;
 
 // Environment for variable storage
-typedef struct Environment {
+struct Environment {
     struct Environment* parent;
     char** names;
     Value* values;
     size_t count;
     size_t capacity;
-} Environment;
+};
 
 // Call stack frame for stack traces
 typedef struct CallFrame {
@@ -126,6 +127,11 @@ typedef struct {
     int max_stack_depth;          // Maximum allowed stack depth
     int recursion_count;          // Recursion counter for limit detection
     int max_recursion_depth;      // Maximum recursion depth
+    
+    // JIT compilation support
+    JitContext* jit_context;
+    int jit_enabled;
+    int jit_mode;
 } Interpreter;
 
 // Interpreter initialization and cleanup
@@ -310,6 +316,13 @@ Value builtin_str(Interpreter* interpreter, Value* args, size_t arg_count, int l
 Value builtin_int(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_float(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_bool(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+
+// JIT compilation functions
+void interpreter_enable_jit(Interpreter* interpreter, int enable);
+void interpreter_set_jit_mode(Interpreter* interpreter, int mode);
+JitContext* interpreter_get_jit_context(Interpreter* interpreter);
+int interpreter_compile_function(Interpreter* interpreter, const char* function_name);
+Value interpreter_execute_compiled_function(Interpreter* interpreter, const char* function_name, Value* args, size_t arg_count);
 
 // Utility functions
 void interpreter_register_builtins(Interpreter* interpreter);

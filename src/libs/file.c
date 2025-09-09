@@ -6,7 +6,392 @@
 #include "../../include/core/interpreter.h"
 #include "../../include/core/ast.h"
 
+// File handle structure for stream operations
+typedef struct {
+    FILE* file;
+    char* filename;
+    char* mode;
+    int is_open;
+    long position;
+    long size;
+} FileHandle;
+
+// File handle management
+static FileHandle* file_handles = NULL;
+static size_t file_handle_count = 0;
+static size_t file_handle_capacity = 0;
+
+// File handle functions
+static FileHandle* file_handle_create(FILE* file, const char* filename, const char* mode) {
+    FileHandle* handle = malloc(sizeof(FileHandle));
+    if (!handle) return NULL;
+    
+    handle->file = file;
+    handle->filename = filename ? strdup(filename) : NULL;
+    handle->mode = mode ? strdup(mode) : NULL;
+    handle->is_open = 1;
+    handle->position = 0;
+    
+    // Get file size
+    if (file) {
+        long current_pos = ftell(file);
+        fseek(file, 0, SEEK_END);
+        handle->size = ftell(file);
+        fseek(file, current_pos, SEEK_SET);
+        handle->position = current_pos;
+    } else {
+        handle->size = 0;
+    }
+    
+    return handle;
+}
+
+static void file_handle_free(FileHandle* handle) {
+    if (!handle) return;
+    
+    if (handle->file && handle->is_open) {
+        fclose(handle->file);
+    }
+    
+    free(handle->filename);
+    free(handle->mode);
+    free(handle);
+}
+
+static FileHandle* file_handle_find(Value handle_value) {
+    if (handle_value.type != VALUE_NUMBER) return NULL;
+    
+    int handle_id = (int)handle_value.data.number_value;
+    if (handle_id < 0 || handle_id >= file_handle_count) return NULL;
+    
+    return &file_handles[handle_id];
+}
+
+static int file_handle_register(FileHandle* handle) {
+    if (!file_handles) {
+        file_handle_capacity = 10;
+        file_handles = malloc(sizeof(FileHandle) * file_handle_capacity);
+        if (!file_handles) return -1;
+    }
+    
+    if (file_handle_count >= file_handle_capacity) {
+        file_handle_capacity *= 2;
+        file_handles = realloc(file_handles, sizeof(FileHandle) * file_handle_capacity);
+        if (!file_handles) return -1;
+    }
+    
+    file_handles[file_handle_count] = *handle;
+    return file_handle_count++;
+}
+
 // File library functions
+
+// File handle operations
+Value builtin_file_open(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count < 1 || arg_count > 2) {
+        interpreter_set_error(interpreter, "file.open() requires 1-2 arguments (filename, [mode])", line, column);
+        return value_create_null();
+    }
+    
+    Value filename_val = args[0];
+    if (filename_val.type != VALUE_STRING) {
+        interpreter_set_error(interpreter, "file.open() first argument must be a string (filename)", line, column);
+        return value_create_null();
+    }
+    
+    const char* filename = filename_val.data.string_value;
+    const char* mode = "r";  // Default mode
+    
+    if (arg_count == 2) {
+        Value mode_val = args[1];
+        if (mode_val.type != VALUE_STRING) {
+            interpreter_set_error(interpreter, "file.open() second argument must be a string (mode)", line, column);
+            return value_create_null();
+        }
+        mode = mode_val.data.string_value;
+    }
+    
+    FILE* file = fopen(filename, mode);
+    if (!file) {
+        char error_msg[256];
+        snprintf(error_msg, sizeof(error_msg), "Cannot open file '%s' with mode '%s': %s", filename, mode, strerror(errno));
+        interpreter_set_error(interpreter, error_msg, line, column);
+        return value_create_null();
+    }
+    
+    FileHandle handle;
+    handle.file = file;
+    handle.filename = strdup(filename);
+    handle.mode = strdup(mode);
+    handle.is_open = 1;
+    handle.position = 0;
+    
+    // Get file size
+    long current_pos = ftell(file);
+    fseek(file, 0, SEEK_END);
+    handle.size = ftell(file);
+    fseek(file, current_pos, SEEK_SET);
+    handle.position = current_pos;
+    
+    int handle_id = file_handle_register(&handle);
+    if (handle_id == -1) {
+        fclose(file);
+        free(handle.filename);
+        free(handle.mode);
+        interpreter_set_error(interpreter, "Failed to register file handle", line, column);
+        return value_create_null();
+    }
+    
+    return value_create_number(handle_id);
+}
+
+Value builtin_file_close(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 1) {
+        interpreter_set_error(interpreter, "file.close() requires exactly 1 argument (handle)", line, column);
+        return value_create_null();
+    }
+    
+    FileHandle* handle = file_handle_find(args[0]);
+    if (!handle) {
+        interpreter_set_error(interpreter, "Invalid file handle", line, column);
+        return value_create_null();
+    }
+    
+    if (!handle->is_open) {
+        interpreter_set_error(interpreter, "File handle is already closed", line, column);
+        return value_create_null();
+    }
+    
+    int result = fclose(handle->file);
+    handle->is_open = 0;
+    handle->file = NULL;
+    
+    if (result != 0) {
+        char error_msg[256];
+        snprintf(error_msg, sizeof(error_msg), "Error closing file: %s", strerror(errno));
+        interpreter_set_error(interpreter, error_msg, line, column);
+        return value_create_null();
+    }
+    
+    return value_create_null();
+}
+
+Value builtin_file_read_chunk(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count < 1 || arg_count > 2) {
+        interpreter_set_error(interpreter, "file.read() requires 1-2 arguments (handle, [size])", line, column);
+        return value_create_null();
+    }
+    
+    FileHandle* handle = file_handle_find(args[0]);
+    if (!handle) {
+        interpreter_set_error(interpreter, "Invalid file handle", line, column);
+        return value_create_null();
+    }
+    
+    if (!handle->is_open) {
+        interpreter_set_error(interpreter, "File handle is closed", line, column);
+        return value_create_null();
+    }
+    
+    size_t size = 1024;  // Default read size
+    if (arg_count == 2) {
+        Value size_val = args[1];
+        if (size_val.type != VALUE_NUMBER) {
+            interpreter_set_error(interpreter, "file.read() second argument must be a number (size)", line, column);
+            return value_create_null();
+        }
+        size = (size_t)size_val.data.number_value;
+    }
+    
+    char* buffer = malloc(size + 1);
+    if (!buffer) {
+        interpreter_set_error(interpreter, "Out of memory while reading file", line, column);
+        return value_create_null();
+    }
+    
+    size_t bytes_read = fread(buffer, 1, size, handle->file);
+    buffer[bytes_read] = '\0';
+    
+    handle->position = ftell(handle->file);
+    
+    Value result = value_create_string(buffer);
+    free(buffer);
+    
+    return result;
+}
+
+Value builtin_file_write_chunk(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 2) {
+        interpreter_set_error(interpreter, "file.write() requires exactly 2 arguments (handle, data)", line, column);
+        return value_create_null();
+    }
+    
+    FileHandle* handle = file_handle_find(args[0]);
+    if (!handle) {
+        interpreter_set_error(interpreter, "Invalid file handle", line, column);
+        return value_create_null();
+    }
+    
+    if (!handle->is_open) {
+        interpreter_set_error(interpreter, "File handle is closed", line, column);
+        return value_create_null();
+    }
+    
+    Value data_val = args[1];
+    if (data_val.type != VALUE_STRING) {
+        interpreter_set_error(interpreter, "file.write() second argument must be a string (data)", line, column);
+        return value_create_null();
+    }
+    
+    const char* data = data_val.data.string_value;
+    size_t data_len = strlen(data);
+    
+    size_t bytes_written = fwrite(data, 1, data_len, handle->file);
+    if (bytes_written != data_len) {
+        char error_msg[256];
+        snprintf(error_msg, sizeof(error_msg), "Error writing to file: %s", strerror(errno));
+        interpreter_set_error(interpreter, error_msg, line, column);
+        return value_create_null();
+    }
+    
+    handle->position = ftell(handle->file);
+    
+    return value_create_number(bytes_written);
+}
+
+Value builtin_file_seek(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 2) {
+        interpreter_set_error(interpreter, "file.seek() requires exactly 2 arguments (handle, position)", line, column);
+        return value_create_null();
+    }
+    
+    FileHandle* handle = file_handle_find(args[0]);
+    if (!handle) {
+        interpreter_set_error(interpreter, "Invalid file handle", line, column);
+        return value_create_null();
+    }
+    
+    if (!handle->is_open) {
+        interpreter_set_error(interpreter, "File handle is closed", line, column);
+        return value_create_null();
+    }
+    
+    Value pos_val = args[1];
+    if (pos_val.type != VALUE_NUMBER) {
+        interpreter_set_error(interpreter, "file.seek() second argument must be a number (position)", line, column);
+        return value_create_null();
+    }
+    
+    long position = (long)pos_val.data.number_value;
+    
+    if (fseek(handle->file, position, SEEK_SET) != 0) {
+        char error_msg[256];
+        snprintf(error_msg, sizeof(error_msg), "Error seeking in file: %s", strerror(errno));
+        interpreter_set_error(interpreter, error_msg, line, column);
+        return value_create_null();
+    }
+    
+    handle->position = position;
+    
+    return value_create_null();
+}
+
+Value builtin_file_tell(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 1) {
+        interpreter_set_error(interpreter, "file.tell() requires exactly 1 argument (handle)", line, column);
+        return value_create_null();
+    }
+    
+    FileHandle* handle = file_handle_find(args[0]);
+    if (!handle) {
+        interpreter_set_error(interpreter, "Invalid file handle", line, column);
+        return value_create_null();
+    }
+    
+    if (!handle->is_open) {
+        interpreter_set_error(interpreter, "File handle is closed", line, column);
+        return value_create_null();
+    }
+    
+    long position = ftell(handle->file);
+    if (position == -1) {
+        char error_msg[256];
+        snprintf(error_msg, sizeof(error_msg), "Error getting file position: %s", strerror(errno));
+        interpreter_set_error(interpreter, error_msg, line, column);
+        return value_create_null();
+    }
+    
+    handle->position = position;
+    
+    return value_create_number(position);
+}
+
+Value builtin_file_eof(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 1) {
+        interpreter_set_error(interpreter, "file.eof() requires exactly 1 argument (handle)", line, column);
+        return value_create_null();
+    }
+    
+    FileHandle* handle = file_handle_find(args[0]);
+    if (!handle) {
+        interpreter_set_error(interpreter, "Invalid file handle", line, column);
+        return value_create_null();
+    }
+    
+    if (!handle->is_open) {
+        interpreter_set_error(interpreter, "File handle is closed", line, column);
+        return value_create_null();
+    }
+    
+    return value_create_boolean(feof(handle->file));
+}
+
+Value builtin_file_size_handle(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 1) {
+        interpreter_set_error(interpreter, "file.size() requires exactly 1 argument (handle)", line, column);
+        return value_create_null();
+    }
+    
+    FileHandle* handle = file_handle_find(args[0]);
+    if (!handle) {
+        interpreter_set_error(interpreter, "Invalid file handle", line, column);
+        return value_create_null();
+    }
+    
+    if (!handle->is_open) {
+        interpreter_set_error(interpreter, "File handle is closed", line, column);
+        return value_create_null();
+    }
+    
+    return value_create_number(handle->size);
+}
+
+Value builtin_file_flush(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 1) {
+        interpreter_set_error(interpreter, "file.flush() requires exactly 1 argument (handle)", line, column);
+        return value_create_null();
+    }
+    
+    FileHandle* handle = file_handle_find(args[0]);
+    if (!handle) {
+        interpreter_set_error(interpreter, "Invalid file handle", line, column);
+        return value_create_null();
+    }
+    
+    if (!handle->is_open) {
+        interpreter_set_error(interpreter, "File handle is closed", line, column);
+        return value_create_null();
+    }
+    
+    if (fflush(handle->file) != 0) {
+        char error_msg[256];
+        snprintf(error_msg, sizeof(error_msg), "Error flushing file: %s", strerror(errno));
+        interpreter_set_error(interpreter, error_msg, line, column);
+        return value_create_null();
+    }
+    
+    return value_create_null();
+}
 
 // Read entire file content as string
 Value builtin_file_read(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -328,4 +713,15 @@ void file_library_register(Interpreter* interpreter) {
     environment_define(interpreter->global_environment, "file_delete", value_create_builtin_function(builtin_file_delete));
     environment_define(interpreter->global_environment, "file_read_lines", value_create_builtin_function(builtin_file_read_lines));
     environment_define(interpreter->global_environment, "file_write_lines", value_create_builtin_function(builtin_file_write_lines));
+    
+    // File handle operations
+    environment_define(interpreter->global_environment, "file_open", value_create_builtin_function(builtin_file_open));
+    environment_define(interpreter->global_environment, "file_close", value_create_builtin_function(builtin_file_close));
+    environment_define(interpreter->global_environment, "file_read_chunk", value_create_builtin_function(builtin_file_read_chunk));
+    environment_define(interpreter->global_environment, "file_write_chunk", value_create_builtin_function(builtin_file_write_chunk));
+    environment_define(interpreter->global_environment, "file_seek", value_create_builtin_function(builtin_file_seek));
+    environment_define(interpreter->global_environment, "file_tell", value_create_builtin_function(builtin_file_tell));
+    environment_define(interpreter->global_environment, "file_eof", value_create_builtin_function(builtin_file_eof));
+    environment_define(interpreter->global_environment, "file_size_handle", value_create_builtin_function(builtin_file_size_handle));
+    environment_define(interpreter->global_environment, "file_flush", value_create_builtin_function(builtin_file_flush));
 }

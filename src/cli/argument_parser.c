@@ -15,6 +15,8 @@ int parse_arguments(int argc, char* argv[], ArgumentConfig* config) {
     config->debug = 0;
     config->target = TARGET_C;
     config->optimization_level = OPTIMIZATION_NONE;
+    config->jit_enabled = 0;
+    config->jit_mode = 0;
     config->input_source = NULL;
     config->output_file = NULL;
     config->architecture = NULL;
@@ -69,6 +71,23 @@ int parse_arguments(int argc, char* argv[], ArgumentConfig* config) {
             } else {
                 fprintf(stderr, "Error: --optimize requires an argument\n");
                 return MYCO_ERROR_CLI;
+            }
+        } else if (strcmp(argv[i], "--jit") == 0 || strcmp(argv[i], "-j") == 0) {
+            config->jit_enabled = 1;
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+                i++;
+                if (strcmp(argv[i], "0") == 0 || strcmp(argv[i], "interpreted") == 0) {
+                    config->jit_mode = 0;
+                } else if (strcmp(argv[i], "1") == 0 || strcmp(argv[i], "hybrid") == 0) {
+                    config->jit_mode = 1;
+                } else if (strcmp(argv[i], "2") == 0 || strcmp(argv[i], "compiled") == 0) {
+                    config->jit_mode = 2;
+                } else {
+                    fprintf(stderr, "Error: Unknown JIT mode '%s'\n", argv[i]);
+                    return MYCO_ERROR_CLI;
+                }
+            } else {
+                config->jit_mode = 1; // Default to hybrid mode
             }
         } else if (strcmp(argv[i], "--target") == 0 || strcmp(argv[i], "-t") == 0) {
             if (i + 1 < argc) {
@@ -137,6 +156,7 @@ void print_usage(const char* program_name) {
     printf("  -b, --build             Build executable from input\n");
     printf("    -d, --debug             Enable debug mode\n");
   printf("  -O, --optimize <level>  Set optimization level (0/none, 1/basic, 2/aggressive, 3/maximum)\n");
+  printf("  -j, --jit [mode]        Enable JIT compilation (0/interpreted, 1/hybrid, 2/compiled)\n");
   printf("  -t, --target <target>   Set compilation target (c, x86_64, arm64, wasm, bytecode)\n");
   printf("  -a, --architecture <arch> Set target architecture (arm64, x86_64, arm, x86)\n");
   printf("  -o, --output <file>     Set output file\n");

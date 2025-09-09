@@ -11,6 +11,8 @@ typedef struct {
     int debug;
     int target;
     int optimization_level;
+    int jit_enabled;
+    int jit_mode;
     char* input_source;
     char* output_file;
     char* architecture;

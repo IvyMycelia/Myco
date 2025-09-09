@@ -28,6 +28,7 @@ typedef struct {
     int debug_info;
     int warnings_as_errors;
     int strict_mode;
+    int type_checking;
     char* output_file;
     char* include_paths[100];
     int include_path_count;
@@ -61,6 +62,7 @@ void compiler_config_free(CompilerConfig* config);
 void compiler_config_set_target(CompilerConfig* config, TargetArchitecture target);
 void compiler_config_set_optimization(CompilerConfig* config, OptimizationLevel level);
 void compiler_config_set_output(CompilerConfig* config, const char* output_file);
+void compiler_config_set_type_checking(CompilerConfig* config, int enable);
 void compiler_config_add_include_path(CompilerConfig* config, const char* path);
 void compiler_config_add_library_path(CompilerConfig* config, const char* path);
 void compiler_config_add_define(CompilerConfig* config, const char* define);
@@ -123,11 +125,6 @@ int compiler_optimize_ast(CompilerConfig* config, ASTNode* ast);
 
 // Type checking and validation
 int compiler_type_check(ASTNode* ast);
-int type_check_node(ASTNode* node);
-int type_check_expression(ASTNode* node);
-int type_check_statement(ASTNode* node);
-int type_check_function(ASTNode* node);
-int type_check_class(ASTNode* node);
 
 // Error reporting
 void compiler_report_error(const char* message, int line, int column);

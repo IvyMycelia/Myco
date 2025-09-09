@@ -34,20 +34,20 @@ char* myco_number_to_string(double number) {
 
 // Main program entry point
 int main(void) {
-    myco_print(    "Testing async/await syntax..."    )    ;
-    // Async function: async_function
-    void* async_function(
-    ) {
-        // TODO: Implement async function body
-        return NULL;
-    }
-    void*     result     =     /* await */ 
-    async_function(    )    ;
-    myco_print(    myco_string_concat(    "Result from async function: "    ,     myco_number_to_string(    result    )    )    )    ;
-    void*     promise     =     /* Promise(
-    42.000000    ) */
-    ;
-    myco_print(    myco_string_concat(    "Promise created: "    ,     myco_number_to_string(    promise    )    )    )    ;
-    myco_print(    "Async/await test completed!"    )    ;
+    myco_print(    "Testing type checker..."    )    ;
+    Int     x     =     42.000000    ;
+    String     y     =     "hello"    ;
+    Bool     z     =     1    ;
+    myco_print(    myco_string_concat(    "x = "    ,     myco_number_to_string(    x    )    )    )    ;
+    myco_print(    myco_string_concat(    "y = "    ,     myco_number_to_string(    y    )    )    )    ;
+    myco_print(    myco_string_concat(    "z = "    ,     myco_number_to_string(    z    )    )    )    ;
+    double     a     =     10.000000    ;
+    double     b     =     3.140000    ;
+    char*     c     =     "world"    ;
+    myco_print(    myco_string_concat(    "a = "    ,     myco_number_to_string(    a    )    )    )    ;
+    myco_print(    myco_string_concat(    "b = "    ,     myco_number_to_string(    b    )    )    )    ;
+    myco_print(    myco_string_concat(    "c = "    ,     myco_number_to_string(    c    )    )    )    ;
+    Int     d     =     100.000000    ;
+    myco_print(    "Test completed!"    )    ;
     return 0;
 }

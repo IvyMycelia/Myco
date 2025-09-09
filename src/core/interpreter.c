@@ -3516,36 +3516,80 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 if (argv) free(argv);
                 return rv;
             }
-            if (strcmp(func_name, "len") == 0) {
-                size_t n = node->data.function_call.argument_count;
-                if (n == 0) return value_create_number(0);
-                Value v = eval_node(interpreter, node->data.function_call.arguments[0]);
-
-                double out = 0;
-                if (v.type == VALUE_STRING && v.data.string_value) {
-                    out = (double)strlen(v.data.string_value);
-                } else if (v.type == VALUE_RANGE) {
-                    double start = v.data.range_value.start;
-                    double end = v.data.range_value.end;
-                    if (end > start) out = (double)((long long)(end - start));
-                    else out = 0;
-                } else if (v.type == VALUE_ARRAY) {
-                    out = (double)v.data.array_value.count;
-                } else {
-                    out = 0;
-                }
-
-                value_free(&v);
-                return value_create_number(out);
-            }
-            if (strcmp(func_name, "toString") == 0) {
+            if (strcmp(func_name, "isString") == 0) {
                 size_t n = node->data.function_call.argument_count;
                 if (n == 0) {
-                    interpreter_set_error(interpreter, "toString() requires exactly 1 argument", node->line, node->column);
+                    interpreter_set_error(interpreter, "isString() requires exactly 1 argument", node->line, node->column);
                     return value_create_null();
                 }
                 Value v = eval_node(interpreter, node->data.function_call.arguments[0]);
-                Value result = builtin_toString(interpreter, &v, 1, node->line, node->column);
+                Value result = value_create_boolean(v.type == VALUE_STRING);
+                value_free(&v);
+                return result;
+            }
+            if (strcmp(func_name, "isInt") == 0) {
+                size_t n = node->data.function_call.argument_count;
+                if (n == 0) {
+                    interpreter_set_error(interpreter, "isInt() requires exactly 1 argument", node->line, node->column);
+                    return value_create_null();
+                }
+                Value v = eval_node(interpreter, node->data.function_call.arguments[0]);
+                Value result = value_create_boolean(v.type == VALUE_NUMBER && v.data.number_value == (int)v.data.number_value);
+                value_free(&v);
+                return result;
+            }
+            if (strcmp(func_name, "isFloat") == 0) {
+                size_t n = node->data.function_call.argument_count;
+                if (n == 0) {
+                    interpreter_set_error(interpreter, "isFloat() requires exactly 1 argument", node->line, node->column);
+                    return value_create_null();
+                }
+                Value v = eval_node(interpreter, node->data.function_call.arguments[0]);
+                Value result = value_create_boolean(v.type == VALUE_NUMBER && v.data.number_value != (int)v.data.number_value);
+                value_free(&v);
+                return result;
+            }
+            if (strcmp(func_name, "isBool") == 0) {
+                size_t n = node->data.function_call.argument_count;
+                if (n == 0) {
+                    interpreter_set_error(interpreter, "isBool() requires exactly 1 argument", node->line, node->column);
+                    return value_create_null();
+                }
+                Value v = eval_node(interpreter, node->data.function_call.arguments[0]);
+                Value result = value_create_boolean(v.type == VALUE_BOOLEAN);
+                value_free(&v);
+                return result;
+            }
+            if (strcmp(func_name, "isArray") == 0) {
+                size_t n = node->data.function_call.argument_count;
+                if (n == 0) {
+                    interpreter_set_error(interpreter, "isArray() requires exactly 1 argument", node->line, node->column);
+                    return value_create_null();
+                }
+                Value v = eval_node(interpreter, node->data.function_call.arguments[0]);
+                Value result = value_create_boolean(v.type == VALUE_ARRAY);
+                value_free(&v);
+                return result;
+            }
+            if (strcmp(func_name, "isNull") == 0) {
+                size_t n = node->data.function_call.argument_count;
+                if (n == 0) {
+                    interpreter_set_error(interpreter, "isNull() requires exactly 1 argument", node->line, node->column);
+                    return value_create_null();
+                }
+                Value v = eval_node(interpreter, node->data.function_call.arguments[0]);
+                Value result = value_create_boolean(v.type == VALUE_NULL);
+                value_free(&v);
+                return result;
+            }
+            if (strcmp(func_name, "isNumber") == 0) {
+                size_t n = node->data.function_call.argument_count;
+                if (n == 0) {
+                    interpreter_set_error(interpreter, "isNumber() requires exactly 1 argument", node->line, node->column);
+                    return value_create_null();
+                }
+                Value v = eval_node(interpreter, node->data.function_call.arguments[0]);
+                Value result = value_create_boolean(v.type == VALUE_NUMBER);
                 value_free(&v);
                 return result;
             }
@@ -3724,6 +3768,9 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 return rv;
             }
             value_free(&fn);
+            char error_msg[256];
+            snprintf(error_msg, sizeof(error_msg), "Undefined function '%s'", func_name);
+            interpreter_set_error(interpreter, error_msg, node->line, node->column);
             return value_create_null();
         }
         case AST_NODE_IF_STATEMENT: {
@@ -4036,6 +4083,65 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             // Get the member name
             const char* member_name = node->data.member_access.member_name;
             
+            // Handle built-in methods for all value types
+            if (strcmp(member_name, "toString") == 0) {
+                Value result = builtin_toString(interpreter, &object, 1, node->line, node->column);
+                value_free(&object);
+                return result;
+            }
+            if (strcmp(member_name, "length") == 0) {
+                double out = 0;
+                if (object.type == VALUE_STRING && object.data.string_value) {
+                    out = (double)strlen(object.data.string_value);
+                } else if (object.type == VALUE_RANGE) {
+                    double start = object.data.range_value.start;
+                    double end = object.data.range_value.end;
+                    if (end > start) out = (double)((long long)(end - start));
+                    else out = 0;
+                } else if (object.type == VALUE_ARRAY) {
+                    out = (double)object.data.array_value.count;
+                } else {
+                    out = 0;
+                }
+                value_free(&object);
+                return value_create_number(out);
+            }
+            if (strcmp(member_name, "isString") == 0) {
+                Value result = value_create_boolean(object.type == VALUE_STRING);
+                value_free(&object);
+                return result;
+            }
+            if (strcmp(member_name, "isInt") == 0) {
+                Value result = value_create_boolean(object.type == VALUE_NUMBER && object.data.number_value == (int)object.data.number_value);
+                value_free(&object);
+                return result;
+            }
+            if (strcmp(member_name, "isFloat") == 0) {
+                Value result = value_create_boolean(object.type == VALUE_NUMBER && object.data.number_value != (int)object.data.number_value);
+                value_free(&object);
+                return result;
+            }
+            if (strcmp(member_name, "isBool") == 0) {
+                Value result = value_create_boolean(object.type == VALUE_BOOLEAN);
+                value_free(&object);
+                return result;
+            }
+            if (strcmp(member_name, "isArray") == 0) {
+                Value result = value_create_boolean(object.type == VALUE_ARRAY);
+                value_free(&object);
+                return result;
+            }
+            if (strcmp(member_name, "isNull") == 0) {
+                Value result = value_create_boolean(object.type == VALUE_NULL);
+                value_free(&object);
+                return result;
+            }
+            if (strcmp(member_name, "isNumber") == 0) {
+                Value result = value_create_boolean(object.type == VALUE_NUMBER);
+                value_free(&object);
+                return result;
+            }
+            
             // Handle different object types
             if (object.type == VALUE_NULL) {
                 // The object is null, try to find the member in the current environment
@@ -4190,7 +4296,69 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                         // The member access already returned the function, so we can proceed with regular function call
                     }
                 } else {
-                    // This is an object method call like obj.method() - use method call handling
+                    // This is a method call on a primitive value like 42.toString() or "hello".length()
+                    const char* method_name = node->data.function_call_expr.function->data.member_access.member_name;
+                    
+                    // Handle built-in methods for all value types
+                    if (strcmp(method_name, "toString") == 0) {
+                        Value result = builtin_toString(interpreter, &object, 1, node->line, node->column);
+                        value_free(&object);
+                        return result;
+                    }
+                    if (strcmp(method_name, "length") == 0) {
+                        double out = 0;
+                        if (object.type == VALUE_STRING && object.data.string_value) {
+                            out = (double)strlen(object.data.string_value);
+                        } else if (object.type == VALUE_RANGE) {
+                            double start = object.data.range_value.start;
+                            double end = object.data.range_value.end;
+                            if (end > start) out = (double)((long long)(end - start));
+                            else out = 0;
+                        } else if (object.type == VALUE_ARRAY) {
+                            out = (double)object.data.array_value.count;
+                        } else {
+                            out = 0;
+                        }
+                        value_free(&object);
+                        return value_create_number(out);
+                    }
+                    if (strcmp(method_name, "isString") == 0) {
+                        Value result = value_create_boolean(object.type == VALUE_STRING);
+                        value_free(&object);
+                        return result;
+                    }
+                    if (strcmp(method_name, "isInt") == 0) {
+                        Value result = value_create_boolean(object.type == VALUE_NUMBER && object.data.number_value == (int)object.data.number_value);
+                        value_free(&object);
+                        return result;
+                    }
+                    if (strcmp(method_name, "isFloat") == 0) {
+                        Value result = value_create_boolean(object.type == VALUE_NUMBER && object.data.number_value != (int)object.data.number_value);
+                        value_free(&object);
+                        return result;
+                    }
+                    if (strcmp(method_name, "isBool") == 0) {
+                        Value result = value_create_boolean(object.type == VALUE_BOOLEAN);
+                        value_free(&object);
+                        return result;
+                    }
+                    if (strcmp(method_name, "isArray") == 0) {
+                        Value result = value_create_boolean(object.type == VALUE_ARRAY);
+                        value_free(&object);
+                        return result;
+                    }
+                    if (strcmp(method_name, "isNull") == 0) {
+                        Value result = value_create_boolean(object.type == VALUE_NULL);
+                        value_free(&object);
+                        return result;
+                    }
+                    if (strcmp(method_name, "isNumber") == 0) {
+                        Value result = value_create_boolean(object.type == VALUE_NUMBER);
+                        value_free(&object);
+                        return result;
+                    }
+                    
+                    // If it's not a built-in method, try object method call handling
                     return handle_method_call(interpreter, node, object);
                 }
                 value_free(&object);
@@ -4200,10 +4368,25 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             // Regular function call - evaluate the function expression
             Value function_value = eval_node(interpreter, node->data.function_call_expr.function);
             
+            // Check if function was found
+            if (function_value.type == VALUE_NULL) {
+                // Function not found - this should be an error
+                // Try to get the function name for error reporting
+                const char* func_name = "unknown";
+                if (node->data.function_call_expr.function->type == AST_NODE_IDENTIFIER) {
+                    func_name = node->data.function_call_expr.function->data.identifier_value;
+                }
+                char error_msg[256];
+                snprintf(error_msg, sizeof(error_msg), "Undefined function '%s'", func_name);
+                interpreter_set_error(interpreter, error_msg, node->line, node->column);
+                return value_create_null();
+            }
+            
             // Evaluate all arguments
             size_t arg_count = node->data.function_call_expr.argument_count;
             Value* args = arg_count > 0 ? (Value*)calloc(arg_count, sizeof(Value)) : NULL;
             if (arg_count > 0 && !args) {
+                value_free(&function_value);
                 return value_create_null();
             }
             
@@ -4222,6 +4405,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 free(args);
             }
             
+            value_free(&function_value);
             return result;
         }
         case AST_NODE_TRY_CATCH: {
@@ -4286,7 +4470,15 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     // Check if pattern matches (simple equality for now)
                     if (value_equals(&match_value, &pattern_value)) {
                         // Execute the case body
-                        Value result = eval_node(interpreter, case_node->data.spore_case.body);
+                        Value result;
+                        if (case_node->data.spore_case.is_lambda) {
+                            // Lambda case: evaluate as expression
+                            result = eval_node(interpreter, case_node->data.spore_case.body);
+                        } else {
+                            // Block case: evaluate as statement
+                            eval_node(interpreter, case_node->data.spore_case.body);
+                            result = value_create_null(); // Block cases don't return values
+                        }
                         
                         value_free(&match_value);
                         value_free(&pattern_value);
@@ -4298,7 +4490,15 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             
             // If no case matched, execute root case if it exists
             if (node->data.spore.root_case) {
-                Value result = eval_node(interpreter, node->data.spore.root_case);
+                Value result;
+                if (node->data.spore.root_case->data.spore_case.is_lambda) {
+                    // Lambda case: evaluate as expression
+                    result = eval_node(interpreter, node->data.spore.root_case);
+                } else {
+                    // Block case: evaluate as statement
+                    eval_node(interpreter, node->data.spore.root_case);
+                    result = value_create_null(); // Block cases don't return values
+                }
                 value_free(&match_value);
                 return result;
             }
@@ -5179,7 +5379,13 @@ void interpreter_register_builtins(Interpreter* interpreter) {
     Value v = value_create_string("<builtin>");
     environment_define(interpreter->global_environment, "print", v);
     environment_define(interpreter->global_environment, "uprint", v);
-    environment_define(interpreter->global_environment, "len", v);
+    environment_define(interpreter->global_environment, "isString", v);
+    environment_define(interpreter->global_environment, "isInt", v);
+    environment_define(interpreter->global_environment, "isFloat", v);
+    environment_define(interpreter->global_environment, "isBool", v);
+    environment_define(interpreter->global_environment, "isArray", v);
+    environment_define(interpreter->global_environment, "isNull", v);
+    environment_define(interpreter->global_environment, "isNumber", v);
     environment_define(interpreter->global_environment, "assert", v);
     value_free(&v);
     

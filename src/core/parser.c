@@ -391,6 +391,9 @@ ASTNode* parser_parse_statement(Parser* parser) {
             } else if (strcmp(token->text, "func") == 0) {
                 parser_advance(parser);  // Consume the 'func' keyword
                 return parser_parse_function_declaration(parser);
+            } else if (strcmp(token->text, "async") == 0) {
+                parser_advance(parser);  // Consume the 'async' keyword
+                return parser_parse_async_function_declaration(parser);
             } else if (strcmp(token->text, "class") == 0) {
                 parser_advance(parser);  // Consume the 'class' keyword
                 return parser_parse_class_declaration(parser);
@@ -1145,6 +1148,62 @@ ASTNode* parser_parse_primary(Parser* parser) {
             return literal;
             }
         }
+    }
+    
+    if (parser_check(parser, TOKEN_KEYWORD) && strcmp(parser_peek(parser)->text, "await") == 0) {
+        // Parse await expression
+        Token* token = parser_peek(parser);
+        parser_advance(parser);
+        
+        // Parse the expression to await
+        ASTNode* expression = parser_parse_expression(parser);
+        if (!expression) {
+            parser_error(parser, "Expected expression after 'await'");
+            return NULL;
+        }
+        
+        // Create await AST node
+        ASTNode* await_node = ast_create_await(expression, token->line, token->column);
+        if (!await_node) {
+            ast_free(expression);
+            return NULL;
+        }
+        
+        return await_node;
+    }
+    
+    if (parser_check(parser, TOKEN_IDENTIFIER) && strcmp(parser_peek(parser)->text, "Promise") == 0) {
+        // Parse Promise creation
+        Token* token = parser_peek(parser);
+        parser_advance(parser);
+        
+        // Expect '(' and expression
+        if (!parser_match(parser, TOKEN_LEFT_PAREN)) {
+            parser_error(parser, "Expected '(' after 'Promise'");
+            return NULL;
+        }
+        
+        // Parse the expression inside Promise
+        ASTNode* expression = parser_parse_expression(parser);
+        if (!expression) {
+            parser_error(parser, "Expected expression inside 'Promise'");
+            return NULL;
+        }
+        
+        if (!parser_match(parser, TOKEN_RIGHT_PAREN)) {
+            parser_error(parser, "Expected ')' after Promise expression");
+            ast_free(expression);
+            return NULL;
+        }
+        
+        // Create Promise AST node
+        ASTNode* promise_node = ast_create_promise(expression, token->line, token->column);
+        if (!promise_node) {
+            ast_free(expression);
+            return NULL;
+        }
+        
+        return promise_node;
     }
     
     if (parser_check(parser, TOKEN_IDENTIFIER) || 
@@ -2214,6 +2273,129 @@ ASTNode* parser_parse_function_declaration(Parser* parser) {
     }
     // Build function node (store name and body)
     ASTNode* func = ast_create_function(func_name, params, param_count, return_type, body, 0, 0);
+    
+    // Clean up return type if we allocated it
+    if (return_type) {
+        free(return_type);
+    }
+    
+    return func;
+}
+
+/**
+ * @brief Parse an async function declaration
+ * 
+ * Async function declarations have the syntax: async func name(params) -> returnType: body end
+ * or just: async func name(params): body end
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the async function declaration
+ */
+ASTNode* parser_parse_async_function_declaration(Parser* parser) {
+    if (!parser) {
+        return NULL;
+    }
+    
+    // The 'async' keyword has already been consumed by the statement parser
+    // Now we expect 'func'
+    if (!parser_match(parser, TOKEN_KEYWORD) || 
+        !parser->previous_token || 
+        !parser->previous_token->text || 
+        strcmp(parser->previous_token->text, "func") != 0) {
+        parser_error(parser, "Expected 'func' after 'async'");
+        parser_synchronize(parser);
+        return NULL;
+    }
+    
+    // Function name
+    if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+        parser_error(parser, "Expected function name");
+        parser_synchronize(parser);
+        return NULL;
+    }
+    char* func_name = strdup(parser->previous_token->text);
+
+    // Parameters
+    if (!parser_match(parser, TOKEN_LEFT_PAREN)) {
+        parser_error(parser, "Expected '(' after function name");
+        parser_synchronize(parser);
+    }
+    // Parse simple comma-separated identifiers with optional : Type (ignored for now)
+    ASTNode** params = NULL; size_t param_count = 0; size_t param_cap = 0;
+    if (!parser_check(parser, TOKEN_RIGHT_PAREN)) {
+        while (1) {
+            if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+                parser_error(parser, "Expected parameter name");
+                parser_synchronize(parser);
+                break;
+            }
+            // Create parameter node
+            if (parser->previous_token && parser->previous_token->text) {
+                if (param_count == param_cap) {
+                    size_t new_cap = param_cap == 0 ? 4 : param_cap * 2;
+                    ASTNode** new_params = (ASTNode**)realloc(params, new_cap * sizeof(ASTNode*));
+                    if (!new_params) { parser_error(parser, "Out of memory while parsing parameters"); break; }
+                    params = new_params; param_cap = new_cap;
+                }
+                
+                char* param_name = strdup(parser->previous_token->text); // Store the parameter name
+                
+                // Check for type annotation
+                if (parser_check(parser, TOKEN_COLON)) {
+                    parser_advance(parser);
+                    if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+                        parser_error(parser, "Expected type name after ':'");
+                        parser_synchronize(parser);
+                        free(param_name);
+                        break;
+                    }
+                    // Create typed parameter node
+                    ASTNode* tparam = ast_create_typed_parameter(param_name, parser->previous_token->text, 0, 0);
+                    params[param_count++] = tparam;
+                } else {
+                    // Create regular identifier node for untyped parameter
+                    ASTNode* pid = ast_create_identifier(param_name, 0, 0);
+                    params[param_count++] = pid;
+                }
+                free(param_name);
+            }
+            if (parser_check(parser, TOKEN_COMMA)) { parser_advance(parser); continue; }
+            break;
+        }
+    }
+    if (!parser_match(parser, TOKEN_RIGHT_PAREN)) {
+        parser_error(parser, "Expected ')' after parameters");
+        parser_synchronize(parser);
+    }
+
+    // Optional return type: -> Type
+    char* return_type = NULL;
+    if (parser_check(parser, TOKEN_RETURN_ARROW)) {
+        parser_advance(parser);
+        // return type identifier
+        if (parser_match(parser, TOKEN_IDENTIFIER)) {
+            return_type = strdup(parser->previous_token->text);
+        } else {
+            parser_error(parser, "Expected return type after '->'");
+            parser_synchronize(parser);
+        }
+    }
+
+    // Expect ':' and body until 'end'
+    if (!parser_match(parser, TOKEN_COLON)) {
+        parser_error(parser, "Expected ':' to start function body");
+        parser_synchronize(parser);
+    }
+    int dummy = 0;
+    ASTNode* body = parser_collect_block(parser, /*stop_on_else*/0, &dummy);
+    if (!(parser_check(parser, TOKEN_KEYWORD) && parser->current_token && parser->current_token->text && strcmp(parser->current_token->text, "end") == 0)) {
+        parser_error(parser, "Expected 'end' to close function");
+        parser_synchronize(parser);
+    } else {
+        parser_advance(parser);
+    }
+    // Build async function node (store name and body)
+    ASTNode* func = ast_create_async_function(func_name, params, param_count, return_type, body, 0, 0);
     
     // Clean up return type if we allocated it
     if (return_type) {

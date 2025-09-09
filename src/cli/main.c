@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
                 if (source) {
                     strncpy(source, config.input_source + 1, len - 2);
                     source[len - 2] = '\0';
-                    result = process_string(source, config.interpret, config.compile, config.build, config.debug, config.target, config.architecture, config.output_file);
+                    result = process_string(source, config.interpret, config.compile, config.build, config.debug, config.target, config.architecture, config.output_file, config.optimization_level);
                     free(source);
                 } else {
                     result = MYCO_ERROR_MEMORY;
@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
             }
         } else {
             // Treat as filename
-            result = process_file(config.input_source, config.interpret, config.compile, config.build, config.debug, config.target, config.architecture, config.output_file);
+            result = process_file(config.input_source, config.interpret, config.compile, config.build, config.debug, config.target, config.architecture, config.output_file, config.optimization_level);
         }
     } else {
         // No input specified, show banner and enter REPL mode

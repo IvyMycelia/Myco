@@ -4,10 +4,10 @@
 #include "../compilation/compiler.h"
 
 // Process a file
-int process_file(const char* filename, int interpret, int compile, int build, int debug, int target, const char* architecture, const char* output_file);
+int process_file(const char* filename, int interpret, int compile, int build, int debug, int target, const char* architecture, const char* output_file, int optimization_level);
 
 // Process a source string
-int process_string(const char* source, int interpret, int compile, int build, int debug, int target, const char* architecture, const char* output_file);
+int process_string(const char* source, int interpret, int compile, int build, int debug, int target, const char* architecture, const char* output_file, int optimization_level);
 
 // Process source code (common implementation)
 int process_source(const char* source, int interpret, int compile, int build, int debug, int target, const char* architecture, const char* output_file);

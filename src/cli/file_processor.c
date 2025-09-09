@@ -4,6 +4,7 @@
 #include "../core/lexer.h"
 #include "../core/parser.h"
 #include "../core/ast.h"
+#include "../compilation/compiler.h"
 #include "../libs/builtin_libs.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,7 +12,7 @@
 #include <errno.h>
 
 // Process a file
-int process_file(const char* filename, int interpret, int compile, int build, int debug, int target, const char* architecture, const char* output_file) {
+int process_file(const char* filename, int interpret, int compile, int build, int debug, int target, const char* architecture, const char* output_file, int optimization_level) {
     if (!filename) return MYCO_ERROR_CLI;
     
     FILE* file = fopen(filename, "r");
@@ -48,7 +49,7 @@ int process_file(const char* filename, int interpret, int compile, int build, in
 }
 
 // Process a source string
-int process_string(const char* source, int interpret, int compile, int build, int debug, int target, const char* architecture, const char* output_file) {
+int process_string(const char* source, int interpret, int compile, int build, int debug, int target, const char* architecture, const char* output_file, int optimization_level) {
     if (!source) return MYCO_ERROR_CLI;
     
     if (debug) {
@@ -215,15 +216,130 @@ int interpret_source(const char* source, int debug) {
 int compile_source(const char* source, int target, int debug) {
     if (!source) return MYCO_ERROR_CLI;
     
-    printf("Mode: Compilation to %s\n", 
-           target == TARGET_C ? "C" : 
-           target == TARGET_X86_64 ? "x86_64" :
-           target == TARGET_ARM64 ? "ARM64" :
-           target == TARGET_WASM ? "WebAssembly" :
-           target == TARGET_BYTECODE ? "Bytecode" : "Unknown");
+    if (debug) {
+        printf("Mode: Compilation to %s\n", 
+               target == TARGET_C ? "C" : 
+               target == TARGET_X86_64 ? "x86_64" :
+               target == TARGET_ARM64 ? "ARM64" :
+               target == TARGET_WASM ? "WebAssembly" :
+               target == TARGET_BYTECODE ? "Bytecode" : "Unknown");
+    }
     
-    // TODO: Implement actual compilation
-    printf("Compilation not yet implemented\n");
+    // Create a lexer and tokenize the source code
+    Lexer* lexer = lexer_initialize(source);
+    if (!lexer) {
+        fprintf(stderr, "Error: Failed to initialize lexer\n");
+        return MYCO_ERROR_MEMORY;
+    }
+    
+    // Scan all tokens
+    if (debug) {
+        printf("DEBUG: Scanning tokens...\n");
+    }
+    int token_count = lexer_scan_all(lexer);
+    if (debug) {
+        printf("DEBUG: Token count: %d\n", token_count);
+        printf("DEBUG: Lexer errors: %s\n", lexer_has_errors(lexer) ? "Yes" : "No");
+    }
+    
+    if (token_count < 0) {
+        fprintf(stderr, "Error: Failed to scan tokens\n");
+        lexer_free(lexer);
+        return MYCO_ERROR_LEXER;
+    }
+    
+    // Check for lexical errors
+    if (lexer_has_errors(lexer)) {
+        fprintf(stderr, "Warning: Lexical errors detected during tokenization\n");
+    }
+    
+    // Create a parser and parse the tokens
+    Parser* parser = parser_initialize(lexer);
+    if (!parser) {
+        fprintf(stderr, "Error: Failed to initialize parser\n");
+        lexer_free(lexer);
+        return MYCO_ERROR_MEMORY;
+    }
+    
+    // Parse the program
+    ASTNode* program = parser_parse_program(parser);
+    
+    // Check for parser errors
+    if (parser->error_message) {
+        fprintf(stderr, "Error: Parser error: %s\n", parser->error_message);
+        if (program) ast_free(program);
+        parser_free(parser);
+        lexer_free(lexer);
+        return MYCO_ERROR_PARSER;
+    }
+    
+    if (!program) {
+        fprintf(stderr, "Error: Failed to parse program\n");
+        parser_free(parser);
+        lexer_free(lexer);
+        return MYCO_ERROR_PARSER;
+    }
+    
+    if (debug) {
+        printf("DEBUG: Program parsed successfully\n");
+        printf("DEBUG: AST node count: %d\n", 1); // Simplified count
+    }
+    
+    // Create compiler configuration
+    CompilerConfig* config = compiler_config_create();
+    if (!config) {
+        fprintf(stderr, "Error: Failed to create compiler configuration\n");
+        ast_free(program);
+        parser_free(parser);
+        lexer_free(lexer);
+        return MYCO_ERROR_MEMORY;
+    }
+    
+    // Set target architecture
+    compiler_config_set_target(config, (TargetArchitecture)target);
+    
+    // Set optimization level (temporarily disabled for testing)
+    compiler_config_set_optimization(config, OPTIMIZATION_BASIC);
+    
+    // Set output file
+    const char* output_file = "output.c";
+    compiler_config_set_output(config, output_file);
+    
+    // Generate C code
+    if (target == TARGET_C) {
+        if (debug) {
+            printf("DEBUG: Generating C code...\n");
+        }
+        
+        if (!compiler_generate_c(config, program, output_file)) {
+            fprintf(stderr, "Error: Failed to generate C code\n");
+            compiler_config_free(config);
+            ast_free(program);
+            parser_free(parser);
+            lexer_free(lexer);
+            return MYCO_ERROR_COMPILER;
+        }
+        
+        printf("Successfully compiled to C: %s\n", output_file);
+    } else {
+        fprintf(stderr, "Error: Target architecture %d not yet supported\n", target);
+        compiler_config_free(config);
+        ast_free(program);
+        parser_free(parser);
+        lexer_free(lexer);
+        return MYCO_ERROR_COMPILER;
+    }
+    
+    // Clean up
+    compiler_config_free(config);
+    ast_free(program);
+    parser_free(parser);
+    lexer_free(lexer);
+    
+    if (debug) {
+        printf("==========================\n");
+        printf("Compilation completed\n");
+    }
     
     return MYCO_SUCCESS;
 }
@@ -314,6 +430,9 @@ int build_executable(const char* source, const char* architecture, const char* o
     // Set target to C for compilation
     compiler_config_set_target(config, TARGET_C);
     
+    // Set optimization level (temporarily disabled for testing)
+    compiler_config_set_optimization(config, OPTIMIZATION_BASIC);
+    
     // Generate temporary C filename
     char* c_output_file = malloc(256);
     if (c_output_file) {
@@ -328,6 +447,87 @@ int build_executable(const char* source, const char* architecture, const char* o
         lexer_free(lexer);
         return MYCO_ERROR_MEMORY;
     }
+    
+    // Set output file
+    compiler_config_set_output(config, c_output_file);
+    
+    // Generate C code
+    if (debug) {
+        printf("DEBUG: Generating C code...\n");
+    }
+    
+    if (!compiler_generate_c(config, program, c_output_file)) {
+        fprintf(stderr, "Error: Failed to generate C code\n");
+        free(c_output_file);
+        compiler_config_free(config);
+        ast_free(program);
+        parser_free(parser);
+        lexer_free(lexer);
+        return MYCO_ERROR_COMPILER;
+    }
+    
+    if (debug) {
+        printf("DEBUG: C code generated successfully\n");
+    }
+    
+    // Compile C code to executable
+    char* final_output = output_file ? strdup(output_file) : strdup("myco_program");
+    if (!final_output) {
+        fprintf(stderr, "Error: Failed to allocate final output filename\n");
+        free(c_output_file);
+        compiler_config_free(config);
+        ast_free(program);
+        parser_free(parser);
+        lexer_free(lexer);
+        return MYCO_ERROR_MEMORY;
+    }
+    
+    // Build command for gcc
+    char build_command[1024];
+    snprintf(build_command, sizeof(build_command), 
+             "gcc -std=c99 -Wall -Wextra -O2 -o %s %s", 
+             final_output, c_output_file);
+    
+    if (debug) {
+        printf("DEBUG: Building executable with command: %s\n", build_command);
+    }
+    
+    // Execute build command
+    int build_result = system(build_command);
+    if (build_result != 0) {
+        fprintf(stderr, "Error: Failed to compile C code (exit code: %d)\n", build_result);
+        free(c_output_file);
+        free(final_output);
+        compiler_config_free(config);
+        ast_free(program);
+        parser_free(parser);
+        lexer_free(lexer);
+        return MYCO_ERROR_COMPILER;
+    }
+    
+    printf("Successfully built executable: %s\n", final_output);
+    
+    // Clean up temporary files
+    if (remove(c_output_file) != 0) {
+        if (debug) {
+            printf("DEBUG: Warning: Could not remove temporary file %s\n", c_output_file);
+        }
+    }
+    
+    // Clean up
+    free(c_output_file);
+    free(final_output);
+    compiler_config_free(config);
+    ast_free(program);
+    parser_free(parser);
+    lexer_free(lexer);
+    
+    if (debug) {
+        printf("==========================\n");
+        printf("Build completed\n");
+    }
+    
+    return MYCO_SUCCESS;
     
     // Generate C code
     if (debug) {

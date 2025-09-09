@@ -92,6 +92,9 @@ int codegen_generate_c_break(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_continue(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_throw(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_function_declaration(CodeGenContext* context, ASTNode* node);
+int codegen_generate_c_async_function_declaration(CodeGenContext* context, ASTNode* node);
+int codegen_generate_c_await(CodeGenContext* context, ASTNode* node);
+int codegen_generate_c_promise(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_class_declaration(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_import(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_module(CodeGenContext* context, ASTNode* node);
@@ -117,11 +120,6 @@ int codegen_generate_bytecode_expression(CodeGenContext* context, ASTNode* node)
 
 // Optimization passes
 int compiler_optimize_ast(CompilerConfig* config, ASTNode* ast);
-ASTNode* optimizer_constant_folding(ASTNode* node);
-ASTNode* optimizer_dead_code_elimination(ASTNode* node);
-ASTNode* optimizer_common_subexpression_elimination(ASTNode* node);
-ASTNode* optimizer_function_inlining(ASTNode* node);
-ASTNode* optimizer_loop_optimization(ASTNode* node);
 
 // Type checking and validation
 int compiler_type_check(ASTNode* ast);

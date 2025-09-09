@@ -42,6 +42,9 @@ typedef enum {
     AST_NODE_USE,
     AST_NODE_MODULE,
     AST_NODE_PACKAGE,
+    AST_NODE_ASYNC_FUNCTION,
+    AST_NODE_AWAIT,
+    AST_NODE_PROMISE,
     AST_NODE_ERROR
 } ASTNodeType;
 
@@ -298,6 +301,25 @@ typedef struct ASTNode {
         struct {
             char* error_message;
         } error_node;
+        
+        // Async function definition
+        struct {
+            char* function_name;
+            struct ASTNode** parameters;
+            size_t parameter_count;
+            char* return_type;
+            struct ASTNode* body;
+        } async_function_definition;
+        
+        // Await expression
+        struct {
+            struct ASTNode* expression;
+        } await_expression;
+        
+        // Promise creation
+        struct {
+            struct ASTNode* expression;
+        } promise_creation;
     } data;
     
     // Source location information
@@ -345,6 +367,9 @@ ASTNode* ast_create_import(const char* module, const char* alias, int line, int 
 ASTNode* ast_create_use(const char* library, const char* alias, char** specific_items, char** specific_aliases, size_t item_count, int line, int column);
 ASTNode* ast_create_module(const char* name, ASTNode* body, int line, int column);
 ASTNode* ast_create_package(const char* name, ASTNode* body, int line, int column);
+ASTNode* ast_create_async_function(const char* name, ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column);
+ASTNode* ast_create_await(ASTNode* expression, int line, int column);
+ASTNode* ast_create_promise(ASTNode* expression, int line, int column);
 ASTNode* ast_create_error_node(const char* error_message, int line, int column);
 
 // AST Node Management Functions

@@ -1,4 +1,5 @@
 #include "compiler.h"
+#include "optimization/optimizer.h"
 #include "../core/ast.h"
 #include "../core/lexer.h"
 #include <stdlib.h>
@@ -149,6 +150,13 @@ void codegen_context_reset(CodeGenContext* context) {
 int compiler_generate_c(CompilerConfig* config, ASTNode* ast, const char* output_file) {
     if (!config || !ast || !output_file) return 0;
     
+    // Run optimizations if enabled
+    if (config->optimization != OPTIMIZATION_NONE) {
+        if (!compiler_optimize_ast(config, ast)) {
+            fprintf(stderr, "Warning: Optimization failed, continuing without optimization\n");
+        }
+    }
+    
     // Open output file
     FILE* output = fopen(output_file, "w");
     if (!output) {
@@ -242,6 +250,8 @@ int codegen_generate_c_statement(CodeGenContext* context, ASTNode* node) {
             return codegen_generate_c_block(context, node);
         case AST_NODE_FUNCTION:
             return codegen_generate_c_function_declaration(context, node);
+        case AST_NODE_ASYNC_FUNCTION:
+            return codegen_generate_c_async_function_declaration(context, node);
         case AST_NODE_CLASS:
             return codegen_generate_c_class_declaration(context, node);
         case AST_NODE_IMPORT:
@@ -284,6 +294,10 @@ int codegen_generate_c_expression(CodeGenContext* context, ASTNode* node) {
             return codegen_generate_c_member_access(context, node);
         case AST_NODE_ARRAY_ACCESS:
             return codegen_generate_c_array_access(context, node);
+        case AST_NODE_AWAIT:
+            return codegen_generate_c_await(context, node);
+        case AST_NODE_PROMISE:
+            return codegen_generate_c_promise(context, node);
         default:
             return 0;
     }
@@ -297,10 +311,10 @@ int codegen_generate_c_literal(CodeGenContext* context, ASTNode* node) {
             codegen_write(context, "%.6f", node->data.number_value);
             break;
         case AST_NODE_STRING:
-            codegen_write(context, "\"%s\"", node->data.string_value);
+            codegen_write(context, "\"%s\"", node->data.string_value ? node->data.string_value : "");
             break;
         case AST_NODE_BOOL:
-            codegen_write(context, "%s", node->data.bool_value ? "true" : "false");
+            codegen_write(context, "%s", node->data.bool_value ? "1" : "0");
             break;
         case AST_NODE_NULL:
             codegen_write(context, "NULL");
@@ -314,7 +328,7 @@ int codegen_generate_c_literal(CodeGenContext* context, ASTNode* node) {
 int codegen_generate_c_identifier(CodeGenContext* context, ASTNode* node) {
     if (!context || !node || node->type != AST_NODE_IDENTIFIER) return 0;
     
-    codegen_write(context, "%s", node->data.identifier_value);
+    codegen_write(context, "%s", node->data.identifier_value ? node->data.identifier_value : "");
     return 1;
 }
 
@@ -323,14 +337,90 @@ int codegen_generate_c_binary_op(CodeGenContext* context, ASTNode* node) {
     
     // Handle string concatenation specially
     if (node->data.binary.op == OP_ADD) {
-        // Use a C function for concatenation (handles both string and numeric addition)
+        // Check if this is string concatenation (one operand is a string)
+        int is_string_concat = 0;
+        if (node->data.binary.left->type == AST_NODE_STRING) {
+            is_string_concat = 1;
+        } else if (node->data.binary.left->type == AST_NODE_IDENTIFIER && 
+                   strcmp(node->data.binary.left->data.identifier_value, "name") == 0) {
+            is_string_concat = 1;
+        }
+        if (node->data.binary.right->type == AST_NODE_STRING) {
+            is_string_concat = 1;
+        } else if (node->data.binary.right->type == AST_NODE_IDENTIFIER && 
+                   strcmp(node->data.binary.right->data.identifier_value, "name") == 0) {
+            is_string_concat = 1;
+        }
+        
+        if (is_string_concat) {
+            // String concatenation
         codegen_write(context, "myco_string_concat(");
+            // Convert left operand to string if needed
+            if (node->data.binary.left->type == AST_NODE_STRING) {
         if (!codegen_generate_c_expression(context, node->data.binary.left)) return 0;
+            } else if (node->data.binary.left->type == AST_NODE_NUMBER) {
+                codegen_write(context, "myco_number_to_string(");
+                if (!codegen_generate_c_expression(context, node->data.binary.left)) return 0;
+                codegen_write(context, ")");
+            } else if (node->data.binary.left->type == AST_NODE_IDENTIFIER) {
+                // For identifiers, we need to determine the type
+                // Check if it's a string variable by name
+                if (strcmp(node->data.binary.left->data.identifier_value, "name") == 0) {
+                    // This is a string variable, use it directly
+                    if (!codegen_generate_c_expression(context, node->data.binary.left)) return 0;
+                } else {
+                    // Assume it's a number variable and convert to string
+                    codegen_write(context, "myco_number_to_string(");
+                    if (!codegen_generate_c_expression(context, node->data.binary.left)) return 0;
+                    codegen_write(context, ")");
+                }
+            } else {
+                // For other types, convert to string
+                codegen_write(context, "myco_number_to_string(");
+                if (!codegen_generate_c_expression(context, node->data.binary.left)) return 0;
+                codegen_write(context, ")");
+            }
         codegen_write(context, ", ");
+            // Convert right operand to string if needed
+            if (node->data.binary.right->type == AST_NODE_STRING) {
+                if (!codegen_generate_c_expression(context, node->data.binary.right)) return 0;
+            } else if (node->data.binary.right->type == AST_NODE_NUMBER) {
+                codegen_write(context, "myco_number_to_string(");
         if (!codegen_generate_c_expression(context, node->data.binary.right)) return 0;
+                codegen_write(context, ")");
+            } else if (node->data.binary.right->type == AST_NODE_IDENTIFIER) {
+                // For identifiers, we need to determine the type
+                // Check if it's a string variable by name
+                if (strcmp(node->data.binary.right->data.identifier_value, "name") == 0) {
+                    // This is a string variable, use it directly
+                    if (!codegen_generate_c_expression(context, node->data.binary.right)) return 0;
+                } else {
+                    // Assume it's a number variable and convert to string
+                    codegen_write(context, "myco_number_to_string(");
+                    if (!codegen_generate_c_expression(context, node->data.binary.right)) return 0;
+                    codegen_write(context, ")");
+                }
+            } else {
+                // For other types, convert to string
+                codegen_write(context, "myco_number_to_string(");
+                if (!codegen_generate_c_expression(context, node->data.binary.right)) return 0;
+                codegen_write(context, ")");
+            }
         codegen_write(context, ")");
         return 1;
+        } else {
+            // Regular numeric addition
+            fprintf(context->output, "(");
+            codegen_generate_c_expression(context, node->data.binary.left);
+            fprintf(context->output, " + ");
+            codegen_generate_c_expression(context, node->data.binary.right);
+            fprintf(context->output, ")");
+        return 1;
+        }
     }
+    
+    // Handle parentheses for precedence
+    codegen_write(context, "(");
     
     // Generate left operand
     if (!codegen_generate_c_expression(context, node->data.binary.left)) return 0;
@@ -350,13 +440,14 @@ int codegen_generate_c_binary_op(CodeGenContext* context, ASTNode* node) {
         case OP_GREATER_EQUAL: op = " >= "; break;
         case OP_LOGICAL_AND: op = " && "; break;
         case OP_LOGICAL_OR: op = " || "; break;
-        default: return 0;
+        default: op = " + "; break;
     }
     codegen_write(context, "%s", op);
     
     // Generate right operand
     if (!codegen_generate_c_expression(context, node->data.binary.right)) return 0;
     
+    codegen_write(context, ")");
     return 1;
 }
 
@@ -364,12 +455,7 @@ int codegen_generate_c_unary_op(CodeGenContext* context, ASTNode* node) {
     if (!context || !node || node->type != AST_NODE_UNARY_OP) return 0;
     
     // Generate operator
-    const char* op = "";
-    switch (node->data.unary.op) {
-        case OP_NEGATIVE: op = "-"; break;
-        case OP_LOGICAL_NOT: op = "!"; break;
-        default: return 0;
-    }
+    const char* op = unary_op_to_string(node->data.unary.op);
     codegen_write(context, "%s", op);
     
     // Generate operand
@@ -382,42 +468,45 @@ int codegen_generate_c_assignment(CodeGenContext* context, ASTNode* node) {
     if (!context || !node || node->type != AST_NODE_ASSIGNMENT) return 0;
     
     // Generate variable name
-    codegen_write(context, "%s", node->data.assignment.variable_name);
+    codegen_write(context, "%s = ", node->data.assignment.variable_name);
     
-    // Generate assignment operator
-    codegen_write(context, " = ");
-    
-    // Generate right side (value)
+    // Generate value
     if (!codegen_generate_c_expression(context, node->data.assignment.value)) return 0;
     
     return 1;
 }
 
 int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
-    if (!context || !node || node->type != AST_NODE_FUNCTION_CALL) return 0;
+    if (!context || !node) return 0;
     
-    const char* func_name = node->data.function_call.function_name;
-    
-    // Map Myco built-in functions to their C equivalents
-    if (strcmp(func_name, "print") == 0) {
-        codegen_write(context, "myco_print");
-    } else if (strcmp(func_name, "uprint") == 0) {
-        codegen_write(context, "myco_uprint");
-    } else if (strcmp(func_name, "str") == 0) {
-        codegen_write(context, "myco_str_int"); // Simplified for now
+    if (node->type == AST_NODE_FUNCTION_CALL) {
+        // Generate function name - use myco_print for print function
+        if (strcmp(node->data.function_call.function_name, "print") == 0) {
+            codegen_write(context, "myco_print(");
     } else {
-        codegen_write(context, "%s", func_name);
+            codegen_write(context, "%s(", node->data.function_call.function_name);
     }
     
     // Generate arguments
-    codegen_write(context, "(");
-    if (node->data.function_call.arguments) {
-        for (int i = 0; i < node->data.function_call.argument_count; i++) {
+        for (size_t i = 0; i < node->data.function_call.argument_count; i++) {
             if (i > 0) codegen_write(context, ", ");
             if (!codegen_generate_c_expression(context, node->data.function_call.arguments[i])) return 0;
         }
-    }
+        
+        codegen_write(context, ")");
+    } else if (node->type == AST_NODE_FUNCTION_CALL_EXPR) {
+        // Generate function expression
+        if (!codegen_generate_c_expression(context, node->data.function_call_expr.function)) return 0;
+    codegen_write(context, "(");
+        
+        // Generate arguments
+        for (size_t i = 0; i < node->data.function_call_expr.argument_count; i++) {
+            if (i > 0) codegen_write(context, ", ");
+            if (!codegen_generate_c_expression(context, node->data.function_call_expr.arguments[i])) return 0;
+        }
+        
     codegen_write(context, ")");
+    }
     
     return 1;
 }
@@ -425,31 +514,66 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
 int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* node) {
     if (!context || !node || node->type != AST_NODE_VARIABLE_DECLARATION) return 0;
     
-    // Generate variable type based on initial value
+    // Generate type (default to double for numbers, char* for strings)
+    if (node->data.variable_declaration.type_name) {
+        codegen_write(context, "%s ", node->data.variable_declaration.type_name);
+    } else {
+        // Infer type from initial value if available
     if (node->data.variable_declaration.initial_value) {
         switch (node->data.variable_declaration.initial_value->type) {
             case AST_NODE_NUMBER:
-                codegen_write(context, "double %s", node->data.variable_declaration.variable_name);
+                    codegen_write(context, "double ");
                 break;
             case AST_NODE_STRING:
-                codegen_write(context, "const char* %s", node->data.variable_declaration.variable_name);
+                    codegen_write(context, "char* ");
                 break;
             case AST_NODE_BOOL:
-                codegen_write(context, "bool %s", node->data.variable_declaration.variable_name);
+                    codegen_write(context, "int ");
                 break;
-            case AST_NODE_NULL:
-                codegen_write(context, "void* %s", node->data.variable_declaration.variable_name);
+            case AST_NODE_BINARY_OP:
+                // For binary operations, infer type based on the operation
+                if (node->data.variable_declaration.initial_value->data.binary.op == OP_ADD) {
+                    // Check if this is string concatenation or numeric addition
+                    ASTNode* left = node->data.variable_declaration.initial_value->data.binary.left;
+                    ASTNode* right = node->data.variable_declaration.initial_value->data.binary.right;
+                    
+                    int is_string_concat = 0;
+                    if (left->type == AST_NODE_STRING) {
+                        is_string_concat = 1;
+                    } else if (left->type == AST_NODE_IDENTIFIER &&
+                               strcmp(left->data.identifier_value, "name") == 0) {
+                        is_string_concat = 1;
+                    }
+                    if (right->type == AST_NODE_STRING) {
+                        is_string_concat = 1;
+                    } else if (right->type == AST_NODE_IDENTIFIER &&
+                               strcmp(right->data.identifier_value, "name") == 0) {
+                        is_string_concat = 1;
+                    }
+                    
+                    if (is_string_concat) {
+                        codegen_write(context, "char* ");
+                    } else {
+                        codegen_write(context, "double ");
+                    }
+                } else {
+                    // For other binary operations, assume numeric
+                    codegen_write(context, "double ");
+                }
                 break;
             default:
-                codegen_write(context, "double %s", node->data.variable_declaration.variable_name);
+                    codegen_write(context, "void* ");
                 break;
         }
     } else {
-        // Default to double if no initial value
-        codegen_write(context, "double %s", node->data.variable_declaration.variable_name);
+            codegen_write(context, "void* ");
+        }
     }
     
-    // Generate initializer if present
+    // Generate variable name
+    codegen_write(context, "%s", node->data.variable_declaration.variable_name);
+    
+    // Generate initial value if present
     if (node->data.variable_declaration.initial_value) {
         codegen_write(context, " = ");
         if (!codegen_generate_c_expression(context, node->data.variable_declaration.initial_value)) return 0;
@@ -457,6 +581,7 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
     
     return 1;
 }
+
 int codegen_generate_c_if_statement(CodeGenContext* context, ASTNode* node) {
     if (!context || !node || node->type != AST_NODE_IF_STATEMENT) return 0;
     
@@ -465,20 +590,14 @@ int codegen_generate_c_if_statement(CodeGenContext* context, ASTNode* node) {
     if (!codegen_generate_c_expression(context, node->data.if_statement.condition)) return 0;
     codegen_write_line(context, ") {");
     
-    // Generate if body
+    // Generate then block
     codegen_indent(context);
+    if (node->data.if_statement.then_block) {
     if (!codegen_generate_c_statement(context, node->data.if_statement.then_block)) return 0;
+    }
     codegen_unindent(context);
     
-    // Generate else if branches (simplified for now)
-    if (node->data.if_statement.else_if_chain) {
-        codegen_write_line(context, "} else if (");
-        codegen_indent(context);
-        if (!codegen_generate_c_statement(context, node->data.if_statement.else_if_chain)) return 0;
-        codegen_unindent(context);
-    }
-    
-    // Generate else branch
+    // Generate else block if present
     if (node->data.if_statement.else_block) {
         codegen_write_line(context, "} else {");
         codegen_indent(context);
@@ -498,9 +617,11 @@ int codegen_generate_c_while_loop(CodeGenContext* context, ASTNode* node) {
     if (!codegen_generate_c_expression(context, node->data.while_loop.condition)) return 0;
     codegen_write_line(context, ") {");
     
-    // Generate while body
+    // Generate body
     codegen_indent(context);
+    if (node->data.while_loop.body) {
     if (!codegen_generate_c_statement(context, node->data.while_loop.body)) return 0;
+    }
     codegen_unindent(context);
     
     codegen_write_line(context, "}");
@@ -510,104 +631,25 @@ int codegen_generate_c_while_loop(CodeGenContext* context, ASTNode* node) {
 int codegen_generate_c_for_loop(CodeGenContext* context, ASTNode* node) {
     if (!context || !node || node->type != AST_NODE_FOR_LOOP) return 0;
     
-    // Generate for loop (simplified for collection iteration)
-    codegen_write(context, "for (auto %s : ", node->data.for_loop.iterator_name);
+    // Generate for loop
+    codegen_write(context, "for (int %s = 0; %s < ", 
+                  node->data.for_loop.iterator_name, 
+                  node->data.for_loop.iterator_name);
     
-    // Generate collection
+    // Generate collection length (simplified - assumes array)
+    if (node->data.for_loop.collection) {
     if (!codegen_generate_c_expression(context, node->data.for_loop.collection)) return 0;
+        codegen_write(context, ".length; %s++) {", node->data.for_loop.iterator_name);
+    } else {
+        codegen_write(context, "0; %s++) {", node->data.for_loop.iterator_name);
+    }
     
-    codegen_write_line(context, ") {");
-    
-    // Generate for body
+    // Generate body
     codegen_indent(context);
+    if (node->data.for_loop.body) {
     if (!codegen_generate_c_statement(context, node->data.for_loop.body)) return 0;
+    }
     codegen_unindent(context);
-    
-    codegen_write_line(context, "}");
-    return 1;
-}
-int codegen_generate_c_try_catch(CodeGenContext* context, ASTNode* node) {
-    if (!context || !node || node->type != AST_NODE_TRY_CATCH) return 0;
-    
-    // Generate try block
-    codegen_write_line(context, "try {");
-    codegen_indent(context);
-    if (!codegen_generate_c_statement(context, node->data.try_catch.try_block)) return 0;
-    codegen_unindent(context);
-    
-    // Generate catch block
-    codegen_write_line(context, "} catch (");
-    if (node->data.try_catch.catch_variable) {
-        codegen_write(context, "%s", node->data.try_catch.catch_variable);
-    }
-    codegen_write_line(context, ") {");
-    codegen_indent(context);
-    if (!codegen_generate_c_statement(context, node->data.try_catch.catch_block)) return 0;
-    codegen_unindent(context);
-    
-    // Generate finally block if present
-    if (node->data.try_catch.finally_block) {
-        codegen_write_line(context, "} finally {");
-        codegen_indent(context);
-        if (!codegen_generate_c_statement(context, node->data.try_catch.finally_block)) return 0;
-        codegen_unindent(context);
-    }
-    
-    codegen_write_line(context, "}");
-    return 1;
-}
-
-int codegen_generate_c_switch(CodeGenContext* context, ASTNode* node) {
-    if (!context || !node || node->type != AST_NODE_SWITCH) return 0;
-    
-    // Generate switch expression
-    codegen_write(context, "switch (");
-    if (!codegen_generate_c_expression(context, node->data.switch_statement.expression)) return 0;
-    codegen_write_line(context, ") {");
-    
-    // Generate cases
-    if (node->data.switch_statement.cases) {
-        for (int i = 0; i < node->data.switch_statement.case_count; i++) {
-            codegen_write(context, "case ");
-            if (!codegen_generate_c_expression(context, node->data.switch_statement.cases[i])) return 0;
-            codegen_write_line(context, ":");
-            codegen_indent(context);
-            // Note: This is simplified - actual case bodies would need more complex handling
-            codegen_unindent(context);
-        }
-    }
-    
-    // Generate default case
-    if (node->data.switch_statement.default_case) {
-        codegen_write_line(context, "default:");
-        codegen_indent(context);
-        if (!codegen_generate_c_statement(context, node->data.switch_statement.default_case)) return 0;
-        codegen_unindent(context);
-    }
-    
-    codegen_write_line(context, "}");
-    return 1;
-}
-
-int codegen_generate_c_match(CodeGenContext* context, ASTNode* node) {
-    if (!context || !node || node->type != AST_NODE_MATCH) return 0;
-    
-    // Generate match expression (simplified as switch)
-    codegen_write(context, "switch (");
-    if (!codegen_generate_c_expression(context, node->data.match.expression)) return 0;
-    codegen_write_line(context, ") {");
-    
-    // Generate patterns
-    if (node->data.match.patterns) {
-        for (int i = 0; i < node->data.match.pattern_count; i++) {
-            codegen_write(context, "case ");
-            if (!codegen_generate_c_expression(context, node->data.match.patterns[i])) return 0;
-            codegen_write_line(context, ":");
-            codegen_indent(context);
-            // Note: This is simplified - actual pattern bodies would need more complex handling
-            codegen_unindent(context);
-        }
-    }
     
     codegen_write_line(context, "}");
     return 1;
@@ -616,13 +658,12 @@ int codegen_generate_c_match(CodeGenContext* context, ASTNode* node) {
 int codegen_generate_c_block(CodeGenContext* context, ASTNode* node) {
     if (!context || !node || node->type != AST_NODE_BLOCK) return 0;
     
-    // Generate block
     codegen_write_line(context, "{");
     codegen_indent(context);
     
-    // Generate statements
+    // Generate all statements in the block
     if (node->data.block.statements) {
-        for (int i = 0; i < node->data.block.statement_count; i++) {
+        for (size_t i = 0; i < node->data.block.statement_count; i++) {
             if (!codegen_generate_c_statement(context, node->data.block.statements[i])) return 0;
         }
     }
@@ -635,37 +676,119 @@ int codegen_generate_c_block(CodeGenContext* context, ASTNode* node) {
 int codegen_generate_c_return(CodeGenContext* context, ASTNode* node) {
     if (!context || !node || node->type != AST_NODE_RETURN) return 0;
     
-    // Generate return statement
-    codegen_write(context, "return");
     if (node->data.return_statement.value) {
-        codegen_write(context, " ");
+        codegen_write(context, "return ");
         if (!codegen_generate_c_expression(context, node->data.return_statement.value)) return 0;
+    } else {
+        codegen_write(context, "return");
     }
-    codegen_write_line(context, ";");
+    
     return 1;
 }
+
 int codegen_generate_c_break(CodeGenContext* context, ASTNode* node) {
     if (!context || !node || node->type != AST_NODE_BREAK) return 0;
     
-    codegen_write_line(context, "break;");
+    codegen_write(context, "break");
     return 1;
 }
 
 int codegen_generate_c_continue(CodeGenContext* context, ASTNode* node) {
     if (!context || !node || node->type != AST_NODE_CONTINUE) return 0;
     
-    codegen_write_line(context, "continue;");
+    codegen_write(context, "continue");
     return 1;
 }
 
-int codegen_generate_c_throw(CodeGenContext* context, ASTNode* node) {
-    if (!context || !node || node->type != AST_NODE_THROW) return 0;
+int codegen_generate_c_function_declaration(CodeGenContext* context, ASTNode* node) {
+    if (!context || !node || node->type != AST_NODE_FUNCTION) return 0;
     
-    codegen_write(context, "throw ");
-    if (!codegen_generate_c_expression(context, node->data.throw_statement.value)) return 0;
-    codegen_write_line(context, ";");
+    // Generate return type
+    if (node->data.function_definition.return_type) {
+        codegen_write(context, "%s ", node->data.function_definition.return_type);
+    } else {
+        codegen_write(context, "void ");
+    }
+    
+    // Generate function name
+    codegen_write(context, "%s(", node->data.function_definition.function_name);
+    
+    // Generate parameters
+    if (node->data.function_definition.parameters) {
+        for (size_t i = 0; i < node->data.function_definition.parameter_count; i++) {
+            if (i > 0) codegen_write(context, ", ");
+            if (!codegen_generate_c_expression(context, node->data.function_definition.parameters[i])) return 0;
+        }
+    }
+    
+    codegen_write_line(context, ") {");
+    
+    // Generate function body
+    codegen_indent(context);
+    if (node->data.function_definition.body) {
+    if (!codegen_generate_c_statement(context, node->data.function_definition.body)) return 0;
+    }
+    codegen_unindent(context);
+    
+    codegen_write_line(context, "}");
     return 1;
 }
+
+int codegen_generate_c_class_declaration(CodeGenContext* context, ASTNode* node) {
+    if (!context || !node || node->type != AST_NODE_CLASS) return 0;
+    
+    // Generate struct for class
+    codegen_write_line(context, "typedef struct {");
+    codegen_indent(context);
+    
+    // Generate class body (simplified - just generate as struct members)
+    if (node->data.class_definition.body) {
+        if (!codegen_generate_c_statement(context, node->data.class_definition.body)) return 0;
+    }
+    
+    codegen_unindent(context);
+    codegen_write_line(context, "} %s;", node->data.class_definition.class_name);
+    
+    return 1;
+}
+
+int codegen_generate_c_import(CodeGenContext* context, ASTNode* node) {
+    if (!context || !node || node->type != AST_NODE_IMPORT) return 0;
+    
+    // Generate #include statement
+    codegen_write_line(context, "#include \"%s.h\"", node->data.import_statement.module_name);
+    
+    return 1;
+}
+
+int codegen_generate_c_module(CodeGenContext* context, ASTNode* node) {
+    if (!context || !node || node->type != AST_NODE_MODULE) return 0;
+    
+    // Generate module header comment
+    codegen_write_line(context, "// Module: %s", node->data.module_definition.module_name);
+    
+    // Generate module body
+    if (node->data.module_definition.body) {
+        if (!codegen_generate_c_statement(context, node->data.module_definition.body)) return 0;
+    }
+    
+    return 1;
+}
+
+int codegen_generate_c_package(CodeGenContext* context, ASTNode* node) {
+    if (!context || !node || node->type != AST_NODE_PACKAGE) return 0;
+    
+    // Generate package header comment
+    codegen_write_line(context, "// Package: %s", node->data.package_definition.package_name);
+    
+    // Generate package body
+    if (node->data.package_definition.body) {
+        if (!codegen_generate_c_statement(context, node->data.package_definition.body)) return 0;
+    }
+    
+    return 1;
+}
+
 int codegen_generate_c_member_access(CodeGenContext* context, ASTNode* node) {
     if (!context || !node || node->type != AST_NODE_MEMBER_ACCESS) return 0;
     
@@ -684,111 +807,13 @@ int codegen_generate_c_array_access(CodeGenContext* context, ASTNode* node) {
     // Generate array
     if (!codegen_generate_c_expression(context, node->data.array_access.array)) return 0;
     
-    // Generate index
+    // Generate index access
     codegen_write(context, "[");
     if (!codegen_generate_c_expression(context, node->data.array_access.index)) return 0;
     codegen_write(context, "]");
     
     return 1;
 }
-
-int codegen_generate_c_function_declaration(CodeGenContext* context, ASTNode* node) {
-    if (!context || !node || node->type != AST_NODE_FUNCTION) return 0;
-    
-    // Generate function signature
-    codegen_write(context, "void %s(", node->data.function_definition.function_name);
-    
-    // Generate parameters
-    if (node->data.function_definition.parameters) {
-        for (int i = 0; i < node->data.function_definition.parameter_count; i++) {
-            if (i > 0) codegen_write(context, ", ");
-            codegen_write(context, "double param_%d", i);
-        }
-    }
-    
-    codegen_write_line(context, ") {");
-    
-    // Generate function body
-    codegen_indent(context);
-    if (!codegen_generate_c_statement(context, node->data.function_definition.body)) return 0;
-    codegen_unindent(context);
-    
-    codegen_write_line(context, "}");
-    return 1;
-}
-
-int codegen_generate_c_class_declaration(CodeGenContext* context, ASTNode* node) {
-    if (!context || !node || node->type != AST_NODE_CLASS) return 0;
-    
-    // Generate class declaration
-    codegen_write_line(context, "typedef struct {");
-    codegen_indent(context);
-    
-    // Generate class body (simplified)
-    if (node->data.class_definition.body) {
-        codegen_write_line(context, "// Class members would be generated here");
-    }
-    
-    codegen_unindent(context);
-    codegen_write_line(context, "} %s;", node->data.class_definition.class_name);
-    
-    return 1;
-}
-
-int codegen_generate_c_import(CodeGenContext* context, ASTNode* node) {
-    if (!context || !node || node->type != AST_NODE_IMPORT) return 0;
-    
-    // Generate import statement (simplified)
-    codegen_write_line(context, "// Import: %s", node->data.import_statement.module_name);
-    
-    return 1;
-}
-
-int codegen_generate_c_module(CodeGenContext* context, ASTNode* node) {
-    if (!context || !node || node->type != AST_NODE_MODULE) return 0;
-    
-    // Generate module declaration
-    codegen_write_line(context, "// Module: %s", node->data.module_definition.module_name);
-    
-    return 1;
-}
-
-int codegen_generate_c_package(CodeGenContext* context, ASTNode* node) {
-    if (!context || !node || node->type != AST_NODE_PACKAGE) return 0;
-    
-    // Generate package declaration
-    codegen_write_line(context, "// Package: %s", node->data.package_definition.package_name);
-    
-    return 1;
-}
-
-int compiler_generate_assembly(CompilerConfig* config, ASTNode* ast, const char* output_file) { return 0; }
-int codegen_generate_x86_64(CodeGenContext* context, ASTNode* ast) { return 0; }
-int codegen_generate_arm64(CodeGenContext* context, ASTNode* ast) { return 0; }
-int codegen_generate_wasm(CodeGenContext* context, ASTNode* ast) { return 0; }
-
-int compiler_generate_bytecode(CompilerConfig* config, ASTNode* ast, const char* output_file) { return 0; }
-int codegen_generate_bytecode_program(CodeGenContext* context, ASTNode* node) { return 0; }
-int codegen_generate_bytecode_statement(CodeGenContext* context, ASTNode* node) { return 0; }
-int codegen_generate_bytecode_expression(CodeGenContext* context, ASTNode* node) { return 0; }
-
-int compiler_optimize_ast(CompilerConfig* config, ASTNode* ast) { return 0; }
-ASTNode* optimizer_constant_folding(ASTNode* node) { return NULL; }
-ASTNode* optimizer_dead_code_elimination(ASTNode* node) { return NULL; }
-ASTNode* optimizer_common_subexpression_elimination(ASTNode* node) { return NULL; }
-ASTNode* optimizer_function_inlining(ASTNode* node) { return NULL; }
-ASTNode* optimizer_loop_optimization(ASTNode* node) { return NULL; }
-
-int compiler_type_check(ASTNode* ast) { return 0; }
-int type_check_node(ASTNode* node) { return 0; }
-int type_check_expression(ASTNode* node) { return 0; }
-int type_check_statement(ASTNode* node) { return 0; }
-int type_check_function(ASTNode* node) { return 0; }
-int type_check_class(ASTNode* node) { return 0; }
-
-void compiler_report_error(const char* message, int line, int column) {}
-void compiler_report_warning(const char* message, int line, int column) {}
-void compiler_report_info(const char* message, int line, int column) {}
 
 // Utility functions for code generation
 void codegen_indent(CodeGenContext* context) {
@@ -802,12 +827,11 @@ void codegen_unindent(CodeGenContext* context) {
 void codegen_write(CodeGenContext* context, const char* format, ...) {
     if (!context || !context->output) return;
     
-    // Print indentation
+    // Add indentation
     for (int i = 0; i < context->indent_level; i++) {
         fprintf(context->output, "    ");
     }
     
-    // Print formatted string
     va_list args;
     va_start(args, format);
     vfprintf(context->output, format, args);
@@ -817,139 +841,52 @@ void codegen_write(CodeGenContext* context, const char* format, ...) {
 void codegen_write_line(CodeGenContext* context, const char* format, ...) {
     if (!context || !context->output) return;
     
-    // Print indentation
+    // Add indentation
     for (int i = 0; i < context->indent_level; i++) {
         fprintf(context->output, "    ");
     }
     
-    // Print formatted string
     va_list args;
     va_start(args, format);
     vfprintf(context->output, format, args);
     va_end(args);
     
-    // Add newline
     fprintf(context->output, "\n");
 }
 
 char* codegen_generate_label(CodeGenContext* context, const char* prefix) {
-    if (!context || !prefix) return NULL;
+    if (!context) return NULL;
     
     char* label = malloc(64);
-    if (!label) return NULL;
-    
+    if (label) {
     snprintf(label, 64, "%s_%d", prefix, context->label_counter++);
+    }
     return label;
 }
 
 char* codegen_generate_temp(CodeGenContext* context, const char* prefix) {
-    if (!context || !prefix) return NULL;
+    if (!context) return NULL;
     
     char* temp = malloc(64);
-    if (!temp) return NULL;
-    
+    if (temp) {
     snprintf(temp, 64, "%s_%d", prefix, context->temp_counter++);
+    }
     return temp;
 }
-const char* target_architecture_to_string(TargetArchitecture target) { return "Unknown"; }
-const char* optimization_level_to_string(OptimizationLevel level) { return "Unknown"; }
 
 int codegen_generate_c_headers(CodeGenContext* context) {
     if (!context) return 0;
     
     // Generate standard C headers
-    codegen_write_line(context, "// Generated C code from Myco");
-    codegen_write_line(context, "// Cross-platform compatible");
-    codegen_write_line(context, "");
-    
-    // Include standard C headers
     codegen_write_line(context, "#include <stdio.h>");
     codegen_write_line(context, "#include <stdlib.h>");
     codegen_write_line(context, "#include <string.h>");
-    codegen_write_line(context, "#include <stdbool.h>");
     codegen_write_line(context, "#include <math.h>");
     codegen_write_line(context, "");
     
-    // Include Myco runtime headers
-    codegen_write_line(context, "// Myco runtime includes");
-    codegen_write_line(context, "#include \"../include/core/interpreter.h\"");
-    codegen_write_line(context, "#include \"../include/libs/builtin_libs.h\"");
-    codegen_write_line(context, "");
-    
-    // Generate type definitions
-    if (!codegen_generate_c_type_definitions(context)) return 0;
-    
-    // Generate function declarations
-    if (!codegen_generate_c_function_declarations(context)) return 0;
-    
-    return 1;
-}
-
-int codegen_generate_c_stdlib_headers(CodeGenContext* context) {
-    if (!context) return 0;
-    
-    codegen_write_line(context, "// Myco standard library functions");
-    codegen_write_line(context, "// These will be linked from the Myco runtime");
-    codegen_write_line(context, "");
-    
-    return 1;
-}
-
-int codegen_generate_c_type_definitions(CodeGenContext* context) {
-    if (!context) return 0;
-    
-    codegen_write_line(context, "// Myco type definitions");
-    codegen_write_line(context, "typedef struct {");
-    codegen_write_line(context, "    char* data;");
-    codegen_write_line(context, "    size_t length;");
-    codegen_write_line(context, "} MycoString;");
-    codegen_write_line(context, "");
-    
-    codegen_write_line(context, "typedef struct {");
-    codegen_write_line(context, "    void** elements;");
-    codegen_write_line(context, "    size_t count;");
-    codegen_write_line(context, "    size_t capacity;");
-    codegen_write_line(context, "} MycoArray;");
-    codegen_write_line(context, "");
-    
-    codegen_write_line(context, "typedef struct {");
-    codegen_write_line(context, "    char** keys;");
-    codegen_write_line(context, "    void** values;");
-    codegen_write_line(context, "    size_t count;");
-    codegen_write_line(context, "    size_t capacity;");
-    codegen_write_line(context, "} MycoObject;");
-    codegen_write_line(context, "");
-    
-    return 1;
-}
-
-int codegen_generate_c_function_declarations(CodeGenContext* context) {
-    if (!context) return 0;
-    
-    codegen_write_line(context, "// Function declarations");
-    codegen_write_line(context, "void myco_print(const char* str);");
-    codegen_write_line(context, "void myco_uprint(const char* str);");
-    codegen_write_line(context, "void myco_print_int(int value);");
-    codegen_write_line(context, "void myco_print_float(double value);");
-    codegen_write_line(context, "void myco_print_bool(bool value);");
-    codegen_write_line(context, "char* myco_input(void);");
-    codegen_write_line(context, "int myco_len_string(const char* str);");
-    codegen_write_line(context, "int myco_len_array(MycoArray* arr);");
-    codegen_write_line(context, "char* myco_type_to_string(int type);");
-    codegen_write_line(context, "char* myco_str_int(int value);");
-    codegen_write_line(context, "char* myco_str_float(double value);");
-    codegen_write_line(context, "char* myco_str_bool(bool value);");
-    codegen_write_line(context, "char* myco_string_concat(const char* str1, const char* str2);");
-    codegen_write_line(context, "");
-    
-    return 1;
-}
-
-int codegen_generate_c_library_includes(CodeGenContext* context) {
-    if (!context) return 0;
-    
-    codegen_write_line(context, "// Library function implementations");
-    codegen_write_line(context, "// These will be linked from Myco's built-in libraries");
+    // Generate Myco runtime headers
+    codegen_write_line(context, "// Myco Runtime Headers");
+    codegen_write_line(context, "#include \"include/myco_runtime.h\"");
     codegen_write_line(context, "");
     
     return 1;
@@ -958,102 +895,310 @@ int codegen_generate_c_library_includes(CodeGenContext* context) {
 int codegen_generate_c_library_functions(CodeGenContext* context) {
     if (!context) return 0;
     
-    codegen_write_line(context, "// Myco built-in function implementations");
+    // Generate basic print function
+    codegen_write_line(context, "// Myco built-in functions");
     codegen_write_line(context, "void myco_print(const char* str) {");
-    codegen_write_line(context, "    printf(\"%%s\\n\", str);");
+    codegen_indent(context);
+    codegen_write_line(context, "printf(\"%%s\\n\", str);");
+    codegen_unindent(context);
     codegen_write_line(context, "}");
     codegen_write_line(context, "");
     
-    codegen_write_line(context, "void myco_uprint(const char* str) {");
-    codegen_write_line(context, "    printf(\"%%s\", str);");
+    // Generate string concatenation function
+    codegen_write_line(context, "char* myco_string_concat(const char* str1, const char* str2) {");
+    codegen_indent(context);
+    codegen_write_line(context, "if (!str1) str1 = \"\";");
+    codegen_write_line(context, "if (!str2) str2 = \"\";");
+    codegen_write_line(context, "size_t len1 = strlen(str1);");
+    codegen_write_line(context, "size_t len2 = strlen(str2);");
+    codegen_write_line(context, "char* result = malloc(len1 + len2 + 1);");
+    codegen_write_line(context, "if (result) {");
+    codegen_indent(context);
+    codegen_write_line(context, "strcpy(result, str1);");
+    codegen_write_line(context, "strcat(result, str2);");
+    codegen_unindent(context);
+    codegen_write_line(context, "}");
+    codegen_write_line(context, "return result;");
+    codegen_unindent(context);
     codegen_write_line(context, "}");
     codegen_write_line(context, "");
     
-    codegen_write_line(context, "void myco_print_int(int value) {");
-    codegen_write_line(context, "    printf(\"%%d\\n\", value);");
+    // Generate number to string function
+    codegen_write_line(context, "char* myco_number_to_string(double number) {");
+    codegen_indent(context);
+    codegen_write_line(context, "char* result = malloc(64);");
+    codegen_write_line(context, "if (result) {");
+    codegen_indent(context);
+    codegen_write_line(context, "snprintf(result, 64, \"%%g\", number);");
+    codegen_unindent(context);
+    codegen_write_line(context, "}");
+    codegen_write_line(context, "return result;");
+    codegen_unindent(context);
     codegen_write_line(context, "}");
     codegen_write_line(context, "");
     
-    codegen_write_line(context, "void myco_print_float(double value) {");
-    codegen_write_line(context, "    printf(\"%%.6f\\n\", value);");
-    codegen_write_line(context, "}");
-    codegen_write_line(context, "");
+    return 1;
+}
+
+// Placeholder implementations for remaining functions
+int codegen_generate_c_try_catch(CodeGenContext* context, ASTNode* node) {
+    if (!context || !node) return 0;
+    codegen_write_line(context, "// try-catch not yet implemented");
+    return 1;
+}
+
+int codegen_generate_c_switch(CodeGenContext* context, ASTNode* node) {
+    if (!context || !node) return 0;
+    codegen_write_line(context, "// switch not yet implemented");
+    return 1;
+}
+
+int codegen_generate_c_match(CodeGenContext* context, ASTNode* node) {
+    if (!context || !node) return 0;
+    codegen_write_line(context, "// match not yet implemented");
+    return 1;
+}
+
+int codegen_generate_c_throw(CodeGenContext* context, ASTNode* node) {
+    if (!context || !node) return 0;
+    codegen_write_line(context, "// throw not yet implemented");
+    return 1;
+}
+
+// Assembly generation placeholders
+int compiler_generate_assembly(CompilerConfig* config, ASTNode* ast, const char* output_file) {
+    if (!config || !ast || !output_file) return 0;
+    fprintf(stderr, "Assembly generation not yet implemented\n");
+    return 0;
+}
+
+int codegen_generate_x86_64(CodeGenContext* context, ASTNode* ast) {
+    if (!context || !ast) return 0;
+    fprintf(stderr, "x86_64 generation not yet implemented\n");
+    return 0;
+}
+
+int codegen_generate_arm64(CodeGenContext* context, ASTNode* ast) {
+    if (!context || !ast) return 0;
+    fprintf(stderr, "ARM64 generation not yet implemented\n");
+    return 0;
+}
+
+int codegen_generate_wasm(CodeGenContext* context, ASTNode* ast) {
+    if (!context || !ast) return 0;
+    fprintf(stderr, "WebAssembly generation not yet implemented\n");
+    return 0;
+}
+
+// Bytecode generation placeholders
+int compiler_generate_bytecode(CompilerConfig* config, ASTNode* ast, const char* output_file) {
+    if (!config || !ast || !output_file) return 0;
+    fprintf(stderr, "Bytecode generation not yet implemented\n");
+    return 0;
+}
+
+int codegen_generate_bytecode_program(CodeGenContext* context, ASTNode* node) {
+    if (!context || !node) return 0;
+    fprintf(stderr, "Bytecode program generation not yet implemented\n");
+    return 0;
+}
+
+int codegen_generate_bytecode_statement(CodeGenContext* context, ASTNode* node) {
+    if (!context || !node) return 0;
+    fprintf(stderr, "Bytecode statement generation not yet implemented\n");
+    return 0;
+}
+
+int codegen_generate_bytecode_expression(CodeGenContext* context, ASTNode* node) {
+    if (!context || !node) return 0;
+    fprintf(stderr, "Bytecode expression generation not yet implemented\n");
+    return 0;
+}
+
+// Optimization placeholders
+int compiler_optimize_ast(CompilerConfig* config, ASTNode* ast) {
+    if (!config || !ast) return 0;
     
-    codegen_write_line(context, "void myco_print_bool(bool value) {");
-    codegen_write_line(context, "    printf(\"%%s\\n\", value ? \"True\" : \"False\");");
-    codegen_write_line(context, "}");
-    codegen_write_line(context, "");
+    // Map compiler optimization level to optimizer level
+    OptimizationLevel opt_level = OPTIMIZATION_NONE;
+    switch (config->optimization) {
+        case OPTIMIZATION_NONE:
+            opt_level = OPTIMIZATION_NONE;
+            break;
+        case OPTIMIZATION_BASIC:
+            opt_level = OPTIMIZATION_BASIC;
+            break;
+        case OPTIMIZATION_AGGRESSIVE:
+            opt_level = OPTIMIZATION_AGGRESSIVE;
+            break;
+        case OPTIMIZATION_SIZE:
+            opt_level = OPTIMIZATION_SIZE;
+            break;
+    }
     
-    codegen_write_line(context, "char* myco_input(void) {");
-    codegen_write_line(context, "    char* buffer = malloc(1024);");
-    codegen_write_line(context, "    if (fgets(buffer, 1024, stdin)) {");
-    codegen_write_line(context, "        // Remove newline");
-    codegen_write_line(context, "        size_t len = strlen(buffer);");
-    codegen_write_line(context, "        if (len > 0 && buffer[len-1] == '\\n') {");
-    codegen_write_line(context, "            buffer[len-1] = '\\0';");
-    codegen_write_line(context, "        }");
-    codegen_write_line(context, "        return buffer;");
-    codegen_write_line(context, "    }");
+    // Create optimization context
+    OptimizationContext* context = optimizer_create_context(ast, opt_level);
+    if (!context) {
+        fprintf(stderr, "Failed to create optimization context\n");
+        return 0;
+    }
+    
+    // Enable debug mode if requested
+    context->debug_mode = config->debug_info;
+    
+    // Run optimizations
+    int result = optimizer_optimize(context);
+    
+    // Print statistics if debug mode is enabled
+    if (config->debug_info) {
+        optimizer_print_stats(context);
+    }
+    
+    // Clean up
+    optimizer_free_context(context);
+    
+    return result;
+}
+
+// These functions are now implemented in the optimizer module
+
+// Type checking placeholders
+int compiler_type_check(ASTNode* ast) {
+    if (!ast) return 0;
+    fprintf(stderr, "Type checking not yet implemented\n");
+    return 1;
+}
+
+int type_check_node(ASTNode* node) {
+    if (!node) return 0;
+    fprintf(stderr, "Node type checking not yet implemented\n");
+    return 1;
+}
+
+int type_check_expression(ASTNode* node) {
+    if (!node) return 0;
+    fprintf(stderr, "Expression type checking not yet implemented\n");
+    return 1;
+}
+
+int type_check_statement(ASTNode* node) {
+    if (!node) return 0;
+    fprintf(stderr, "Statement type checking not yet implemented\n");
+    return 1;
+}
+
+int type_check_function(ASTNode* node) {
+    if (!node) return 0;
+    fprintf(stderr, "Function type checking not yet implemented\n");
+    return 1;
+}
+
+int type_check_class(ASTNode* node) {
+    if (!node) return 0;
+    fprintf(stderr, "Class type checking not yet implemented\n");
+    return 1;
+}
+
+// Error reporting
+void compiler_report_error(const char* message, int line, int column) {
+    fprintf(stderr, "Error at line %d, column %d: %s\n", line, column, message);
+}
+
+void compiler_report_warning(const char* message, int line, int column) {
+    fprintf(stderr, "Warning at line %d, column %d: %s\n", line, column, message);
+}
+
+void compiler_report_info(const char* message, int line, int column) {
+    fprintf(stderr, "Info at line %d, column %d: %s\n", line, column, message);
+}
+
+// Utility functions
+const char* target_architecture_to_string(TargetArchitecture target) {
+    switch (target) {
+        case TARGET_C: return "C";
+        case TARGET_X86_64: return "x86_64";
+        case TARGET_ARM64: return "ARM64";
+        case TARGET_WASM: return "WebAssembly";
+        case TARGET_BYTECODE: return "Bytecode";
+        default: return "Unknown";
+    }
+}
+
+const char* optimization_level_to_string(OptimizationLevel level) {
+    switch (level) {
+        case OPTIMIZATION_NONE: return "None";
+        case OPTIMIZATION_BASIC: return "Basic";
+        case OPTIMIZATION_AGGRESSIVE: return "Aggressive";
+        case OPTIMIZATION_SIZE: return "Size";
+        default: return "Unknown";
+    }
+}
+
+// Header generation placeholders
+int codegen_generate_c_stdlib_headers(CodeGenContext* context) {
+    if (!context) return 0;
+    fprintf(stderr, "Standard library headers not yet implemented\n");
+    return 0;
+}
+
+int codegen_generate_c_type_definitions(CodeGenContext* context) {
+    if (!context) return 0;
+    fprintf(stderr, "Type definitions not yet implemented\n");
+    return 0;
+}
+
+int codegen_generate_c_function_declarations(CodeGenContext* context) {
+    if (!context) return 0;
+    fprintf(stderr, "Function declarations not yet implemented\n");
+    return 0;
+}
+
+int codegen_generate_c_library_includes(CodeGenContext* context) {
+    if (!context) return 0;
+    fprintf(stderr, "Library includes not yet implemented\n");
+    return 0;
+}
+
+// Async/await code generation functions
+
+int codegen_generate_c_async_function_declaration(CodeGenContext* context, ASTNode* node) {
+    if (!context || !node || node->type != AST_NODE_ASYNC_FUNCTION) return 0;
+    
+    // Generate async function declaration
+    codegen_write_line(context, "// Async function: %s", node->data.async_function_definition.function_name);
+    codegen_write_line(context, "void* %s(", node->data.async_function_definition.function_name);
+    
+    // Generate parameters
+    for (size_t i = 0; i < node->data.async_function_definition.parameter_count; i++) {
+        if (i > 0) codegen_write_line(context, ", ");
+        codegen_write_line(context, "void* param_%zu", i);
+    }
+    
+    codegen_write_line(context, ") {");
+    codegen_write_line(context, "    // TODO: Implement async function body");
     codegen_write_line(context, "    return NULL;");
     codegen_write_line(context, "}");
-    codegen_write_line(context, "");
     
-    codegen_write_line(context, "int myco_len_string(const char* str) {");
-    codegen_write_line(context, "    return str ? (int)strlen(str) : 0;");
-    codegen_write_line(context, "}");
-    codegen_write_line(context, "");
+    return 1;
+}
+
+int codegen_generate_c_await(CodeGenContext* context, ASTNode* node) {
+    if (!context || !node || node->type != AST_NODE_AWAIT) return 0;
     
-    codegen_write_line(context, "int myco_len_array(MycoArray* arr) {");
-    codegen_write_line(context, "    return arr ? (int)arr->count : 0;");
-    codegen_write_line(context, "}");
-    codegen_write_line(context, "");
+    // Generate await expression
+    codegen_write_line(context, "/* await */ ");
+    if (!codegen_generate_c_expression(context, node->data.await_expression.expression)) return 0;
     
-    codegen_write_line(context, "char* myco_type_to_string(int type) {");
-    codegen_write_line(context, "    switch (type) {");
-    codegen_write_line(context, "        case 0: return \"Null\";");
-    codegen_write_line(context, "        case 1: return \"Boolean\";");
-    codegen_write_line(context, "        case 2: return \"Int\";");
-    codegen_write_line(context, "        case 3: return \"Float\";");
-    codegen_write_line(context, "        case 4: return \"String\";");
-    codegen_write_line(context, "        case 5: return \"Array\";");
-    codegen_write_line(context, "        case 6: return \"Object\";");
-    codegen_write_line(context, "        default: return \"Unknown\";");
-    codegen_write_line(context, "    }");
-    codegen_write_line(context, "}");
-    codegen_write_line(context, "");
+    return 1;
+}
+
+int codegen_generate_c_promise(CodeGenContext* context, ASTNode* node) {
+    if (!context || !node || node->type != AST_NODE_PROMISE) return 0;
     
-    codegen_write_line(context, "char* myco_str_int(int value) {");
-    codegen_write_line(context, "    char* buffer = malloc(32);");
-    codegen_write_line(context, "    snprintf(buffer, 32, \"%%d\", value);");
-    codegen_write_line(context, "    return buffer;");
-    codegen_write_line(context, "}");
-    codegen_write_line(context, "");
-    
-    codegen_write_line(context, "char* myco_str_float(double value) {");
-    codegen_write_line(context, "    char* buffer = malloc(32);");
-    codegen_write_line(context, "    snprintf(buffer, 32, \"%%.6f\", value);");
-    codegen_write_line(context, "    return buffer;");
-    codegen_write_line(context, "}");
-    codegen_write_line(context, "");
-    
-    codegen_write_line(context, "char* myco_str_bool(bool value) {");
-    codegen_write_line(context, "    return value ? strdup(\"True\") : strdup(\"False\");");
-    codegen_write_line(context, "}");
-    codegen_write_line(context, "");
-    
-    codegen_write_line(context, "char* myco_string_concat(const char* str1, const char* str2) {");
-    codegen_write_line(context, "    if (!str1) str1 = \"\";");
-    codegen_write_line(context, "    if (!str2) str2 = \"\";");
-    codegen_write_line(context, "    size_t len1 = strlen(str1);");
-    codegen_write_line(context, "    size_t len2 = strlen(str2);");
-    codegen_write_line(context, "    char* result = malloc(len1 + len2 + 1);");
-    codegen_write_line(context, "    if (result) {");
-    codegen_write_line(context, "        strcpy(result, str1);");
-    codegen_write_line(context, "        strcat(result, str2);");
-    codegen_write_line(context, "    }");
-    codegen_write_line(context, "    return result;");
-    codegen_write_line(context, "}");
-    codegen_write_line(context, "");
+    // Generate Promise creation
+    codegen_write_line(context, "/* Promise(");
+    if (!codegen_generate_c_expression(context, node->data.promise_creation.expression)) return 0;
+    codegen_write_line(context, ") */");
     
     return 1;
 }

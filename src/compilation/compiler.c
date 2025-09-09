@@ -2,6 +2,7 @@
 #include "optimization/optimizer.h"
 #include "../core/ast.h"
 #include "../core/lexer.h"
+#include "../core/type_checker.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
@@ -19,6 +20,7 @@ CompilerConfig* compiler_config_create(void) {
     config->debug_info = 0;
     config->warnings_as_errors = 0;
     config->strict_mode = 0;
+    config->type_checking = 1;  // Enable type checking by default
     config->output_file = NULL;
     config->include_path_count = 0;
     config->library_path_count = 0;
@@ -51,6 +53,10 @@ void compiler_config_set_output(CompilerConfig* config, const char* output_file)
         }
         config->output_file = strdup(output_file);
     }
+}
+
+void compiler_config_set_type_checking(CompilerConfig* config, int enable) {
+    if (config) config->type_checking = enable;
 }
 
 void compiler_config_add_include_path(CompilerConfig* config, const char* path) {
@@ -149,6 +155,20 @@ void codegen_context_reset(CodeGenContext* context) {
 
 int compiler_generate_c(CompilerConfig* config, ASTNode* ast, const char* output_file) {
     if (!config || !ast || !output_file) return 0;
+    
+    // Run type checking if enabled
+    if (config->type_checking) {
+        TypeCheckerContext* type_context = type_checker_create_context();
+        if (type_context) {
+            if (!type_check_ast(type_context, ast)) {
+                fprintf(stderr, "Type checking failed:\n");
+                type_checker_print_errors(type_context);
+                type_checker_free_context(type_context);
+                return 0;
+            }
+            type_checker_free_context(type_context);
+        }
+    }
     
     // Run optimizations if enabled
     if (config->optimization != OPTIMIZATION_NONE) {
@@ -1069,35 +1089,6 @@ int compiler_type_check(ASTNode* ast) {
     return 1;
 }
 
-int type_check_node(ASTNode* node) {
-    if (!node) return 0;
-    fprintf(stderr, "Node type checking not yet implemented\n");
-    return 1;
-}
-
-int type_check_expression(ASTNode* node) {
-    if (!node) return 0;
-    fprintf(stderr, "Expression type checking not yet implemented\n");
-    return 1;
-}
-
-int type_check_statement(ASTNode* node) {
-    if (!node) return 0;
-    fprintf(stderr, "Statement type checking not yet implemented\n");
-    return 1;
-}
-
-int type_check_function(ASTNode* node) {
-    if (!node) return 0;
-    fprintf(stderr, "Function type checking not yet implemented\n");
-    return 1;
-}
-
-int type_check_class(ASTNode* node) {
-    if (!node) return 0;
-    fprintf(stderr, "Class type checking not yet implemented\n");
-    return 1;
-}
 
 // Error reporting
 void compiler_report_error(const char* message, int line, int column) {

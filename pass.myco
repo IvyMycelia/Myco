@@ -1671,8 +1671,114 @@ else:
     tests_failed = tests_failed + ["toString([1,2,3])"];
 end
 
-print("\n=== 14. EDGE CASES ===");
-print("14.1. Zero and negative numbers...");
+print("\n=== 14. UNION TYPES ===");
+print("14.1. Basic union type declarations...");
+total_tests = total_tests + 1;
+let union_str: String | Int = "hello";
+if union_str == "hello":
+    print("✓ Union type with String value: " + union_str);
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Union type with String value: " + union_str);
+    tests_failed = tests_failed + ["union String | Int = 'hello'"];
+end
+
+total_tests = total_tests + 1;
+let union_int: String | Int = 42;
+if union_int == 42:
+    print("✓ Union type with Int value: " + toString(union_int));
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Union type with Int value: " + toString(union_int));
+    tests_failed = tests_failed + ["union String | Int = 42"];
+end
+
+print("14.2. Union type with multiple types...");
+total_tests = total_tests + 1;
+let mixed_union: String | Int | Bool = True;
+if mixed_union == True:
+    print("✓ Union type with Bool value: " + toString(mixed_union));
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Union type with Bool value: " + toString(mixed_union));
+    tests_failed = tests_failed + ["union String | Int | Bool = True"];
+end
+
+total_tests = total_tests + 1;
+let mixed_union2: String | Int | Bool = "world";
+if mixed_union2 == "world":
+    print("✓ Union type with String value: " + mixed_union2);
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Union type with String value: " + mixed_union2);
+    tests_failed = tests_failed + ["union String | Int | Bool = 'world'"];
+end
+
+print("14.3. Union type type checking...");
+total_tests = total_tests + 1;
+let type_check_str = union_str.type();
+if type_check_str == "String":
+    print("✓ Union type type() returns correct type for String: " + type_check_str);
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Union type type() returns correct type for String: " + type_check_str);
+    tests_failed = tests_failed + ["union_str.type()"];
+end
+
+total_tests = total_tests + 1;
+let type_check_int = union_int.type();
+if type_check_int == "Int":
+    print("✓ Union type type() returns correct type for Int: " + type_check_int);
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Union type type() returns correct type for Int: " + type_check_int);
+    tests_failed = tests_failed + ["union_int.type()"];
+end
+
+print("14.4. Union type parsing and representation...");
+total_tests = total_tests + 1;
+let union_parsing: String | Int | Bool = "parsing_test";
+if union_parsing == "parsing_test":
+    print("✓ Union type parsing with three types: " + union_parsing);
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Union type parsing with three types: " + union_parsing);
+    tests_failed = tests_failed + ["union String | Int | Bool parsing"];
+end
+
+total_tests = total_tests + 1;
+let union_float: Float | String = 3.14159;
+if union_float == 3.14159:
+    print("✓ Union type with Float: " + toString(union_float));
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Union type with Float: " + toString(union_float));
+    tests_failed = tests_failed + ["union Float | String"];
+end
+
+print("14.5. Union type edge cases...");
+total_tests = total_tests + 1;
+let union_null: String | Null = Null;
+if union_null == Null:
+    print("✓ Union type with Null: " + toString(union_null));
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Union type with Null: " + toString(union_null));
+    tests_failed = tests_failed + ["union String | Null"];
+end
+
+total_tests = total_tests + 1;
+let union_bool: Bool | Int = False;
+if union_bool == False:
+    print("✓ Union type with Bool: " + toString(union_bool));
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Union type with Bool: " + toString(union_bool));
+    tests_failed = tests_failed + ["union Bool | Int"];
+end
+
+print("\n=== 15. EDGE CASES ===");
+print("15.1. Zero and negative numbers...");
 total_tests = total_tests + 1;
 let zero_add = 0 + 0;
 if zero_add == 0:
@@ -1776,7 +1882,7 @@ else:
     tests_failed = tests_failed + ["Empty string concatenation"];
 end
 
-print("\n=== 15. ERROR HANDLING (Expected Errors) ===");
+print("\n=== 16. ERROR HANDLING (Expected Errors) ===");
 print("15.1. Division by zero (should continue execution)...");
 total_tests = total_tests + 1;
 let div_by_zero = 10 / 0;
@@ -2712,7 +2818,7 @@ total_tests = total_tests + 1;
 tests_passed = tests_passed + 1;
 
 # 23. Time Library Functions
-print("\n=== 23. Time Library Functions ===");
+print("\n=== 18. Time Library Functions ===");
 
 # Test time library import
 use time as time;
@@ -2869,7 +2975,7 @@ else:
 end
 
 # 24. Regex Library Functions
-print("\n=== 24. Regex Library Functions ===");
+print("\n=== 19. Regex Library Functions ===");
 
 # Test regex library import
 use regex as regex;
@@ -3125,7 +3231,7 @@ else:
 end
 
 # 25. JSON Library Functions
-print("\n=== 25. JSON Library Functions ===");
+print("\n=== 20. JSON Library Functions ===");
 
 # Test JSON library import
 use json as json;
@@ -3255,7 +3361,7 @@ end
 
 
 # 26. HTTP Library Functions
-print("\n=== 26. HTTP Library Functions ===");
+print("\n=== 21. HTTP Library Functions ===");
 
 # Test HTTP library import
 use http as http;

@@ -403,9 +403,9 @@ ASTNode* parser_parse_statement(Parser* parser) {
             } else if (strcmp(token->text, "throw") == 0) {
                 parser_advance(parser);  // Consume the 'throw' keyword
                 return parser_parse_throw_statement(parser);
-            } else if (strcmp(token->text, "spore") == 0) {
-                parser_advance(parser);  // Consume the 'spore' keyword
-                return parser_parse_spore_statement(parser);
+            } else if (strcmp(token->text, "match") == 0) {
+                parser_advance(parser);  // Consume the 'match' keyword
+                return parser_parse_match_statement(parser);
             } else if (strcmp(token->text, "try") == 0) {
                 parser_advance(parser);  // Consume the 'try' keyword
                 return parser_parse_try_catch_statement(parser);
@@ -2072,8 +2072,249 @@ ASTNode* parser_parse_match_statement(Parser* parser) {
         return NULL;
     }
     
-    // TODO: Implement match statement parsing logic
-    return NULL;  // Not implemented yet
+    // The 'match' keyword has already been consumed by the statement parser
+    
+    // Parse the expression to match against
+    ASTNode* expression = parser_parse_expression(parser);
+    if (!expression) {
+        parser_error(parser, "Expected expression after \"match\"");
+        return NULL;
+    }
+
+    // Expect colon
+    if (!parser_match(parser, TOKEN_COLON)) {
+        parser_error(parser, "Expected \":\" after match expression");
+        ast_free(expression);
+        return NULL;
+    }
+    
+    // Parse cases until "end"
+    ASTNode** cases = NULL;
+    size_t case_count = 0;
+    size_t case_capacity = 0;
+    
+    while (parser->current_token && parser->current_token->type != TOKEN_EOF) {
+        if (parser->current_token->type == TOKEN_KEYWORD && parser->current_token->text) {
+            if (strcmp(parser->current_token->text, "end") == 0) {
+                break;
+            }
+        }
+        
+        // Parse case or else
+        if (parser->current_token->type == TOKEN_KEYWORD && parser->current_token->text) {
+            if (strcmp(parser->current_token->text, "case") == 0) {
+                // Parse case pattern
+                parser_advance(parser); // consume "case"
+                
+                ASTNode* pattern = parser_parse_expression(parser);
+                if (!pattern) {
+                    parser_error(parser, "Expected pattern after \"case\"");
+                    parser_synchronize(parser);
+                    continue;
+                }
+                
+                // Check for lambda style (=>) or block style (:)
+                if (parser_check(parser, TOKEN_ARROW)) {
+                    // Lambda style: case pattern => expression
+                    parser_advance(parser); // consume "=>"
+                    
+                    ASTNode* result = parser_parse_expression(parser);
+                    if (!result) {
+                        parser_error(parser, "Expected expression after '=>' in lambda case");
+                        ast_free(pattern);
+                        parser_synchronize(parser);
+                        continue;
+                    }
+                    
+                    // Create lambda case node
+                    ASTNode* case_node = ast_create_spore_case(pattern, result, 1, 0, 0);
+                    if (case_node) {
+                        if (case_count >= case_capacity) {
+                            size_t new_capacity = case_capacity == 0 ? 4 : case_capacity * 2;
+                            ASTNode** new_cases = realloc(cases, new_capacity * sizeof(ASTNode*));
+                            if (new_cases) {
+                                cases = new_cases;
+                                case_capacity = new_capacity;
+                            }
+                        }
+                        cases[case_count++] = case_node;
+                    }
+                } else if (parser_match(parser, TOKEN_COLON)) {
+                    // Block style: case pattern: statements until next case/else/end
+                    ASTNode** case_statements = NULL;
+                    size_t case_stmt_count = 0;
+                    size_t case_stmt_capacity = 0;
+                    
+                    while (parser->current_token && parser->current_token->type != TOKEN_EOF) {
+                        // Check for keywords that end this case
+                        if (parser->current_token->type == TOKEN_KEYWORD && parser->current_token->text) {
+                            if (strcmp(parser->current_token->text, "case") == 0 ||
+                                strcmp(parser->current_token->text, "else") == 0 ||
+                                strcmp(parser->current_token->text, "end") == 0) {
+                                break;
+                            }
+                        }
+                        
+                        ASTNode* stmt = parser_parse_statement(parser);
+                        if (stmt) {
+                            if (case_stmt_count >= case_stmt_capacity) {
+                                size_t new_capacity = case_stmt_capacity == 0 ? 4 : case_stmt_capacity * 2;
+                                ASTNode** new_statements = realloc(case_statements, new_capacity * sizeof(ASTNode*));
+                                if (new_statements) {
+                                    case_statements = new_statements;
+                                    case_stmt_capacity = new_capacity;
+                                }
+                            }
+                            case_statements[case_stmt_count++] = stmt;
+                        }
+                    }
+                    
+                    ASTNode* body = ast_create_block(case_statements, case_stmt_count, 0, 0);
+                    if (!body && case_statements) {
+                        free(case_statements);
+                    }
+                    
+                    if (!body) {
+                        parser_error(parser, "Expected case body");
+                        ast_free(pattern);
+                        parser_synchronize(parser);
+                        continue;
+                    }
+                    
+                    // Create block case node
+                    ASTNode* case_node = ast_create_spore_case(pattern, body, 0, 0, 0);
+                    if (case_node) {
+                        if (case_count >= case_capacity) {
+                            size_t new_capacity = case_capacity == 0 ? 4 : case_capacity * 2;
+                            ASTNode** new_cases = realloc(cases, new_capacity * sizeof(ASTNode*));
+                            if (new_cases) {
+                                cases = new_cases;
+                                case_capacity = new_capacity;
+                            }
+                        }
+                        cases[case_count++] = case_node;
+                    }
+                } else {
+                    parser_error(parser, "Expected \"=>\" or \":\" after case pattern");
+                    ast_free(pattern);
+                    parser_synchronize(parser);
+                    continue;
+                }
+            } else if (strcmp(parser->current_token->text, "else") == 0) {
+                // Parse else (default) case
+                parser_advance(parser); // consume "else"
+                
+                // Check for lambda style (=>) or block style (:)
+                if (parser_check(parser, TOKEN_ARROW)) {
+                    // Lambda style: else => expression
+                    parser_advance(parser); // consume "=>"
+                    
+                    ASTNode* result = parser_parse_expression(parser);
+                    if (!result) {
+                        parser_error(parser, "Expected expression after '=>' in else case");
+                        parser_synchronize(parser);
+                        continue;
+                    }
+                    
+                    ASTNode* else_node = ast_create_spore_case(NULL, result, 1, 0, 0);
+                    if (else_node) {
+                        if (case_count >= case_capacity) {
+                            size_t new_capacity = case_capacity == 0 ? 4 : case_capacity * 2;
+                            ASTNode** new_cases = realloc(cases, new_capacity * sizeof(ASTNode*));
+                            if (new_cases) {
+                                cases = new_cases;
+                                case_capacity = new_capacity;
+                            }
+                        }
+                        cases[case_count++] = else_node;
+                    }
+                } else if (parser_match(parser, TOKEN_COLON)) {
+                    // Block style: else: statements until end
+                    ASTNode** else_statements = NULL;
+                    size_t else_stmt_count = 0;
+                    size_t else_stmt_capacity = 0;
+                    
+                    while (parser->current_token && parser->current_token->type != TOKEN_EOF) {
+                        // Check for 'end' keyword to end else case
+                        if (parser->current_token->type == TOKEN_KEYWORD && parser->current_token->text) {
+                            if (strcmp(parser->current_token->text, "end") == 0) {
+                                break;
+                            }
+                        }
+                        
+                        ASTNode* stmt = parser_parse_statement(parser);
+                        if (stmt) {
+                            if (else_stmt_count >= else_stmt_capacity) {
+                                size_t new_capacity = else_stmt_capacity == 0 ? 4 : else_stmt_capacity * 2;
+                                ASTNode** new_statements = realloc(else_statements, new_capacity * sizeof(ASTNode*));
+                                if (new_statements) {
+                                    else_statements = new_statements;
+                                    else_stmt_capacity = new_capacity;
+                                }
+                            }
+                            else_statements[else_stmt_count++] = stmt;
+                        }
+                    }
+                    
+                    ASTNode* body = ast_create_block(else_statements, else_stmt_count, 0, 0);
+                    if (!body && else_statements) {
+                        free(else_statements);
+                    }
+                    
+                    if (!body) {
+                        parser_error(parser, "Expected else body");
+                        parser_synchronize(parser);
+                        continue;
+                    }
+                    
+                    ASTNode* else_node = ast_create_spore_case(NULL, body, 0, 0, 0);
+                    if (else_node) {
+                        if (case_count >= case_capacity) {
+                            size_t new_capacity = case_capacity == 0 ? 4 : case_capacity * 2;
+                            ASTNode** new_cases = realloc(cases, new_capacity * sizeof(ASTNode*));
+                            if (new_cases) {
+                                cases = new_cases;
+                                case_capacity = new_capacity;
+                            }
+                        }
+                        cases[case_count++] = else_node;
+                    }
+                } else {
+                    parser_error(parser, "Expected \"=>\" or \":\" after else");
+                    parser_synchronize(parser);
+                    continue;
+                }
+            } else {
+                // Unknown keyword, skip
+                parser_advance(parser);
+            }
+        } else {
+            // Not a keyword, skip
+            parser_advance(parser);
+        }
+    }
+    
+    // Expect "end"
+    if (!parser_match(parser, TOKEN_KEYWORD) || 
+        !parser->previous_token || 
+        !parser->previous_token->text || 
+        strcmp(parser->previous_token->text, "end") != 0) {
+        parser_error(parser, "Expected \"end\" to close match statement");
+        // Clean up cases
+        for (size_t i = 0; i < case_count; i++) {
+            ast_free(cases[i]);
+        }
+        free(cases);
+        ast_free(expression);
+        return NULL;
+    }
+    
+    ASTNode* match_node = ast_create_spore(expression, cases, case_count, NULL, 0, 0);
+    if (!match_node && cases) {
+        free(cases);
+    }
+    
+    return match_node;
 }
 
 /**
@@ -2290,11 +2531,10 @@ ASTNode* parser_parse_function_declaration(Parser* parser) {
     char* return_type = NULL;
     if (parser_check(parser, TOKEN_RETURN_ARROW)) {
         parser_advance(parser);
-        // return type identifier
-        if (parser_match(parser, TOKEN_IDENTIFIER)) {
-            return_type = strdup(parser->previous_token->text);
-        } else {
-            parser_error(parser, "Expected return type after '->'");
+        // return type identifier or union type
+        return_type = parser_parse_type_annotation(parser);
+        if (!return_type) {
+            parser_error(parser, "Expected return type after '->' (supports union types like String | Int)");
             parser_synchronize(parser);
         }
     }
@@ -2415,11 +2655,10 @@ ASTNode* parser_parse_async_function_declaration(Parser* parser) {
     char* return_type = NULL;
     if (parser_check(parser, TOKEN_RETURN_ARROW)) {
         parser_advance(parser);
-        // return type identifier
-        if (parser_match(parser, TOKEN_IDENTIFIER)) {
-            return_type = strdup(parser->previous_token->text);
-        } else {
-            parser_error(parser, "Expected return type after '->'");
+        // return type identifier or union type
+        return_type = parser_parse_type_annotation(parser);
+        if (!return_type) {
+            parser_error(parser, "Expected return type after '->' (supports union types like String | Int)");
             parser_synchronize(parser);
         }
     }
@@ -2524,11 +2763,10 @@ ASTNode* parser_parse_lambda_expression(Parser* parser) {
     char* return_type = NULL;
     if (parser_check(parser, TOKEN_RETURN_ARROW)) {
         parser_advance(parser);
-        // return type identifier
-        if (parser_match(parser, TOKEN_IDENTIFIER)) {
-            return_type = strdup(parser->previous_token->text);
-        } else {
-            parser_error(parser, "Expected return type after '->'");
+        // return type identifier or union type
+        return_type = parser_parse_type_annotation(parser);
+        if (!return_type) {
+            parser_error(parser, "Expected return type after '->' (supports union types like String | Int)");
             parser_synchronize(parser);
         }
     }

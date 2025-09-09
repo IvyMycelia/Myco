@@ -453,9 +453,6 @@ Value builtin_toString(Interpreter* interpreter, Value* args, size_t arg_count, 
 void string_library_register(Interpreter* interpreter) {
     if (!interpreter || !interpreter->global_environment) return;
     
-    // Register toString as a global function for now
-    // TODO: This should be a method on all value types
-    Value toString_func = value_create_builtin_function(builtin_toString);
-    environment_define(interpreter->global_environment, "toString", toString_func);
-    value_free(&toString_func);
+    // toString is now handled as a method on all value types (e.g., value.toString())
+    // No longer registered as a global function
 }

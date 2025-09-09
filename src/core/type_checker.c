@@ -643,6 +643,24 @@ MycoType* type_parse_string(const char* type_string, int line, int column) {
         }
     }
     
+    // Check for optional types (e.g., "String?")
+    size_t len = strlen(type_string);
+    if (len > 0 && type_string[len - 1] == '?') {
+        // Remove the '?' and parse the wrapped type
+        char* wrapped_type_string = (char*)malloc(len);
+        strncpy(wrapped_type_string, type_string, len - 1);
+        wrapped_type_string[len - 1] = '\0';
+        
+        MycoType* wrapped_type = type_parse_string(wrapped_type_string, line, column);
+        free(wrapped_type_string);
+        
+        if (wrapped_type) {
+            return type_create_optional(wrapped_type, line, column);
+        } else {
+            return NULL;
+        }
+    }
+    
     // Handle single types
     if (strcmp(type_string, "Int") == 0) {
         return type_create(TYPE_INT, line, column);

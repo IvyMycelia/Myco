@@ -1586,8 +1586,8 @@ ASTNode* parser_parse_declaration_statement(Parser* parser) {
 char* parser_parse_type_annotation(Parser* parser) {
     if (!parser) return NULL;
     
-    // Start with the first type
-    if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+    // Start with the first type (identifier or keyword like Null)
+    if (!parser_match(parser, TOKEN_IDENTIFIER) && !parser_match(parser, TOKEN_KEYWORD)) {
         return NULL;
     }
     
@@ -1597,8 +1597,8 @@ char* parser_parse_type_annotation(Parser* parser) {
     while (parser_check(parser, TOKEN_PIPE)) {
         parser_advance(parser);  // Consume the pipe
         
-        // Expect another type after the pipe
-        if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+        // Expect another type after the pipe (identifier or keyword like Null)
+        if (!parser_match(parser, TOKEN_IDENTIFIER) && !parser_match(parser, TOKEN_KEYWORD)) {
             free(result);
             return NULL;
         }
@@ -1608,6 +1608,19 @@ char* parser_parse_type_annotation(Parser* parser) {
         strcpy(new_result, result);
         strcat(new_result, " | ");
         strcat(new_result, parser->previous_token->text);
+        
+        free(result);
+        result = new_result;
+    }
+    
+    // Check for optional type (question mark)
+    if (parser_check(parser, TOKEN_QUESTION)) {
+        parser_advance(parser);  // Consume the question mark
+        
+        // Append to the result: "String?" or "String | Int?"
+        char* new_result = malloc(strlen(result) + 2);
+        strcpy(new_result, result);
+        strcat(new_result, "?");
         
         free(result);
         result = new_result;

@@ -439,10 +439,23 @@ Value builtin_string_repeat(Interpreter* interpreter, Value* args, size_t arg_co
     return ret;
 }
 
+// toString() method for converting any value to string
+Value builtin_toString(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 1) {
+        interpreter_set_error(interpreter, "toString() requires exactly 1 argument", line, column);
+        return value_create_null();
+    }
+    
+    return value_to_string(&args[0]);
+}
+
 // Register string library with interpreter
 void string_library_register(Interpreter* interpreter) {
     if (!interpreter || !interpreter->global_environment) return;
     
-    // String methods are now called directly on string values, not as global functions
-    // No need to register global functions anymore
+    // Register toString as a global function for now
+    // TODO: This should be a method on all value types
+    Value toString_func = value_create_builtin_function(builtin_toString);
+    environment_define(interpreter->global_environment, "toString", toString_func);
+    value_free(&toString_func);
 }

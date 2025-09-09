@@ -11,50 +11,50 @@ print("1.1. Numbers...");
 total_tests = total_tests + 1;
 let x = 42;
 if x == 42:
-    print("✓ Integer variable: " + str(x));
+    print("✓ Integer variable: " + toString(x));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Integer variable: " + str(x));
+    print("✗ Integer variable: " + toString(x));
     tests_failed = tests_failed + ["Integer variable"];
 end
 
 total_tests = total_tests + 1;
 let y = 3.14;
 if y == 3.14:
-    print("✓ Float variable: " + str(y));
+    print("✓ Float variable: " + toString(y));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Float variable: " + str(y));
+    print("✗ Float variable: " + toString(y));
     tests_failed = tests_failed + ["Float variable"];
 end
 
 total_tests = total_tests + 1;
 let neg_int = -10;
 if neg_int == -10:
-    print("✓ Negative integer: " + str(neg_int));
+    print("✓ Negative integer: " + toString(neg_int));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Negative integer: " + str(neg_int));
+    print("✗ Negative integer: " + toString(neg_int));
     tests_failed = tests_failed + ["Negative integer"];
 end
 
 total_tests = total_tests + 1;
 let neg_float = -3.14;
 if neg_float == -3.14:
-    print("✓ Negative float: " + str(neg_float));
+    print("✓ Negative float: " + toString(neg_float));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Negative float: " + str(neg_float));
+    print("✗ Negative float: " + toString(neg_float));
     tests_failed = tests_failed + ["Negative float"];
 end
 
 total_tests = total_tests + 1;
 let zero = 0;
 if zero == 0:
-    print("✓ Zero: " + str(zero));
+    print("✓ Zero: " + toString(zero));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Zero: " + str(zero));
+    print("✗ Zero: " + toString(zero));
     tests_failed = tests_failed + ["Zero"];
 end
 
@@ -93,20 +93,20 @@ print("\n1.3. Booleans...");
 total_tests = total_tests + 1;
 let flag = True;
 if flag == True:
-    print("✓ Boolean True: " + str(flag));
+    print("✓ Boolean True: " + toString(flag));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Boolean True: " + str(flag));
+    print("✗ Boolean True: " + toString(flag));
     tests_failed = tests_failed + ["Boolean True"];
 end
 
 total_tests = total_tests + 1;
 let false_flag = False;
 if false_flag == False:
-    print("✓ Boolean False: " + str(false_flag));
+    print("✓ Boolean False: " + toString(false_flag));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Boolean False: " + str(false_flag));
+    print("✗ Boolean False: " + toString(false_flag));
     tests_failed = tests_failed + ["Boolean False"];
 end
 
@@ -114,10 +114,10 @@ print("\n1.4. Null...");
 total_tests = total_tests + 1;
 let null_var = Null;
 if null_var == Null:
-    print("✓ Null variable: " + str(null_var));
+    print("✓ Null variable: " + toString(null_var));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Null variable: " + str(null_var));
+    print("✗ Null variable: " + toString(null_var));
     tests_failed = tests_failed + ["Null variable"];
 end
 
@@ -126,30 +126,30 @@ print("2.1. Addition...");
 total_tests = total_tests + 1;
 let a = 5 + 3;
 if a == 8:
-    print("✓ Integer addition (5 + 3): " + str(a));
+    print("✓ Integer addition (5 + 3): " + toString(a));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Integer addition (5 + 3): " + str(a));
+    print("✗ Integer addition (5 + 3): " + toString(a));
     tests_failed = tests_failed + ["Integer addition"];
 end
 
 total_tests = total_tests + 1;
 let float_add = 2.5 + 1.5;
 if float_add == 4.0:
-    print("✓ Float addition (2.5 + 1.5): " + str(float_add));
+    print("✓ Float addition (2.5 + 1.5): " + toString(float_add));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Float addition (2.5 + 1.5): " + str(float_add));
+    print("✗ Float addition (2.5 + 1.5): " + toString(float_add));
     tests_failed = tests_failed + ["Float addition"];
 end
 
 total_tests = total_tests + 1;
 let mixed_add = 5 + 2.5;
 if mixed_add == 7.5:
-    print("✓ Mixed addition (5 + 2.5): " + str(mixed_add));
+    print("✓ Mixed addition (5 + 2.5): " + toString(mixed_add));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Mixed addition (5 + 2.5): " + str(mixed_add));
+    print("✗ Mixed addition (5 + 2.5): " + toString(mixed_add));
     tests_failed = tests_failed + ["Mixed addition"];
 end
 
@@ -167,30 +167,30 @@ print("\n2.2. Subtraction...");
 total_tests = total_tests + 1;
 let b = 10 - 4;
 if b == 6:
-    print("✓ Integer subtraction (10 - 4): " + str(b));
+    print("✓ Integer subtraction (10 - 4): " + toString(b));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Integer subtraction (10 - 4): " + str(b));
+    print("✗ Integer subtraction (10 - 4): " + toString(b));
     tests_failed = tests_failed + ["Integer subtraction"];
 end
 
 total_tests = total_tests + 1;
 let float_sub = 5.5 - 2.5;
 if float_sub == 3.0:
-    print("✓ Float subtraction (5.5 - 2.5): " + str(float_sub));
+    print("✓ Float subtraction (5.5 - 2.5): " + toString(float_sub));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Float subtraction (5.5 - 2.5): " + str(float_sub));
+    print("✗ Float subtraction (5.5 - 2.5): " + toString(float_sub));
     tests_failed = tests_failed + ["Float subtraction"];
 end
 
 total_tests = total_tests + 1;
 let neg_result = 3 - 5;
 if neg_result == -2:
-    print("✓ Negative result (3 - 5): " + str(neg_result));
+    print("✓ Negative result (3 - 5): " + toString(neg_result));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Negative result (3 - 5): " + str(neg_result));
+    print("✗ Negative result (3 - 5): " + toString(neg_result));
     tests_failed = tests_failed + ["Negative result"];
 end
 
@@ -198,30 +198,30 @@ print("\n2.3. Multiplication...");
 total_tests = total_tests + 1;
 let c = 6 * 7;
 if c == 42:
-    print("✓ Integer multiplication (6 * 7): " + str(c));
+    print("✓ Integer multiplication (6 * 7): " + toString(c));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Integer multiplication (6 * 7): " + str(c));
+    print("✗ Integer multiplication (6 * 7): " + toString(c));
     tests_failed = tests_failed + ["Integer multiplication"];
 end
 
 total_tests = total_tests + 1;
 let float_mult = 2.5 * 4;
 if float_mult == 10.0:
-    print("✓ Float multiplication (2.5 * 4): " + str(float_mult));
+    print("✓ Float multiplication (2.5 * 4): " + toString(float_mult));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Float multiplication (2.5 * 4): " + str(float_mult));
+    print("✗ Float multiplication (2.5 * 4): " + toString(float_mult));
     tests_failed = tests_failed + ["Float multiplication"];
 end
 
 total_tests = total_tests + 1;
 let zero_mult = 5 * 0;
 if zero_mult == 0:
-    print("✓ Zero multiplication (5 * 0): " + str(zero_mult));
+    print("✓ Zero multiplication (5 * 0): " + toString(zero_mult));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Zero multiplication (5 * 0): " + str(zero_mult));
+    print("✗ Zero multiplication (5 * 0): " + toString(zero_mult));
     tests_failed = tests_failed + ["Zero multiplication"];
 end
 
@@ -229,30 +229,30 @@ print("\n2.4. Division...");
 total_tests = total_tests + 1;
 let d = 15 / 3;
 if d == 5:
-    print("✓ Integer division (15 / 3): " + str(d));
+    print("✓ Integer division (15 / 3): " + toString(d));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Integer division (15 / 3): " + str(d));
+    print("✗ Integer division (15 / 3): " + toString(d));
     tests_failed = tests_failed + ["Integer division"];
 end
 
 total_tests = total_tests + 1;
 let float_div = 10.0 / 2.5;
 if float_div == 4.0:
-    print("✓ Float division (10.0 / 2.5): " + str(float_div));
+    print("✓ Float division (10.0 / 2.5): " + toString(float_div));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Float division (10.0 / 2.5): " + str(float_div));
+    print("✗ Float division (10.0 / 2.5): " + toString(float_div));
     tests_failed = tests_failed + ["Float division"];
 end
 
 total_tests = total_tests + 1;
 let remainder_div = 7 / 2;
 if remainder_div == 3.5:
-    print("✓ Division with remainder (7 / 2): " + str(remainder_div));
+    print("✓ Division with remainder (7 / 2): " + toString(remainder_div));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Division with remainder (7 / 2): " + str(remainder_div));
+    print("✗ Division with remainder (7 / 2): " + toString(remainder_div));
     tests_failed = tests_failed + ["Division with remainder"];
 end
 
@@ -261,50 +261,50 @@ print("3.1. Equality...");
 total_tests = total_tests + 1;
 let comp3 = 5 == 5;
 if comp3 == True:
-    print("✓ Integer equality (5 == 5): " + str(comp3));
+    print("✓ Integer equality (5 == 5): " + toString(comp3));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Integer equality (5 == 5): " + str(comp3));
+    print("✗ Integer equality (5 == 5): " + toString(comp3));
     tests_failed = tests_failed + ["Integer equality"];
 end
 
 total_tests = total_tests + 1;
 let comp_neq = 5 == 6;
 if comp_neq == False:
-    print("✓ Integer inequality (5 == 6): " + str(comp_neq));
+    print("✓ Integer inequality (5 == 6): " + toString(comp_neq));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Integer inequality (5 == 6): " + str(comp_neq));
+    print("✗ Integer inequality (5 == 6): " + toString(comp_neq));
     tests_failed = tests_failed + ["Integer inequality"];
 end
 
 total_tests = total_tests + 1;
 let float_eq = 3.14 == 3.14;
 if float_eq == True:
-    print("✓ Float equality (3.14 == 3.14): " + str(float_eq));
+    print("✓ Float equality (3.14 == 3.14): " + toString(float_eq));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Float equality (3.14 == 3.14): " + str(float_eq));
+    print("✗ Float equality (3.14 == 3.14): " + toString(float_eq));
     tests_failed = tests_failed + ["Float equality"];
 end
 
 total_tests = total_tests + 1;
 let str_eq = "hello" == "hello";
 if str_eq == True:
-    print("✓ String equality ('hello' == 'hello'): " + str(str_eq));
+    print("✓ String equality ('hello' == 'hello'): " + toString(str_eq));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ String equality ('hello' == 'hello'): " + str(str_eq));
+    print("✗ String equality ('hello' == 'hello'): " + toString(str_eq));
     tests_failed = tests_failed + ["String equality"];
 end
 
 total_tests = total_tests + 1;
 let bool_eq = True == True;
 if bool_eq == True:
-    print("✓ Boolean equality (True == True): " + str(bool_eq));
+    print("✓ Boolean equality (True == True): " + toString(bool_eq));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Boolean equality (True == True): " + str(bool_eq));
+    print("✗ Boolean equality (True == True): " + toString(bool_eq));
     tests_failed = tests_failed + ["Boolean equality"];
 end
 
@@ -312,20 +312,20 @@ print("\n3.2. Inequality...");
 total_tests = total_tests + 1;
 let comp4 = 4 != 6;
 if comp4 == True:
-    print("✓ Integer inequality (4 != 6): " + str(comp4));
+    print("✓ Integer inequality (4 != 6): " + toString(comp4));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Integer inequality (4 != 6): " + str(comp4));
+    print("✗ Integer inequality (4 != 6): " + toString(comp4));
     tests_failed = tests_failed + ["Integer inequality"];
 end
 
 total_tests = total_tests + 1;
 let str_neq = "hello" != "world";
 if str_neq == True:
-    print("✓ String inequality ('hello' != 'world'): " + str(str_neq));
+    print("✓ String inequality ('hello' != 'world'): " + toString(str_neq));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ String inequality ('hello' != 'world'): " + str(str_neq));
+    print("✗ String inequality ('hello' != 'world'): " + toString(str_neq));
     tests_failed = tests_failed + ["String inequality"];
 end
 
@@ -333,20 +333,20 @@ print("\n3.3. Greater than...");
 total_tests = total_tests + 1;
 let comp1 = 10 > 5;
 if comp1 == True:
-    print("✓ Greater than (10 > 5): " + str(comp1));
+    print("✓ Greater than (10 > 5): " + toString(comp1));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Greater than (10 > 5): " + str(comp1));
+    print("✗ Greater than (10 > 5): " + toString(comp1));
     tests_failed = tests_failed + ["Greater than"];
 end
 
 total_tests = total_tests + 1;
 let comp1_false = 5 > 10;
 if comp1_false == False:
-    print("✓ Not greater than (5 > 10): " + str(comp1_false));
+    print("✓ Not greater than (5 > 10): " + toString(comp1_false));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Not greater than (5 > 10): " + str(comp1_false));
+    print("✗ Not greater than (5 > 10): " + toString(comp1_false));
     tests_failed = tests_failed + ["Not greater than"];
 end
 
@@ -354,20 +354,20 @@ print("\n3.4. Less than...");
 total_tests = total_tests + 1;
 let comp2 = 3 < 7;
 if comp2 == True:
-    print("✓ Less than (3 < 7): " + str(comp2));
+    print("✓ Less than (3 < 7): " + toString(comp2));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Less than (3 < 7): " + str(comp2));
+    print("✗ Less than (3 < 7): " + toString(comp2));
     tests_failed = tests_failed + ["Less than"];
 end
 
 total_tests = total_tests + 1;
 let comp2_false = 7 < 3;
 if comp2_false == False:
-    print("✓ Not less than (7 < 3): " + str(comp2_false));
+    print("✓ Not less than (7 < 3): " + toString(comp2_false));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Not less than (7 < 3): " + str(comp2_false));
+    print("✗ Not less than (7 < 3): " + toString(comp2_false));
     tests_failed = tests_failed + ["Not less than"];
 end
 
@@ -375,20 +375,20 @@ print("\n3.5. Greater than or equal...");
 total_tests = total_tests + 1;
 let gte_true = 10 >= 5;
 if gte_true == True:
-    print("✓ Greater than or equal (10 >= 5): " + str(gte_true));
+    print("✓ Greater than or equal (10 >= 5): " + toString(gte_true));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Greater than or equal (10 >= 5): " + str(gte_true));
+    print("✗ Greater than or equal (10 >= 5): " + toString(gte_true));
     tests_failed = tests_failed + ["Greater than or equal"];
 end
 
 total_tests = total_tests + 1;
 let gte_equal = 5 >= 5;
 if gte_equal == True:
-    print("✓ Equal values (5 >= 5): " + str(gte_equal));
+    print("✓ Equal values (5 >= 5): " + toString(gte_equal));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Equal values (5 >= 5): " + str(gte_equal));
+    print("✗ Equal values (5 >= 5): " + toString(gte_equal));
     tests_failed = tests_failed + ["Equal values"];
 end
 
@@ -396,20 +396,20 @@ print("\n3.6. Less than or equal...");
 total_tests = total_tests + 1;
 let lte_true = 3 <= 7;
 if lte_true == True:
-    print("✓ Less than or equal (3 <= 7): " + str(lte_true));
+    print("✓ Less than or equal (3 <= 7): " + toString(lte_true));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Less than or equal (3 <= 7): " + str(lte_true));
+    print("✗ Less than or equal (3 <= 7): " + toString(lte_true));
     tests_failed = tests_failed + ["Less than or equal"];
 end
 
 total_tests = total_tests + 1;
 let lte_equal = 5 <= 5;
 if lte_equal == True:
-    print("✓ Equal values (5 <= 5): " + str(lte_equal));
+    print("✓ Equal values (5 <= 5): " + toString(lte_equal));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Equal values (5 <= 5): " + str(lte_equal));
+    print("✗ Equal values (5 <= 5): " + toString(lte_equal));
     tests_failed = tests_failed + ["Equal values"];
 end
 
@@ -418,20 +418,20 @@ print("4.1. Logical AND...");
 total_tests = total_tests + 1;
 let log1 = True and True;
 if log1 == True:
-    print("✓ Logical AND (True and True): " + str(log1));
+    print("✓ Logical AND (True and True): " + toString(log1));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Logical AND (True and True): " + str(log1));
+    print("✗ Logical AND (True and True): " + toString(log1));
     tests_failed = tests_failed + ["Logical AND"];
 end
 
 total_tests = total_tests + 1;
 let log1_false = True and False;
 if log1_false == False:
-    print("✓ Logical AND false (True and False): " + str(log1_false));
+    print("✓ Logical AND false (True and False): " + toString(log1_false));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Logical AND false (True and False): " + str(log1_false));
+    print("✗ Logical AND false (True and False): " + toString(log1_false));
     tests_failed = tests_failed + ["Logical AND false"];
 end
 
@@ -441,20 +441,20 @@ print("\n4.2. Logical OR...");
 total_tests = total_tests + 1;
 let log2 = False or True;
 if log2 == True:
-    print("✓ Logical OR (False or True): " + str(log2));
+    print("✓ Logical OR (False or True): " + toString(log2));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Logical OR (False or True): " + str(log2));
+    print("✗ Logical OR (False or True): " + toString(log2));
     tests_failed = tests_failed + ["Logical OR"];
 end
 
 total_tests = total_tests + 1;
 let log2_false = False or False;
 if log2_false == False:
-    print("✓ Logical OR false (False or False): " + str(log2_false));
+    print("✓ Logical OR false (False or False): " + toString(log2_false));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Logical OR false (False or False): " + str(log2_false));
+    print("✗ Logical OR false (False or False): " + toString(log2_false));
     tests_failed = tests_failed + ["Logical OR false"];
 end
 
@@ -464,20 +464,20 @@ print("\n4.3. Logical NOT...");
 total_tests = total_tests + 1;
 let log3 = not False;
 if log3 == True:
-    print("✓ Logical NOT (not False): " + str(log3));
+    print("✓ Logical NOT (not False): " + toString(log3));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Logical NOT (not False): " + str(log3));
+    print("✗ Logical NOT (not False): " + toString(log3));
     tests_failed = tests_failed + ["Logical NOT"];
 end
 
 total_tests = total_tests + 1;
 let log3_false = not True;
 if log3_false == False:
-    print("✓ Logical NOT false (not True): " + str(log3_false));
+    print("✓ Logical NOT false (not True): " + toString(log3_false));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Logical NOT false (not True): " + str(log3_false));
+    print("✗ Logical NOT false (not True): " + toString(log3_false));
     tests_failed = tests_failed + ["Logical NOT false"];
 end
 
@@ -487,20 +487,20 @@ print("\n4.4. Complex logical expressions...");
 total_tests = total_tests + 1;
 let complex_log = (True and False) or True;
 if complex_log == True:
-    print("✓ Complex logical ((True and False) or True): " + str(complex_log));
+    print("✓ Complex logical ((True and False) or True): " + toString(complex_log));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Complex logical ((True and False) or True): " + str(complex_log));
+    print("✗ Complex logical ((True and False) or True): " + toString(complex_log));
     tests_failed = tests_failed + ["Complex logical"];
 end
 
 total_tests = total_tests + 1;
 let nested_not = not (True and False);
 if nested_not == True:
-    print("✓ Nested NOT (not (True and False)): " + str(nested_not));
+    print("✓ Nested NOT (not (True and False)): " + toString(nested_not));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Nested NOT (not (True and False)): " + str(nested_not));
+    print("✗ Nested NOT (not (True and False)): " + toString(nested_not));
     tests_failed = tests_failed + ["Nested NOT"];
 end
 
@@ -508,40 +508,40 @@ print("\n5. Arrays...");
 total_tests = total_tests + 1;
 let arr = [1, 2, 3];
 if len(arr) == 3:
-    print("✓ Simple array: " + str(arr));
+    print("✓ Simple array: " + toString(arr));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Simple array: " + str(arr));
+    print("✗ Simple array: " + toString(arr));
     tests_failed = tests_failed + ["FAILED: Simple array"];
 end
 
 total_tests = total_tests + 1;
 let nested = [[1, 2], [3, 4]];
 if len(nested) == 2:
-    print("✓ Nested array: " + str(nested));
+    print("✓ Nested array: " + toString(nested));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Nested array: " + str(nested));
+    print("✗ Nested array: " + toString(nested));
     tests_failed = tests_failed + ["FAILED: Nested array"];
 end
 
 total_tests = total_tests + 1;
 let mixed = [1, "hello", True, [1, 2]];
 if len(mixed) == 4:
-    print("✓ Mixed type array: " + str(mixed));
+    print("✓ Mixed type array: " + toString(mixed));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Mixed type array: " + str(mixed));
+    print("✗ Mixed type array: " + toString(mixed));
     tests_failed = tests_failed + ["FAILED: Mixed type array"];
 end
 
 total_tests = total_tests + 1;
 let empty = [];
 if len(empty) == 0:
-    print("✓ Empty array: " + str(empty));
+    print("✓ Empty array: " + toString(empty));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Empty array: " + str(empty));
+    print("✗ Empty array: " + toString(empty));
     tests_failed = tests_failed + ["FAILED: Empty array"];
 end
 
@@ -554,12 +554,12 @@ print("✓ String concatenation: " + combined);
 tests_passed = tests_passed + 1;
 
 total_tests = total_tests + 1;
-let num_str = str(42);
+let num_str = toString(42);
 print("✓ Number to string: " + num_str);
 tests_passed = tests_passed + 1;
 
 total_tests = total_tests + 1;
-let bool_str = str(True);
+let bool_str = toString(True);
 print("✓ Boolean to string: " + bool_str);
 tests_passed = tests_passed + 1;
 
@@ -578,7 +578,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let num_str = str(42);
+let num_str = toString(42);
 if num_str == "42":
     print("✓ Number to string: " + num_str);
     tests_passed = tests_passed + 1;
@@ -588,7 +588,7 @@ else:
 end
 
 total_tests = total_tests + 1;
-let bool_str = str(True);
+let bool_str = toString(True);
 if bool_str == "True":
     print("✓ Boolean to string: " + bool_str);
     tests_passed = tests_passed + 1;
@@ -756,32 +756,32 @@ end
 print("\n10. Math Library Functions...");
 total_tests = total_tests + 1;
 let pi_value = math.Pi;
-print("✓ Math.Pi: " + str(pi_value));
+print("✓ Math.Pi: " + toString(pi_value));
 tests_passed = tests_passed + 1;
 
 total_tests = total_tests + 1;
 let e_value = math.E;
-print("✓ Math.E: " + str(e_value));
+print("✓ Math.E: " + toString(e_value));
 tests_passed = tests_passed + 1;
 
 total_tests = total_tests + 1;
 let abs_result = math.abs(-5);
-print("✓ Math.abs(-5): " + str(abs_result));
+print("✓ Math.abs(-5): " + toString(abs_result));
 tests_passed = tests_passed + 1;
 
 total_tests = total_tests + 1;
 let min_result = math.min(10, 5);
-print("✓ Math.min(10, 5): " + str(min_result));
+print("✓ Math.min(10, 5): " + toString(min_result));
 tests_passed = tests_passed + 1;
 
 total_tests = total_tests + 1;
 let max_result = math.max(10, 5);
-print("✓ Math.max(10, 5): " + str(max_result));
+print("✓ Math.max(10, 5): " + toString(max_result));
 tests_passed = tests_passed + 1;
 
 total_tests = total_tests + 1;
 let sqrt_result = math.sqrt(16);
-print("✓ Math.sqrt(16): " + str(sqrt_result));
+print("✓ Math.sqrt(16): " + toString(sqrt_result));
 tests_passed = tests_passed + 1;
 
 print("\n11. String Library Functions...");
@@ -805,7 +805,7 @@ tests_passed = tests_passed + 1;
 
 total_tests = total_tests + 1;
 let len_result = len("hello");
-print("✓ len('hello'): " + str(len_result));
+print("✓ len('hello'): " + toString(len_result));
 tests_passed = tests_passed + 1;
 
 print("\n12. Input Function...");
@@ -1030,7 +1030,7 @@ if map_size == 3:
     print("✓ maps.size() returns correct count");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ maps.size() failed: " + str(map_size));
+    print("✗ maps.size() failed: " + toString(map_size));
     tests_failed = tests_failed + ["maps.size()"];
 end
 
@@ -1100,7 +1100,7 @@ if set_size == 3:
     print("✓ set.size() returns correct count");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ set.size() failed: " + str(set_size));
+    print("✗ set.size() failed: " + toString(set_size));
     tests_failed = tests_failed + ["set.size()"];
 end
 
@@ -1184,7 +1184,7 @@ if tree_size == 0:
     print("✓ trees.size() returns correct initial size");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ trees.size() failed: " + str(tree_size));
+    print("✗ trees.size() failed: " + toString(tree_size));
     tests_failed = tests_failed + ["trees.size()"];
 end
 
@@ -1245,7 +1245,7 @@ if graph_size == 0:
     print("✓ graphs.size() returns correct initial size");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ graphs.size() failed: " + str(graph_size));
+    print("✗ graphs.size() failed: " + toString(graph_size));
     tests_failed = tests_failed + ["graphs.size()"];
 end
 
@@ -1603,72 +1603,72 @@ print("\n13.2. Length function...");
 total_tests = total_tests + 1;
 let len_builtin = len("hello");
 if len_builtin == 5:
-    print("✓ len('hello'): " + str(len_builtin));
+    print("✓ len('hello'): " + toString(len_builtin));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ len('hello'): " + str(len_builtin));
+    print("✗ len('hello'): " + toString(len_builtin));
     tests_failed = tests_failed + ["len('hello')"];
 end
 
 total_tests = total_tests + 1;
 let len_empty = len("");
 if len_empty == 0:
-    print("✓ len(''): " + str(len_empty));
+    print("✓ len(''): " + toString(len_empty));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ len(''): " + str(len_empty));
+    print("✗ len(''): " + toString(len_empty));
     tests_failed = tests_failed + ["len('')"];
 end
 
 total_tests = total_tests + 1;
 let len_array = len([1, 2, 3]);
 if len_array == 3:
-    print("✓ len([1,2,3]): " + str(len_array));
+    print("✓ len([1,2,3]): " + toString(len_array));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ len([1,2,3]): " + str(len_array));
+    print("✗ len([1,2,3]): " + toString(len_array));
     tests_failed = tests_failed + ["len([1,2,3])"];
 end
 
 print("\n13.3. String conversion...");
 total_tests = total_tests + 1;
-let str_builtin = str(3.14);
+let str_builtin = toString(3.14);
 if str_builtin == "3.140000":
-    print("✓ str(3.14): " + str_builtin);
+    print("✓ toString(3.14): " + str_builtin);
     tests_passed = tests_passed + 1;
 else:
-    print("✗ str(3.14): " + str_builtin);
-    tests_failed = tests_failed + ["str(3.14)"];
+    print("✗ toString(3.14): " + str_builtin);
+    tests_failed = tests_failed + ["toString(3.14)"];
 end
 
 total_tests = total_tests + 1;
-let str_bool = str(False);
+let str_bool = toString(False);
 if str_bool == "False":
-    print("✓ str(False): " + str_bool);
+    print("✓ toString(False): " + str_bool);
     tests_passed = tests_passed + 1;
 else:
-    print("✗ str(False): " + str_bool);
-    tests_failed = tests_failed + ["str(False)"];
+    print("✗ toString(False): " + str_bool);
+    tests_failed = tests_failed + ["toString(False)"];
 end
 
 total_tests = total_tests + 1;
-let str_null = str(Null);
+let str_null = toString(Null);
 if str_null == "Null":
-    print("✓ str(Null): " + str_null);
+    print("✓ toString(Null): " + str_null);
     tests_passed = tests_passed + 1;
 else:
-    print("✗ str(Null): " + str_null);
-    tests_failed = tests_failed + ["str(Null)"];
+    print("✗ toString(Null): " + str_null);
+    tests_failed = tests_failed + ["toString(Null)"];
 end
 
 total_tests = total_tests + 1;
-let str_array = str([1, 2, 3]);
+let str_array = toString([1, 2, 3]);
 if str_array == "[1, 2, 3]":
-    print("✓ str([1,2,3]): " + str_array);
+    print("✓ toString([1,2,3]): " + str_array);
     tests_passed = tests_passed + 1;
 else:
-    print("✗ str([1,2,3]): " + str_array);
-    tests_failed = tests_failed + ["str([1,2,3])"];
+    print("✗ toString([1,2,3]): " + str_array);
+    tests_failed = tests_failed + ["toString([1,2,3])"];
 end
 
 print("\n=== 14. EDGE CASES ===");
@@ -1676,30 +1676,30 @@ print("14.1. Zero and negative numbers...");
 total_tests = total_tests + 1;
 let zero_add = 0 + 0;
 if zero_add == 0:
-    print("✓ Zero addition (0 + 0): " + str(zero_add));
+    print("✓ Zero addition (0 + 0): " + toString(zero_add));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Zero addition (0 + 0): " + str(zero_add));
+    print("✗ Zero addition (0 + 0): " + toString(zero_add));
     tests_failed = tests_failed + ["Zero addition"];
 end
 
 total_tests = total_tests + 1;
 let zero_mult = 0 * 5;
 if zero_mult == 0:
-    print("✓ Zero multiplication (0 * 5): " + str(zero_mult));
+    print("✓ Zero multiplication (0 * 5): " + toString(zero_mult));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Zero multiplication (0 * 5): " + str(zero_mult));
+    print("✗ Zero multiplication (0 * 5): " + toString(zero_mult));
     tests_failed = tests_failed + ["Zero multiplication"];
 end
 
 total_tests = total_tests + 1;
 let neg_add = -5 + 3;
 if neg_add == -2:
-    print("✓ Negative addition (-5 + 3): " + str(neg_add));
+    print("✓ Negative addition (-5 + 3): " + toString(neg_add));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Negative addition (-5 + 3): " + str(neg_add));
+    print("✗ Negative addition (-5 + 3): " + toString(neg_add));
     tests_failed = tests_failed + ["Negative addition"];
 end
 
@@ -1707,20 +1707,20 @@ print("\n14.2. Large numbers...");
 total_tests = total_tests + 1;
 let large_add = 999999 + 1;
 if large_add == 1000000:
-    print("✓ Large addition (999999 + 1): " + str(large_add));
+    print("✓ Large addition (999999 + 1): " + toString(large_add));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Large addition (999999 + 1): " + str(large_add));
+    print("✗ Large addition (999999 + 1): " + toString(large_add));
     tests_failed = tests_failed + ["Large addition"];
 end
 
 total_tests = total_tests + 1;
 let large_mult = 1000 * 1000;
 if large_mult == 1000000:
-    print("✓ Large multiplication (1000 * 1000): " + str(large_mult));
+    print("✓ Large multiplication (1000 * 1000): " + toString(large_mult));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Large multiplication (1000 * 1000): " + str(large_mult));
+    print("✗ Large multiplication (1000 * 1000): " + toString(large_mult));
     tests_failed = tests_failed + ["Large multiplication"];
 end
 
@@ -1728,20 +1728,20 @@ print("\n14.3. Floating point precision...");
 total_tests = total_tests + 1;
 let float_prec = 0.1 + 0.2;
 if float_prec > 0.3:
-    print("✓ Float precision (0.1 + 0.2 > 0.3): " + str(float_prec));
+    print("✓ Float precision (0.1 + 0.2 > 0.3): " + toString(float_prec));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Float precision (0.1 + 0.2 > 0.3): " + str(float_prec));
+    print("✗ Float precision (0.1 + 0.2 > 0.3): " + toString(float_prec));
     tests_failed = tests_failed + ["Float precision"];
 end
 
 total_tests = total_tests + 1;
 let float_eq = 1.0 == 1;
 if float_eq == True:
-    print("✓ Float equality (1.0 == 1): " + str(float_eq));
+    print("✓ Float equality (1.0 == 1): " + toString(float_eq));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Float equality (1.0 == 1): " + str(float_eq));
+    print("✗ Float equality (1.0 == 1): " + toString(float_eq));
     tests_failed = tests_failed + ["Float equality"];
 end
 
@@ -1749,20 +1749,20 @@ print("\n14.4. Empty values...");
 total_tests = total_tests + 1;
 let empty_str_len = len("");
 if empty_str_len == 0:
-    print("✓ Empty string length: " + str(empty_str_len));
+    print("✓ Empty string length: " + toString(empty_str_len));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Empty string length: " + str(empty_str_len));
+    print("✗ Empty string length: " + toString(empty_str_len));
     tests_failed = tests_failed + ["Empty string length"];
 end
 
 total_tests = total_tests + 1;
 let empty_array_len = len([]);
 if empty_array_len == 0:
-    print("✓ Empty array length: " + str(empty_array_len));
+    print("✓ Empty array length: " + toString(empty_array_len));
     tests_passed = tests_passed + 1;
 else:
-    print("✗ Empty array length: " + str(empty_array_len));
+    print("✗ Empty array length: " + toString(empty_array_len));
     tests_failed = tests_failed + ["Empty array length"];
 end
 
@@ -1845,7 +1845,7 @@ end
 print("\n16.3. Function with multiple parameters (no return type)...");
 func add_numbers(a, b):
     let result = a + b;
-    print("Sum: " + str(result));
+    print("Sum: " + toString(result));
 end
 
 total_tests = total_tests + 1;
@@ -1881,7 +1881,7 @@ end
 
 print("\n16.4. Function definitions (mixed explicit/implicit types)...");
 func mixed_func1(x, y: Number) -> String:
-    return "Mixed types: " + str(x) + ", " + str(y);
+    return "Mixed types: " + toString(x) + ", " + toString(y);
 end
 
 func mixed_func2(name: String):
@@ -2082,7 +2082,7 @@ func safe_array_access(arr, index) -> String:
     if index >= len(arr):
         return "Index out of bounds";
     else:
-        return str(arr[index]);
+        return toString(arr[index]);
     end
 end
 
@@ -2115,7 +2115,7 @@ let greet_lambda = func (name):
 end;
 
 let mixed_lambda = func (x, y: Number) -> String:
-    return "Mixed: " + str(x) + " and " + str(y);
+    return "Mixed: " + toString(x) + " and " + toString(y);
 end;
 
 total_tests = total_tests + 1;
@@ -2180,7 +2180,7 @@ end
 
 print("\n16.16. Explicit function with all types...");
 func explicit_all(param: Int) -> String:
-    return str(param);
+    return toString(param);
 end
 
 total_tests = total_tests + 1;
@@ -2200,7 +2200,7 @@ end
 
 print("\n16.17. Implicit function with no types...");
 func implicit_none(param):
-    return str(param);
+    return toString(param);
 end
 
 total_tests = total_tests + 1;
@@ -2220,7 +2220,7 @@ end
 
 print("\n16.18. Mixed function - explicit parameter, implicit return...");
 func mixed_param(param: Int):
-    return str(param);
+    return toString(param);
 end
 
 total_tests = total_tests + 1;
@@ -2240,7 +2240,7 @@ end
 
 print("\n16.19. Mixed function - implicit parameter, explicit return...");
 func mixed_return(param) -> String:
-    return str(param);
+    return toString(param);
 end
 
 total_tests = total_tests + 1;
@@ -2260,7 +2260,7 @@ end
 
 print("\n16.20. Function variable with explicit types...");
 let explicit_var: Function = func (param: Int) -> String:
-    return str(param);
+    return toString(param);
 end;
 
 total_tests = total_tests + 1;
@@ -2280,7 +2280,7 @@ end
 
 print("\n16.21. Function variable with implicit types...");
 let implicit_var = func (param):
-    return str(param);
+    return toString(param);
 end;
 
 total_tests = total_tests + 1;
@@ -2300,7 +2300,7 @@ end
 
 print("\n16.22. Function variable with mixed types...");
 let mixed_var: Function = func (param: Int):
-    return str(param);
+    return toString(param);
 end;
 
 total_tests = total_tests + 1;
@@ -2320,7 +2320,7 @@ end
 
 print("\n16.23. Function variable with mixed return type...");
 let mixed_return_var = func (param) -> String:
-    return str(param);
+    return toString(param);
 end;
 
 total_tests = total_tests + 1;
@@ -3382,13 +3382,13 @@ end
 # Put Any Additions Above These Three Lines
 
 print("\n=== RESULTS ===");
-print("Total: " + str(total_tests));
-print("Passed: " + str(tests_passed));
-print("Failed: " + str(total_tests - tests_passed));
+print("Total: " + toString(total_tests));
+print("Passed: " + toString(tests_passed));
+print("Failed: " + toString(total_tests - tests_passed));
 
 
 let rate = (tests_passed * 100) / total_tests;
-print("Success rate: " + str(rate) + "%");
+print("Success rate: " + toString(rate) + "%");
 
 if total_tests - tests_passed > 0:
     print("Failed tests:");

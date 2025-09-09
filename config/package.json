@@ -10,13 +10,13 @@
         "Programming Languages"
     ],
     "activationEvents": [
-        "onLanguage:myco"
+        "onLanguage:Myco"
     ],
     "main": "./bin/myco-lsp",
     "contributes": {
         "languages": [
             {
-                "id": "myco",
+                "id": "Myco",
                 "aliases": [
                     "Myco",
                     "myco"
@@ -29,7 +29,7 @@
         ],
         "grammars": [
             {
-                "language": "myco",
+                "language": "Myco",
                 "scopeName": "source.myco",
                 "path": "./syntaxes/myco.tmGrammar.json"
             }

@@ -1820,8 +1820,8 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
             if (module_item.type == VALUE_FUNCTION) {
                 // Evaluate arguments
                 size_t arg_count = call_node->data.function_call_expr.argument_count;
-                Value* args = (Value*)calloc(arg_count, sizeof(Value));
-                if (!args) {
+                Value* args = arg_count > 0 ? (Value*)calloc(arg_count, sizeof(Value)) : NULL;
+                if (arg_count > 0 && !args) {
                     value_free(&object);
                     interpreter_set_error(interpreter, "Memory allocation failed", call_node->line, call_node->column);
                     return value_create_null();
@@ -3516,14 +3516,6 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 if (argv) free(argv);
                 return rv;
             }
-            if (strcmp(func_name, "str") == 0) {
-                size_t n = node->data.function_call.argument_count;
-                if (n == 0) return value_create_string("");
-                Value v = eval_node(interpreter, node->data.function_call.arguments[0]);
-                Value s = value_to_string(&v);
-                value_free(&v);
-                return s;
-            }
             if (strcmp(func_name, "len") == 0) {
                 size_t n = node->data.function_call.argument_count;
                 if (n == 0) return value_create_number(0);
@@ -3546,6 +3538,17 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 value_free(&v);
                 return value_create_number(out);
             }
+            if (strcmp(func_name, "toString") == 0) {
+                size_t n = node->data.function_call.argument_count;
+                if (n == 0) {
+                    interpreter_set_error(interpreter, "toString() requires exactly 1 argument", node->line, node->column);
+                    return value_create_null();
+                }
+                Value v = eval_node(interpreter, node->data.function_call.arguments[0]);
+                Value result = builtin_toString(interpreter, &v, 1, node->line, node->column);
+                value_free(&v);
+                return result;
+            }
             // Look up function in environment
             Value fn = environment_get(interpreter->current_environment, func_name);
             
@@ -3554,46 +3557,12 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 fn = environment_get(interpreter->global_environment, func_name);
             }
             
-            // Check if this is a built-in function by checking its signature
-            // Built-in functions have a function pointer as body and no parameters
-            if (fn.type == VALUE_FUNCTION && fn.data.function_value.body && 
-                fn.data.function_value.parameters == NULL && fn.data.function_value.parameter_count == 0) {
-                // This is a built-in function - call it directly
-                Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = (Value (*)(Interpreter*, Value*, size_t, int, int))fn.data.function_value.body;
-                
-                // Evaluate arguments
-                size_t n = node->data.function_call.argument_count;
-                Value* args = n ? (Value*)calloc(n, sizeof(Value)) : NULL;
-                if (n > 0 && !args) {
-                    interpreter_set_error(interpreter, "Out of memory allocating function arguments", node->line, node->column);
-                    value_free(&fn);
-                    return value_create_null();
-                }
-                
-                for (size_t i = 0; i < n; i++) {
-                    args[i] = eval_node(interpreter, node->data.function_call.arguments[i]);
-                }
-                
-                // Call the built-in function
-                Value result = builtin_func(interpreter, args, n, node->line, node->column);
-                
-                // Clean up arguments
-                if (args) {
-                    for (size_t i = 0; i < n; i++) {
-                        value_free(&args[i]);
-                    }
-                    free(args);
-                    args = NULL;  // Prevent double-free
-                }
-                
-                value_free(&fn);
-                return result;
-            }
             
             // Handle user-defined functions
             if (fn.type == VALUE_FUNCTION && fn.data.function_value.body) {
                 // Evaluate arguments in the current (caller) environment first
                 size_t n = node->data.function_call.argument_count;
+                
                 Value* args = n ? (Value*)calloc(n, sizeof(Value)) : NULL;
                 if (n > 0 && !args) {
                     interpreter_set_error(interpreter, "Out of memory allocating function arguments", node->line, node->column);
@@ -3636,51 +3605,53 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 interpreter->current_environment = call_env;
 
                 // Bind parameters by name if available
-                for (size_t i = 0; i < n; i++) {
-                    const char* param_name = NULL;
-                    const char* param_type = NULL;
-                    
-                    if (i < fn.data.function_value.parameter_count &&
-                        fn.data.function_value.parameters &&
-                        fn.data.function_value.parameters[i]) {
+                if (args) {
+                    for (size_t i = 0; i < n; i++) {
+                        const char* param_name = NULL;
+                        const char* param_type = NULL;
                         
-                        ASTNode* param_node = fn.data.function_value.parameters[i];
-                        if (param_node->type == AST_NODE_TYPED_PARAMETER) {
-                            param_name = param_node->data.typed_parameter.parameter_name;
-                            param_type = param_node->data.typed_parameter.parameter_type;
+                        if (i < fn.data.function_value.parameter_count &&
+                            fn.data.function_value.parameters &&
+                            fn.data.function_value.parameters[i]) {
                             
-                            // Type checking for typed parameters
-                            if (!value_matches_type(&args[i], param_type, interpreter)) {
-                                char error_msg[512];
-                                snprintf(error_msg, sizeof(error_msg), 
-                                    "Type mismatch: parameter '%s' expects %s but got %s", 
-                                    param_name, param_type, value_type_string(args[i].type));
-                                interpreter_set_error(interpreter, error_msg, node->line, node->column);
+                            ASTNode* param_node = fn.data.function_value.parameters[i];
+                            if (param_node->type == AST_NODE_TYPED_PARAMETER) {
+                                param_name = param_node->data.typed_parameter.parameter_name;
+                                param_type = param_node->data.typed_parameter.parameter_type;
                                 
-                                // Clean up and return immediately
-                                environment_free(call_env);
-                                value_free(&fn);
-                                // Restore environment before returning
-                                interpreter->current_environment = saved;
-                                
-                                // Clean up arguments before returning
-                                if (args) {
-                                    for (size_t j = 0; j < n; j++) {
-                                        value_free(&args[j]);
+                                // Type checking for typed parameters
+                                if (!value_matches_type(&args[i], param_type, interpreter)) {
+                                    char error_msg[512];
+                                    snprintf(error_msg, sizeof(error_msg), 
+                                        "Type mismatch: parameter '%s' expects %s but got %s", 
+                                        param_name, param_type, value_type_string(args[i].type));
+                                    interpreter_set_error(interpreter, error_msg, node->line, node->column);
+                                    
+                                    // Clean up and return immediately
+                                    environment_free(call_env);
+                                    value_free(&fn);
+                                    // Restore environment before returning
+                                    interpreter->current_environment = saved;
+                                    
+                                    // Clean up arguments before returning
+                                    if (args) {
+                                        for (size_t j = 0; j < n; j++) {
+                                            value_free(&args[j]);
+                                        }
+                                        free(args);
                                     }
-                                    free(args);
+                                    return value_create_null();
                                 }
-                                return value_create_null();
+                            } else if (param_node->type == AST_NODE_IDENTIFIER) {
+                                param_name = param_node->data.identifier_value;
                             }
-                        } else if (param_node->type == AST_NODE_IDENTIFIER) {
-                            param_name = param_node->data.identifier_value;
+                        } else {
+                            static char pname[16];
+                            snprintf(pname, sizeof(pname), "p%zu", i);
+                            param_name = pname;
                         }
-                    } else {
-                        static char pname[16];
-                        snprintf(pname, sizeof(pname), "p%zu", i);
-                        param_name = pname;
+                        environment_define(call_env, param_name, args[i]);
                     }
-                    environment_define(call_env, param_name, args[i]);
                 }
 
                 // Reset return state
@@ -3703,8 +3674,6 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     value_free(&fn);
                     return value_create_null();
                 }
-
-
 
                 Value rv = eval_node(interpreter, fn.data.function_value.body);
 
@@ -5198,14 +5167,6 @@ Value builtin_assert(Interpreter* interpreter, Value* args, size_t arg_count, in
     
     return value_create_null();
 }
-Value builtin_str(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
-    if (arg_count != 1) {
-        interpreter_set_error(interpreter, "str() requires exactly 1 argument", line, column);
-        return value_create_null();
-    }
-    
-    return value_to_string(&args[0]);
-}
 Value builtin_int(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { Value v = {0}; return v; }
 Value builtin_float(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { Value v = {0}; return v; }
 Value builtin_bool(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) { Value v = {0}; return v; }
@@ -5218,7 +5179,6 @@ void interpreter_register_builtins(Interpreter* interpreter) {
     Value v = value_create_string("<builtin>");
     environment_define(interpreter->global_environment, "print", v);
     environment_define(interpreter->global_environment, "uprint", v);
-    environment_define(interpreter->global_environment, "str", v);
     environment_define(interpreter->global_environment, "len", v);
     environment_define(interpreter->global_environment, "assert", v);
     value_free(&v);

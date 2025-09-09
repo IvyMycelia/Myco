@@ -588,6 +588,19 @@ const char* type_to_string(MycoType* type) {
         case TYPE_CLASS:
             snprintf(buffer, sizeof(buffer), "%s", type->data.class_name);
             break;
+        case TYPE_UNION:
+            {
+                char union_str[512] = "";
+                for (size_t i = 0; i < type->data.union_type.type_count; i++) {
+                    if (i > 0) strcat(union_str, " | ");
+                    strcat(union_str, type_to_string(type->data.union_type.types[i]));
+                }
+                snprintf(buffer, sizeof(buffer), "%s", union_str);
+            }
+            break;
+        case TYPE_OPTIONAL:
+            snprintf(buffer, sizeof(buffer), "%s?", type_to_string(type->data.optional_type));
+            break;
         default:
             snprintf(buffer, sizeof(buffer), "%s", type_kind_to_string(type->kind));
             break;
@@ -599,6 +612,38 @@ const char* type_to_string(MycoType* type) {
 MycoType* type_parse_string(const char* type_string, int line, int column) {
     if (!type_string) return NULL;
     
+    // Check for union types (e.g., "String | Int")
+    char* pipe_pos = strstr(type_string, " | ");
+    if (pipe_pos) {
+        // Split the string at the pipe
+        size_t left_len = pipe_pos - type_string;
+        char* left_type = (char*)malloc(left_len + 1);
+        strncpy(left_type, type_string, left_len);
+        left_type[left_len] = '\0';
+        
+        char* right_type = strdup(pipe_pos + 3); // Skip " | "
+        
+        // Parse both types
+        MycoType* left = type_parse_string(left_type, line, column);
+        MycoType* right = type_parse_string(right_type, line, column);
+        
+        free(left_type);
+        free(right_type);
+        
+        if (left && right) {
+            // Create union type
+            MycoType** types = (MycoType**)malloc(2 * sizeof(MycoType*));
+            types[0] = left;
+            types[1] = right;
+            return type_create_union(types, 2, line, column);
+        } else {
+            if (left) type_free(left);
+            if (right) type_free(right);
+            return NULL;
+        }
+    }
+    
+    // Handle single types
     if (strcmp(type_string, "Int") == 0) {
         return type_create(TYPE_INT, line, column);
     } else if (strcmp(type_string, "Float") == 0) {

@@ -51,7 +51,7 @@ end
 
 # Mixed parameter types
 func mixed_func(name: String, age: Int) -> String:
-    return name + " is", str(age);
+    return name + " is", age.toString();
 end
 ```
 

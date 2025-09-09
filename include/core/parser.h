@@ -494,6 +494,7 @@ ASTNode* parser_parse_block(Parser* parser);
  * @return AST node representing the function declaration
  */
 ASTNode* parser_parse_function_declaration(Parser* parser);
+ASTNode* parser_parse_async_function_declaration(Parser* parser);
 
 /**
  * @brief Parse a lambda expression

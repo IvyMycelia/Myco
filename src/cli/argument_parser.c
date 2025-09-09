@@ -14,6 +14,7 @@ int parse_arguments(int argc, char* argv[], ArgumentConfig* config) {
     config->build = 0;
     config->debug = 0;
     config->target = TARGET_C;
+    config->optimization_level = OPTIMIZATION_NONE;
     config->input_source = NULL;
     config->output_file = NULL;
     config->architecture = NULL;
@@ -50,6 +51,25 @@ int parse_arguments(int argc, char* argv[], ArgumentConfig* config) {
             config->build = 1;
         } else if (strcmp(argv[i], "--debug") == 0 || strcmp(argv[i], "-d") == 0) {
             config->debug = 1;
+        } else if (strcmp(argv[i], "--optimize") == 0 || strcmp(argv[i], "-O") == 0) {
+            if (i + 1 < argc) {
+                i++;
+                if (strcmp(argv[i], "0") == 0 || strcmp(argv[i], "none") == 0) {
+                    config->optimization_level = OPTIMIZATION_NONE;
+                } else if (strcmp(argv[i], "1") == 0 || strcmp(argv[i], "basic") == 0) {
+                    config->optimization_level = OPTIMIZATION_BASIC;
+                } else if (strcmp(argv[i], "2") == 0 || strcmp(argv[i], "aggressive") == 0) {
+                    config->optimization_level = OPTIMIZATION_AGGRESSIVE;
+                } else if (strcmp(argv[i], "3") == 0 || strcmp(argv[i], "maximum") == 0) {
+                    config->optimization_level = OPTIMIZATION_SIZE;
+                } else {
+                    fprintf(stderr, "Error: Unknown optimization level '%s'\n", argv[i]);
+                    return MYCO_ERROR_CLI;
+                }
+            } else {
+                fprintf(stderr, "Error: --optimize requires an argument\n");
+                return MYCO_ERROR_CLI;
+            }
         } else if (strcmp(argv[i], "--target") == 0 || strcmp(argv[i], "-t") == 0) {
             if (i + 1 < argc) {
                 i++;
@@ -115,10 +135,11 @@ void print_usage(const char* program_name) {
     printf("  -i, --interpret         Interpret the input (default)\n");
     printf("  -c, --compile           Compile the input to intermediate code\n");
     printf("  -b, --build             Build executable from input\n");
-    printf("  -d, --debug             Enable debug mode\n");
-    printf("  -t, --target <target>   Set compilation target (c, x86_64, arm64, wasm, bytecode)\n");
-    printf("  -a, --architecture <arch> Set target architecture (arm64, x86_64, arm, x86)\n");
-    printf("  -o, --output <file>     Set output file\n");
+    printf("    -d, --debug             Enable debug mode\n");
+  printf("  -O, --optimize <level>  Set optimization level (0/none, 1/basic, 2/aggressive, 3/maximum)\n");
+  printf("  -t, --target <target>   Set compilation target (c, x86_64, arm64, wasm, bytecode)\n");
+  printf("  -a, --architecture <arch> Set target architecture (arm64, x86_64, arm, x86)\n");
+  printf("  -o, --output <file>     Set output file\n");
     printf("\n");
     printf("Examples:\n");
     printf("  %s script.myco\n", program_name);

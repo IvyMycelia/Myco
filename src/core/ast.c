@@ -800,6 +800,26 @@ void ast_free(ASTNode* node) {
             ast_free(node->data.package_definition.body);
             break;
             
+        case AST_NODE_ASYNC_FUNCTION:
+            free(node->data.async_function_definition.function_name);
+            for (size_t i = 0; i < node->data.async_function_definition.parameter_count; i++) {
+                ast_free(node->data.async_function_definition.parameters[i]);
+            }
+            free(node->data.async_function_definition.parameters);
+            if (node->data.async_function_definition.return_type) {
+                free(node->data.async_function_definition.return_type);
+            }
+            ast_free(node->data.async_function_definition.body);
+            break;
+            
+        case AST_NODE_AWAIT:
+            ast_free(node->data.await_expression.expression);
+            break;
+            
+        case AST_NODE_PROMISE:
+            ast_free(node->data.promise_creation.expression);
+            break;
+            
         default:
             break;
     }
@@ -1086,6 +1106,9 @@ const char* ast_node_type_to_string(ASTNodeType type) {
         case AST_NODE_USE: return "Use";
         case AST_NODE_MODULE: return "Module";
         case AST_NODE_PACKAGE: return "Package";
+        case AST_NODE_ASYNC_FUNCTION: return "AsyncFunction";
+        case AST_NODE_AWAIT: return "Await";
+        case AST_NODE_PROMISE: return "Promise";
         case AST_NODE_ERROR: return "Error";
         default: return "Unknown";
     }
@@ -1138,6 +1161,50 @@ ASTNode* ast_create_error_node(const char* error_message, int line, int column) 
     
     node->type = AST_NODE_ERROR;
     node->data.error_node.error_message = strdup(error_message);
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
+// Async/Await AST Node Creation Functions
+ASTNode* ast_create_async_function(const char* name, ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column) {
+    ASTNode* node = malloc(sizeof(ASTNode));
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_ASYNC_FUNCTION;
+    node->data.async_function_definition.function_name = strdup(name);
+    node->data.async_function_definition.parameters = params;
+    node->data.async_function_definition.parameter_count = param_count;
+    node->data.async_function_definition.return_type = return_type ? strdup(return_type) : NULL;
+    node->data.async_function_definition.body = body;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
+ASTNode* ast_create_await(ASTNode* expression, int line, int column) {
+    ASTNode* node = malloc(sizeof(ASTNode));
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_AWAIT;
+    node->data.await_expression.expression = expression;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
+ASTNode* ast_create_promise(ASTNode* expression, int line, int column) {
+    ASTNode* node = malloc(sizeof(ASTNode));
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_PROMISE;
+    node->data.promise_creation.expression = expression;
     node->line = line;
     node->column = column;
     node->next = NULL;

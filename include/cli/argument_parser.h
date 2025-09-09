@@ -10,6 +10,7 @@ typedef struct {
     int build;
     int debug;
     int target;
+    int optimization_level;
     char* input_source;
     char* output_file;
     char* architecture;

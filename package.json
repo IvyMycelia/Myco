@@ -1,0 +1,38 @@
+{
+    "name": "myco-language-server",
+    "displayName": "Myco Language Server",
+    "description": "Language Server Protocol implementation for Myco programming language",
+    "version": "1.0.0",
+    "engines": {
+        "vscode": "^1.74.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "activationEvents": [
+        "onLanguage:myco"
+    ],
+    "main": "./bin/myco-lsp",
+    "contributes": {
+        "languages": [
+            {
+                "id": "myco",
+                "aliases": [
+                    "Myco",
+                    "myco"
+                ],
+                "extensions": [
+                    ".myco"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "myco",
+                "scopeName": "source.myco",
+                "path": "./syntaxes/myco.tmGrammar.json"
+            }
+        ]
+    }
+}

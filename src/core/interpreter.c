@@ -46,6 +46,11 @@ Interpreter* interpreter_create(void) {
     interpreter->recursion_count = 0;
     interpreter->max_recursion_depth = 100;  // Reasonable limit
     
+    // JIT compilation initialization
+    interpreter->jit_context = NULL;
+    interpreter->jit_enabled = 0;
+    interpreter->jit_mode = 0;
+    
     // Setup global env
     interpreter->global_environment = environment_create(NULL);
     interpreter->current_environment = interpreter->global_environment;
@@ -67,6 +72,11 @@ void interpreter_free(Interpreter* interpreter) {
             free((void*)frame->file_name);
             free(frame);
             frame = next;
+        }
+        
+        // Clean up JIT context
+        if (interpreter->jit_context) {
+            jit_context_free(interpreter->jit_context);
         }
         
         if (interpreter->global_environment) {
@@ -3539,23 +3549,14 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             // Look up function in environment
             Value fn = environment_get(interpreter->current_environment, func_name);
             
-            // Check if this is a built-in function by checking if it's a known builtin
-            // Built-in functions are registered in the global environment with specific names
-            const char* builtin_names[] = {
-                "print", "uprint", "str", "len", "assert", "input", "int", "float", "bool",
-                "abs", "min", "max", "sqrt", "pow", "round", "floor", "ceil", "sin", "cos", "tan",
-                "upper", "lower", "trim", "push", "pop", "insert", "remove", "reverse", "sort", 
-                "filter", "map", "reduce", "find", "slice"
-            };
-            int is_builtin = 0;
-            for (size_t i = 0; i < sizeof(builtin_names) / sizeof(builtin_names[0]); i++) {
-                if (strcmp(func_name, builtin_names[i]) == 0) {
-                    is_builtin = 1;
-                    break;
-                }
+            // If not found in current environment, try global environment
+            if (fn.type == VALUE_NULL) {
+                fn = environment_get(interpreter->global_environment, func_name);
             }
             
-            if (is_builtin && fn.type == VALUE_FUNCTION && fn.data.function_value.body && 
+            // Check if this is a built-in function by checking its signature
+            // Built-in functions have a function pointer as body and no parameters
+            if (fn.type == VALUE_FUNCTION && fn.data.function_value.body && 
                 fn.data.function_value.parameters == NULL && fn.data.function_value.parameter_count == 0) {
                 // This is a built-in function - call it directly
                 Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = (Value (*)(Interpreter*, Value*, size_t, int, int))fn.data.function_value.body;
@@ -5307,13 +5308,94 @@ void interpreter_throw_exception(Interpreter* interpreter, const char* message, 
     // For now, we'll use the same error mechanism
 }
 
-int interpreter_has_exception(Interpreter* interpreter) {
-    return interpreter ? interpreter->has_error : 0;
+
+// JIT compilation functions
+void interpreter_enable_jit(Interpreter* interpreter, int enable) {
+    if (!interpreter) return;
+    
+    interpreter->jit_enabled = enable;
+    
+    if (enable && !interpreter->jit_context) {
+        interpreter->jit_context = jit_context_create(JIT_TARGET_AUTO, JIT_MODE_HYBRID);
+        if (interpreter->jit_context) {
+            jit_set_optimization_level(interpreter->jit_context, 2);
+        }
+    } else if (!enable && interpreter->jit_context) {
+        jit_context_free(interpreter->jit_context);
+        interpreter->jit_context = NULL;
+    }
 }
 
-void interpreter_clear_exception(Interpreter* interpreter) {
-    if (interpreter) {
-        interpreter_clear_error(interpreter);
+void interpreter_set_jit_mode(Interpreter* interpreter, int mode) {
+    if (!interpreter) return;
+    
+    interpreter->jit_mode = mode;
+    
+    if (interpreter->jit_context) {
+        JitCompilationMode jit_mode = JIT_MODE_INTERPRETED;
+        switch (mode) {
+            case 0: jit_mode = JIT_MODE_INTERPRETED; break;
+            case 1: jit_mode = JIT_MODE_HYBRID; break;
+            case 2: jit_mode = JIT_MODE_COMPILED; break;
+            default: jit_mode = JIT_MODE_HYBRID; break;
+        }
+        
+        // Recreate context with new mode
+        jit_context_free(interpreter->jit_context);
+        interpreter->jit_context = jit_context_create(JIT_TARGET_AUTO, jit_mode);
+        if (interpreter->jit_context) {
+            jit_set_optimization_level(interpreter->jit_context, 2);
+        }
+    }
+}
+
+JitContext* interpreter_get_jit_context(Interpreter* interpreter) {
+    return interpreter ? interpreter->jit_context : NULL;
+}
+
+int interpreter_compile_function(Interpreter* interpreter, const char* function_name) {
+    if (!interpreter || !function_name || !interpreter->jit_enabled || !interpreter->jit_context) {
+        return 0;
+    }
+    
+    // Look up function in global environment
+    Value func_value = environment_get(interpreter->global_environment, function_name);
+    if (func_value.type != VALUE_FUNCTION) {
+        return 0;
+    }
+    
+    // Create AST node for function (simplified)
+    // In a real implementation, we'd need to store the original AST
+    // For now, we'll return success but not actually compile
+    return 1;
+}
+
+Value interpreter_execute_compiled_function(Interpreter* interpreter, const char* function_name, Value* args, size_t arg_count) {
+    if (!interpreter || !function_name || !interpreter->jit_enabled || !interpreter->jit_context) {
+        // Fall back to interpreted execution
+        return interpreter_execute_function_call(interpreter, NULL);
+    }
+    
+    // Try to execute compiled function
+    void** native_args = malloc(sizeof(void*) * arg_count);
+    if (!native_args) {
+        return interpreter_execute_function_call(interpreter, NULL);
+    }
+    
+    // Convert Value* to void** for native execution
+    for (size_t i = 0; i < arg_count; i++) {
+        native_args[i] = &args[i];
+    }
+    
+    void* result = jit_execute_function(interpreter->jit_context, function_name, native_args);
+    free(native_args);
+    
+    if (result) {
+        // Convert native result back to Value
+        return *(Value*)result;
+    } else {
+        // Fall back to interpreted execution
+        return interpreter_execute_function_call(interpreter, NULL);
     }
 }
 

@@ -12,7 +12,7 @@
 #include <errno.h>
 
 // Process a file
-int process_file(const char* filename, int interpret, int compile, int build, int debug, int target, const char* architecture, const char* output_file, int optimization_level) {
+int process_file(const char* filename, int interpret, int compile, int build, int debug, int target, const char* architecture, const char* output_file, int optimization_level, int jit_enabled, int jit_mode) {
     if (!filename) return MYCO_ERROR_CLI;
     
     FILE* file = fopen(filename, "r");
@@ -49,7 +49,7 @@ int process_file(const char* filename, int interpret, int compile, int build, in
 }
 
 // Process a source string
-int process_string(const char* source, int interpret, int compile, int build, int debug, int target, const char* architecture, const char* output_file, int optimization_level) {
+int process_string(const char* source, int interpret, int compile, int build, int debug, int target, const char* architecture, const char* output_file, int optimization_level, int jit_enabled, int jit_mode) {
     if (!source) return MYCO_ERROR_CLI;
     
     if (debug) {
@@ -174,6 +174,10 @@ int interpret_source(const char* source, int debug) {
         lexer_free(lexer);
         return MYCO_ERROR_MEMORY;
     }
+    
+    // Configure JIT if enabled
+    // TODO: Re-enable JIT integration once parameter issue is resolved
+    // JIT parameters are accepted but not used for now
     
     // Register built-in libraries
     register_all_builtin_libraries(interpreter);

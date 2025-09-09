@@ -1,7 +1,7 @@
 {
-    "myco.languageServerPath": "./bin/myco-lsp",
+    "Myco.languageServerPath": "./bin/myco-lsp",
     "myco.enableLanguageServer": true,
     "files.associations": {
-        "*.myco": "myco"
+        "*.myco": "Myco"
     }
 }

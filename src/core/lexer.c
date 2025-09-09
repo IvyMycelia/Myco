@@ -594,6 +594,11 @@ static int lexer_scan_token(Lexer* lexer) {
             lexer_parse_string(lexer);
             break;
             
+        case '|':
+            lexer_add_token(lexer, TOKEN_PIPE, "|", lexer->line, lexer->column);
+            lexer_advance(lexer);
+            break;
+            
         default:
             if (isdigit(c)) {
                 lexer_parse_number(lexer);

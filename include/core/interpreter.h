@@ -310,6 +310,7 @@ void interpreter_clear_exception(Interpreter* interpreter);
 Value builtin_print(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_input(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_len(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_toString(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_type(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_assert(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_str(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);

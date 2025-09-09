@@ -1,8 +1,6 @@
-*test*.myco
-./tests/
-./bin/
-./build/
-.DS_Store
+# Build artifacts
+build/
+bin/
 *.o
 *.exe
 *.dll
@@ -17,7 +15,21 @@
 *.vcxproj
 *.vcxproj.user
 *.vcxproj.filters
-*.vcxproj.user
 
-.gitignore
-bin/myco
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*test*.myco
+*.tmp
+*.temp
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log

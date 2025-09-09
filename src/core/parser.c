@@ -1578,6 +1578,45 @@ ASTNode* parser_parse_declaration_statement(Parser* parser) {
 }
 
 /**
+ * @brief Parse a type annotation (supports union types like "String | Int")
+ * 
+ * @param parser The parser to use
+ * @return Allocated string containing the type annotation
+ */
+char* parser_parse_type_annotation(Parser* parser) {
+    if (!parser) return NULL;
+    
+    // Start with the first type
+    if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+        return NULL;
+    }
+    
+    char* result = strdup(parser->previous_token->text);
+    
+    // Check for union type (pipe operator)
+    while (parser_check(parser, TOKEN_PIPE)) {
+        parser_advance(parser);  // Consume the pipe
+        
+        // Expect another type after the pipe
+        if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+            free(result);
+            return NULL;
+        }
+        
+        // Append to the result: "String | Int"
+        char* new_result = malloc(strlen(result) + strlen(parser->previous_token->text) + 4);
+        strcpy(new_result, result);
+        strcat(new_result, " | ");
+        strcat(new_result, parser->previous_token->text);
+        
+        free(result);
+        result = new_result;
+    }
+    
+    return result;
+}
+
+/**
  * @brief Parse a variable declaration
  * 
  * Variable declarations use the 'let' or 'var' keyword:
@@ -1639,13 +1678,13 @@ ASTNode* parser_parse_variable_declaration(Parser* parser) {
             snprintf(type_name, len, "[%s]", element_type);
             free(element_type);
         } else {
-            // Regular type annotation
-            if (!parser_match(parser, TOKEN_IDENTIFIER)) {
-                parser_error(parser, "Type annotation must be a valid type name (Int, String, Bool, Float, or custom type)");
+            // Regular type annotation or union type
+            type_name = parser_parse_type_annotation(parser);
+            if (!type_name) {
+                parser_error(parser, "Type annotation must be a valid type name (Int, String, Bool, Float, or union type like String | Int)");
                 free(variable_name);
                 return NULL;
             }
-            type_name = strdup(parser->previous_token->text);
         }
     }
     // If no type annotation provided, type will be inferred from the initial value
@@ -2220,14 +2259,16 @@ ASTNode* parser_parse_function_declaration(Parser* parser) {
                 // Check for type annotation
                 if (parser_check(parser, TOKEN_COLON)) {
                     parser_advance(parser);
-                    if (!parser_match(parser, TOKEN_IDENTIFIER)) {
-                        parser_error(parser, "Expected type name after ':'");
+                    char* type_name = parser_parse_type_annotation(parser);
+                    if (!type_name) {
+                        parser_error(parser, "Expected type name after ':' (supports union types like String | Int)");
                         parser_synchronize(parser);
                         free(param_name);
                         break;
                     }
                     // Create typed parameter node
-                    ASTNode* tparam = ast_create_typed_parameter(param_name, parser->previous_token->text, 0, 0);
+                    ASTNode* tparam = ast_create_typed_parameter(param_name, type_name, 0, 0);
+                    free(type_name);
                     params[param_count++] = tparam;
                 } else {
                     // Create regular identifier node for untyped parameter
@@ -2343,14 +2384,16 @@ ASTNode* parser_parse_async_function_declaration(Parser* parser) {
                 // Check for type annotation
                 if (parser_check(parser, TOKEN_COLON)) {
                     parser_advance(parser);
-                    if (!parser_match(parser, TOKEN_IDENTIFIER)) {
-                        parser_error(parser, "Expected type name after ':'");
+                    char* type_name = parser_parse_type_annotation(parser);
+                    if (!type_name) {
+                        parser_error(parser, "Expected type name after ':' (supports union types like String | Int)");
                         parser_synchronize(parser);
                         free(param_name);
                         break;
                     }
                     // Create typed parameter node
-                    ASTNode* tparam = ast_create_typed_parameter(param_name, parser->previous_token->text, 0, 0);
+                    ASTNode* tparam = ast_create_typed_parameter(param_name, type_name, 0, 0);
+                    free(type_name);
                     params[param_count++] = tparam;
                 } else {
                     // Create regular identifier node for untyped parameter

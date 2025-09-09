@@ -317,6 +317,7 @@ ASTNode* parser_parse_declaration_statement(Parser* parser);
  * @param parser The parser to use
  * @return AST node representing the variable declaration
  */
+char* parser_parse_type_annotation(Parser* parser);
 ASTNode* parser_parse_variable_declaration(Parser* parser);
 
 /**

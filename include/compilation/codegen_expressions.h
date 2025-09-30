@@ -1,8 +1,8 @@
 #ifndef CODEGEN_EXPRESSIONS_H
 #define CODEGEN_EXPRESSIONS_H
 
-#include "compiler.h"
-#include "../core/ast.h"
+#include "compilation.h"
+#include "core/ast.h"
 
 // Expression generation functions
 int codegen_generate_c_expression(CodeGenContext* context, ASTNode* node);
@@ -18,5 +18,9 @@ int codegen_generate_c_hash_map_literal(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_set_literal(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_lambda(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_array_access(CodeGenContext* context, ASTNode* node);
+int codegen_generate_c_await(CodeGenContext* context, ASTNode* node);
+
+// Utility functions for expression generation
+const char* get_placeholder_function_return_type(const char* func_name);
 
 #endif // CODEGEN_EXPRESSIONS_H

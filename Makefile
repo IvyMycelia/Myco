@@ -86,7 +86,6 @@ TOOLS_DIR = tools
 
 # Source files (recursive search through all subdirectories, excluding LSP and experimental codegen split files)
 SRC_FILES = $(shell find $(SRC_DIR) -name "*.c" ! -path "*/lsp/*" \
-    ! -name "codegen_expressions.c" \
     ! -name "codegen_statements.c" \
     ! -name "codegen_variables.c" \
     ! -name "codegen_utils.c" \

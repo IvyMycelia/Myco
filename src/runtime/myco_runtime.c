@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <stdint.h>
 
 // Myco runtime value creation
 MycoValue myco_value_number(double value) {
@@ -117,6 +118,47 @@ void myco_print_bool(int bool_value) {
     printf("%s\n", bool_value ? "true" : "false");
 }
 
+// Type checking functions
+int isString(void* value) {
+    // Simple heuristic: if it's a string literal or char*, return 1
+    // This is a placeholder implementation
+    return (value != NULL && (intptr_t)value > 1000) ? 1 : 0;
+}
+
+int isInt(void* value) {
+    // Simple heuristic: if it's a small integer value, return 1
+    // This is a placeholder implementation
+    return (value != NULL && (intptr_t)value < 1000) ? 1 : 0;
+}
+
+int isFloat(void* value) {
+    // Simple heuristic: if it's a floating point value, return 1
+    // This is a placeholder implementation
+    return (value != NULL && (intptr_t)value > 1000) ? 1 : 0;
+}
+
+int isBool(void* value) {
+    // Simple heuristic: if it's 0 or 1, return 1
+    // This is a placeholder implementation
+    return (value != NULL && ((intptr_t)value == 0 || (intptr_t)value == 1)) ? 1 : 0;
+}
+
+int isArray(void* value) {
+    // Simple heuristic: if it's NULL or a pointer, return 1
+    // This is a placeholder implementation
+    return (value == NULL) ? 1 : 0;
+}
+
+int isNull(void* value) {
+    return (value == NULL) ? 1 : 0;
+}
+
+int isNumber(void* value) {
+    // Simple heuristic: if it's not NULL and not a string, return 1
+    // This is a placeholder implementation
+    return (value != NULL && (intptr_t)value < 1000) ? 1 : 0;
+}
+
 // Memory management
 void* myco_malloc(size_t size) {
     return malloc(size);
@@ -124,4 +166,16 @@ void* myco_malloc(size_t size) {
 
 void myco_free(void* ptr) {
     free(ptr);
+}
+
+char* myco_safe_to_string(void* value) {
+    if (value == NULL) {
+        return "Null";
+    } else if (isString(value)) {
+        return (char*)value;
+    } else if (isNumber(value)) {
+        return myco_number_to_string(*(double*)value);
+    } else {
+        return "Unknown";
+    }
 }

@@ -1,4 +1,5 @@
 #include "parser.h"
+#include "type_checker.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -344,6 +345,16 @@ ASTNode* parser_parse_program(Parser* parser) {
             // Create the block node
             ASTNode* block = ast_create_block(statement_array, statement_count, 0, 0);
             if (block) {
+                // Perform type checking on the parsed AST
+                TypeCheckerContext* type_context = type_checker_create_context();
+                if (type_context) {
+                    if (!type_check_ast(type_context, block)) {
+                        // Type checking failed, print errors
+                        type_checker_print_errors(type_context);
+                        // Note: We still return the AST, but type errors are reported
+                    }
+                    type_checker_free_context(type_context);
+                }
                 return block;
             }
             free(statement_array);
@@ -435,7 +446,7 @@ ASTNode* parser_parse_statement(Parser* parser) {
             
             ASTNode* assignment = parser_parse_assignment(parser);
             if (assignment) {
-                // Require a semicolon to terminate statements
+                // Check for semicolon, but be lenient if at end of input
                 if (parser_check(parser, TOKEN_SEMICOLON)) {
                     parser_advance(parser);  // Consume the semicolon
                     // collapse multiple semicolons
@@ -443,11 +454,14 @@ ASTNode* parser_parse_statement(Parser* parser) {
                         parser_advance(parser);
                     }
                     return assignment;
-    } else {
-                parser_error(parser, "Missing semicolon (;) at end of statement");
-                parser_synchronize(parser);
-                return assignment;
-            }
+                } else if (!parser->current_token || parser->current_token->type == TOKEN_EOF) {
+                    // At end of input, no semicolon required
+                    return assignment;
+                } else {
+                    parser_error(parser, "Missing semicolon (;) at end of statement");
+                    parser_synchronize(parser);
+                    return assignment;
+                }
             }
             return NULL;
         } else {
@@ -488,6 +502,13 @@ ASTNode* parser_parse_statement(Parser* parser) {
             return expression;
         }
         
+        // Check if we're at the end of input (EOF) - this is common in REPL
+        if (!parser->current_token || parser->current_token->type == TOKEN_EOF) {
+            return expression;
+        }
+        
+        // Only require semicolon if there are more statements on the same line
+        // or if we're in a context where multiple statements are expected
         parser_error(parser, "Missing semicolon (;) at end of statement");
         parser_synchronize(parser);
         return expression;
@@ -1294,6 +1315,11 @@ ASTNode* parser_parse_primary(Parser* parser) {
                 return NULL;
             }
             
+            // Check for member access after array access: arr[index].method
+            if (parser_check(parser, TOKEN_DOT)) {
+                return parser_parse_member_access_chain(parser, access);
+            }
+            
             return access;
         }
         
@@ -1587,9 +1613,12 @@ char* parser_parse_type_annotation(Parser* parser) {
     if (!parser) return NULL;
     
     // Start with the first type (identifier or keyword like Null)
-    if (!parser_match(parser, TOKEN_IDENTIFIER) && !parser_match(parser, TOKEN_KEYWORD)) {
+    if (!parser_check(parser, TOKEN_IDENTIFIER) && !parser_check(parser, TOKEN_KEYWORD)) {
         return NULL;
     }
+    
+    // Advance past the type token
+    parser_advance(parser);
     
     char* result = strdup(parser->previous_token->text);
     
@@ -1598,10 +1627,13 @@ char* parser_parse_type_annotation(Parser* parser) {
         parser_advance(parser);  // Consume the pipe
         
         // Expect another type after the pipe (identifier or keyword like Null)
-        if (!parser_match(parser, TOKEN_IDENTIFIER) && !parser_match(parser, TOKEN_KEYWORD)) {
+        if (!parser_check(parser, TOKEN_IDENTIFIER) && !parser_check(parser, TOKEN_KEYWORD)) {
             free(result);
             return NULL;
         }
+        
+        // Advance past the type token
+        parser_advance(parser);
         
         // Append to the result: "String | Int"
         char* new_result = malloc(strlen(result) + strlen(parser->previous_token->text) + 4);
@@ -1660,6 +1692,9 @@ ASTNode* parser_parse_variable_declaration(Parser* parser) {
     }
     
     char* variable_name = strdup(parser->previous_token->text);
+    // Capture line/column info for the variable name
+    int var_line = parser->previous_token->line;
+    int var_column = parser->previous_token->column;
     
     // Check for optional type annotation
     char* type_name = NULL;
@@ -1670,11 +1705,14 @@ ASTNode* parser_parse_variable_declaration(Parser* parser) {
         if (parser_check(parser, TOKEN_LEFT_BRACKET)) {
             parser_advance(parser);  // Consume the [
             
-            if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+            if (!parser_check(parser, TOKEN_IDENTIFIER) && !parser_check(parser, TOKEN_KEYWORD)) {
                 parser_error(parser, "Array type must specify element type (e.g., [Int], [String], [Any] for mixed types)");
                 free(variable_name);
                 return NULL;
             }
+            
+            // Advance past the type token
+            parser_advance(parser);
             
             char* element_type = strdup(parser->previous_token->text);
             
@@ -1728,8 +1766,9 @@ ASTNode* parser_parse_variable_declaration(Parser* parser) {
         parser_advance(parser);
     }
     
-    // Create the variable declaration node
-    ASTNode* var_decl = ast_create_variable_declaration(variable_name, type_name, initial_value, 1, 0, 0);
+    // Create the variable declaration node with proper line/column info
+    // Use the captured line/column info from the variable name token
+    ASTNode* var_decl = ast_create_variable_declaration(variable_name, type_name, initial_value, 1, var_line, var_column);
     if (var_decl) {
         return var_decl;
     }
@@ -2998,7 +3037,9 @@ ASTNode* parser_parse_class_field(Parser* parser) {
         char* type_name = strdup(parser->previous_token->text);
         
         // Create a variable declaration with type but no initial value
-        ASTNode* field = ast_create_variable_declaration(field_name, type_name, NULL, 0, 0, 0);
+        int line = parser->previous_token ? parser->previous_token->line : 0;
+        int column = parser->previous_token ? parser->previous_token->column : 0;
+        ASTNode* field = ast_create_variable_declaration(field_name, type_name, NULL, 0, line, column);
         free(field_name);
         free(type_name);
         return field;
@@ -3016,7 +3057,9 @@ ASTNode* parser_parse_class_field(Parser* parser) {
         }
         
         // Create a variable declaration with initial value
-        ASTNode* field = ast_create_variable_declaration(field_name, NULL, initial_value, 0, 0, 0);
+        int line = parser->previous_token ? parser->previous_token->line : 0;
+        int column = parser->previous_token ? parser->previous_token->column : 0;
+        ASTNode* field = ast_create_variable_declaration(field_name, NULL, initial_value, 0, line, column);
         free(field_name);
         return field;
         

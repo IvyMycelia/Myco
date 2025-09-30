@@ -38,6 +38,22 @@ typedef struct {
     int define_count;
 } CompilerConfig;
 
+// Variable scope entry
+typedef struct {
+    char* original_name;
+    char* c_name;
+    int scope_level;
+    int is_declared;
+} VariableScopeEntry;
+
+// Variable scope stack
+typedef struct {
+    VariableScopeEntry* entries;
+    int capacity;
+    int count;
+    int current_scope_level;
+} VariableScopeStack;
+
 // Code generation context
 typedef struct {
     CompilerConfig* config;
@@ -54,6 +70,7 @@ typedef struct {
     char* break_labels[100];
     char* continue_labels[100];
     char* catch_labels[100];
+    VariableScopeStack* variable_scope;
 } CodeGenContext;
 
 // Compiler initialization and cleanup
@@ -72,8 +89,18 @@ CodeGenContext* codegen_context_create(CompilerConfig* config, FILE* output);
 void codegen_context_free(CodeGenContext* context);
 void codegen_context_reset(CodeGenContext* context);
 
+// Variable scoping system
+VariableScopeStack* variable_scope_create(void);
+void variable_scope_free(VariableScopeStack* scope);
+void variable_scope_enter(VariableScopeStack* scope);
+void variable_scope_exit(VariableScopeStack* scope);
+char* variable_scope_get_c_name(VariableScopeStack* scope, const char* original_name);
+char* variable_scope_declare_variable(VariableScopeStack* scope, const char* original_name);
+int variable_scope_is_declared(VariableScopeStack* scope, const char* original_name);
+
 // C code generation
 int compiler_generate_c(CompilerConfig* config, ASTNode* ast, const char* output_file);
+int compiler_compile_to_binary(CompilerConfig* config, const char* c_file, const char* binary_file);
 int codegen_generate_c_program(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_statement(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_expression(CodeGenContext* context, ASTNode* node);

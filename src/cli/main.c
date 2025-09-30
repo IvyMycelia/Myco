@@ -1,6 +1,7 @@
 #include "myco.h"
 #include "argument_parser.h"
 #include "file_processor.h"
+#include "repl.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -59,14 +60,15 @@ int main(int argc, char* argv[]) {
             result = process_file(config.input_source, config.interpret, config.compile, config.build, config.debug, config.target, config.architecture, config.output_file, config.optimization_level, config.jit_enabled, config.jit_mode);
         }
     } else {
-        // No input specified, show banner and enter REPL mode
-        print_banner();
-        printf("No input specified. Entering REPL mode...\n");
-        printf("Type 'exit' or 'quit' to exit.\n\n");
-        
-        // TODO: Implement REPL mode
-        printf("REPL mode not yet implemented.\n");
-        result = MYCO_SUCCESS;
+        // No input specified, enter REPL mode
+        REPLState* repl_state = repl_create();
+        if (repl_state) {
+            result = repl_run(repl_state);
+            repl_free(repl_state);
+        } else {
+            fprintf(stderr, "Error: Failed to initialize REPL\n");
+            result = MYCO_ERROR_MEMORY;
+        }
     }
     
     // Cleanup

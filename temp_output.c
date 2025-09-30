@@ -921,7 +921,7 @@ int main(void) {
     myco_print("\\n9. Built-in Libraries...")    ;
     total_tests =     (    total_tests     +     1.000000    )    ;
     char* math = "Module";
-    if (    strcmp(    NULL    , "Module"    ) == 0    ) {
+    if (    strcmp(    "Module"    , "Module"    ) == 0    ) {
         {
             myco_print("[OK] Math library imported")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;
@@ -934,7 +934,7 @@ int main(void) {
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
     char*     test_string     = "hello"    ;
-    if (    (    strcmp(    "String"    , "String"    ) == 0     &&     strcmp(    test_string    ,     NULL    ) != 0    )    ) {
+    if (    (    strcmp(    "String"    , "String"    ) == 0     &&     test_string     !=     NULL    )    ) {
         {
             myco_print("[OK] String type available")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;
@@ -960,7 +960,7 @@ int main(void) {
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
     char* file = "Module";
-    if (    strcmp(    NULL    , "Module"    ) == 0    ) {
+    if (    strcmp(    "Module"    , "Module"    ) == 0    ) {
         {
             myco_print("[OK] File library imported")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;
@@ -973,7 +973,7 @@ int main(void) {
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
     char* dir = "Module";
-    if (    strcmp(    NULL    , "Module"    ) == 0    ) {
+    if (    strcmp(    "Module"    , "Module"    ) == 0    ) {
         {
             myco_print("[OK] Directory library imported")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;
@@ -1011,7 +1011,7 @@ int main(void) {
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
-    char*     test_tree1     =     NULL    ;
+    char*     test_tree1     =     "TreeObject"    ;
     if (    strcmp(    "Tree"    , "Tree"    ) == 0    ) {
         {
             myco_print("[OK] Trees library imported")            ;
@@ -1024,8 +1024,8 @@ int main(void) {
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
-    char*     graphs_test1     =     NULL    ;
-    if (    strcmp(    NULL    , "Graph"    ) == 0    ) {
+    char*     graphs_test1     =     "GraphObject"    ;
+    if (    strcmp(    "Module"    , "Graph"    ) == 0    ) {
         {
             myco_print("[OK] Graphs library imported")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;
@@ -1269,7 +1269,7 @@ int main(void) {
     myco_print("\\n15. Directory Library Functions...")    ;
     total_tests =     (    total_tests     +     1.000000    )    ;
     char*     current_dir     =     NULL    ;
-    if (    (    NULL     !=     NULL     &&     strcmp(    NULL    , "String"    ) == 0    )    ) {
+    if (    (    NULL     !=     NULL     &&     strcmp(    "Module"    , "String"    ) == 0    )    ) {
         {
             myco_print("[OK] Current directory successful")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;
@@ -1282,7 +1282,7 @@ int main(void) {
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
     char*     files     =     NULL    ;
-    if (    (    NULL     !=     NULL     &&     strcmp(    NULL    , "Array"    ) == 0    )    ) {
+    if (    (    NULL     !=     NULL     &&     strcmp(    "Module"    , "Array"    ) == 0    )    ) {
         {
             myco_print("[OK] Directory listing successful")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;
@@ -1531,7 +1531,7 @@ int main(void) {
     }
     myco_print("\\n18. Trees Library Functions...")    ;
     total_tests =     (    total_tests     +     1.000000    )    ;
-    char*     test_tree     =     NULL    ;
+    char*     test_tree     =     "TreeObject"    ;
     if (    (    strcmp(    "Tree"    , "Tree"    ) == 0     &&     test_tree     !=     NULL    )    ) {
         {
             myco_print("[OK] trees.create() successful")            ;
@@ -1610,7 +1610,7 @@ int main(void) {
     }
     myco_print("\\n19. Graphs Library Functions...")    ;
     total_tests =     (    total_tests     +     1.000000    )    ;
-    char*     test_graph     =     NULL    ;
+    char*     test_graph     =     "GraphObject"    ;
     if (    (    strcmp(    "Graph"    , "Graph"    ) == 0     &&     test_graph     !=     NULL    )    ) {
         {
             myco_print("[OK] graphs.create() successful")            ;
@@ -1688,8 +1688,8 @@ int main(void) {
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
-    char*     directed_graph     =     NULL    ;
-    if (    (    strcmp(    NULL    , "Graph"    ) == 0     &&     NULL     !=     NULL    )    ) {
+    char*     directed_graph     =     "GraphObject"    ;
+    if (    (    strcmp(    "Module"    , "Graph"    ) == 0     &&     NULL     !=     NULL    )    ) {
         {
             myco_print("[OK] graphs.create() with directed parameter successful")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;
@@ -1702,7 +1702,7 @@ int main(void) {
     }
     myco_print("\\n20. Heaps Library Functions...")    ;
     total_tests =     (    total_tests     +     1.000000    )    ;
-    char*     test_heap     =     NULL    ;
+    char*     test_heap     =     "HeapObject"    ;
     if (    (    strcmp(    "Unknown"    , "Heap"    ) == 0     &&     test_heap     !=     NULL    )    ) {
         {
             myco_print("[OK] heaps.create() successful")            ;
@@ -1799,7 +1799,7 @@ int main(void) {
     }
     myco_print("\\n21. Queues Library Functions...")    ;
     total_tests =     (    total_tests     +     1.000000    )    ;
-    char*     test_queue     =     NULL    ;
+    char*     test_queue     =     "QueueObject"    ;
     if (    (    strcmp(    "Unknown"    , "Queue"    ) == 0     &&     test_queue     !=     NULL    )    ) {
         {
             myco_print("[OK] queues.create() successful")            ;
@@ -1909,7 +1909,7 @@ int main(void) {
     }
     myco_print("\\n22. Stacks Library Functions...")    ;
     total_tests =     (    total_tests     +     1.000000    )    ;
-    char*     test_stack     =     NULL    ;
+    char*     test_stack     =     "StackObject"    ;
     if (    (    strcmp(    "Unknown"    , "Stack"    ) == 0     &&     test_stack     !=     NULL    )    ) {
         {
             myco_print("[OK] stacks.create() successful")            ;
@@ -3270,7 +3270,7 @@ int main(void) {
     myco_print("\\n=== 20. Time Library Functions ===")    ;
     char* time = "Module";
     total_tests =     (    total_tests     +     1.000000    )    ;
-    if (    strcmp(    NULL    , "Object"    ) == 0    ) {
+    if (    strcmp(    "Module"    , "Object"    ) == 0    ) {
         {
             myco_print("[OK] Time library import works")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;
@@ -3282,7 +3282,7 @@ int main(void) {
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
     char*     current_time     =     NULL    ;
-    if (    strcmp(    NULL    , "Object"    ) == 0    ) {
+    if (    strcmp(    "Module"    , "Object"    ) == 0    ) {
         {
             myco_print("[OK] time.now() returns time object")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;
@@ -3294,7 +3294,7 @@ int main(void) {
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
     char*     specific_time     =     NULL    ;
-    if (    strcmp(    NULL    , "Object"    ) == 0    ) {
+    if (    strcmp(    "Module"    , "Object"    ) == 0    ) {
         {
             myco_print("[OK] time.create() returns time object")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;
@@ -3455,7 +3455,7 @@ int main(void) {
     myco_print("\\n=== 21. Regex Library Functions ===")    ;
     char* regex = "Module";
     total_tests =     (    total_tests     +     1.000000    )    ;
-    if (    strcmp(    NULL    , "Object"    ) == 0    ) {
+    if (    strcmp(    "Module"    , "Object"    ) == 0    ) {
         {
             myco_print("[OK] Regex library import works")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;
@@ -3752,7 +3752,7 @@ int main(void) {
     myco_print("\\n=== 22. JSON Library Functions ===")    ;
     char* json = "Module";
     total_tests =     (    total_tests     +     1.000000    )    ;
-    if (    strcmp(    NULL    , "Object"    ) == 0    ) {
+    if (    strcmp(    "Module"    , "Object"    ) == 0    ) {
         {
             myco_print("[OK] JSON library import works")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;
@@ -3903,7 +3903,7 @@ int main(void) {
     myco_print("\\n=== 23. HTTP Library Functions ===")    ;
     char* http = "Module";
     total_tests =     (    total_tests     +     1.000000    )    ;
-    if (    strcmp(    NULL    , "Object"    ) == 0    ) {
+    if (    strcmp(    "Module"    , "Object"    ) == 0    ) {
         {
             myco_print("[OK] HTTP library import works")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;
@@ -4021,7 +4021,7 @@ int main(void) {
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
     char*     json_response     =     NULL    ;
-    if (    (    strcmp(    NULL    , "String"    ) == 0     ||     NULL     == NULL    )    ) {
+    if (    (    strcmp(    "Module"    , "String"    ) == 0     ||     NULL     == NULL    )    ) {
         {
             myco_print("[OK] http.get_json() works")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;

@@ -843,26 +843,26 @@ int codegen_generate_c_binary_op(CodeGenContext* context, ASTNode* node) {
                                 codegen_write(context, "myco_safe_to_string(");
                 }
                             codegen_write(context, "%s", var_name);
-                codegen_write(context, ")");
+                    codegen_write(context, ")");
                         } else {
                             if (!codegen_generate_c_expression(context, node->data.binary.right)) return 0;
-            }
+                }
             } else {
                 if (!codegen_generate_c_expression(context, node->data.binary.right)) return 0;
             }
                 } else {
-                    if (!codegen_generate_c_expression(context, node->data.binary.right)) return 0;
+                if (!codegen_generate_c_expression(context, node->data.binary.right)) return 0;
                 }
         
                 codegen_write(context, ")");
         return 1;
-            } else {
+                } else {
         // Handle numeric addition
         codegen_write(context, "(");
                     if (!codegen_generate_c_expression(context, node->data.binary.left)) return 0;
         codegen_write(context, " + ");
-                if (!codegen_generate_c_expression(context, node->data.binary.right)) return 0;
-                codegen_write(context, ")");
+                    if (!codegen_generate_c_expression(context, node->data.binary.right)) return 0;
+                    codegen_write(context, ")");
         return 1;
         }
     }
@@ -941,7 +941,7 @@ int codegen_generate_c_binary_op(CodeGenContext* context, ASTNode* node) {
                         strstr(var_name, "post_response") != NULL ||
                         strstr(var_name, "put_response") != NULL) {
                         codegen_write(context, ".status_code == 0");
-        } else {
+            } else {
                         // For other pointer types, use NULL
                         codegen_write(context, " == NULL");
                     }
@@ -972,6 +972,15 @@ int codegen_generate_c_binary_op(CodeGenContext* context, ASTNode* node) {
         }
             break;
         case OP_NOT_EQUAL: 
+            // Check if this is a Null comparison
+            if (node->data.binary.left->type == AST_NODE_NULL || 
+                node->data.binary.right->type == AST_NODE_NULL) {
+                // Use pointer comparison for Null
+                if (!codegen_generate_c_expression(context, node->data.binary.left)) return 0;
+                codegen_write(context, " != ");
+                if (!codegen_generate_c_expression(context, node->data.binary.right)) return 0;
+        return 1;
+            }
             // Check if this is a string comparison
             if (node->data.binary.left->type == AST_NODE_STRING || 
                 node->data.binary.right->type == AST_NODE_STRING ||
@@ -1224,7 +1233,11 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                     strstr(var_name, "json") != NULL || strstr(var_name, "http") != NULL) {
                     
                     // Handle specific method calls on undefined identifiers
-                    if (strcmp(member_access->data.member_access.member_name, "exists") == 0) {
+                    if (strcmp(member_access->data.member_access.member_name, "type") == 0) {
+                        // Handle .type() calls on library objects - return "Module"
+                        codegen_write(context, "\"Module\"");
+                        return 1;
+                    } else if (strcmp(member_access->data.member_access.member_name, "exists") == 0) {
                         // Handle .exists() calls - return 0 as placeholder (boolean false)
                         codegen_write(context, "0");
                         return 1;
@@ -1258,13 +1271,29 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                         // Handle HTTP methods - return HttpResponse struct
                         codegen_write(context, "((HttpResponse){200, \"Object\", \"OK\", \"{}\", 1})");
                         return 1;
-                    } else if (strcmp(member_access->data.member_access.member_name, "create") == 0 ||
-                               strcmp(member_access->data.member_access.member_name, "add_node") == 0 ||
+                    } else if (strcmp(member_access->data.member_access.member_name, "create") == 0) {
+                        // Handle .create() calls - return placeholder object based on library type
+                        const char* var_name = member_access->data.member_access.object->data.identifier_value;
+                        if (strstr(var_name, "graph") != NULL) {
+                            codegen_write(context, "\"GraphObject\"");
+                        } else if (strstr(var_name, "tree") != NULL) {
+                            codegen_write(context, "\"TreeObject\"");
+                        } else if (strstr(var_name, "heap") != NULL) {
+                            codegen_write(context, "\"HeapObject\"");
+                        } else if (strstr(var_name, "queue") != NULL) {
+                            codegen_write(context, "\"QueueObject\"");
+                        } else if (strstr(var_name, "stack") != NULL) {
+                            codegen_write(context, "\"StackObject\"");
+                        } else {
+                            codegen_write(context, "NULL");
+                        }
+                        return 1;
+                    } else if (strcmp(member_access->data.member_access.member_name, "add_node") == 0 ||
                                strcmp(member_access->data.member_access.member_name, "add_edge") == 0 ||
                                strcmp(member_access->data.member_access.member_name, "insert") == 0 ||
                                strcmp(member_access->data.member_access.member_name, "enqueue") == 0 ||
                                strcmp(member_access->data.member_access.member_name, "push") == 0) {
-                        // Handle constructor-like methods - return NULL
+                        // Handle other constructor-like methods - return NULL
                         codegen_write(context, "NULL");
                         return 1;
                     } else if (strcmp(member_access->data.member_access.member_name, "is_empty") == 0 ||
@@ -1472,6 +1501,11 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                     codegen_write(context, "\"Tree\"");
                 } else if (strstr(var_name, "graph") != NULL) {
                     codegen_write(context, "\"Graph\"");
+                } else if (strstr(var_name, "math") != NULL || strstr(var_name, "file") != NULL ||
+                           strstr(var_name, "dir") != NULL || strstr(var_name, "time") != NULL ||
+                           strstr(var_name, "regex") != NULL || strstr(var_name, "json") != NULL ||
+                           strstr(var_name, "http") != NULL) {
+                    codegen_write(context, "\"Module\"");
                 } else if (strstr(var_name, "string") != NULL || strstr(var_name, "name") != NULL) {
                     codegen_write(context, "\"String\"");
                 } else if (strstr(var_name, "num") != NULL || strstr(var_name, "int") != NULL || strstr(var_name, "float") != NULL) {
@@ -2407,8 +2441,21 @@ int codegen_generate_c_member_access(CodeGenContext* context, ASTNode* node) {
                     codegen_write(context, "((HttpResponse){200, \"Object\", \"OK\", \"{}\", 1})");
                     return 1;
                 } else if (strcmp(node->data.member_access.member_name, "create") == 0) {
-                    // Handle .create() calls - return NULL
-                    codegen_write(context, "NULL");
+                    // Handle .create() calls - return placeholder object based on library type
+                    const char* var_name = node->data.member_access.object->data.identifier_value;
+                    if (strstr(var_name, "graph") != NULL) {
+                        codegen_write(context, "\"GraphObject\"");
+                    } else if (strstr(var_name, "tree") != NULL) {
+                        codegen_write(context, "\"TreeObject\"");
+                    } else if (strstr(var_name, "heap") != NULL) {
+                        codegen_write(context, "\"HeapObject\"");
+                    } else if (strstr(var_name, "queue") != NULL) {
+                        codegen_write(context, "\"QueueObject\"");
+                    } else if (strstr(var_name, "stack") != NULL) {
+                        codegen_write(context, "\"StackObject\"");
+                    } else {
+                        codegen_write(context, "NULL");
+                    }
                     return 1;
                 } else {
                     // For other methods on undefined objects, return NULL

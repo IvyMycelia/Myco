@@ -1,0 +1,135 @@
+=== Myco Comprehensive Test Suite ===
+Testing EVERY feature and edge case in Myco
+
+=== 1. BASIC DATA TYPES ===
+1.1. Numbers...
+[OK] Integer variable: 42
+[OK] Float variable: 3.14
+[OK] Negative integer: -10
+[OK] Negative float: -3.14
+[OK] Zero: 0
+\n1.2. Strings...
+[OK] String variable: Myco
+[OK] Empty string: ''
+[OK] String with spaces: hello world
+\n1.3. Booleans...
+[OK] Boolean True: 1
+[OK] Boolean False: 0
+\n1.4. Null...
+[OK] Null variable: Null
+\n=== 2. ARITHMETIC OPERATIONS ===
+2.1. Addition...
+[OK] Integer addition (5 + 3): 8
+[OK] Float addition (2.5 + 1.5): 4
+[OK] Mixed addition (5 + 2.5): 7.5
+[OK] String concatenation: helloworld
+\n2.2. Subtraction...
+[OK] Integer subtraction (10 - 4): 6
+[OK] Float subtraction (5.5 - 2.5): 3
+[OK] Negative result (3 - 5): -2
+\n2.3. Multiplication...
+[OK] Integer multiplication (6 * 7): 42
+[OK] Float multiplication (2.5 * 4): 10
+[OK] Zero multiplication (5 * 0): 0
+\n2.4. Division...
+[OK] Integer division (15 / 3): 5
+[OK] Float division (10.0 / 2.5): 4
+[OK] Division with remainder (7 / 2): 3.5
+\n=== 3. COMPARISON OPERATIONS ===
+3.1. Equality...
+[OK] Integer equality (5 == 5): 1
+[OK] Integer inequality (5 == 6): 0
+[OK] Float equality (3.14 == 3.14): 1
+[OK] String equality ('hello' == 'hello'): 1
+[OK] Boolean equality (True == True): 1
+\n3.2. Inequality...
+[OK] Integer inequality (4 != 6): 1
+[OK] String inequality ('hello' != 'world'): 1
+\n3.3. Greater than...
+[OK] Greater than (10 > 5): 1
+[OK] Not greater than (5 > 10): 0
+\n3.4. Less than...
+[OK] Less than (3 < 7): 1
+[OK] Not less than (7 < 3): 0
+\n3.5. Greater than or equal...
+[OK] Greater than or equal (10 >= 5): 1
+[OK] Equal values (5 >= 5): 1
+\n3.6. Less than or equal...
+[OK] Less than or equal (3 <= 7): 1
+[OK] Equal values (5 <= 5): 1
+\n=== 4. LOGICAL OPERATIONS ===
+4.1. Logical AND...
+[OK] Logical AND (True and True): 1
+[OK] Logical AND false (True and False): 0
+\n4.2. Logical OR...
+[OK] Logical OR (False or True): 1
+[OK] Logical OR false (False or False): 0
+\n4.3. Logical NOT...
+[OK] Logical NOT (not False): 1
+[OK] Logical NOT false (not True): 0
+\n4.4. Complex logical expressions...
+[OK] Complex logical ((True and False) or True): 1
+[OK] Nested NOT (not (True and False)): 1
+\n5. Arrays...
+[FAIL] Simple array: Null
+[FAIL] Nested array: Null
+[FAIL] Mixed type array: Null
+[OK] Empty array: Null
+\n6. String Operations...
+[OK] String concatenation: Hello World
+[OK] Number to string: 42
+[OK] Boolean to string: 1
+\n=== 7. STRING OPERATIONS ===
+7.1. String concatenation...
+[OK] String concatenation: Hello World
+[OK] Number to string: 42
+[FAIL] Boolean to string: 1
+\n7.2. Escape sequences...
+[OK] Escape sequences work
+[OK] Quoted string: He said \"Hello\"
+[OK] Backslash string: Path: C:\\Users\\Name
+\n8. Control Flow...
+[OK] If statement works
+[OK] Else statement works
+\n9. Built-in Libraries...
+[OK] Math library imported
+[OK] String type available
+[FAIL] Array type not available
+[OK] File library imported
+[OK] Directory library imported
+[OK] Maps library available
+[OK] Sets type available
+[OK] Trees library imported
+[FAIL] Graphs library import failed
+\n10. Math Library Functions...
+[OK] Math.Pi: Null
+[OK] Math.E: Null
+[OK] Math.abs(-5): Null
+[OK] Math.min(10, 5): Null
+[OK] Math.max(10, 5): Null
+[OK] Math.sqrt(16): Null
+\n11. String Library Functions...
+[OK] String.upper('hello world'): 
+[OK] String.lower('HELLO WORLD'): 
+[OK] String.trim('  hello  '): ''
+[OK] len('hello'): 5
+\n12. Input Function...
+[OK] Input function available (tested manually)
+\n13. Array Library Functions...
+[OK] Array library imported successfully
+\n13.1. Enhanced Array Operations...
+[FAIL] array.join() failed
+[FAIL] array.contains() with existing value failed
+[OK] array.contains() with missing value
+[FAIL] array.indexOf() with existing value failed
+[FAIL] array.indexOf() with missing value failed
+[FAIL] array.unique() failed
+[FAIL] array.concat() failed
+[FAIL] array.slice() failed
+[OK] array.fill() successful
+\n14. File Library Functions...
+[OK] File write successful
+[FAIL] File exists check failed
+[FAIL] File read failed
+[FAIL] File delete failed
+\n15. Director

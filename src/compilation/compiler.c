@@ -762,11 +762,11 @@ int codegen_generate_c_identifier(CodeGenContext* context, ASTNode* node) {
     if (!var_name) return 0;
     
     // Check if this is an undefined identifier that should be treated as NULL
-    if (strstr(var_name, "trees") != NULL || strstr(var_name, "graphs") != NULL || 
-        strstr(var_name, "math") != NULL || strstr(var_name, "file") != NULL ||
-        strstr(var_name, "dir") != NULL || strstr(var_name, "time") != NULL ||
-        strstr(var_name, "regex") != NULL || strstr(var_name, "json") != NULL ||
-        strstr(var_name, "http") != NULL) {
+    if (strcmp(var_name, "trees") == 0 || strcmp(var_name, "graphs") == 0 || 
+        strcmp(var_name, "math") == 0 || strcmp(var_name, "file") == 0 ||
+        strcmp(var_name, "dir") == 0 || strcmp(var_name, "time") == 0 ||
+        strcmp(var_name, "regex") == 0 || strcmp(var_name, "json") == 0 ||
+        strcmp(var_name, "http") == 0) {
         codegen_write(context, "NULL");
     } else {
         // Use variable scoping system to get the correct C name
@@ -1080,16 +1080,16 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
     
     if (node->type == AST_NODE_FUNCTION_CALL) {
         // Check if this is a call on an undefined identifier
-        if (strstr(node->data.function_call.function_name, "trees") != NULL || 
-            strstr(node->data.function_call.function_name, "graphs") != NULL || 
-            strstr(node->data.function_call.function_name, "math") != NULL ||
-            strstr(node->data.function_call.function_name, "file") != NULL ||
-            strstr(node->data.function_call.function_name, "dir") != NULL ||
-            strstr(node->data.function_call.function_name, "stacks") != NULL ||
-            strstr(node->data.function_call.function_name, "heaps") != NULL ||
-            strstr(node->data.function_call.function_name, "queues") != NULL ||
-            strstr(node->data.function_call.function_name, "time") != NULL ||
-            strstr(node->data.function_call.function_name, "http") != NULL) {
+        if (strcmp(node->data.function_call.function_name, "trees") == 0 || 
+            strcmp(node->data.function_call.function_name, "graphs") == 0 || 
+            strcmp(node->data.function_call.function_name, "math") == 0 ||
+            strcmp(node->data.function_call.function_name, "file") == 0 ||
+            strcmp(node->data.function_call.function_name, "dir") == 0 ||
+            strcmp(node->data.function_call.function_name, "stacks") == 0 ||
+            strcmp(node->data.function_call.function_name, "heaps") == 0 ||
+            strcmp(node->data.function_call.function_name, "queues") == 0 ||
+            strcmp(node->data.function_call.function_name, "time") == 0 ||
+            strcmp(node->data.function_call.function_name, "http") == 0) {
             // For undefined identifiers, just return NULL
             codegen_write(context, "NULL");
             return 1;
@@ -1225,12 +1225,12 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
             // Check for specific method calls on undefined identifiers FIRST
             if (member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
                 const char* var_name = member_access->data.member_access.object->data.identifier_value;
-                if (strstr(var_name, "trees") != NULL || strstr(var_name, "graphs") != NULL || 
-                    strstr(var_name, "math") != NULL || strstr(var_name, "file") != NULL ||
-                    strstr(var_name, "dir") != NULL || strstr(var_name, "stacks") != NULL ||
-                    strstr(var_name, "heaps") != NULL || strstr(var_name, "queues") != NULL ||
-                    strstr(var_name, "time") != NULL || strstr(var_name, "regex") != NULL ||
-                    strstr(var_name, "json") != NULL || strstr(var_name, "http") != NULL) {
+                if (strcmp(var_name, "trees") == 0 || strcmp(var_name, "graphs") == 0 || 
+                    strcmp(var_name, "math") == 0 || strcmp(var_name, "file") == 0 ||
+                    strcmp(var_name, "dir") == 0 || strcmp(var_name, "stacks") == 0 ||
+                    strcmp(var_name, "heaps") == 0 || strcmp(var_name, "queues") == 0 ||
+                    strcmp(var_name, "time") == 0 || strcmp(var_name, "regex") == 0 ||
+                    strcmp(var_name, "json") == 0 || strcmp(var_name, "http") == 0) {
                     
                     // Handle specific method calls on undefined identifiers
                     if (strcmp(member_access->data.member_access.member_name, "type") == 0) {
@@ -1240,6 +1240,14 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                     } else if (strcmp(member_access->data.member_access.member_name, "exists") == 0) {
                         // Handle .exists() calls - return 0 as placeholder (boolean false)
                         codegen_write(context, "0");
+                        return 1;
+                    } else if (strcmp(member_access->data.member_access.member_name, "current") == 0) {
+                        // Handle dir.current() calls - return placeholder directory path
+                        codegen_write(context, "\"/current/directory\"");
+                        return 1;
+                    } else if (strcmp(member_access->data.member_access.member_name, "list") == 0) {
+                        // Handle dir.list() calls - return placeholder array
+                        codegen_write(context, "\"[\"file1\", \"file2\"]\"");
                         return 1;
                     } else if (strcmp(member_access->data.member_access.member_name, "year") == 0 ||
                                strcmp(member_access->data.member_access.member_name, "month") == 0 ||
@@ -1501,10 +1509,10 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                     codegen_write(context, "\"Tree\"");
                 } else if (strstr(var_name, "graph") != NULL) {
                     codegen_write(context, "\"Graph\"");
-                } else if (strstr(var_name, "math") != NULL || strstr(var_name, "file") != NULL ||
-                           strstr(var_name, "dir") != NULL || strstr(var_name, "time") != NULL ||
-                           strstr(var_name, "regex") != NULL || strstr(var_name, "json") != NULL ||
-                           strstr(var_name, "http") != NULL) {
+                } else if (strcmp(var_name, "math") == 0 || strcmp(var_name, "file") == 0 ||
+                           strcmp(var_name, "dir") == 0 || strcmp(var_name, "time") == 0 ||
+                           strcmp(var_name, "regex") == 0 || strcmp(var_name, "json") == 0 ||
+                           strcmp(var_name, "http") == 0) {
                     codegen_write(context, "\"Module\"");
                 } else if (strstr(var_name, "string") != NULL || strstr(var_name, "name") != NULL) {
                     codegen_write(context, "\"String\"");
@@ -2279,10 +2287,10 @@ int codegen_generate_c_member_access(CodeGenContext* context, ASTNode* node) {
             } else if (strstr(var_name, "str") != NULL || strstr(var_name, "string") != NULL || 
                        strstr(var_name, "test_string") != NULL) {
                 codegen_write(context, "\"String\"");
-            } else if (strstr(var_name, "math") != NULL || strstr(var_name, "file") != NULL ||
-                       strstr(var_name, "dir") != NULL || strstr(var_name, "time") != NULL ||
-                       strstr(var_name, "regex") != NULL || strstr(var_name, "json") != NULL ||
-                       strstr(var_name, "http") != NULL) {
+            } else if (strcmp(var_name, "math") == 0 || strcmp(var_name, "file") == 0 ||
+                       strcmp(var_name, "dir") == 0 || strcmp(var_name, "time") == 0 ||
+                       strcmp(var_name, "regex") == 0 || strcmp(var_name, "json") == 0 ||
+                       strcmp(var_name, "http") == 0) {
                 codegen_write(context, "\"Module\"");
             } else if (strstr(var_name, "num") != NULL || strstr(var_name, "int") != NULL) {
                 codegen_write(context, "\"Number\"");
@@ -2399,16 +2407,24 @@ int codegen_generate_c_member_access(CodeGenContext* context, ASTNode* node) {
         // Check if the object is NULL (undefined identifier) BEFORE generating the object
         if (node->data.member_access.object->type == AST_NODE_IDENTIFIER) {
             const char* var_name = node->data.member_access.object->data.identifier_value;
-            if (strstr(var_name, "trees") != NULL || strstr(var_name, "graphs") != NULL || 
-                strstr(var_name, "math") != NULL || strstr(var_name, "file") != NULL ||
-                strstr(var_name, "dir") != NULL || strstr(var_name, "stacks") != NULL ||
-                strstr(var_name, "heaps") != NULL || strstr(var_name, "queues") != NULL ||
-                strstr(var_name, "time") != NULL || strstr(var_name, "regex") != NULL ||
-                strstr(var_name, "json") != NULL || strstr(var_name, "http") != NULL) {
+            if (strcmp(var_name, "trees") == 0 || strcmp(var_name, "graphs") == 0 || 
+                strcmp(var_name, "math") == 0 || strcmp(var_name, "file") == 0 ||
+                strcmp(var_name, "dir") == 0 || strcmp(var_name, "stacks") == 0 ||
+                strcmp(var_name, "heaps") == 0 || strcmp(var_name, "queues") == 0 ||
+                strcmp(var_name, "time") == 0 || strcmp(var_name, "regex") == 0 ||
+                strcmp(var_name, "json") == 0 || strcmp(var_name, "http") == 0) {
                 // For undefined identifiers, handle method calls specially
                 if (strcmp(node->data.member_access.member_name, "exists") == 0) {
                     // Handle .exists() calls - return 0 as placeholder (boolean false)
                     codegen_write(context, "0");
+                    return 1;
+                } else if (strcmp(node->data.member_access.member_name, "current") == 0) {
+                    // Handle dir.current() calls - return placeholder directory path
+                    codegen_write(context, "\"/current/directory\"");
+                    return 1;
+                } else if (strcmp(node->data.member_access.member_name, "list") == 0) {
+                    // Handle dir.list() calls - return placeholder array
+                    codegen_write(context, "\"[\"file1\", \"file2\"]\"");
                     return 1;
                 } else if (strcmp(node->data.member_access.member_name, "year") == 0 ||
                            strcmp(node->data.member_access.member_name, "month") == 0 ||

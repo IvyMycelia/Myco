@@ -1025,7 +1025,7 @@ int main(void) {
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
     char*     graphs_test1     =     "GraphObject"    ;
-    if (    strcmp(    "Module"    , "Graph"    ) == 0    ) {
+    if (    strcmp(    "Graph"    , "Graph"    ) == 0    ) {
         {
             myco_print("[OK] Graphs library imported")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;
@@ -1268,8 +1268,8 @@ int main(void) {
     }
     myco_print("\\n15. Directory Library Functions...")    ;
     total_tests =     (    total_tests     +     1.000000    )    ;
-    char*     current_dir     =     NULL    ;
-    if (    (    NULL     !=     NULL     &&     strcmp(    "Module"    , "String"    ) == 0    )    ) {
+    char*     current_dir     =     "/current/directory"    ;
+    if (    (    current_dir     !=     NULL     &&     strcmp(    "Unknown"    , "String"    ) == 0    )    ) {
         {
             myco_print("[OK] Current directory successful")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;
@@ -1281,8 +1281,8 @@ int main(void) {
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
-    char*     files     =     NULL    ;
-    if (    (    NULL     !=     NULL     &&     strcmp(    "Module"    , "Array"    ) == 0    )    ) {
+    char*     files     =     "["file1", "file2"]"    ;
+    if (    (    files     !=     NULL     &&     strcmp(    "Unknown"    , "Array"    ) == 0    )    ) {
         {
             myco_print("[OK] Directory listing successful")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;
@@ -1689,7 +1689,7 @@ int main(void) {
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
     char*     directed_graph     =     "GraphObject"    ;
-    if (    (    strcmp(    "Module"    , "Graph"    ) == 0     &&     NULL     !=     NULL    )    ) {
+    if (    (    strcmp(    "Graph"    , "Graph"    ) == 0     &&     directed_graph     !=     NULL    )    ) {
         {
             myco_print("[OK] graphs.create() with directed parameter successful")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;
@@ -3282,7 +3282,7 @@ int main(void) {
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
     char*     current_time     =     NULL    ;
-    if (    strcmp(    "Module"    , "Object"    ) == 0    ) {
+    if (    strcmp(    "Unknown"    , "Object"    ) == 0    ) {
         {
             myco_print("[OK] time.now() returns time object")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;
@@ -3294,7 +3294,7 @@ int main(void) {
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
     char*     specific_time     =     NULL    ;
-    if (    strcmp(    "Module"    , "Object"    ) == 0    ) {
+    if (    strcmp(    "Unknown"    , "Object"    ) == 0    ) {
         {
             myco_print("[OK] time.create() returns time object")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;
@@ -4021,7 +4021,7 @@ int main(void) {
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
     char*     json_response     =     NULL    ;
-    if (    (    strcmp(    "Module"    , "String"    ) == 0     ||     NULL     == NULL    )    ) {
+    if (    (    strcmp(    "Unknown"    , "String"    ) == 0     ||     json_response     == NULL    )    ) {
         {
             myco_print("[OK] http.get_json() works")            ;
             tests_passed =             (            tests_passed             +             1.000000            )            ;

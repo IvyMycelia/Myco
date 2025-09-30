@@ -15,6 +15,7 @@ char* placeholder_getName() { return "TestName"; }
 double placeholder_process() { return 100.0; }
 double placeholder_calculate() { return 3.14159; }
 char* placeholder_speak() { return "Woof!"; }
+void* placeholder_lambda() { return NULL; }
 
 typedef struct {
     int status_code;
@@ -113,7 +114,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Integer variable: "            ,             myco_number_to_string(            x            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -126,7 +127,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Float variable: "            ,             myco_number_to_string(            y            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -139,7 +140,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Negative integer: "            ,             myco_number_to_string(            neg_int            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -152,7 +153,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Negative float: "            ,             myco_number_to_string(            neg_float            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -165,7 +166,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Zero: "            ,             myco_number_to_string(            zero            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n1.2. Strings...")    ;
@@ -179,7 +180,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] String variable: "            ,             name            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -192,7 +193,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat(            myco_string_concat("[FAIL] Empty string: '"            ,             empty_str            )            , "'"            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -205,7 +206,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] String with spaces: "            ,             spaced_str            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n1.3. Booleans...")    ;
@@ -219,7 +220,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Boolean True: "            ,             myco_number_to_string(            flag            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -232,7 +233,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Boolean False: "            ,             myco_number_to_string(            false_flag            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n1.4. Null...")    ;
@@ -246,7 +247,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Null variable: "            ,             myco_string_to_string(            null_var            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n=== 2. ARITHMETIC OPERATIONS ===")    ;
@@ -261,7 +262,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Integer addition (5 + 3): "            ,             myco_number_to_string(            a            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -274,7 +275,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Float addition (2.5 + 1.5): "            ,             myco_number_to_string(            float_add            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -287,7 +288,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Mixed addition (5 + 2.5): "            ,             myco_number_to_string(            mixed_add            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -300,7 +301,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] String concatenation: "            ,             str_concat            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n2.2. Subtraction...")    ;
@@ -314,7 +315,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Integer subtraction (10 - 4): "            ,             myco_number_to_string(            b            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -327,7 +328,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Float subtraction (5.5 - 2.5): "            ,             myco_number_to_string(            float_sub            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -340,7 +341,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Negative result (3 - 5): "            ,             myco_number_to_string(            neg_result            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n2.3. Multiplication...")    ;
@@ -354,7 +355,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Integer multiplication (6 * 7): "            ,             myco_number_to_string(            c            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -367,7 +368,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Float multiplication (2.5 * 4): "            ,             myco_number_to_string(            float_mult            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -380,7 +381,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Zero multiplication (5 * 0): "            ,             myco_number_to_string(            zero_mult            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n2.4. Division...")    ;
@@ -394,7 +395,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Integer division (15 / 3): "            ,             myco_number_to_string(            d            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -407,7 +408,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Float division (10.0 / 2.5): "            ,             myco_number_to_string(            float_div            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -420,7 +421,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Division with remainder (7 / 2): "            ,             myco_number_to_string(            remainder_div            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n=== 3. COMPARISON OPERATIONS ===")    ;
@@ -435,7 +436,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Integer equality (5 == 5): "            ,             myco_number_to_string(            comp3            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -448,7 +449,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Integer inequality (5 == 6): "            ,             myco_number_to_string(            comp_neq            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -461,7 +462,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Float equality (3.14 == 3.14): "            ,             myco_number_to_string(            float_eq            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -474,7 +475,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] String equality ('hello' == 'hello'): "            ,             myco_number_to_string(            str_eq            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -487,7 +488,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Boolean equality (True == True): "            ,             myco_number_to_string(            bool_eq            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n3.2. Inequality...")    ;
@@ -501,7 +502,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Integer inequality (4 != 6): "            ,             myco_number_to_string(            comp4            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -514,7 +515,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] String inequality ('hello' != 'world'): "            ,             myco_number_to_string(            str_neq            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n3.3. Greater than...")    ;
@@ -528,7 +529,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Greater than (10 > 5): "            ,             myco_number_to_string(            comp1            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -541,7 +542,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Not greater than (5 > 10): "            ,             myco_number_to_string(            comp1_false            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n3.4. Less than...")    ;
@@ -555,7 +556,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Less than (3 < 7): "            ,             myco_number_to_string(            comp2            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -568,7 +569,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Not less than (7 < 3): "            ,             myco_number_to_string(            comp2_false            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n3.5. Greater than or equal...")    ;
@@ -582,7 +583,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Greater than or equal (10 >= 5): "            ,             myco_number_to_string(            gte_true            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -595,7 +596,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Equal values (5 >= 5): "            ,             myco_number_to_string(            gte_equal            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n3.6. Less than or equal...")    ;
@@ -609,7 +610,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Less than or equal (3 <= 7): "            ,             myco_number_to_string(            lte_true            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -622,7 +623,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Equal values (5 <= 5): "            ,             myco_number_to_string(            lte_equal            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n=== 4. LOGICAL OPERATIONS ===")    ;
@@ -637,7 +638,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Logical AND (True and True): "            ,             myco_number_to_string(            log1            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -650,7 +651,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Logical AND false (True and False): "            ,             myco_number_to_string(            log1_false            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n4.2. Logical OR...")    ;
@@ -664,7 +665,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Logical OR (False or True): "            ,             myco_number_to_string(            log2            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -677,7 +678,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Logical OR false (False or False): "            ,             myco_number_to_string(            log2_false            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n4.3. Logical NOT...")    ;
@@ -691,7 +692,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Logical NOT (not False): "            ,             myco_number_to_string(            log3            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -704,7 +705,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Logical NOT false (not True): "            ,             myco_number_to_string(            log3_false            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n4.4. Complex logical expressions...")    ;
@@ -718,7 +719,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Complex logical ((True and False) or True): "            ,             myco_number_to_string(            complex_log            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -731,7 +732,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Nested NOT (not (True and False)): "            ,             myco_number_to_string(            nested_not            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n5. Arrays...")    ;
@@ -745,7 +746,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Simple array: "            ,             myco_string_to_string(            arr            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -758,7 +759,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Nested array: "            ,             myco_string_to_string(            nested            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -771,7 +772,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Mixed type array: "            ,             myco_string_to_string(            mixed            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -784,7 +785,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Empty array: "            ,             myco_string_to_string(            empty            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n6. String Operations...")    ;
@@ -816,7 +817,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] String concatenation: "            ,             combined_2            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -829,7 +830,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Number to string: "            ,             num_str_2            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -842,7 +843,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Boolean to string: "            ,             bool_str_2            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n7.2. Escape sequences...")    ;
@@ -856,7 +857,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Escape sequences work")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -869,7 +870,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Quoted string: "            ,             quoted_str            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -882,7 +883,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Backslash string: "            ,             backslash_str            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n8. Control Flow...")    ;
@@ -895,14 +896,14 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] If statement")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
     if (    3.000000     <     2.000000    ) {
         {
             myco_print("[FAIL] This should not print")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     } else {
         {
@@ -914,12 +915,12 @@ int main(void) {
     if (    1.000000     >     2.000000    ) {
         {
             myco_print("[FAIL] This should not print")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n9. Built-in Libraries...")    ;
     total_tests =     (    total_tests     +     1.000000    )    ;
-    // Unsupported statement type: 34
+    char* math = "Module";
     if (    strcmp(    NULL    , "Module"    ) == 0    ) {
         {
             myco_print("[OK] Math library imported")            ;
@@ -928,7 +929,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Math library import failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -941,7 +942,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] String type not available")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -954,11 +955,11 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Array type not available")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
-    // Unsupported statement type: 34
+    char* file = "Module";
     if (    strcmp(    NULL    , "Module"    ) == 0    ) {
         {
             myco_print("[OK] File library imported")            ;
@@ -967,11 +968,11 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] File library import failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
-    // Unsupported statement type: 34
+    char* dir = "Module";
     if (    strcmp(    NULL    , "Module"    ) == 0    ) {
         {
             myco_print("[OK] Directory library imported")            ;
@@ -980,7 +981,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Directory library import failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -993,7 +994,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Maps library not available")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1006,7 +1007,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Sets type not available")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1019,7 +1020,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Trees library import failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1032,7 +1033,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Graphs library import failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n10. Math Library Functions...")    ;
@@ -1100,7 +1101,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] array.join() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1113,7 +1114,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] array.contains() with existing value failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1126,7 +1127,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] array.contains() with missing value failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1139,7 +1140,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] array.indexOf() with existing value failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1152,7 +1153,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] array.indexOf() with missing value failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1166,7 +1167,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] array.unique() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1181,7 +1182,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] array.concat() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1194,7 +1195,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] array.slice() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1208,7 +1209,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] array.fill() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n14. File Library Functions...")    ;
@@ -1223,7 +1224,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] File write failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1236,7 +1237,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] File exists check failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1249,7 +1250,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] File read failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1262,7 +1263,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] File delete failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n15. Directory Library Functions...")    ;
@@ -1276,7 +1277,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Current directory failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1289,7 +1290,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Directory listing failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1308,7 +1309,7 @@ int main(void) {
             } else {
                 {
                     myco_print("[FAIL] Directory exists check failed")                    ;
-                    tests_failed =                     0                    ;
+                    tests_failed =                     tests_failed                    ;
                 }
             }
             // Unsupported statement type: 32
@@ -1316,7 +1317,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Directory creation failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n16. Maps Library Functions...")    ;
@@ -1331,7 +1332,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] maps.has() with existing key failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1344,7 +1345,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] maps.has() with missing key failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1357,7 +1358,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] maps.size() failed: "            ,             myco_number_to_string((double)            map_size            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1370,7 +1371,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] maps.keys() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1384,7 +1385,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] maps.delete() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1399,7 +1400,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] maps.update() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1418,7 +1419,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] set.has() with existing element failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1431,7 +1432,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] set.has() with missing element failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1444,7 +1445,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] set.size() failed: "            ,             myco_number_to_string((double)            set_size            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1458,7 +1459,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] set.add() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1472,7 +1473,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] set.remove() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1485,7 +1486,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] set.toArray() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1499,7 +1500,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] set.union() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1512,7 +1513,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] set.intersection() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1525,7 +1526,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] set.clear() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n18. Trees Library Functions...")    ;
@@ -1539,7 +1540,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] trees.create() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1552,7 +1553,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] trees.size() failed: "            ,             myco_number_to_string((double)            tree_size            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1565,7 +1566,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] trees.isEmpty() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1578,7 +1579,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] trees.insert() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1591,7 +1592,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] trees.search() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1604,7 +1605,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] trees.clear() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n19. Graphs Library Functions...")    ;
@@ -1618,7 +1619,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] graphs.create() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1631,7 +1632,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] graphs.size() failed: "            ,             myco_number_to_string((double)            graph_size            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1644,7 +1645,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] graphs.is_empty() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1657,7 +1658,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] graphs.add_node() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1670,7 +1671,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] graphs.add_edge() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1683,7 +1684,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] graphs.clear() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1696,7 +1697,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] graphs.create() with directed parameter failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n20. Heaps Library Functions...")    ;
@@ -1710,7 +1711,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] heaps.create() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1723,7 +1724,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] heaps.size() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1736,7 +1737,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] heaps.isEmpty() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1752,7 +1753,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] heaps.insert() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1765,7 +1766,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] heaps.peek() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1779,7 +1780,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] heaps.extract() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1793,7 +1794,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] heaps.clear() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n21. Queues Library Functions...")    ;
@@ -1807,7 +1808,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] queues.create() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1820,7 +1821,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] queues.size() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1833,7 +1834,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] queues.isEmpty() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1849,7 +1850,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] queues.enqueue() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1862,7 +1863,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] queues.front() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1875,7 +1876,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] queues.back() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1889,7 +1890,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] queues.dequeue() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1903,7 +1904,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] queues.clear() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n22. Stacks Library Functions...")    ;
@@ -1917,7 +1918,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] stacks.create() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1930,7 +1931,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] stacks.size() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1943,7 +1944,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] stacks.isEmpty() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1959,7 +1960,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] stacks.push() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1972,7 +1973,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] stacks.top() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -1986,7 +1987,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] stacks.pop() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2000,7 +2001,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] stacks.clear() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n=== 23. BUILT-IN FUNCTIONS ===")    ;
@@ -2015,7 +2016,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] 42.type(): "            ,             type_result            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2028,7 +2029,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] 3.14.type(): "            ,             type_float            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2041,7 +2042,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] 'hello'.type(): "            ,             type_str            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2054,7 +2055,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] True.type(): "            ,             type_bool            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2067,7 +2068,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Null.type(): "            ,             type_null            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2080,7 +2081,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] [1,2,3].type(): "            ,             type_array            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n13.2. Length function...")    ;
@@ -2094,7 +2095,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] len('hello'): "            ,             myco_number_to_string((double)            len_builtin            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2107,7 +2108,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] len(''): "            ,             myco_number_to_string((double)            len_empty            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2120,7 +2121,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] len([1,2,3]): "            ,             myco_number_to_string((double)            len_array            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n13.3. String conversion...")    ;
@@ -2134,7 +2135,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] toString(3.14): "            ,             str_builtin            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2147,7 +2148,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] toString(False): "            ,             str_bool            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2160,7 +2161,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] toString(Null): "            ,             str_null            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2173,7 +2174,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] toString([1,2,3]): "            ,             str_array            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n=== 14. UNION TYPES ===")    ;
@@ -2188,7 +2189,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Union type with String value: "            ,             union_str            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2201,7 +2202,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Union type with Int value: "            ,             myco_safe_to_string(            union_int            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("14.2. Union type with multiple types...")    ;
@@ -2215,7 +2216,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Union type with Bool value: "            ,             myco_string_to_string(            mixed_union            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2228,7 +2229,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Union type with String value: "            ,             mixed_union2            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("14.3. Union type type checking...")    ;
@@ -2242,7 +2243,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Union type type() returns correct type for String: "            ,             type_check_str            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2255,7 +2256,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Union type type() returns correct type for Int: "            ,             type_check_int            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("14.4. Union type parsing and representation...")    ;
@@ -2269,7 +2270,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Union type parsing with three types: "            ,             union_parsing            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2282,7 +2283,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Union type with Float: "            ,             myco_safe_to_string(            union_float            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("14.5. Union type edge cases...")    ;
@@ -2296,7 +2297,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Union type with Null: "            ,             myco_safe_to_string(            union_null            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2309,7 +2310,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Union type with Bool: "            ,             myco_safe_to_string((void*)(intptr_t)            union_bool            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n=== 15. OPTIONAL TYPES ===")    ;
@@ -2324,7 +2325,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Optional string: "            ,             optional_string            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2337,7 +2338,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Optional null: "            ,             myco_safe_to_string(            optional_null            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("15.2. Optional types with different base types...")    ;
@@ -2351,7 +2352,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Optional array: "            ,             myco_safe_to_string(            optional_array            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("15.3. Optional type checking...")    ;
@@ -2364,7 +2365,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Optional string type: "            ,             "String"            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2376,7 +2377,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Optional null type: "            ,             "Null"            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("15.4. Optional types with match statements...")    ;
@@ -2391,7 +2392,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Match with optional string: "            ,             match_result            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2405,7 +2406,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Match with optional null: "            ,             match_result            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("15.5. Optional union types...")    ;
@@ -2419,7 +2420,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Optional union: "            ,             myco_safe_to_string(            optional_union            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n=== 16. TYPE GUARDS ===")    ;
@@ -2433,14 +2434,14 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] isString('hello'): False")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
     if (    isString((void*)(intptr_t)    42.000000)    ) {
         {
             myco_print("[FAIL] isString(42): True")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     } else {
         {
@@ -2458,14 +2459,14 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] isInt(42): False")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
     if (    isInt((void*)(intptr_t)    3.140000)    ) {
         {
             myco_print("[FAIL] isInt(3.14): True")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     } else {
         {
@@ -2483,14 +2484,14 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] isFloat(3.14): False")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
     if (    isFloat((void*)(intptr_t)    42.000000)    ) {
         {
             myco_print("[FAIL] isFloat(42): True")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     } else {
         {
@@ -2508,14 +2509,14 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] isBool(True): False")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
     if (    isBool((void*)(intptr_t)    42.000000)    ) {
         {
             myco_print("[FAIL] isBool(42): True")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     } else {
         {
@@ -2533,14 +2534,14 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] isArray([1, 2, 3]): False")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
     if (    isArray((void*)"hello")    ) {
         {
             myco_print("[FAIL] isArray('hello'): True")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     } else {
         {
@@ -2558,14 +2559,14 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] isNull(Null): False")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
     if (    isNull((void*)"hello")    ) {
         {
             myco_print("[FAIL] isNull('hello'): True")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     } else {
         {
@@ -2583,7 +2584,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] isNumber(42): False")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2595,14 +2596,14 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] isNumber(3.14): False")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
     if (    isNumber((void*)"hello")    ) {
         {
             myco_print("[FAIL] isNumber('hello'): True")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     } else {
         {
@@ -2621,7 +2622,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] isString(optional_string): False")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2634,7 +2635,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] isNull(optional_null): False")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("16.9. Type guards in conditional logic...")    ;
@@ -2682,7 +2683,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Type guard conditional logic: "            ,             type_result_2            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n=== 17. EDGE CASES ===")    ;
@@ -2697,7 +2698,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Zero addition (0 + 0): "            ,             myco_number_to_string(            zero_add            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2710,7 +2711,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Zero multiplication (0 * 5): "            ,             myco_number_to_string(            zero_mult_2            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2723,7 +2724,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Negative addition (-5 + 3): "            ,             myco_number_to_string(            neg_add            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n17.2. Large numbers...")    ;
@@ -2737,7 +2738,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Large addition (999999 + 1): "            ,             myco_number_to_string(            large_add            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2750,7 +2751,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Large multiplication (1000 * 1000): "            ,             myco_number_to_string(            large_mult            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n17.3. Floating point precision...")    ;
@@ -2764,7 +2765,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Float precision (0.1 + 0.2 > 0.3): "            ,             myco_number_to_string(            float_prec            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2777,7 +2778,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Float equality (1.0 == 1): "            ,             myco_number_to_string(            float_eq_2            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n17.4. Empty values...")    ;
@@ -2791,7 +2792,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Empty string length: "            ,             myco_number_to_string((double)            empty_str_len            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2804,7 +2805,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Empty array length: "            ,             myco_number_to_string((double)            empty_array_len            )            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -2817,7 +2818,7 @@ int main(void) {
     } else {
         {
             myco_print(            myco_string_concat("[FAIL] Empty string concatenation: "            ,             empty_concat            ))            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n=== 18. ERROR HANDLING (Expected Errors) ===")    ;
@@ -2834,7 +2835,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Simple function definition failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n18.2. Function with single parameter (no return type)...")    ;
@@ -2847,7 +2848,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Function with single parameter failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n18.3. Function with multiple parameters (no return type)...")    ;
@@ -2860,7 +2861,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Function with multiple parameters failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n18.4. Function definitions (with return types)...")    ;
@@ -2873,7 +2874,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Function definitions with return types failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n18.4. Function definitions (mixed explicit/implicit types)...")    ;
@@ -2886,7 +2887,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Function definitions with mixed types failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n18.5. Function calls (no parameters)...")    ;
@@ -2901,7 +2902,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Function calls with no parameters failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n18.6. Function calls (with parameters)...")    ;
@@ -2912,11 +2913,11 @@ int main(void) {
     myco_print("\\n18.11. Function scope and closures...")    ;
     myco_print("\\n18.12. Function error handling...")    ;
     myco_print("\\n18.13. Lambda functions (anonymous functions)...")    ;
-    void*     simple_lambda     =     NULL    ;
-    void*     add_lambda     =     NULL    ;
-    void*     multiply_lambda     =     NULL    ;
-    void*     greet_lambda     =     NULL    ;
-    void*     mixed_lambda     =     NULL    ;
+    void*     simple_lambda     =     placeholder_lambda    ;
+    void*     add_lambda     =     placeholder_lambda    ;
+    void*     multiply_lambda     =     placeholder_lambda    ;
+    void*     greet_lambda     =     placeholder_lambda    ;
+    void*     mixed_lambda     =     placeholder_lambda    ;
     total_tests =     (    total_tests     +     1.000000    )    ;
     if (    (    (    (    (    strcmp(    "Unknown"    , "Function"    ) == 0     &&     strcmp(    "Unknown"    , "Function"    ) == 0    )     &&     strcmp(    "Unknown"    , "Function"    ) == 0    )     &&     strcmp(    "Unknown"    , "Function"    ) == 0    )     &&     strcmp(    "Unknown"    , "Function"    ) == 0    )    ) {
         {
@@ -2926,13 +2927,13 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Lambda functions (anonymous functions) failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n18.14. Function variable assignments...")    ;
-    void*     my_square     =     NULL    ;
-    void*     my_add     =     NULL    ;
-    void*     my_greet     =     NULL    ;
+    void*     my_square     =     placeholder_lambda    ;
+    void*     my_add     =     placeholder_lambda    ;
+    void*     my_greet     =     placeholder_lambda    ;
     total_tests =     (    total_tests     +     1.000000    )    ;
     if (    (    (    strcmp(    "Unknown"    , "Function"    ) == 0     &&     strcmp(    "Unknown"    , "Function"    ) == 0    )     &&     strcmp(    "Unknown"    , "Function"    ) == 0    )    ) {
         {
@@ -2942,14 +2943,14 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Function variable assignments failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n18.15. Lambda functions with different parameter types...")    ;
-    void*     no_params_lambda     =     NULL    ;
-    void*     single_param_lambda     =     NULL    ;
-    void*     multi_param_lambda     =     NULL    ;
-    void*     typed_param_lambda     =     NULL    ;
+    void*     no_params_lambda     =     placeholder_lambda    ;
+    void*     single_param_lambda     =     placeholder_lambda    ;
+    void*     multi_param_lambda     =     placeholder_lambda    ;
+    void*     typed_param_lambda     =     placeholder_lambda    ;
     total_tests =     (    total_tests     +     1.000000    )    ;
     if (    (    (    (    strcmp(    "Unknown"    , "Function"    ) == 0     &&     strcmp(    "Unknown"    , "Function"    ) == 0    )     &&     strcmp(    "Unknown"    , "Function"    ) == 0    )     &&     strcmp(    "Unknown"    , "Function"    ) == 0    )    ) {
         {
@@ -2959,7 +2960,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Lambda functions with different parameter types failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n18.16. Explicit function with all types...")    ;
@@ -2975,14 +2976,14 @@ int main(void) {
             } else {
                 {
                     myco_print("[FAIL] Explicit function with all types failed")                    ;
-                    tests_failed =                     0                    ;
+                    tests_failed =                     tests_failed                    ;
                 }
             }
         }
     } else {
         {
             myco_print("[FAIL] Explicit function with all types failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n18.17. Implicit function with no types...")    ;
@@ -3007,7 +3008,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Class with default field values failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3023,7 +3024,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Class instantiation failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3040,7 +3041,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Class with methods failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3057,7 +3058,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Class with self references failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3075,7 +3076,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Class with mixed field types failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3093,7 +3094,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Class with typed methods failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3110,7 +3111,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Class with untyped methods failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3128,7 +3129,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Class with complex method bodies failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n=== 19. INHERITANCE TESTS ===")    ;
@@ -3149,7 +3150,7 @@ int main(void) {
         {
             myco_print("[FAIL] Basic inheritance parsing failed")            ;
             total_tests =             (            total_tests             +             1.000000            )            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     Dog     dog     =     {"Buddy"    }    ;
@@ -3161,7 +3162,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Field inheritance")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3174,7 +3175,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Method overriding")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     typedef struct {
@@ -3192,7 +3193,7 @@ int main(void) {
         {
             myco_print("[FAIL] Multi-level inheritance parsing failed")            ;
             total_tests =             (            total_tests             +             1.000000            )            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     Puppy     puppy     =     {"Max"    ,     6.000000    }    ;
@@ -3204,7 +3205,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Inheritance with additional fields")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     typedef struct {
@@ -3222,7 +3223,7 @@ int main(void) {
         {
             myco_print("[FAIL] Inheritance without method override failed")            ;
             total_tests =             (            total_tests             +             1.000000            )            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     typedef struct {
@@ -3244,7 +3245,7 @@ int main(void) {
         {
             myco_print("[FAIL] Complex inheritance chain failed")            ;
             total_tests =             (            total_tests             +             1.000000            )            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     typedef struct {
@@ -3267,7 +3268,7 @@ int main(void) {
     total_tests =     (    total_tests     +     1.000000    )    ;
     tests_passed =     (    tests_passed     +     1.000000    )    ;
     myco_print("\\n=== 20. Time Library Functions ===")    ;
-    // Unsupported statement type: 34
+    char* time = "Module";
     total_tests =     (    total_tests     +     1.000000    )    ;
     if (    strcmp(    NULL    , "Object"    ) == 0    ) {
         {
@@ -3452,7 +3453,7 @@ int main(void) {
         }
     }
     myco_print("\\n=== 21. Regex Library Functions ===")    ;
-    // Unsupported statement type: 34
+    char* regex = "Module";
     total_tests =     (    total_tests     +     1.000000    )    ;
     if (    strcmp(    NULL    , "Object"    ) == 0    ) {
         {
@@ -3462,7 +3463,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Regex library import failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3475,7 +3476,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] regex.match() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3488,7 +3489,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] regex.match() should return Null for no match")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3501,7 +3502,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] regex.test() failed for existing pattern")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3514,7 +3515,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] regex.test() failed for non-existing pattern")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3527,7 +3528,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] regex.is_email() failed for valid email")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3540,7 +3541,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] regex.is_email() failed for invalid email")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3553,7 +3554,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] regex.is_url() failed for valid URL")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3566,7 +3567,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] regex.is_url() failed for invalid URL")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3579,7 +3580,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] regex.is_ip() failed for valid IP")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3592,7 +3593,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] regex.is_ip() failed for invalid IP")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3605,7 +3606,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] regex.CASE_INSENSITIVE flag failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3618,7 +3619,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] regex.GLOBAL flag failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3631,7 +3632,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] regex.MULTILINE flag failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3644,7 +3645,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] regex.DOTALL flag failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3657,7 +3658,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Complex regex patterns failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3670,7 +3671,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Regex with special characters failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3686,7 +3687,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Multiple email format validation failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3702,7 +3703,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Multiple URL format validation failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3718,7 +3719,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Multiple IP format validation failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3731,7 +3732,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Regex error handling failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3745,11 +3746,11 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] Regex with empty strings failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n=== 22. JSON Library Functions ===")    ;
-    // Unsupported statement type: 34
+    char* json = "Module";
     total_tests =     (    total_tests     +     1.000000    )    ;
     if (    strcmp(    NULL    , "Object"    ) == 0    ) {
         {
@@ -3759,7 +3760,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] JSON library import failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3772,7 +3773,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] json.stringify() failed for strings")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3785,7 +3786,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] json.stringify() failed for numbers")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3798,7 +3799,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] json.stringify() failed for booleans")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3811,7 +3812,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] json.stringify() failed for null")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3825,7 +3826,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] json.stringify() failed for arrays")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3839,7 +3840,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] json.validate() failed for valid JSON")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3853,7 +3854,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] json.validate() failed for invalid JSON")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3867,7 +3868,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] json.size() failed for arrays")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3883,7 +3884,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] json.is_empty() failed for arrays")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3896,11 +3897,11 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] json.parse() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n=== 23. HTTP Library Functions ===")    ;
-    // Unsupported statement type: 34
+    char* http = "Module";
     total_tests =     (    total_tests     +     1.000000    )    ;
     if (    strcmp(    NULL    , "Object"    ) == 0    ) {
         {
@@ -3910,7 +3911,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] HTTP library import failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3923,7 +3924,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] http.get() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3937,7 +3938,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] http.post() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3951,7 +3952,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] http.put() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3964,7 +3965,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] http.delete() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -3982,14 +3983,14 @@ int main(void) {
             } else {
                 {
                     myco_print("[FAIL] HTTP response object missing properties")                    ;
-                    tests_failed =                     0                    ;
+                    tests_failed =                     tests_failed                    ;
                 }
             }
         }
     } else {
         {
             myco_print("[FAIL] HTTP response object test failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -4002,7 +4003,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] http.status_ok() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -4015,7 +4016,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] http.get_header() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -4028,7 +4029,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] http.get_json() failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     total_tests =     (    total_tests     +     1.000000    )    ;
@@ -4041,7 +4042,7 @@ int main(void) {
     } else {
         {
             myco_print("[FAIL] HTTP error handling failed")            ;
-            tests_failed =             0            ;
+            tests_failed =             tests_failed            ;
         }
     }
     myco_print("\\n=== RESULTS ===")    ;

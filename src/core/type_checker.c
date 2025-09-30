@@ -51,6 +51,7 @@ MycoType* type_create(MycoTypeKind kind, int line, int column) {
     type->line = line;
     type->column = column;
     
+    
     // Initialize union based on kind
     switch (kind) {
         case TYPE_ARRAY:
@@ -466,10 +467,40 @@ int type_is_compatible(MycoType* expected, MycoType* actual) {
     // Exact match
     if (type_is_equal(expected, actual)) return 1;
     
+    // Array compatibility: Array is compatible with any Array[T]
+    if (expected->kind == TYPE_ARRAY && actual->kind == TYPE_ARRAY) {
+        // If expected has no element type (generic Array), it's compatible with any array
+        if (!expected->data.element_type) return 1;
+        // If both have element types, check compatibility
+        if (actual->data.element_type) {
+            return type_is_compatible(expected->data.element_type, actual->data.element_type);
+        }
+        return 1;
+    }
+    
     // Numeric compatibility
     if ((expected->kind == TYPE_FLOAT && actual->kind == TYPE_INT) ||
-        (expected->kind == TYPE_INT && actual->kind == TYPE_INT)) {
+        (expected->kind == TYPE_INT && actual->kind == TYPE_FLOAT)) {
         return 1;
+    }
+    
+    // Union type compatibility: actual type is compatible with union if it matches any member
+    if (expected->kind == TYPE_UNION) {
+        for (size_t i = 0; i < expected->data.union_type.type_count; i++) {
+            if (type_is_compatible(expected->data.union_type.types[i], actual)) {
+                return 1;
+            }
+        }
+    }
+    
+    // Null compatibility: Null is compatible with any optional type
+    if (actual->kind == TYPE_NULL && expected->kind == TYPE_OPTIONAL) {
+        return 1;
+    }
+    
+    // Optional type compatibility: T is compatible with T?
+    if (expected->kind == TYPE_OPTIONAL) {
+        return type_is_compatible(expected->data.optional_type, actual);
     }
     
     return 0;
@@ -513,6 +544,20 @@ int type_is_equal(MycoType* type1, MycoType* type2) {
             
         case TYPE_CLASS:
             return strcmp(type1->data.class_name, type2->data.class_name) == 0;
+            
+        case TYPE_UNION:
+            if (type1->data.union_type.type_count != type2->data.union_type.type_count) {
+                return 0;
+            }
+            for (size_t i = 0; i < type1->data.union_type.type_count; i++) {
+                if (!type_is_equal(type1->data.union_type.types[i], type2->data.union_type.types[i])) {
+                    return 0;
+                }
+            }
+            return 1;
+            
+        case TYPE_OPTIONAL:
+            return type_is_equal(type1->data.optional_type, type2->data.optional_type);
             
         default:
             return 0;
@@ -580,7 +625,11 @@ const char* type_to_string(MycoType* type) {
     static char buffer[256];
     switch (type->kind) {
         case TYPE_ARRAY:
-            snprintf(buffer, sizeof(buffer), "[%s]", type_to_string(type->data.element_type));
+            if (type->data.element_type) {
+                snprintf(buffer, sizeof(buffer), "[%s]", type_to_string(type->data.element_type));
+            } else {
+                snprintf(buffer, sizeof(buffer), "Array");
+            }
             break;
         case TYPE_FUNCTION:
             snprintf(buffer, sizeof(buffer), "Function");
@@ -672,6 +721,8 @@ MycoType* type_parse_string(const char* type_string, int line, int column) {
         return type_create(TYPE_BOOL, line, column);
     } else if (strcmp(type_string, "Null") == 0) {
         return type_create(TYPE_NULL, line, column);
+    } else if (strcmp(type_string, "Array") == 0) {
+        return type_create(TYPE_ARRAY, line, column);
     } else if (strcmp(type_string, "Any") == 0) {
         return type_create(TYPE_ANY, line, column);
     } else {

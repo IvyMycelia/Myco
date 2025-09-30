@@ -84,8 +84,14 @@ DOCS_DIR = docs
 EXAMPLES_DIR = examples
 TOOLS_DIR = tools
 
-# Source files (recursive search through all subdirectories, excluding LSP)
-SRC_FILES = $(shell find $(SRC_DIR) -name "*.c" ! -path "*/lsp/*")
+# Source files (recursive search through all subdirectories, excluding LSP and experimental codegen split files)
+SRC_FILES = $(shell find $(SRC_DIR) -name "*.c" ! -path "*/lsp/*" \
+    ! -name "codegen_expressions.c" \
+    ! -name "codegen_statements.c" \
+    ! -name "codegen_variables.c" \
+    ! -name "codegen_utils.c" \
+    ! -name "codegen_headers.c" \
+    ! -name "compiler_new.c")
 OBJ_FILES = $(SRC_FILES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
 # LSP source files (separate from main build)
@@ -101,7 +107,7 @@ TEST_EXECUTABLE = $(BIN_DIR)/myco_test
 LSP_EXECUTABLE = $(BIN_DIR)/myco-lsp
 
 # Libraries
-LIBS = -lm -lcurl -lz -L/opt/homebrew/opt/libmicrohttpd/lib -lmicrohttpd
+LIBS = -lm -lcurl -lz -lreadline -L/opt/homebrew/opt/libmicrohttpd/lib -lmicrohttpd
 
 # Default target
 .PHONY: all
@@ -135,9 +141,9 @@ $(MAIN_EXECUTABLE): $(OBJ_FILES) | $(BIN_DIR)
 	@echo "Build complete: $@"
 
 # LSP executable
-$(LSP_EXECUTABLE): $(LSP_OBJ_FILES) $(BUILD_DIR)/core/interpreter.o $(BUILD_DIR)/core/lexer.o $(BUILD_DIR)/core/parser.o $(BUILD_DIR)/core/ast.o $(BUILD_DIR)/core/type_checker.o $(BUILD_DIR)/core/environment.o $(BUILD_DIR)/core/error_handling.o $(BUILD_DIR)/core/error_system.o $(BUILD_DIR)/core/jit_compiler.o $(BUILD_DIR)/runtime/memory.o $(BUILD_DIR)/runtime/myco_runtime.o $(BUILD_DIR)/libs/json.o $(BUILD_DIR)/libs/sets.o $(BUILD_DIR)/libs/math.o $(BUILD_DIR)/libs/builtin_libs.o $(BUILD_DIR)/libs/array.o $(BUILD_DIR)/libs/maps.o $(BUILD_DIR)/libs/string.o $(BUILD_DIR)/libs/server/server.o $(BUILD_DIR)/libs/stacks.o $(BUILD_DIR)/libs/dir.o $(BUILD_DIR)/libs/graphs.o $(BUILD_DIR)/libs/time.o $(BUILD_DIR)/libs/http.o $(BUILD_DIR)/libs/trees.o $(BUILD_DIR)/libs/file.o $(BUILD_DIR)/libs/queues.o $(BUILD_DIR)/libs/heaps.o $(BUILD_DIR)/libs/regex.o $(BUILD_DIR)/compilation/optimization/optimizer.o $(BUILD_DIR)/compilation/compiler.o | $(BIN_DIR)
+$(LSP_EXECUTABLE): $(LSP_OBJ_FILES) $(BUILD_DIR)/core/interpreter.o $(BUILD_DIR)/core/lexer.o $(BUILD_DIR)/core/parser.o $(BUILD_DIR)/core/ast.o $(BUILD_DIR)/core/type_checker.o $(BUILD_DIR)/core/environment.o $(BUILD_DIR)/core/error_handling.o $(BUILD_DIR)/core/error_system.o $(BUILD_DIR)/core/jit_compiler.o $(BUILD_DIR)/runtime/memory.o $(BUILD_DIR)/runtime/myco_runtime.o $(BUILD_DIR)/libs/json.o $(BUILD_DIR)/libs/sets.o $(BUILD_DIR)/libs/math.o $(BUILD_DIR)/libs/builtin_libs.o $(BUILD_DIR)/libs/array.o $(BUILD_DIR)/libs/maps.o $(BUILD_DIR)/libs/string.o $(BUILD_DIR)/libs/server/server.o $(BUILD_DIR)/libs/stacks.o $(BUILD_DIR)/libs/dir.o $(BUILD_DIR)/libs/graphs.o $(BUILD_DIR)/libs/time.o $(BUILD_DIR)/libs/http.o $(BUILD_DIR)/libs/trees.o $(BUILD_DIR)/libs/file.o $(BUILD_DIR)/libs/queues.o $(BUILD_DIR)/libs/heaps.o $(BUILD_DIR)/libs/regex.o $(BUILD_DIR)/compilation/optimization/optimizer.o $(BUILD_DIR)/compilation/compiler.o $(BUILD_DIR)/compilation/compiler_new.o $(BUILD_DIR)/compilation/codegen_expressions.o $(BUILD_DIR)/compilation/codegen_statements.o $(BUILD_DIR)/compilation/codegen_variables.o $(BUILD_DIR)/compilation/codegen_utils.o $(BUILD_DIR)/compilation/codegen_headers.o | $(BIN_DIR)
 	@echo "Linking $@..."
-	$(CC) $(LSP_OBJ_FILES) $(BUILD_DIR)/core/interpreter.o $(BUILD_DIR)/core/lexer.o $(BUILD_DIR)/core/parser.o $(BUILD_DIR)/core/ast.o $(BUILD_DIR)/core/type_checker.o $(BUILD_DIR)/core/environment.o $(BUILD_DIR)/core/error_handling.o $(BUILD_DIR)/core/error_system.o $(BUILD_DIR)/core/jit_compiler.o $(BUILD_DIR)/runtime/memory.o $(BUILD_DIR)/runtime/myco_runtime.o $(BUILD_DIR)/libs/json.o $(BUILD_DIR)/libs/sets.o $(BUILD_DIR)/libs/math.o $(BUILD_DIR)/libs/builtin_libs.o $(BUILD_DIR)/libs/array.o $(BUILD_DIR)/libs/maps.o $(BUILD_DIR)/libs/string.o $(BUILD_DIR)/libs/server/server.o $(BUILD_DIR)/libs/stacks.o $(BUILD_DIR)/libs/dir.o $(BUILD_DIR)/libs/graphs.o $(BUILD_DIR)/libs/time.o $(BUILD_DIR)/libs/http.o $(BUILD_DIR)/libs/trees.o $(BUILD_DIR)/libs/file.o $(BUILD_DIR)/libs/queues.o $(BUILD_DIR)/libs/heaps.o $(BUILD_DIR)/libs/regex.o $(BUILD_DIR)/compilation/optimization/optimizer.o $(BUILD_DIR)/compilation/compiler.o -o $@ $(LIBS)
+	$(CC) $(LSP_OBJ_FILES) $(BUILD_DIR)/core/interpreter.o $(BUILD_DIR)/core/lexer.o $(BUILD_DIR)/core/parser.o $(BUILD_DIR)/core/ast.o $(BUILD_DIR)/core/type_checker.o $(BUILD_DIR)/core/environment.o $(BUILD_DIR)/core/error_handling.o $(BUILD_DIR)/core/error_system.o $(BUILD_DIR)/core/jit_compiler.o $(BUILD_DIR)/runtime/memory.o $(BUILD_DIR)/runtime/myco_runtime.o $(BUILD_DIR)/libs/json.o $(BUILD_DIR)/libs/sets.o $(BUILD_DIR)/libs/math.o $(BUILD_DIR)/libs/builtin_libs.o $(BUILD_DIR)/libs/array.o $(BUILD_DIR)/libs/maps.o $(BUILD_DIR)/libs/string.o $(BUILD_DIR)/libs/server/server.o $(BUILD_DIR)/libs/stacks.o $(BUILD_DIR)/libs/dir.o $(BUILD_DIR)/libs/graphs.o $(BUILD_DIR)/libs/time.o $(BUILD_DIR)/libs/http.o $(BUILD_DIR)/libs/trees.o $(BUILD_DIR)/libs/file.o $(BUILD_DIR)/libs/queues.o $(BUILD_DIR)/libs/heaps.o $(BUILD_DIR)/libs/regex.o $(BUILD_DIR)/compilation/optimization/optimizer.o $(BUILD_DIR)/compilation/compiler.o $(BUILD_DIR)/compilation/compiler_new.o $(BUILD_DIR)/compilation/codegen_expressions.o $(BUILD_DIR)/compilation/codegen_statements.o $(BUILD_DIR)/compilation/codegen_variables.o $(BUILD_DIR)/compilation/codegen_utils.o $(BUILD_DIR)/compilation/codegen_headers.o -o $@ $(LIBS)
 	@echo "LSP server build complete: $@"
 
 # Object files (handle subdirectories)

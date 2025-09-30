@@ -43,7 +43,7 @@ int process_file(const char* filename, int interpret, int compile, int build, in
         printf("File size: %ld bytes\n", file_size);
     }
     
-    int result = process_source(source, interpret, compile, build, debug, target, architecture, output_file);
+    int result = process_source(source, filename, interpret, compile, build, debug, target, architecture, output_file, optimization_level);
     free(source);
     return result;
 }
@@ -57,11 +57,11 @@ int process_string(const char* source, int interpret, int compile, int build, in
         printf("Source length: %zu characters\n", strlen(source));
     }
     
-    return process_source(source, interpret, compile, build, debug, target, architecture, output_file);
+    return process_source(source, "string_input", interpret, compile, build, debug, target, architecture, output_file, optimization_level);
 }
 
 // Process source code (common implementation)
-int process_source(const char* source, int interpret, int compile, int build, int debug, int target, const char* architecture, const char* output_file) {
+int process_source(const char* source, const char* filename, int interpret, int compile, int build, int debug, int target, const char* architecture, const char* output_file, int optimization_level) {
     if (!source) return MYCO_ERROR_CLI;
     
     if (debug) {
@@ -76,7 +76,7 @@ int process_source(const char* source, int interpret, int compile, int build, in
     } else if (compile) {
         return compile_source(source, target, debug);
     } else if (build) {
-        return build_executable(source, architecture, output_file, debug);
+        return build_executable(source, filename, architecture, output_file, debug, optimization_level);
     }
     
     return MYCO_ERROR_CLI;
@@ -349,7 +349,7 @@ int compile_source(const char* source, int target, int debug) {
 }
 
 // Build executable from source
-int build_executable(const char* source, const char* architecture, const char* output_file, int debug) {
+int build_executable(const char* source, const char* filename, const char* architecture, const char* output_file, int debug, int optimization_level) {
     if (!source) return MYCO_ERROR_CLI;
     
     if (debug) {
@@ -434,8 +434,8 @@ int build_executable(const char* source, const char* architecture, const char* o
     // Set target to C for compilation
     compiler_config_set_target(config, TARGET_C);
     
-    // Set optimization level (temporarily disabled for testing)
-    compiler_config_set_optimization(config, OPTIMIZATION_BASIC);
+    // Set optimization level
+    compiler_config_set_optimization(config, optimization_level);
     
     // Generate temporary C filename
     char* c_output_file = malloc(256);
@@ -460,6 +460,7 @@ int build_executable(const char* source, const char* architecture, const char* o
         printf("DEBUG: Generating C code...\n");
     }
     
+    printf("DEBUG: About to call compiler_generate_c\n");
     if (!compiler_generate_c(config, program, c_output_file)) {
         fprintf(stderr, "Error: Failed to generate C code\n");
         free(c_output_file);
@@ -469,13 +470,27 @@ int build_executable(const char* source, const char* architecture, const char* o
         lexer_free(lexer);
         return MYCO_ERROR_COMPILER;
     }
+    printf("DEBUG: compiler_generate_c completed successfully\n");
     
     if (debug) {
         printf("DEBUG: C code generated successfully\n");
     }
     
     // Compile C code to executable
-    char* final_output = output_file ? strdup(output_file) : strdup("myco_program");
+    char* final_output;
+    if (output_file) {
+        final_output = strdup(output_file);
+    } else {
+        // Use the input filename without extension
+        char* base_name = strdup(filename);
+        char* dot = strrchr(base_name, '.');
+        if (dot) {
+            *dot = '\0';  // Remove the extension
+        }
+        final_output = malloc(strlen(base_name) + 1);
+        strcpy(final_output, base_name);
+        free(base_name);
+    }
     if (!final_output) {
         fprintf(stderr, "Error: Failed to allocate final output filename\n");
         free(c_output_file);
@@ -486,20 +501,13 @@ int build_executable(const char* source, const char* architecture, const char* o
         return MYCO_ERROR_MEMORY;
     }
     
-    // Build command for gcc
-    char build_command[1024];
-    snprintf(build_command, sizeof(build_command), 
-             "gcc -std=c99 -Wall -Wextra -O2 -o %s %s", 
-             final_output, c_output_file);
-    
+    // Compile C code to binary using the compiler
     if (debug) {
-        printf("DEBUG: Building executable with command: %s\n", build_command);
+        printf("DEBUG: Compiling C code to binary...\n");
     }
     
-    // Execute build command
-    int build_result = system(build_command);
-    if (build_result != 0) {
-        fprintf(stderr, "Error: Failed to compile C code (exit code: %d)\n", build_result);
+    if (!compiler_compile_to_binary(config, c_output_file, final_output)) {
+        fprintf(stderr, "Error: Failed to compile C code to binary\n");
         free(c_output_file);
         free(final_output);
         compiler_config_free(config);
@@ -512,11 +520,12 @@ int build_executable(const char* source, const char* architecture, const char* o
     printf("Successfully built executable: %s\n", final_output);
     
     // Clean up temporary files
-    if (remove(c_output_file) != 0) {
-        if (debug) {
-            printf("DEBUG: Warning: Could not remove temporary file %s\n", c_output_file);
-        }
-    }
+    // Temporarily comment out file removal for debugging
+    // if (remove(c_output_file) != 0) {
+    //     if (debug) {
+    //         printf("DEBUG: Warning: Could not remove temporary file %s\n", c_output_file);
+    //     }
+    // }
     
     // Clean up
     free(c_output_file);
@@ -623,9 +632,10 @@ int build_executable(const char* source, const char* architecture, const char* o
         printf("DEBUG: Keeping temporary C file for inspection: %s\n", c_output_file);
     } else {
         // Clean up temporary C file
-        if (remove(c_output_file) != 0) {
-            printf("Warning: Could not remove temporary file %s\n", c_output_file);
-        }
+        // Temporarily comment out file removal for debugging
+        // if (remove(c_output_file) != 0) {
+        //     printf("Warning: Could not remove temporary file %s\n", c_output_file);
+        // }
     }
     
     // Clean up

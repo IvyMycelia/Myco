@@ -44,6 +44,17 @@ void myco_print(const char* str);
 void myco_print_number(double number);
 void myco_print_bool(int bool_value);
 
+// Type checking functions
+int isString(void* value);
+int isInt(void* value);
+int isFloat(void* value);
+int isBool(void* value);
+int isArray(void* value);
+int isNull(void* value);
+int isNumber(void* value);
+
+char* myco_safe_to_string(void* value);
+
 // Memory management
 void* myco_malloc(size_t size);
 void myco_free(void* ptr);

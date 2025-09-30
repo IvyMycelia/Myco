@@ -2154,7 +2154,6 @@ void value_free(Value* value) {
                 for (size_t i = 0; i < value->data.array_value.count; i++) {
                     Value* element = (Value*)value->data.array_value.elements[i];
                     if (element) {
-                        value_free(element);
                         free(element);
                     }
                 }
@@ -2235,7 +2234,6 @@ void value_free(Value* value) {
                 for (size_t i = 0; i < value->data.set_value.count; i++) {
                     Value* element = (Value*)value->data.set_value.elements[i];
                     if (element) {
-                        value_free(element);
                         free(element);
                     }
                 }
@@ -2814,7 +2812,6 @@ Value value_array_pop(Value* array) {
     Value* element = (Value*)array->data.array_value.elements[array->data.array_value.count - 1];
     if (element) {
         Value result = value_clone(element);
-        value_free(element);
         free(element);
         array->data.array_value.count--;
         return result;

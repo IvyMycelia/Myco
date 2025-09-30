@@ -25,7 +25,8 @@ int parse_arguments(int argc, char* argv[], ArgumentConfig* config) {
     
     // Check if we have any arguments
     if (argc < 2) {
-        config->help = 1;
+        // No arguments provided - enter REPL mode
+        config->input_source = NULL;
         return MYCO_SUCCESS;
     }
     

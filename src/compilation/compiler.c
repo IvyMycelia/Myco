@@ -806,7 +806,11 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                    strcmp(member_access->data.member_access.member_name, "minute") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "second") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "unix_timestamp") == 0 ||
-                   strcmp(member_access->data.member_access.member_name, "difference") == 0) {
+                   strcmp(member_access->data.member_access.member_name, "difference") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "abs") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "min") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "max") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "sqrt") == 0) {
             // These methods return double
             codegen_write(context, "double ");
         } else if (strcmp(member_access->data.member_access.member_name, "match") == 0 ||
@@ -956,12 +960,12 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
             codegen_write(context, "(void*)(intptr_t)");
         }
         
-        // Handle library object properties and methods specially
+        // Handle library object properties specially (not methods, as they're function calls)
         if (node->data.variable_declaration.initial_value->type == AST_NODE_MEMBER_ACCESS) {
             ASTNode* member_access = node->data.variable_declaration.initial_value;
             const char* member_name = member_access->data.member_access.member_name;
             
-            // Check if this is a library object property or method
+            // Check if this is a library object property (Pi, E)
             if (member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
                 const char* object_name = member_access->data.member_access.object->data.identifier_value;
                 if (strcmp(object_name, "math") == 0) {
@@ -971,19 +975,9 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                     } else if (strcmp(member_name, "E") == 0) {
                         codegen_write(context, "2.718281828459045");
                         return 1;
-                    } else if (strcmp(member_name, "abs") == 0) {
-                        codegen_write(context, "fabs");
-                        return 1;
-                    } else if (strcmp(member_name, "min") == 0) {
-                        codegen_write(context, "fmin");
-                        return 1;
-                    } else if (strcmp(member_name, "max") == 0) {
-                        codegen_write(context, "fmax");
-                        return 1;
-                    } else if (strcmp(member_name, "sqrt") == 0) {
-                        codegen_write(context, "sqrt");
-                        return 1;
                     }
+                    // For methods like abs, min, max, sqrt - don't handle here
+                    // They should be handled as function calls (AST_NODE_FUNCTION_CALL_EXPR)
                 }
             }
         }

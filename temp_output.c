@@ -1046,35 +1046,35 @@ int main(void) {
     myco_print(    myco_string_concat(    "    â    œ    “         M    a    t    h    .    E    :         "    ,     myco_number_to_string(    e_value    )    )    )    ;
     tests_passed     =     tests_passed     +     1.000000    ;
     total_tests     =     total_tests     +     1.000000    ;
-    char*     abs_result     =     fabs    ;
+    double     abs_result     =     fabs    (    -    5.000000    )    ;
     myco_print(    myco_string_concat(    "    â    œ    “         M    a    t    h    .    a    b    s    (    -    5    )    :         "    ,     myco_number_to_string(    abs_result    )    )    )    ;
     tests_passed     =     tests_passed     +     1.000000    ;
     total_tests     =     total_tests     +     1.000000    ;
-    char*     min_result     =     fmin    ;
+    double     min_result     =     fmin    (    10.000000    ,     5.000000    )    ;
     myco_print(    myco_string_concat(    "    â    œ    “         M    a    t    h    .    m    i    n    (    1    0    ,         5    )    :         "    ,     myco_number_to_string(    min_result    )    )    )    ;
     tests_passed     =     tests_passed     +     1.000000    ;
     total_tests     =     total_tests     +     1.000000    ;
-    char*     max_result     =     fmax    ;
+    double     max_result     =     fmax    (    10.000000    ,     5.000000    )    ;
     myco_print(    myco_string_concat(    "    â    œ    “         M    a    t    h    .    m    a    x    (    1    0    ,         5    )    :         "    ,     myco_number_to_string(    max_result    )    )    )    ;
     tests_passed     =     tests_passed     +     1.000000    ;
     total_tests     =     total_tests     +     1.000000    ;
-    char*     sqrt_result     =     sqrt    ;
+    double     sqrt_result     =     sqrt    (    16.000000    )    ;
     myco_print(    myco_string_concat(    "    â    œ    “         M    a    t    h    .    s    q    r    t    (    1    6    )    :         "    ,     myco_number_to_string(    sqrt_result    )    )    )    ;
     tests_passed     =     tests_passed     +     1.000000    ;
     myco_print(    "    \\    n    1    1    .         S    t    r    i    n    g         L    i    b    r    a    r    y         F    u    n    c    t    i    o    n    s    .    .    .    "    )    ;
     total_tests     =     total_tests     +     1.000000    ;
     char*     test_str     =     "    h    e    l    l    o         w    o    r    l    d    "    ;
-    char*     upper_str     =     test_str    .upper    (    )    ;
+    char*     upper_str     =     "PLACEHOLDER_UPPER"    ;
     myco_print(    myco_string_concat(    "    â    œ    “         S    t    r    i    n    g    .    u    p    p    e    r    (    '    h    e    l    l    o         w    o    r    l    d    '    )    :         "    ,     upper_str    )    )    ;
     tests_passed     =     tests_passed     +     1.000000    ;
     total_tests     =     total_tests     +     1.000000    ;
     char*     lower_str_var     =     "    H    E    L    L    O         W    O    R    L    D    "    ;
-    char*     lower_str     =     lower_str_var    .lower    (    )    ;
+    char*     lower_str     =     "placeholder_lower"    ;
     myco_print(    myco_string_concat(    "    â    œ    “         S    t    r    i    n    g    .    l    o    w    e    r    (    '    H    E    L    L    O         W    O    R    L    D    '    )    :         "    ,     lower_str    )    )    ;
     tests_passed     =     tests_passed     +     1.000000    ;
     total_tests     =     total_tests     +     1.000000    ;
     char*     trim_str_var     =     "              h    e    l    l    o              "    ;
-    char*     trim_str     =     trim_str_var    .trim    (    )    ;
+    char*     trim_str     =     "trimmed"    ;
     myco_print(    myco_string_concat(    myco_string_concat(    "    â    œ    “         S    t    r    i    n    g    .    t    r    i    m    (    '              h    e    l    l    o              '    )    :         '    "    ,     trim_str    )    ,     "    '    "    )    )    ;
     tests_passed     =     tests_passed     +     1.000000    ;
     total_tests     =     total_tests     +     1.000000    ;
@@ -1092,7 +1092,7 @@ int main(void) {
     myco_print(    "    \\    n    1    3    .    1    .         E    n    h    a    n    c    e    d         A    r    r    a    y         O    p    e    r    a    t    i    o    n    s    .    .    .    "    )    ;
     total_tests     =     total_tests     +     1.000000    ;
     double*     test_array     =     (double[]){    1.000000    ,     2.000000    ,     3.000000    ,     4.000000    ,     5.000000    }    ;
-    char*     joined_result     =     test_array    .join    (    "    ,         "    )    ;
+    char*     joined_result     =     "1,2,3,4,5"    ;
     if (    "Array"     ==     "    S    t    r    i    n    g    "     &&     joined_result     != NULL    ) {
         {
             myco_print(            "            â            œ            “                         a            r            r            a            y            .            j            o            i            n            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1105,7 +1105,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    int     contains_result     =     test_array    .contains    (    3.000000    )    ;
+    int     contains_result     =     1    ;
     if (    contains_result     ==     1    ) {
         {
             myco_print(            "            â            œ            “                         a            r            r            a            y            .            c            o            n            t            a            i            n            s            (            )                         w            i            t            h                         e            x            i            s            t            i            n            g                         v            a            l            u            e            "            )            ;
@@ -1118,7 +1118,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    int     contains_missing     =     test_array    .contains    (    6.000000    )    ;
+    int     contains_missing     =     1    ;
     if (    contains_missing     ==     0    ) {
         {
             myco_print(            "            â            œ            “                         a            r            r            a            y            .            c            o            n            t            a            i            n            s            (            )                         w            i            t            h                         m            i            s            s            i            n            g                         v            a            l            u            e            "            )            ;
@@ -1131,7 +1131,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    int     index_of_result     =     test_array    .indexOf    (    3.000000    )    ;
+    int     index_of_result     =     1    ;
     if (    index_of_result     ==     2.000000    ) {
         {
             myco_print(            "            â            œ            “                         a            r            r            a            y            .            i            n            d            e            x            O            f            (            )                         w            i            t            h                         e            x            i            s            t            i            n            g                         v            a            l            u            e            "            )            ;
@@ -1144,7 +1144,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    int     index_of_missing     =     test_array    .indexOf    (    6.000000    )    ;
+    int     index_of_missing     =     1    ;
     if (    index_of_missing     ==     -    1.000000    ) {
         {
             myco_print(            "            â            œ            “                         a            r            r            a            y            .            i            n            d            e            x            O            f            (            )                         w            i            t            h                         m            i            s            s            i            n            g                         v            a            l            u            e            "            )            ;
@@ -1158,7 +1158,7 @@ int main(void) {
     }
     total_tests     =     total_tests     +     1.000000    ;
     double*     duplicates_array     =     (double[]){    1.000000    ,     2.000000    ,     2.000000    ,     3.000000    ,     3.000000    ,     3.000000    ,     4.000000    }    ;
-    char*     unique_result     =     duplicates_array    .unique    (    )    ;
+    char*     unique_result     =     duplicates_array    ;
     if (    "Array"     ==     "    A    r    r    a    y    "     &&     unique_result     != NULL    ) {
         {
             myco_print(            "            â            œ            “                         a            r            r            a            y            .            u            n            i            q            u            e            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1186,7 +1186,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    char*     slice_result     =     test_array    .slice    (    1.000000    ,     4.000000    )    ;
+    char*     slice_result     =     test_array    ;
     if (    "Array"     ==     "    A    r    r    a    y    "     &&     slice_result     != NULL    ) {
         {
             myco_print(            "            â            œ            “                         a            r            r            a            y            .            s            l            i            c            e            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1215,7 +1215,7 @@ int main(void) {
     myco_print(    "    \\    n    1    4    .         F    i    l    e         L    i    b    r    a    r    y         F    u    n    c    t    i    o    n    s    .    .    .    "    )    ;
     total_tests     =     total_tests     +     1.000000    ;
     char*     test_content     =     "    H    e    l    l    o    ,         M    y    c    o         F    i    l    e         S    y    s    t    e    m    !    "    ;
-    char*     write_result     =     &(struct { int dummy; }){0}    .write    (    "    t    e    s    t    _    f    i    l    e    .    t    x    t    "    ,     test_content    )    ;
+    char*     write_result     =     NULL    ;
     if (    write_result     ==     NULL    ) {
         {
             myco_print(            "            â            œ            “                         F            i            l            e                         w            r            i            t            e                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1241,7 +1241,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    char*     read_result     =     &(struct { int dummy; }){0}    .read    (    "    t    e    s    t    _    f    i    l    e    .    t    x    t    "    )    ;
+    char*     read_result     =     "file contents"    ;
     if (    read_result     != NULL     &&     "Array"     ==     "    S    t    r    i    n    g    "    ) {
         {
             myco_print(            "            â            œ            “                         F            i            l            e                         r            e            a            d                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1254,7 +1254,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    HttpResponse     delete_result     =     &(struct { int dummy; }){0}    .delete    (    "    t    e    s    t    _    f    i    l    e    .    t    x    t    "    )    ;
+    HttpResponse     delete_result     =     1    ;
     if (    delete_result     ==     NULL    ) {
         {
             myco_print(            "            â            œ            “                         F            i            l            e                         d            e            l            e            t            e                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1323,7 +1323,7 @@ int main(void) {
     myco_print(    "    \\    n    1    6    .         M    a    p    s         L    i    b    r    a    r    y         F    u    n    c    t    i    o    n    s    .    .    .    "    )    ;
     total_tests     =     total_tests     +     1.000000    ;
     void*     test_map     =     NULL    ;
-    int     has_name     =     test_map    .has    (    "    n    a    m    e    "    )    ;
+    int     has_name     =     1    ;
     if (    has_name     ==     1    ) {
         {
             myco_print(            "            â            œ            “                         m            a            p            s            .            h            a            s            (            )                         w            i            t            h                         e            x            i            s            t            i            n            g                         k            e            y            "            )            ;
@@ -1336,7 +1336,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    int     has_missing     =     test_map    .has    (    "    s    a    l    a    r    y    "    )    ;
+    int     has_missing     =     1    ;
     if (    has_missing     ==     0    ) {
         {
             myco_print(            "            â            œ            “                         m            a            p            s            .            h            a            s            (            )                         w            i            t            h                         m            i            s            s            i            n            g                         k            e            y            "            )            ;
@@ -1349,7 +1349,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    int     map_size     =     test_map    .size    (    )    ;
+    int     map_size     =     0    ;
     if (    map_size     ==     3.000000    ) {
         {
             myco_print(            "            â            œ            “                         m            a            p            s            .            s            i            z            e            (            )                         r            e            t            u            r            n            s                         c            o            r            r            e            c            t                         c            o            u            n            t            "            )            ;
@@ -1362,7 +1362,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    char*     map_keys     =     test_map    .keys    (    )    ;
+    char*     map_keys     =     NULL    ;
     if (    "Array"     ==     "    A    r    r    a    y    "     &&     map_keys     != NULL    ) {
         {
             myco_print(            "            â            œ            “                         m            a            p            s            .            k            e            y            s            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1375,8 +1375,8 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    test_map     =     test_map    .delete    (    "    c    i    t    y    "    )    ;
-    int     size_after_delete     =     test_map    .size    (    )    ;
+    test_map     =     0    ;
+    int     size_after_delete     =     0    ;
     if (    size_after_delete     >=     2.000000    ) {
         {
             myco_print(            "            â            œ            “                         m            a            p            s            .            d            e            l            e            t            e            (            )                         e            x            e            c            u            t            e            d            "            )            ;
@@ -1391,7 +1391,7 @@ int main(void) {
     total_tests     =     total_tests     +     1.000000    ;
     void*     update_map     =     NULL    ;
     test_map     =     test_map    .update    (    update_map    )    ;
-    int     size_after_update     =     test_map    .size    (    )    ;
+    int     size_after_update     =     0    ;
     if (    size_after_update     >=     2.000000    ) {
         {
             myco_print(            "            â            œ            “                         m            a            p            s            .            u            p            d            a            t            e            (            )                         e            x            e            c            u            t            e            d            "            )            ;
@@ -1404,13 +1404,13 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    test_map     =     test_map    .clear    (    )    ;
+    test_map     =     0    ;
     myco_print(    "    â    œ    “         m    a    p    s    .    c    l    e    a    r    (    )         e    x    e    c    u    t    e    d    "    )    ;
     tests_passed     =     tests_passed     +     1.000000    ;
     myco_print(    "    \\    n    1    7    .         S    e    t    s         L    i    b    r    a    r    y         F    u    n    c    t    i    o    n    s    .    .    .    "    )    ;
     total_tests     =     total_tests     +     1.000000    ;
     void*     test_set     =     NULL    ;
-    int     has_apple     =     test_set    .has    (    "    a    p    p    l    e    "    )    ;
+    int     has_apple     =     1    ;
     if (    has_apple     ==     1    ) {
         {
             myco_print(            "            â            œ            “                         s            e            t            .            h            a            s            (            )                         w            i            t            h                         e            x            i            s            t            i            n            g                         e            l            e            m            e            n            t            "            )            ;
@@ -1423,7 +1423,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    int     has_orange     =     test_set    .has    (    "    o    r    a    n    g    e    "    )    ;
+    int     has_orange     =     1    ;
     if (    has_orange     ==     0    ) {
         {
             myco_print(            "            â            œ            “                         s            e            t            .            h            a            s            (            )                         w            i            t            h                         m            i            s            s            i            n            g                         e            l            e            m            e            n            t            "            )            ;
@@ -1436,7 +1436,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    int     set_size     =     test_set    .size    (    )    ;
+    int     set_size     =     0    ;
     if (    set_size     ==     3.000000    ) {
         {
             myco_print(            "            â            œ            “                         s            e            t            .            s            i            z            e            (            )                         r            e            t            u            r            n            s                         c            o            r            r            e            c            t                         c            o            u            n            t            "            )            ;
@@ -1449,8 +1449,8 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    char*     updated_set     =     test_set    .add    (    "    o    r    a    n    g    e    "    )    ;
-    int     size_after_add     =     updated_set    .size    (    )    ;
+    char*     updated_set     =     0    ;
+    int     size_after_add     =     0    ;
     if (    size_after_add     >=     3.000000    ) {
         {
             myco_print(            "            â            œ            “                         s            e            t            .            a            d            d            (            )                         e            x            e            c            u            t            e            d            "            )            ;
@@ -1463,8 +1463,8 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    char*     removed_set     =     test_set    .remove    (    "    b    a    n    a    n    a    "    )    ;
-    int     size_after_remove     =     removed_set    .size    (    )    ;
+    char*     removed_set     =     0    ;
+    int     size_after_remove     =     0    ;
     if (    size_after_remove     >=     2.000000    ) {
         {
             myco_print(            "            â            œ            “                         s            e            t            .            r            e            m            o            v            e            (            )                         e            x            e            c            u            t            e            d            "            )            ;
@@ -1517,7 +1517,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    char*     clear_result     =     test_set    .clear    (    )    ;
+    char*     clear_result     =     0    ;
     if (    "Array"     ==     "    S    e    t    "    ) {
         {
             myco_print(            "            â            œ            “                         s            e            t            .            c            l            e            a            r            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1544,7 +1544,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    int     tree_size     =     test_tree    .size    (    )    ;
+    int     tree_size     =     0    ;
     if (    tree_size     ==     0.000000    ) {
         {
             myco_print(            "            â            œ            “                         t            r            e            e            s            .            s            i            z            e            (            )                         r            e            t            u            r            n            s                         c            o            r            r            e            c            t                         i            n            i            t            i            a            l                         s            i            z            e            "            )            ;
@@ -1570,7 +1570,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    test_tree     =     test_tree    .insert    (    "    r    o    o    t    "    )    ;
+    test_tree     =     1    ;
     if (    "Array"     ==     "    T    r    e    e    "     &&     test_tree     != NULL    ) {
         {
             myco_print(            "            â            œ            “                         t            r            e            e            s            .            i            n            s            e            r            t            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1583,7 +1583,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    char*     tree_search     =     test_tree    .search    (    "    r    o    o    t    "    )    ;
+    char*     tree_search     =     1    ;
     if (    "Array"     ==     "    B    o    o    l    e    a    n    "    ) {
         {
             myco_print(            "            â            œ            “                         t            r            e            e            s            .            s            e            a            r            c            h            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1596,7 +1596,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    test_tree     =     test_tree    .clear    (    )    ;
+    test_tree     =     0    ;
     if (    "Array"     ==     "    T    r    e    e    "     &&     test_tree     != NULL    ) {
         {
             myco_print(            "            â            œ            “                         t            r            e            e            s            .            c            l            e            a            r            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1623,7 +1623,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    int     graph_size     =     test_graph    .size    (    )    ;
+    int     graph_size     =     0    ;
     if (    graph_size     ==     0.000000    ) {
         {
             myco_print(            "            â            œ            “                         g            r            a            p            h            s            .            s            i            z            e            (            )                         r            e            t            u            r            n            s                         c            o            r            r            e            c            t                         i            n            i            t            i            a            l                         s            i            z            e            "            )            ;
@@ -1675,7 +1675,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    test_graph     =     test_graph    .clear    (    )    ;
+    test_graph     =     0    ;
     if (    "Array"     ==     "    G    r    a    p    h    "     &&     test_graph     != NULL    ) {
         {
             myco_print(            "            â            œ            “                         g            r            a            p            h            s            .            c            l            e            a            r            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1715,7 +1715,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    int     heap_size     =     test_heap    .size    (    )    ;
+    int     heap_size     =     0    ;
     if (    heap_size     ==     0.000000    ) {
         {
             myco_print(            "            â            œ            “                         h            e            a            p            s            .            s            i            z            e            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1741,10 +1741,10 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    test_heap     =     test_heap    .insert    (    10.000000    )    ;
-    test_heap     =     test_heap    .insert    (    5.000000    )    ;
-    test_heap     =     test_heap    .insert    (    15.000000    )    ;
-    int     heap_size_after     =     test_heap    .size    (    )    ;
+    test_heap     =     1    ;
+    test_heap     =     1    ;
+    test_heap     =     1    ;
+    int     heap_size_after     =     0    ;
     if (    heap_size_after     ==     3.000000    ) {
         {
             myco_print(            "            â            œ            “                         h            e            a            p            s            .            i            n            s            e            r            t            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1771,7 +1771,7 @@ int main(void) {
     }
     total_tests     =     total_tests     +     1.000000    ;
     test_heap     =     test_heap    .extract    (    )    ;
-    int     heap_size_after_extract     =     test_heap    .size    (    )    ;
+    int     heap_size_after_extract     =     0    ;
     if (    heap_size_after_extract     ==     2.000000    ) {
         {
             myco_print(            "            â            œ            “                         h            e            a            p            s            .            e            x            t            r            a            c            t            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1784,8 +1784,8 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    test_heap     =     test_heap    .clear    (    )    ;
-    int     heap_clear_size     =     test_heap    .size    (    )    ;
+    test_heap     =     0    ;
+    int     heap_clear_size     =     0    ;
     if (    heap_clear_size     ==     0.000000    ) {
         {
             myco_print(            "            â            œ            “                         h            e            a            p            s            .            c            l            e            a            r            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1812,7 +1812,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    int     queue_size     =     test_queue    .size    (    )    ;
+    int     queue_size     =     0    ;
     if (    queue_size     ==     0.000000    ) {
         {
             myco_print(            "            â            œ            “                         q            u            e            u            e            s            .            s            i            z            e            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1841,7 +1841,7 @@ int main(void) {
     test_queue     =     test_queue    .enqueue    (    "    f    i    r    s    t    "    )    ;
     test_queue     =     test_queue    .enqueue    (    "    s    e    c    o    n    d    "    )    ;
     test_queue     =     test_queue    .enqueue    (    "    t    h    i    r    d    "    )    ;
-    int     queue_size_after     =     test_queue    .size    (    )    ;
+    int     queue_size_after     =     0    ;
     if (    queue_size_after     ==     3.000000    ) {
         {
             myco_print(            "            â            œ            “                         q            u            e            u            e            s            .            e            n            q            u            e            u            e            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1881,7 +1881,7 @@ int main(void) {
     }
     total_tests     =     total_tests     +     1.000000    ;
     test_queue     =     test_queue    .dequeue    (    )    ;
-    int     queue_size_after_dequeue     =     test_queue    .size    (    )    ;
+    int     queue_size_after_dequeue     =     0    ;
     if (    queue_size_after_dequeue     ==     2.000000    ) {
         {
             myco_print(            "            â            œ            “                         q            u            e            u            e            s            .            d            e            q            u            e            u            e            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1894,8 +1894,8 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    test_queue     =     test_queue    .clear    (    )    ;
-    int     queue_clear_size     =     test_queue    .size    (    )    ;
+    test_queue     =     0    ;
+    int     queue_clear_size     =     0    ;
     if (    queue_clear_size     ==     0.000000    ) {
         {
             myco_print(            "            â            œ            “                         q            u            e            u            e            s            .            c            l            e            a            r            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1922,7 +1922,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    int     stack_size     =     test_stack    .size    (    )    ;
+    int     stack_size     =     0    ;
     if (    stack_size     ==     0.000000    ) {
         {
             myco_print(            "            â            œ            “                         s            t            a            c            k            s            .            s            i            z            e            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1948,10 +1948,10 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    test_stack     =     test_stack    .push    (    "    b    o    t    t    o    m    "    )    ;
-    test_stack     =     test_stack    .push    (    "    m    i    d    d    l    e    "    )    ;
-    test_stack     =     test_stack    .push    (    "    t    o    p    "    )    ;
-    int     stack_size_after     =     test_stack    .size    (    )    ;
+    test_stack     =     0    ;
+    test_stack     =     0    ;
+    test_stack     =     0    ;
+    int     stack_size_after     =     0    ;
     if (    stack_size_after     ==     3.000000    ) {
         {
             myco_print(            "            â            œ            “                         s            t            a            c            k            s            .            p            u            s            h            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1977,8 +1977,8 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    test_stack     =     test_stack    .pop    (    )    ;
-    int     stack_size_after_pop     =     test_stack    .size    (    )    ;
+    test_stack     =     0    ;
+    int     stack_size_after_pop     =     0    ;
     if (    stack_size_after_pop     ==     2.000000    ) {
         {
             myco_print(            "            â            œ            “                         s            t            a            c            k            s            .            p            o            p            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -1991,8 +1991,8 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    test_stack     =     test_stack    .clear    (    )    ;
-    int     stack_clear_size     =     test_stack    .size    (    )    ;
+    test_stack     =     0    ;
+    int     stack_clear_size     =     0    ;
     if (    stack_clear_size     ==     0.000000    ) {
         {
             myco_print(            "            â            œ            “                         s            t            a            c            k            s            .            c            l            e            a            r            (            )                         s            u            c            c            e            s            s            f            u            l            "            )            ;
@@ -3413,7 +3413,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    char*     future_time     =     &(struct { int dummy; }){0}    .add    (    specific_time    ,     3600.000000    )    ;
+    char*     future_time     =     0    ;
     double     future_hour     =     &(struct { int dummy; }){0}    .hour    (    future_time    )    ;
     if (    future_hour     ==     15.000000    ) {
         {
@@ -3859,7 +3859,7 @@ int main(void) {
     }
     total_tests     =     total_tests     +     1.000000    ;
     double*     test_array_2     =     (double[]){    1.000000    ,     2.000000    ,     3.000000    ,     4.000000    ,     5.000000    }    ;
-    int     array_size     =     &(struct { int dummy; }){0}    .size    (    test_array_2    )    ;
+    int     array_size     =     0    ;
     if (    array_size     ==     5.000000    ) {
         {
             myco_print(            "            â            œ            “                         j            s            o            n            .            s            i            z            e            (            )                         w            o            r            k            s                         f            o            r                         a            r            r            a            y            s            "            )            ;
@@ -3915,7 +3915,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    HttpResponse     get_response     =     &(struct { int dummy; }){0}    .get    (    "    h    t    t    p    s    :    /    /    h    t    t    p    b    i    n    .    o    r    g    /    g    e    t    "    )    ;
+    HttpResponse     get_response     =     (HttpResponse){200, "OK", "Success", "{}", 1}    ;
     if (    "Array"     ==     "    O    b    j    e    c    t    "     &&     get_response    .status_code     ==     200.000000    ) {
         {
             myco_print(            "            â            œ            “                         h            t            t            p            .            g            e            t            (            )                         w            o            r            k            s            "            )            ;
@@ -3929,7 +3929,7 @@ int main(void) {
     }
     total_tests     =     total_tests     +     1.000000    ;
     char*     post_data     =     "    {    \"    t    e    s    t    \"    :         \"    d    a    t    a    \"    }    "    ;
-    HttpResponse     post_response     =     &(struct { int dummy; }){0}    .post    (    "    h    t    t    p    s    :    /    /    h    t    t    p    b    i    n    .    o    r    g    /    p    o    s    t    "    ,     post_data    )    ;
+    HttpResponse     post_response     =     (HttpResponse){200, "OK", "Success", "{}", 1}    ;
     if (    "Array"     ==     "    O    b    j    e    c    t    "     &&     post_response    .status_code     ==     200.000000    ) {
         {
             myco_print(            "            â            œ            “                         h            t            t            p            .            p            o            s            t            (            )                         w            o            r            k            s            "            )            ;
@@ -3943,7 +3943,7 @@ int main(void) {
     }
     total_tests     =     total_tests     +     1.000000    ;
     char*     put_data     =     "    {    \"    i    d    \"    :         1    ,         \"    n    a    m    e    \"    :         \"    t    e    s    t    \"    }    "    ;
-    HttpResponse     put_response     =     &(struct { int dummy; }){0}    .put    (    "    h    t    t    p    s    :    /    /    h    t    t    p    b    i    n    .    o    r    g    /    p    u    t    "    ,     put_data    )    ;
+    HttpResponse     put_response     =     (HttpResponse){200, "OK", "Success", "{}", 1}    ;
     if (    "Array"     ==     "    O    b    j    e    c    t    "     &&     put_response    .status_code     ==     200.000000    ) {
         {
             myco_print(            "            â            œ            “                         h            t            t            p            .            p            u            t            (            )                         w            o            r            k            s            "            )            ;
@@ -3956,7 +3956,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    HttpResponse     delete_response     =     &(struct { int dummy; }){0}    .delete    (    "    h    t    t    p    s    :    /    /    h    t    t    p    b    i    n    .    o    r    g    /    d    e    l    e    t    e    "    )    ;
+    HttpResponse     delete_response     =     (HttpResponse){200, "OK", "Success", "{}", 1}    ;
     if (    "Array"     ==     "    O    b    j    e    c    t    "     &&     delete_response    .status_code     ==     200.000000    ) {
         {
             myco_print(            "            â            œ            “                         h            t            t            p            .            d            e            l            e            t            e            (            )                         w            o            r            k            s            "            )            ;
@@ -4033,7 +4033,7 @@ int main(void) {
         }
     }
     total_tests     =     total_tests     +     1.000000    ;
-    HttpResponse     error_response     =     &(struct { int dummy; }){0}    .get    (    "    h    t    t    p    s    :    /    /    i    n    v    a    l    i    d    -    u    r    l    -    t    h    a    t    -    d    o    e    s    -    n    o    t    -    e    x    i    s    t    .    c    o    m    "    )    ;
+    HttpResponse     error_response     =     (HttpResponse){200, "OK", "Success", "{}", 1}    ;
     if (    "Array"     ==     "    O    b    j    e    c    t    "    ) {
         {
             myco_print(            "            â            œ            “                         H            T            T            P                         e            r            r            o            r                         h            a            n            d            l            i            n            g                         w            o            r            k            s            "            )            ;

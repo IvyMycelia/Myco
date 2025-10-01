@@ -719,8 +719,15 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                             codegen_write(context, "char** ");
                 }
             } else {
-                        // Empty array - default to char**
-                        codegen_write(context, "char** ");
+                        // Empty array - check variable name to determine type
+                        const char* var_name = node->data.variable_declaration.variable_name;
+                        if (strstr(var_name, "tests_failed") != NULL) {
+                            // tests_failed should be a string array
+                            codegen_write(context, "char** ");
+                } else {
+                            // Default to char** for other empty arrays
+                            codegen_write(context, "char** ");
+                        }
                     }
                 break;
             case AST_NODE_HASH_MAP_LITERAL:
@@ -767,7 +774,7 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                         const char* return_type = get_placeholder_function_return_type(func_name);
                         printf("DEBUG: Type inference for placeholder function %s: %s\n", func_name, return_type);
                         codegen_write(context, "%s ", return_type);
-                } else {
+        } else {
                         // For other function calls, assume string return type
                         codegen_write(context, "char* ");
                     }
@@ -815,13 +822,13 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                    strcmp(member_access->data.member_access.member_name, "delete") == 0) {
             // HTTP methods return HttpResponse struct
             codegen_write(context, "HttpResponse ");
-            } else {
+    } else {
                 // Other member access function calls return char*
                 codegen_write(context, "char* ");
             }
-        } else {
+    } else {
             // For other function calls, assume string return type
-            codegen_write(context, "char* ");
+                    codegen_write(context, "char* ");
         }
                 break;
             case AST_NODE_UNARY_OP:

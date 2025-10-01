@@ -98,18 +98,30 @@ int codegen_generate_c_identifier(CodeGenContext* context, ASTNode* node) {
     
     const char* var_name = node->data.identifier_value;
     
-    // Check if this is a library object that should return NULL
+    // Check if this is a library object that should return a placeholder object
     if (strcmp(var_name, "trees") == 0 || strcmp(var_name, "graphs") == 0 || 
         strcmp(var_name, "math") == 0 || strcmp(var_name, "file") == 0 ||
         strcmp(var_name, "dir") == 0 || strcmp(var_name, "time") == 0 ||
         strcmp(var_name, "regex") == 0 || strcmp(var_name, "json") == 0 ||
         strcmp(var_name, "http") == 0) {
-        codegen_write(context, "NULL");
+        // Return a placeholder object instead of NULL
+        codegen_write(context, "&(struct { int dummy; }){0}");
         return 1;
     }
     
-    // Generate the variable name
-    codegen_write(context, "%s", var_name);
+    // Get the scoped variable name if available
+    char* scoped_name = NULL;
+    if (context->variable_scope) {
+        scoped_name = variable_scope_get_c_name(context->variable_scope, var_name);
+    }
+    
+    // Use scoped name if available, otherwise use original name
+    if (scoped_name) {
+        codegen_write(context, "%s", scoped_name);
+        free(scoped_name);
+    } else {
+        codegen_write(context, "%s", var_name);
+    }
     return 1;
 }
 
@@ -441,6 +453,28 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                 }
             }
             
+            // Handle library object properties
+            const char* property_name = member_access->data.member_access.member_name;
+            if (strcmp(property_name, "Pi") == 0) {
+                codegen_write(context, "3.141592653589793");
+                return 1;
+            } else if (strcmp(property_name, "E") == 0) {
+                codegen_write(context, "2.718281828459045");
+                return 1;
+            } else if (strcmp(property_name, "abs") == 0) {
+                codegen_write(context, "fabs");
+                return 1;
+            } else if (strcmp(property_name, "min") == 0) {
+                codegen_write(context, "fmin");
+                return 1;
+            } else if (strcmp(property_name, "max") == 0) {
+                codegen_write(context, "fmax");
+                return 1;
+            } else if (strcmp(property_name, "sqrt") == 0) {
+                codegen_write(context, "sqrt");
+                return 1;
+            }
+            
             // Handle array method calls
             const char* array_method_name = member_access->data.member_access.member_name;
             if (strcmp(array_method_name, "length") == 0) {
@@ -552,9 +586,9 @@ int codegen_generate_c_array_literal(CodeGenContext* context, ASTNode* node) {
         
         // Determine the appropriate type based on content
         if (has_arrays) {
-            array_type = "void*[]";
+            array_type = "char*[]";  // Use char*[] for arrays containing other arrays
         } else if (has_strings && has_numbers) {
-            array_type = "void*[]";
+            array_type = "char*[]";  // Use char*[] for mixed types to avoid casting issues
         } else if (has_strings) {
             array_type = "char*[]";
         } else if (has_numbers) {
@@ -570,12 +604,21 @@ int codegen_generate_c_array_literal(CodeGenContext* context, ASTNode* node) {
             if (i > 0) {
                 codegen_write(context, ", ");
             }
-            // For void* arrays, cast all elements to void*
-            if (strcmp(array_type, "void*[]") == 0) {
-                codegen_write(context, "(void*)");
-            }
-            if (!codegen_generate_c_expression(context, node->data.array_literal.elements[i])) {
-                return 0;
+            // For mixed-type arrays, convert all elements to strings
+            if (strcmp(array_type, "char*[]") == 0 && 
+                (node->data.array_literal.elements[i]->type == AST_NODE_NUMBER || 
+                 node->data.array_literal.elements[i]->type == AST_NODE_BOOL)) {
+                // Convert numeric values to strings
+                codegen_write(context, "myco_number_to_string(");
+                if (!codegen_generate_c_expression(context, node->data.array_literal.elements[i])) {
+                    return 0;
+                }
+                codegen_write(context, ")");
+            } else {
+                // For other types, use as-is
+                if (!codegen_generate_c_expression(context, node->data.array_literal.elements[i])) {
+                    return 0;
+                }
             }
         }
     }

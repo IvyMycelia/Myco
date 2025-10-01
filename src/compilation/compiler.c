@@ -708,9 +708,9 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                         
                         // Determine the appropriate type based on content
                         if (has_arrays) {
-                            codegen_write(context, "void** ");
+                            codegen_write(context, "char** ");  // Use char** for arrays containing other arrays
                         } else if (has_strings && has_numbers) {
-                            codegen_write(context, "void** ");
+                            codegen_write(context, "char** ");  // Use char** for mixed types to avoid casting issues
                         } else if (has_strings) {
                             codegen_write(context, "char** ");
                         } else if (has_numbers) {
@@ -914,12 +914,15 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                     // .speak(), .greet(), and .getName() return char*
                     codegen_write(context, "char* ");
                 } else if (strstr(node->data.variable_declaration.initial_value->data.member_access.member_name, "Pi") != NULL ||
-                    strstr(node->data.variable_declaration.initial_value->data.member_access.member_name, "E") != NULL ||
-                    strstr(node->data.variable_declaration.initial_value->data.member_access.member_name, "abs") != NULL ||
+                    strstr(node->data.variable_declaration.initial_value->data.member_access.member_name, "E") != NULL) {
+                    // Pi and E are numeric constants
+                    codegen_write(context, "double ");
+                } else if (strstr(node->data.variable_declaration.initial_value->data.member_access.member_name, "abs") != NULL ||
                     strstr(node->data.variable_declaration.initial_value->data.member_access.member_name, "min") != NULL ||
                     strstr(node->data.variable_declaration.initial_value->data.member_access.member_name, "max") != NULL ||
                     strstr(node->data.variable_declaration.initial_value->data.member_access.member_name, "sqrt") != NULL) {
-                    codegen_write(context, "char* ");
+                    // These are function names, not values - they should be double
+                    codegen_write(context, "double ");
                 } else {
                     codegen_write(context, "void* ");
                 }
@@ -951,6 +954,38 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
              node->data.variable_declaration.initial_value->type == AST_NODE_BOOL)) {
             // Cast numeric values to void* for union types
             codegen_write(context, "(void*)(intptr_t)");
+        }
+        
+        // Handle library object properties and methods specially
+        if (node->data.variable_declaration.initial_value->type == AST_NODE_MEMBER_ACCESS) {
+            ASTNode* member_access = node->data.variable_declaration.initial_value;
+            const char* member_name = member_access->data.member_access.member_name;
+            
+            // Check if this is a library object property or method
+            if (member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
+                const char* object_name = member_access->data.member_access.object->data.identifier_value;
+                if (strcmp(object_name, "math") == 0) {
+                    if (strcmp(member_name, "Pi") == 0) {
+                        codegen_write(context, "3.141592653589793");
+                        return 1;
+                    } else if (strcmp(member_name, "E") == 0) {
+                        codegen_write(context, "2.718281828459045");
+                        return 1;
+                    } else if (strcmp(member_name, "abs") == 0) {
+                        codegen_write(context, "fabs");
+                        return 1;
+                    } else if (strcmp(member_name, "min") == 0) {
+                        codegen_write(context, "fmin");
+                        return 1;
+                    } else if (strcmp(member_name, "max") == 0) {
+                        codegen_write(context, "fmax");
+                        return 1;
+                    } else if (strcmp(member_name, "sqrt") == 0) {
+                        codegen_write(context, "sqrt");
+                        return 1;
+                    }
+                }
+            }
         }
         
         if (!codegen_generate_c_expression(context, node->data.variable_declaration.initial_value)) {

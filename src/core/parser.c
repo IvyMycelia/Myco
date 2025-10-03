@@ -1040,8 +1040,6 @@ ASTNode* parser_parse_primary(Parser* parser) {
         Token* token = parser_peek(parser);
         parser_advance(parser);
         
-        printf("DEBUG PARSER: Parsing 'Null' as AST_NODE_NULL at line %d, column %d\n", 
-               token->line, token->column);
         
         // Create null AST node
         ASTNode* literal = ast_create_null(token->line, token->column);
@@ -1060,8 +1058,6 @@ ASTNode* parser_parse_primary(Parser* parser) {
         Token* token = parser_peek(parser);
         parser_advance(parser);
         
-        printf("DEBUG PARSER: Parsing number %f as AST_NODE_NUMBER at line %d, column %d\n", 
-               token->data.number_value, token->line, token->column);
         
         ASTNode* literal = ast_create_number(token->data.number_value, token->line, token->column);
         if (literal) {

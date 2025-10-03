@@ -548,8 +548,8 @@ void repl_show_debug_info(REPLState* state, const char* input) {
         return;
     }
     
-    printf("DEBUG: Processing input (line %d)\n", state->line_number);
-    printf("DEBUG: Input: %s\n", input);
+    // printf("DEBUG: Processing input (line %d)\n", state->line_number);
+    // printf("DEBUG: Input: %s\n", input);
 }
 
 /**
@@ -771,7 +771,7 @@ void repl_print_debug_ast(REPLState* state, ASTNode* node) {
         return;
     }
     
-    printf("DEBUG AST:\n");
+    // printf("DEBUG AST:\n");
     ast_print_tree(node);
     printf("\n");
 }
@@ -787,7 +787,7 @@ void repl_print_debug_lexer(REPLState* state, Lexer* lexer) {
         return;
     }
     
-    printf("DEBUG LEXER: %d tokens\n", lexer->token_count);
+    // printf("DEBUG LEXER: %d tokens\n", lexer->token_count);
     for (int i = 0; i < lexer->token_count; i++) {
         Token* token = lexer_get_token(lexer, i);
         if (token) {
@@ -810,7 +810,7 @@ void repl_print_debug_parser(REPLState* state, Parser* parser) {
         return;
     }
     
-    printf("DEBUG PARSER: Error count=%d\n", parser->error_count);
+    // printf("DEBUG PARSER: Error count=%d\n", parser->error_count);
     if (parser->error_message) {
         printf("  Error: %s\n", parser->error_message);
     }

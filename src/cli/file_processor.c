@@ -99,12 +99,12 @@ int interpret_source(const char* source, int debug) {
     
     // Scan all tokens
     if (debug) {
-        printf("DEBUG: Scanning tokens...\n");
+        // printf("DEBUG: Scanning tokens...\n");
     }
     int token_count = lexer_scan_all(lexer);
     if (debug) {
-        printf("DEBUG: Token count: %d\n", token_count);
-        printf("DEBUG: Lexer errors: %s\n", lexer_has_errors(lexer) ? "Yes" : "No");
+        // printf("DEBUG: Token count: %d\n", token_count);
+        // printf("DEBUG: Lexer errors: %s\n", lexer_has_errors(lexer) ? "Yes" : "No");
     }
     
     if (token_count < 0) {
@@ -120,7 +120,7 @@ int interpret_source(const char* source, int debug) {
     
     if (debug) {
         // Debug mode: show all tokens
-        printf("DEBUG: All tokens:\n");
+        // printf("DEBUG: All tokens:\n");
         for (int i = 0; i < token_count; i++) {
             Token* token = lexer_get_token(lexer, i);
             if (token) {
@@ -141,15 +141,15 @@ int interpret_source(const char* source, int debug) {
     
     // Parse the program
     if (debug) {
-        printf("DEBUG: Parsing program...\n");
+        // printf("DEBUG: Parsing program...\n");
     }
     ASTNode* program = parser_parse_program(parser);
     
     if (parser->error_count > 0) {
         printf("Warning: Parse errors detected\n");
         if (debug) {
-            printf("DEBUG: Parse errors: %s (Line %d, Column %d)\n", 
-                   parser->error_message, parser->error_line, parser->error_column);
+            // printf("DEBUG: Parse errors: %s (Line %d, Column %d)\n", 
+            //        parser->error_message, parser->error_line, parser->error_column);
         }
     }
     
@@ -161,8 +161,8 @@ int interpret_source(const char* source, int debug) {
     }
     
     if (debug) {
-        printf("DEBUG: Program parsed successfully\n");
-        printf("DEBUG: AST root type: %d\n", program->type);
+        // printf("DEBUG: Program parsed successfully\n");
+        // printf("DEBUG: AST root type: %d\n", program->type);
     }
     
     // Create interpreter and execute program
@@ -183,7 +183,7 @@ int interpret_source(const char* source, int debug) {
     register_all_builtin_libraries(interpreter);
     
     if (debug) {
-        printf("DEBUG: Executing program...\n");
+        // printf("DEBUG: Executing program...\n");
     }
     
     Value result = interpreter_execute(interpreter, program);
@@ -198,8 +198,8 @@ int interpret_source(const char* source, int debug) {
     }
     
     if (debug) {
-        printf("DEBUG: Program executed successfully\n");
-        printf("DEBUG: Result type: %d\n", result.type);
+        // printf("DEBUG: Program executed successfully\n");
+        // printf("DEBUG: Result type: %d\n", result.type);
     }
     
     // Clean up
@@ -238,12 +238,12 @@ int compile_source(const char* source, int target, int debug) {
     
     // Scan all tokens
     if (debug) {
-        printf("DEBUG: Scanning tokens...\n");
+        // printf("DEBUG: Scanning tokens...\n");
     }
     int token_count = lexer_scan_all(lexer);
     if (debug) {
-        printf("DEBUG: Token count: %d\n", token_count);
-        printf("DEBUG: Lexer errors: %s\n", lexer_has_errors(lexer) ? "Yes" : "No");
+        // printf("DEBUG: Token count: %d\n", token_count);
+        // printf("DEBUG: Lexer errors: %s\n", lexer_has_errors(lexer) ? "Yes" : "No");
     }
     
     if (token_count < 0) {
@@ -285,8 +285,8 @@ int compile_source(const char* source, int target, int debug) {
     }
     
     if (debug) {
-        printf("DEBUG: Program parsed successfully\n");
-        printf("DEBUG: AST node count: %d\n", 1); // Simplified count
+        // printf("DEBUG: Program parsed successfully\n");
+        // printf("DEBUG: AST node count: %d\n", 1); // Simplified count
     }
     
     // Create compiler configuration
@@ -312,7 +312,7 @@ int compile_source(const char* source, int target, int debug) {
     // Generate C code
     if (target == TARGET_C) {
         if (debug) {
-            printf("DEBUG: Generating C code...\n");
+            // printf("DEBUG: Generating C code...\n");
         }
         
         if (!compiler_generate_c(config, program, output_file)) {
@@ -371,12 +371,12 @@ int build_executable(const char* source, const char* filename, const char* archi
     
     // Scan all tokens
     if (debug) {
-        printf("DEBUG: Scanning tokens...\n");
+        // printf("DEBUG: Scanning tokens...\n");
     }
     int token_count = lexer_scan_all(lexer);
     if (debug) {
-        printf("DEBUG: Token count: %d\n", token_count);
-        printf("DEBUG: Lexer errors: %s\n", lexer_has_errors(lexer) ? "Yes" : "No");
+        // printf("DEBUG: Token count: %d\n", token_count);
+        // printf("DEBUG: Lexer errors: %s\n", lexer_has_errors(lexer) ? "Yes" : "No");
     }
     
     if (token_count < 0) {
@@ -418,7 +418,7 @@ int build_executable(const char* source, const char* filename, const char* archi
     }
     
     if (debug) {
-        printf("DEBUG: Program parsed successfully\n");
+        // printf("DEBUG: Program parsed successfully\n");
     }
     
     // Create compiler configuration
@@ -457,10 +457,10 @@ int build_executable(const char* source, const char* filename, const char* archi
     
     // Generate C code
     if (debug) {
-        printf("DEBUG: Generating C code...\n");
+        // printf("DEBUG: Generating C code...\n");
     }
     
-    printf("DEBUG: About to call compiler_generate_c\n");
+    // printf("DEBUG: About to call compiler_generate_c\n");
     if (!compiler_generate_c(config, program, c_output_file)) {
         fprintf(stderr, "Error: Failed to generate C code\n");
         free(c_output_file);
@@ -470,10 +470,10 @@ int build_executable(const char* source, const char* filename, const char* archi
         lexer_free(lexer);
         return MYCO_ERROR_COMPILER;
     }
-    printf("DEBUG: compiler_generate_c completed successfully\n");
+    // printf("DEBUG: compiler_generate_c completed successfully\n");
     
     if (debug) {
-        printf("DEBUG: C code generated successfully\n");
+        // printf("DEBUG: C code generated successfully\n");
     }
     
     // Compile C code to executable
@@ -503,7 +503,7 @@ int build_executable(const char* source, const char* filename, const char* archi
     
     // Compile C code to binary using the compiler
     if (debug) {
-        printf("DEBUG: Compiling C code to binary...\n");
+        // printf("DEBUG: Compiling C code to binary...\n");
     }
     
     if (!compiler_compile_to_binary(config, c_output_file, final_output)) {
@@ -544,7 +544,7 @@ int build_executable(const char* source, const char* filename, const char* archi
     
     // Generate C code
     if (debug) {
-        printf("DEBUG: Generating C code...\n");
+        // printf("DEBUG: Generating C code...\n");
     }
     
     int result = compiler_generate_c(config, program, c_output_file);
@@ -559,7 +559,7 @@ int build_executable(const char* source, const char* filename, const char* archi
     }
     
     if (debug) {
-        printf("DEBUG: C code generated successfully: %s\n", c_output_file);
+        // printf("DEBUG: C code generated successfully: %s\n", c_output_file);
     }
     
     // Compile C code to executable
@@ -582,7 +582,7 @@ int build_executable(const char* source, const char* filename, const char* archi
     
     // Build the executable
     if (debug) {
-        printf("DEBUG: Compiling C code to executable...\n");
+        // printf("DEBUG: Compiling C code to executable...\n");
     }
     
     char compile_command[1024];
@@ -607,7 +607,7 @@ int build_executable(const char* source, const char* filename, const char* archi
              arch_flag, c_output_file, executable_name);
     
     if (debug) {
-        printf("DEBUG: Compilation command: %s\n", compile_command);
+        // printf("DEBUG: Compilation command: %s\n", compile_command);
     }
     
     // Execute compilation
@@ -624,12 +624,12 @@ int build_executable(const char* source, const char* filename, const char* archi
     }
     
     if (debug) {
-        printf("DEBUG: Executable built successfully: %s\n", executable_name);
+        // printf("DEBUG: Executable built successfully: %s\n", executable_name);
     }
     
     // Keep temporary C file for debugging if debug mode is on
     if (debug) {
-        printf("DEBUG: Keeping temporary C file for inspection: %s\n", c_output_file);
+        // printf("DEBUG: Keeping temporary C file for inspection: %s\n", c_output_file);
     } else {
         // Clean up temporary C file
         // Temporarily comment out file removal for debugging

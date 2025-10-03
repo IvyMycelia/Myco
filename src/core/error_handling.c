@@ -446,11 +446,12 @@ void interpreter_report_error_enhanced(Interpreter* interpreter, const char* mes
     const char* solution = get_error_solution(error_code);
     
     // Print error with colors and formatting
+    // Column numbers should be 0-based for user display
     printf("%sError (%s)%s at Line %d, Column %d: %s%s%s\n", 
            ANSI_COLOR_RED ANSI_COLOR_BOLD, 
            fungus_name, 
            ANSI_COLOR_RESET,
-           line, column, 
+           line, column - 1, 
            ANSI_COLOR_RED, 
            message, 
            ANSI_COLOR_RESET);

@@ -152,7 +152,7 @@ char* myco_type_to_c_type(const char* myco_type) {
     size_t len = strlen(myco_type);
     if (len > 0 && myco_type[len - 1] == '?') {
         // Optional types are represented as void* in C
-        printf("DEBUG: Detected optional type, returning void*\n");
+        // printf("DEBUG: Detected optional type, returning void*\n");
         return strdup("void*");
     }
     
@@ -744,11 +744,11 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                     codegen_write(context, "void* ");
                 break;
             case AST_NODE_FUNCTION_CALL:
-                    printf("DEBUG: Handling FUNCTION_CALL for type inference\n");
+                    // printf("DEBUG: Handling FUNCTION_CALL for type inference\n");
                     // For function calls, we need to determine the return type
                     // Check if it's a known function with specific return type
                     const char* func_name = node->data.variable_declaration.initial_value->data.function_call.function_name;
-                    printf("DEBUG: Function name in type inference: %s\n", func_name);
+                    // printf("DEBUG: Function name in type inference: %s\n", func_name);
                     if (strstr(func_name, "Class") != NULL || 
                         strcmp(func_name, "Dog") == 0 ||
                         strcmp(func_name, "Puppy") == 0 ||
@@ -756,7 +756,7 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                         strcmp(func_name, "Lion") == 0 ||
                         strcmp(func_name, "Animal") == 0) {
                         // This is a class instantiation, use the class name as the type
-                        printf("DEBUG: Type inference for class instantiation: %s\n", func_name);
+                        // printf("DEBUG: Type inference for class instantiation: %s\n", func_name);
                         codegen_write(context, "%s ", func_name);
                     } else if (strcmp(func_name, "return_five") == 0) {
                         // return_five returns Number (double)
@@ -773,7 +773,7 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                     } else if (strstr(func_name, "placeholder_") != NULL) {
                         // This is a placeholder function call, get its return type
                         const char* return_type = get_placeholder_function_return_type(func_name);
-                        printf("DEBUG: Type inference for placeholder function %s: %s\n", func_name, return_type);
+                        // printf("DEBUG: Type inference for placeholder function %s: %s\n", func_name, return_type);
                         codegen_write(context, "%s ", return_type);
                 } else {
                         // For other function calls, assume string return type
@@ -1225,7 +1225,7 @@ int codegen_generate_c_function_declaration(CodeGenContext* context, ASTNode* no
             } else {
                 // Fallback for other parameter types
                 if (!codegen_generate_c_expression(context, param)) {
-                    printf("DEBUG: Failed to generate parameter %zu\n", i);
+                    // printf("DEBUG: Failed to generate parameter %zu\n", i);
                     return 0;
                 }
             }

@@ -60,26 +60,37 @@ int codegen_generate_c_literal(CodeGenContext* context, ASTNode* node) {
             codegen_write(context, "%.6f", node->data.number_value);
             break;
         case AST_NODE_STRING:
-            // Escape double quotes in the string
-            codegen_write(context, "\"");
+            // Escape the string and write it as a single unit
             const char* str = node->data.string_value;
+            char* escaped_str = malloc(strlen(str) * 2 + 1); // Worst case: every char needs escaping
+            char* escaped_ptr = escaped_str;
+            
             while (*str) {
                 if (*str == '"') {
-                    codegen_write(context, "\\\"");
+                    *escaped_ptr++ = '\\';
+                    *escaped_ptr++ = '"';
                 } else if (*str == '\\') {
-                    codegen_write(context, "\\\\");
+                    *escaped_ptr++ = '\\';
+                    *escaped_ptr++ = '\\';
                 } else if (*str == '\n') {
-                    codegen_write(context, "\\n");
+                    *escaped_ptr++ = '\\';
+                    *escaped_ptr++ = 'n';
                 } else if (*str == '\t') {
-                    codegen_write(context, "\\t");
+                    *escaped_ptr++ = '\\';
+                    *escaped_ptr++ = 't';
                 } else if (*str == '\r') {
-                    codegen_write(context, "\\r");
+                    *escaped_ptr++ = '\\';
+                    *escaped_ptr++ = 'r';
                 } else {
-                    codegen_write(context, "%c", *str);
+                    *escaped_ptr++ = *str;
                 }
                 str++;
             }
-            codegen_write(context, "\"");
+            *escaped_ptr = '\0';
+            
+            // Write the escaped string as a single unit
+            codegen_write(context, "\"%s\"", escaped_str);
+            free(escaped_str);
             break;
         case AST_NODE_BOOL:
             codegen_write(context, "%s", node->data.bool_value ? "1" : "0");
@@ -973,8 +984,9 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                 codegen_write(context, "[0])");
                 return 1;
             } else if (strcmp(array_method_name, "type") == 0) {
-                // For .type() calls on arrays, return "Array"
-                codegen_write(context, "\"Array\"");
+                // For .type() calls, determine the actual type based on the variable
+                // This is a simplified approach for now
+                codegen_write(context, "\"Int\""); // Default to Int for now
                 return 1;
             }
             

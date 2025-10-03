@@ -2,6 +2,19 @@ print("=== Myco Comprehensive Test Suite ===");
 print("Testing EVERY feature and edge case in Myco");
 print("");
 
+# Import all required libraries
+use trees as trees;
+use graphs as graphs;
+use heaps as heaps;
+use queues as queues;
+use stacks as stacks;
+use time as time;
+use regex as regex;
+use json as json;
+use http as http;
+
+# Type guard functions are built-in, no need to define them
+
 let total_tests = 0;
 let tests_passed = 0;
 let tests_failed = [];
@@ -3154,7 +3167,7 @@ tests_passed = tests_passed + 1;
 print("\n=== 20. Time Library Functions ===");
 
 # Test time library import
-use time as time;
+# use time as time; # Already imported at top
 total_tests = total_tests + 1;
 if time.type() == "Object":
     print("✓ Time library import works");
@@ -3311,7 +3324,7 @@ end
 print("\n=== 21. Regex Library Functions ===");
 
 # Test regex library import
-use regex as regex;
+# use regex as regex; # Already imported at top
 total_tests = total_tests + 1;
 if regex.type() == "Object":
     print("✓ Regex library import works");
@@ -3567,7 +3580,7 @@ end
 print("\n=== 22. JSON Library Functions ===");
 
 # Test JSON library import
-use json as json;
+# use json as json; # Already imported at top
 total_tests = total_tests + 1;
 if json.type() == "Object":
     print("✓ JSON library import works");
@@ -3697,7 +3710,7 @@ end
 print("\n=== 23. HTTP Library Functions ===");
 
 # Test HTTP library import
-use http as http;
+# use http as http; # Already imported at top
 total_tests = total_tests + 1;
 if http.type() == "Object":
     print("✓ HTTP library import works");

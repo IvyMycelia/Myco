@@ -60,12 +60,12 @@ end
 
 print("\n1.2. Strings...");
 total_tests = total_tests + 1;
-let name = "Myco";
-if name == "Myco":
-    print("✓ String variable: " + name);
+let name1 = "Myco";
+if name1 == "Myco":
+    print("✓ String variable: " + name1);
     tests_passed = tests_passed + 1;
 else:
-    print("✗ String variable: " + name);
+    print("✗ String variable: " + name1);
     tests_failed = tests_failed + ["String variable"];
 end
 

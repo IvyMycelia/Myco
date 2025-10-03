@@ -156,8 +156,9 @@ char* myco_type_to_c_type(const char* myco_type) {
         return strdup("void*");
     }
     
-    // Handle union types (e.g., "String | Int" -> "void*")
+    // Handle union types (e.g., "String | Int" -> "void*" for mixed types)
     if (strstr(myco_type, " | ")) {
+        // For any union type, use void* to handle mixed types safely
         return strdup("void*");
     }
     
@@ -774,7 +775,7 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                         const char* return_type = get_placeholder_function_return_type(func_name);
                         printf("DEBUG: Type inference for placeholder function %s: %s\n", func_name, return_type);
                         codegen_write(context, "%s ", return_type);
-        } else {
+                } else {
                         // For other function calls, assume string return type
                         codegen_write(context, "char* ");
                     }
@@ -814,18 +815,44 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
             // These methods return double
             codegen_write(context, "double ");
         } else if (strcmp(member_access->data.member_access.member_name, "match") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "replace") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "stringify") == 0) {
             // regex and json methods return char*
             codegen_write(context, "char* ");
+        } else if (strcmp(member_access->data.member_access.member_name, "test") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "is_email") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "is_url") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "is_ip") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "validate") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "status_ok") == 0) {
+            // regex and json methods return int (boolean)
+            codegen_write(context, "int ");
         } else if (strcmp(member_access->data.member_access.member_name, "size") == 0) {
             // json.size() returns double
             codegen_write(context, "double ");
+        } else if (strcmp(member_access->data.member_access.member_name, "search") == 0) {
+            // Tree/Graph search methods return boolean
+            codegen_write(context, "int ");
         } else if (strcmp(member_access->data.member_access.member_name, "post") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "get") == 0 ||
-                   strcmp(member_access->data.member_access.member_name, "put") == 0 ||
-                   strcmp(member_access->data.member_access.member_name, "delete") == 0) {
+                   strcmp(member_access->data.member_access.member_name, "put") == 0) {
             // HTTP methods return HttpResponse struct
             codegen_write(context, "HttpResponse ");
+        } else if (strcmp(member_access->data.member_access.member_name, "delete") == 0) {
+            // Check if this is HTTP delete or file delete
+            if (member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
+                const char* object_name = member_access->data.member_access.object->data.identifier_value;
+                if (strcmp(object_name, "http") == 0) {
+                    // HTTP delete returns HttpResponse
+                    codegen_write(context, "HttpResponse ");
+            } else {
+                    // File delete returns int
+                    codegen_write(context, "int ");
+                }
+        } else {
+                // Default to int for other delete methods
+                codegen_write(context, "int ");
+            }
     } else {
                 // Other member access function calls return char*
                 codegen_write(context, "char* ");

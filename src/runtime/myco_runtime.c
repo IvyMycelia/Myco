@@ -159,6 +159,23 @@ int isNumber(void* value) {
     return (value != NULL && (intptr_t)value < 1000) ? 1 : 0;
 }
 
+// Get type name as string
+char* myco_get_type_name(void* value) {
+    if (value == NULL) {
+        return strdup("Null");
+    } else if (isString(value)) {
+        return strdup("String");
+    } else if (isNumber(value)) {
+        return strdup("Int"); // For simplicity, treat all numbers as Int
+    } else if (isBool(value)) {
+        return strdup("Boolean");
+    } else if (isArray(value)) {
+        return strdup("Array");
+    } else {
+        return strdup("Unknown");
+    }
+}
+
 // Memory management
 void* myco_malloc(size_t size) {
     return malloc(size);
@@ -174,8 +191,16 @@ char* myco_safe_to_string(void* value) {
     } else if (isString(value)) {
         return (char*)value;
     } else if (isNumber(value)) {
-        return myco_number_to_string(*(double*)value);
+        // Check if this is a small integer cast to void* (common pattern in generated code)
+        uintptr_t int_value = (uintptr_t)value;
+        if (int_value < 1000) { // Small integers are likely cast to void* directly
+            return myco_number_to_string((double)int_value);
+        } else {
+            // Try to dereference as double* (for actual double values)
+            return myco_number_to_string(*(double*)value);
+        }
     } else {
-        return "Unknown";
+        // For string literals cast to void*, just return them as strings
+        return (char*)value;
     }
 }

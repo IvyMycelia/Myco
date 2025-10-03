@@ -4507,7 +4507,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             // Report the error but continue execution
             fprintf(stderr, ANSI_COLOR_RED "Error: %s (Line %d, Column %d)\n" ANSI_COLOR_RESET, 
                     node->data.error_node.error_message ? node->data.error_node.error_message : "Unknown error",
-                    node->line, node->column);
+                    node->line, node->column - 1);
             return value_create_null();
         }
         
@@ -5146,8 +5146,9 @@ void interpreter_set_error(Interpreter* interpreter, const char* message, int li
     const char* fungus_name = get_fungus_error_name(error_code);
     
     // Print clean, concise error message
+    // Column numbers should be 0-based for user display
     fprintf(stderr, ANSI_COLOR_RED "Error: %s (Line %d, Column %d)\n" ANSI_COLOR_RESET, 
-            message, line, column);
+            message, line, column - 1);
 }
 
 void interpreter_clear_error(Interpreter* interpreter) {

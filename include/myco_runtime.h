@@ -53,6 +53,9 @@ int isArray(void* value);
 int isNull(void* value);
 int isNumber(void* value);
 
+// Get type name as string
+char* myco_get_type_name(void* value);
+
 char* myco_safe_to_string(void* value);
 
 // Memory management

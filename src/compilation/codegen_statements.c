@@ -130,7 +130,8 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                 strcmp(member_name, "process") == 0 || strcmp(member_name, "calculate") == 0) {
                 c_type = strdup("double");
             } else if (strcmp(member_name, "speak") == 0 || strcmp(member_name, "match") == 0 || 
-                       strcmp(member_name, "stringify") == 0) {
+                       strcmp(member_name, "stringify") == 0 || strcmp(member_name, "join") == 0 ||
+                       strcmp(member_name, "toString") == 0) {
                 c_type = strdup("char*");
             } else {
                 c_type = strdup("void*");

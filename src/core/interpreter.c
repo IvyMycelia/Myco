@@ -115,7 +115,7 @@ const char* value_type_string(ValueType type) {
         case VALUE_FUNCTION: return "Function";
         case VALUE_RANGE: return "Range";
         case VALUE_CLASS: return "Class";
-        case VALUE_MODULE: return "Module";
+        case VALUE_MODULE: return "Object";
         case VALUE_ERROR: return "Error";
         default: return "Unknown";
     }
@@ -1275,7 +1275,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                 result = value_create_string("Class");
                 break;
             case VALUE_MODULE:
-                result = value_create_string("Module");
+                result = value_create_string("Object");
                 break;
             case VALUE_ERROR:
                 result = value_create_string("Error");
@@ -1801,7 +1801,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
         // Handle special methods for modules
         if (strcmp(method_name, "type") == 0) {
             value_free(&object);
-            return value_create_string("Module");
+            return value_create_string("Object");
         }
         
         const char* module_name = object.data.module_value.module_name;
@@ -4167,7 +4167,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 // Handle special properties for modules
                 if (strcmp(member_name, "type") == 0) {
                     value_free(&object);
-                    return value_create_string("Module");
+                    return value_create_string("Object");
                 }
                 
                 if (module_name) {
@@ -4287,7 +4287,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     if (strcmp(method_name, "type") == 0) {
                         // This is a module method call like math.type() - handle directly
                         value_free(&object);
-                        return value_create_string("Module");
+                        return value_create_string("Object");
                     } else {
                         // This is a module function call like file.write() - handle as regular function call
                         // The member access already returned the function, so we can proceed with regular function call
@@ -5391,7 +5391,7 @@ void interpreter_register_builtins(Interpreter* interpreter) {
     extern void register_all_builtin_libraries(Interpreter* interpreter);
     register_all_builtin_libraries(interpreter);
 }
-const char* value_type_to_string(ValueType type) { switch (type) { case VALUE_NULL: return "Null"; case VALUE_BOOLEAN: return "Bool"; case VALUE_NUMBER: return "Number"; case VALUE_STRING: return "String"; case VALUE_ARRAY: return "Array"; case VALUE_OBJECT: return "Object"; case VALUE_FUNCTION: return "Function"; case VALUE_CLASS: return "Class"; case VALUE_MODULE: return "Module"; case VALUE_ERROR: return "Error"; default: return "Unknown"; } }
+const char* value_type_to_string(ValueType type) { switch (type) { case VALUE_NULL: return "Null"; case VALUE_BOOLEAN: return "Bool"; case VALUE_NUMBER: return "Number"; case VALUE_STRING: return "String"; case VALUE_ARRAY: return "Array"; case VALUE_OBJECT: return "Object"; case VALUE_FUNCTION: return "Function"; case VALUE_CLASS: return "Class"; case VALUE_MODULE: return "Object"; case VALUE_ERROR: return "Error"; default: return "Unknown"; } }
 void value_print(Value* value) { Value s = value_to_string(value); if (s.type == VALUE_STRING && s.data.string_value) { printf("%s", s.data.string_value); } value_free(&s); }
 void value_print_debug(Value* value) { value_print(value); }
 

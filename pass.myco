@@ -12,6 +12,8 @@ use time as time;
 use regex as regex;
 use json as json;
 use http as http;
+# use sql as sql;
+# use csv as csv;
 
 # Type guard functions are built-in, no need to define them
 
@@ -675,7 +677,7 @@ end
 print("\n9. Built-in Libraries...");
 total_tests = total_tests + 1;
 use math as math;
-if math.type() == "Module":
+if math.type() == "Object":
     print("✓ Math library imported");
     tests_passed = tests_passed + 1;
 else:
@@ -705,7 +707,7 @@ end
 
 total_tests = total_tests + 1;
 use file as file;
-if file.type() == "Module":
+if file.type() == "Object":
     print("✓ File library imported");
     tests_passed = tests_passed + 1;
 else:
@@ -715,7 +717,7 @@ end
 
 total_tests = total_tests + 1;
 use dir as dir;
-if dir.type() == "Module":
+if dir.type() == "Object":
     print("✓ Directory library imported");
     tests_passed = tests_passed + 1;
 else:
@@ -3324,7 +3326,7 @@ end
 print("\n=== 21. Regex Library Functions ===");
 
 # Test regex library import
-# use regex as regex; # Already imported at top
+use regex as regex;
 total_tests = total_tests + 1;
 if regex.type() == "Object":
     print("✓ Regex library import works");

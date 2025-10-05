@@ -318,10 +318,16 @@ static void lexer_parse_string(Lexer* lexer) {
     char quote_char = lexer_current_char(lexer);
     lexer_advance(lexer);  // Consume the opening quote
     
+    // Build the string content with proper escape sequence processing
+    char* result = malloc(1024);  // Start with reasonable buffer size
+    int result_len = 0;
+    int result_capacity = 1024;
+    
     while (!lexer_is_at_end(lexer) && lexer_current_char(lexer) != quote_char) {
         if (lexer_current_char(lexer) == '\n') {
             // String spans multiple lines - this is an error
             lexer_add_token(lexer, TOKEN_ERROR, "Unterminated string", lexer->line, lexer->column);
+            free(result);
             return;
         }
         
@@ -329,10 +335,33 @@ static void lexer_parse_string(Lexer* lexer) {
         if (lexer_current_char(lexer) == '\\' && !lexer_is_at_end(lexer)) {
             lexer_advance(lexer);  // Skip the backslash
             if (!lexer_is_at_end(lexer)) {
-                // Process the escaped character
+                char escaped_char = lexer_current_char(lexer);
+                char actual_char;
+                
+                switch (escaped_char) {
+                    case 'n': actual_char = '\n'; break;
+                    case 't': actual_char = '\t'; break;
+                    case 'r': actual_char = '\r'; break;
+                    case '\\': actual_char = '\\'; break;
+                    case '"': actual_char = '"'; break;
+                    default: actual_char = escaped_char; break;
+                }
+                
+                // Add the actual character to result
+                if (result_len >= result_capacity - 1) {
+                    result_capacity *= 2;
+                    result = realloc(result, result_capacity);
+                }
+                result[result_len++] = actual_char;
                 lexer_advance(lexer);
             }
         } else {
+            // Add regular character to result
+            if (result_len >= result_capacity - 1) {
+                result_capacity *= 2;
+                result = realloc(result, result_capacity);
+            }
+            result[result_len++] = lexer_current_char(lexer);
             lexer_advance(lexer);
         }
     }
@@ -340,21 +369,14 @@ static void lexer_parse_string(Lexer* lexer) {
     if (lexer_is_at_end(lexer)) {
         // String was not terminated
         lexer_add_token(lexer, TOKEN_ERROR, "Unterminated string", lexer->line, lexer->column);
+        free(result);
         return;
     }
     
-    // Extract the string content (without quotes)
-    int start_pos = lexer->start + 1;  // Skip opening quote
-    int end_pos = lexer->current;
-    int length = end_pos - start_pos;
-    
-    char* text = malloc(length + 1);
-    if (text) {
-        strncpy(text, lexer->source + start_pos, length);
-        text[length] = '\0';
-        lexer_add_token(lexer, TOKEN_STRING, text, lexer->line, lexer->column - length - 1);
-        free(text);
-    }
+    // Null terminate the result
+    result[result_len] = '\0';
+    lexer_add_token(lexer, TOKEN_STRING, result, lexer->line, lexer->column - result_len - 1);
+    free(result);
     
     lexer_advance(lexer);  // Consume the closing quote
 }

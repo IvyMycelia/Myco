@@ -93,6 +93,7 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
     
     // Determine C type
     char* c_type = NULL;
+    printf("DEBUG: Variable declaration: %s, initializer type: %d\n", var_name, initializer ? initializer->type : -1);
     if (type_annotation) {
         c_type = myco_type_to_c_type(type_annotation);
     } else if (initializer) {

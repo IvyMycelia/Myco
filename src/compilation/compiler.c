@@ -912,8 +912,11 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
         } else if (strcmp(member_access->data.member_access.member_name, "clear") == 0) {
                 // Set clear method returns a set
                 codegen_write(context, "void* ");
-        } else if (strcmp(member_access->data.member_access.member_name, "create") == 0) {
-                // Library create methods return objects
+        } else if (strcmp(member_access->data.member_access.member_name, "create") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "add") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "subtract") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "now") == 0) {
+                // Library create, add, subtract, and now methods return objects
                 codegen_write(context, "void* ");
         } else if (strcmp(member_access->data.member_access.member_name, "getValue") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "increment") == 0 ||

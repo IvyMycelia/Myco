@@ -594,9 +594,30 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                     if (i > 0) codegen_write(context, ", ");
                     if (!codegen_generate_c_expression(context, node->data.function_call.arguments[i])) return 0;
                 }
+            } else if (strcmp(func_name, "Cat") == 0) {
+                // Generate class constructor with actual arguments
+                for (size_t i = 0; i < node->data.function_call.argument_count; i++) {
+                    if (i > 0) codegen_write(context, ", ");
+                    if (!codegen_generate_c_expression(context, node->data.function_call.arguments[i])) return 0;
+                }
+            } else if (strcmp(func_name, "Lion") == 0) {
+                // Generate class constructor with actual arguments
+                for (size_t i = 0; i < node->data.function_call.argument_count; i++) {
+                    if (i > 0) codegen_write(context, ", ");
+                    if (!codegen_generate_c_expression(context, node->data.function_call.arguments[i])) return 0;
+                }
             } else {
-                // Default values for other classes
-                codegen_write(context, "\"Default\", 0");
+                // Default case: use arguments if available, otherwise use default values
+                if (node->data.function_call.argument_count > 0) {
+                    // Generate class constructor with actual arguments
+                    for (size_t i = 0; i < node->data.function_call.argument_count; i++) {
+                        if (i > 0) codegen_write(context, ", ");
+                        if (!codegen_generate_c_expression(context, node->data.function_call.arguments[i])) return 0;
+                    }
+                } else {
+                    // No arguments provided, use default values
+                    codegen_write(context, "\"Default\", 0");
+                }
             }
             codegen_write(context, "}");
             return 1;

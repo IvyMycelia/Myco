@@ -628,11 +628,22 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
             // Handle print function with multiple arguments by concatenating them
             if (node->data.function_call.argument_count == 1) {
                 // Single argument - convert to string and call myco_print
-                codegen_write(context, "myco_print(myco_to_string((void*)(intptr_t)");
-                if (!codegen_generate_c_expression(context, node->data.function_call.arguments[0])) {
-                    return 0;
+                // Check if this is a simple numeric type (not a complex expression)
+                if (node->data.function_call.arguments[0]->type == AST_NODE_NUMBER) {
+                    // Simple numeric literal - use myco_number_to_string
+                    codegen_write(context, "myco_print(myco_number_to_string(");
+                    if (!codegen_generate_c_expression(context, node->data.function_call.arguments[0])) {
+                        return 0;
+                    }
+                    codegen_write(context, "))");
+                } else {
+                    // Other types (including binary ops, strings, etc.) - use myco_to_string
+                    codegen_write(context, "myco_print(myco_to_string((void*)(intptr_t)");
+                    if (!codegen_generate_c_expression(context, node->data.function_call.arguments[0])) {
+                        return 0;
+                    }
+                    codegen_write(context, "))");
                 }
-                codegen_write(context, "))");
             } else {
                 // Multiple arguments - convert each to string and concatenate them
                 codegen_write(context, "myco_print(myco_string_concat(");
@@ -654,6 +665,27 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                             return 0;
                         }
                         codegen_write(context, ")");
+                    } else if (node->data.function_call.arguments[i]->type == AST_NODE_IDENTIFIER) {
+                        // Check if this is a numeric variable
+                        const char* var_name = node->data.function_call.arguments[i]->data.identifier_value;
+                        if (strstr(var_name, "len_") != NULL || strstr(var_name, "count") != NULL ||
+                            strstr(var_name, "size") != NULL || strstr(var_name, "total_") != NULL ||
+                            strstr(var_name, "tests_") != NULL || strstr(var_name, "diff") != NULL ||
+                            strstr(var_name, "result") != NULL || strstr(var_name, "calculation") != NULL) {
+                            // Numeric variable - use myco_number_to_string
+                            codegen_write(context, "myco_number_to_string(");
+                            if (!codegen_generate_c_expression(context, node->data.function_call.arguments[i])) {
+                                return 0;
+                            }
+                            codegen_write(context, ")");
+                        } else {
+                            // Other identifier - use myco_to_string
+                            codegen_write(context, "myco_to_string((void*)(intptr_t)");
+                            if (!codegen_generate_c_expression(context, node->data.function_call.arguments[i])) {
+                                return 0;
+                            }
+                            codegen_write(context, ")");
+                        }
                     } else {
                         // Other types - convert to string
                         codegen_write(context, "myco_to_string((void*)(intptr_t)");
@@ -1653,6 +1685,25 @@ int codegen_generate_c_member_access(CodeGenContext* context, ASTNode* node) {
             if (!codegen_generate_c_expression(context, node->data.member_access.object)) return 0;
             codegen_write(context, ")");
             return 1;
+        } else if (node->data.member_access.object->type == AST_NODE_IDENTIFIER) {
+            // Check if this is a numeric variable
+            const char* var_name = node->data.member_access.object->data.identifier_value;
+            if (strstr(var_name, "len_") != NULL || strstr(var_name, "count") != NULL ||
+                strstr(var_name, "size") != NULL || strstr(var_name, "total_") != NULL ||
+                strstr(var_name, "tests_") != NULL || strstr(var_name, "diff") != NULL ||
+                strstr(var_name, "result") != NULL || strstr(var_name, "calculation") != NULL) {
+                // Numeric variable - use myco_number_to_string
+                codegen_write(context, "myco_number_to_string(");
+                if (!codegen_generate_c_expression(context, node->data.member_access.object)) return 0;
+                codegen_write(context, ")");
+                return 1;
+            } else {
+                // Other identifier - use myco_to_string
+                codegen_write(context, "myco_to_string((void*)(intptr_t)");
+                if (!codegen_generate_c_expression(context, node->data.member_access.object)) return 0;
+                codegen_write(context, ")");
+                return 1;
+            }
         } else {
             // For other types, use the safe conversion function
             codegen_write(context, "myco_to_string(");

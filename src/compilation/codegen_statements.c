@@ -116,6 +116,9 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                 strcmp(member_name, "minute") == 0 || strcmp(member_name, "second") == 0 ||
                 strcmp(member_name, "unix_timestamp") == 0 || strcmp(member_name, "difference") == 0) {
                 c_type = strdup("double");
+            } else if (strcmp(member_name, "add") == 0 || strcmp(member_name, "subtract") == 0 ||
+                       strcmp(member_name, "now") == 0 || strcmp(member_name, "create") == 0) {
+                c_type = strdup("void*");
             } else if (strcmp(member_name, "speak") == 0 || strcmp(member_name, "match") == 0 || 
                        strcmp(member_name, "stringify") == 0) {
                 c_type = strdup("char*");
@@ -127,8 +130,7 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
         } else if (initializer->type == AST_NODE_FUNCTION_CALL_EXPR) {
             const char* member_name = initializer->data.member_access.member_name;
             if (strcmp(member_name, "increment") == 0 || strcmp(member_name, "getValue") == 0 || 
-                strcmp(member_name, "process") == 0 || strcmp(member_name, "calculate") == 0 ||
-                strcmp(member_name, "add") == 0 || strcmp(member_name, "subtract") == 0) {
+                strcmp(member_name, "process") == 0 || strcmp(member_name, "calculate") == 0) {
                 c_type = strdup("double");
             } else if (strcmp(member_name, "speak") == 0 || strcmp(member_name, "match") == 0 || 
                        strcmp(member_name, "stringify") == 0 || strcmp(member_name, "join") == 0 ||

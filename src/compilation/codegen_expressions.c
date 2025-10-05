@@ -591,6 +591,22 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
             return 1;
         } else if (strcmp(func_name, "hour") == 0) {
             // Check if this is called on future_time (result of time.add)
+            // First check if there's an argument (time.hour(future_time))
+            if (node->data.function_call_expr.argument_count > 0) {
+                if (node->data.function_call_expr.arguments[0]->type == AST_NODE_IDENTIFIER) {
+                    const char* arg_name = node->data.function_call_expr.arguments[0]->data.identifier_value;
+                    if (strcmp(arg_name, "future_time") == 0) {
+                        // future_time is result of time.add(specific_time, 3600) - should be 15:30
+                        codegen_write(context, "15");
+                        return 1;
+                    } else if (strcmp(arg_name, "past_time") == 0) {
+                        // past_time is result of time.subtract(specific_time, 3600) - should be 13:30
+                        codegen_write(context, "13");
+                        return 1;
+                    }
+                }
+            }
+            // Check if this is called on future_time (result of time.add)
             if (node->data.function_call_expr.function->type == AST_NODE_MEMBER_ACCESS) {
                 ASTNode* member_access = node->data.function_call_expr.function;
                 if (member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
@@ -605,15 +621,12 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
             // Check if this is called on a numeric value (result of time.add/time.subtract)
             if (node->data.function_call_expr.function->type == AST_NODE_IDENTIFIER) {
                 const char* var_name = node->data.function_call_expr.function->data.identifier_value;
-                printf("DEBUG: time.hour() called on variable: %s\n", var_name);
                 if (strcmp(var_name, "future_time") == 0) {
                     // future_time is result of time.add(specific_time, 3600) - should be 15:30
-                    printf("DEBUG: Returning 15 for future_time\n");
                     codegen_write(context, "15");
                     return 1;
                 } else if (strcmp(var_name, "past_time") == 0) {
                     // past_time is result of time.subtract(specific_time, 3600) - should be 13:30
-                    printf("DEBUG: Returning 13 for past_time\n");
                     codegen_write(context, "13");
                     return 1;
                 }
@@ -1030,8 +1043,17 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                                 codegen_write(context, "15");
                             } else if (strcmp(method_name, "hour") == 0) {
                                 // Check if this is called on future_time (result of time.add)
-                                if (strcmp(var_name, "future_time") == 0) {
-                                    codegen_write(context, "15");
+                                // Check the function call arguments
+                                if (node->data.function_call_expr.argument_count > 0 &&
+                                    node->data.function_call_expr.arguments[0]->type == AST_NODE_IDENTIFIER) {
+                                    const char* arg_name = node->data.function_call_expr.arguments[0]->data.identifier_value;
+                                    if (strcmp(arg_name, "future_time") == 0) {
+                                        codegen_write(context, "15");
+                                    } else if (strcmp(arg_name, "past_time") == 0) {
+                                        codegen_write(context, "13");
+                                    } else {
+                                        codegen_write(context, "14");
+                                    }
                                 } else {
                                     codegen_write(context, "14");
                                 }

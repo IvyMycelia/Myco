@@ -1834,6 +1834,9 @@ int codegen_generate_c_array_literal(CodeGenContext* context, ASTNode* node) {
                 }
             }
         }
+    } else {
+        // For empty arrays, add NULL terminator to ensure safe iteration
+        codegen_write(context, "NULL");
     }
     
     codegen_write(context, "}");

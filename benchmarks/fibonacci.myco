@@ -1,0 +1,13 @@
+function fibonacci(n):
+    if n <= 1:
+        return n;
+    else:
+        return fibonacci(n-1) + fibonacci(n-2);
+    end
+end
+
+let start_time = time.now();
+let result = fibonacci(35);
+let end_time = time.now();
+let duration = time.difference(end_time, start_time);
+print("Myco Result: " + result.toString() + ", Time: " + duration.toString() + " seconds");

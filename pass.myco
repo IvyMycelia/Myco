@@ -3838,7 +3838,8 @@ end
 print("\n=== RESULTS ===");
 print("Total: " + total_tests.toString());
 print("Passed: " + tests_passed.toString());
-print("Failed: ", total_tests - tests_passed);
+let failed_count = total_tests - tests_passed;
+print("Failed: " + failed_count.toString());
 
 
 let rate = (tests_passed * 100) / total_tests;
@@ -3848,7 +3849,7 @@ if total_tests - tests_passed > 0:
     print("Failed tests:");
     
     for i in tests_failed:
-        print("\t - ", i);
+        print("\t - " + i);
     end
 else:
     print("ALL TESTS PASSED!");

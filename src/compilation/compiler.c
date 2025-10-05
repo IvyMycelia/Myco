@@ -1180,6 +1180,13 @@ int codegen_generate_c_if_statement(CodeGenContext* context, ASTNode* node) {
     }
     codegen_unindent(context);
     
+    // Generate else if chain if present
+    if (node->data.if_statement.else_if_chain) {
+        codegen_write(context, "} else ");
+        if (!codegen_generate_c_if_statement(context, node->data.if_statement.else_if_chain)) return 0;
+        return 1;  // The recursive call will close the braces
+    }
+    
     // Generate else block if present
     if (node->data.if_statement.else_block) {
         codegen_write_line(context, "} else {");

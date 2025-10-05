@@ -82,13 +82,18 @@ char* myco_string_from_number(double number) {
 }
 
 char* myco_string_from_bool(int bool_value) {
-    return strdup(bool_value ? "true" : "false");
+    return strdup(bool_value ? "True" : "False");
 }
 
 char* myco_number_to_string(double number) {
     char* result = malloc(64);
     if (result) {
-        snprintf(result, 64, "%g", number);
+        // Check if the number is a whole number (integer)
+        if (number == (int)number) {
+            snprintf(result, 64, "%d", (int)number);
+        } else {
+            snprintf(result, 64, "%.6f", number);
+        }
     }
     return result;
 }
@@ -126,15 +131,39 @@ int isString(void* value) {
 }
 
 int isInt(void* value) {
-    // Simple heuristic: if it's a small integer value, return 1
-    // This is a placeholder implementation
-    return (value != NULL && (intptr_t)value < 1000) ? 1 : 0;
+    // Check if the value is a whole number
+    if (value == NULL) return 0;
+    
+    // If it's a small integer cast to void*, check if it's a whole number
+    if ((intptr_t)value < 1000) {
+        return 1; // Small integers are treated as integers
+    }
+    
+    // For larger values, we can't determine if they're integers with this approach
+    return 0;
+}
+
+int isInt_double(double value) {
+    // Check if the double value is a whole number
+    return (value == (int)value) ? 1 : 0;
 }
 
 int isFloat(void* value) {
-    // Simple heuristic: if it's a floating point value, return 1
-    // This is a placeholder implementation
-    return (value != NULL && (intptr_t)value > 1000) ? 1 : 0;
+    // Check if the value is a floating point number
+    if (value == NULL) return 0;
+    
+    // If it's a small integer cast to void*, it's not a float
+    if ((intptr_t)value < 1000) {
+        return 0; // Small integers are not floats
+    }
+    
+    // For larger values, we can't determine if they're floats with this approach
+    return 0;
+}
+
+int isFloat_double(double value) {
+    // Check if the double value has a decimal part
+    return (value != (int)value) ? 1 : 0;
 }
 
 int isBool(void* value) {
@@ -144,9 +173,21 @@ int isBool(void* value) {
 }
 
 int isArray(void* value) {
-    // Simple heuristic: if it's NULL or a pointer, return 1
-    // This is a placeholder implementation
-    return (value == NULL) ? 1 : 0;
+    // Simple heuristic: if it's not NULL and not a small integer, it might be an array
+    // But exclude string literals by checking if it looks like a string
+    if (value == NULL || (intptr_t)value <= 1000) {
+        return 0;
+    }
+    
+    // Check if it's a string literal by looking at the first few characters
+    char* str = (char*)value;
+    if (str[0] >= 32 && str[0] <= 126) { // Printable ASCII range
+        // This looks like a string literal, not an array
+        return 0;
+    }
+    
+    // Otherwise, assume it's an array
+    return 1;
 }
 
 int isNull(void* value) {
@@ -199,6 +240,9 @@ char* myco_safe_to_string(void* value) {
             // Try to dereference as double* (for actual double values)
             return myco_number_to_string(*(double*)value);
         }
+    } else if (isArray(value)) {
+        // For arrays, return a simple representation
+        return "[Array]";
     } else {
         // For string literals cast to void*, just return them as strings
         return (char*)value;

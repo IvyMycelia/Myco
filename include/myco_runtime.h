@@ -53,6 +53,10 @@ int isArray(void* value);
 int isNull(void* value);
 int isNumber(void* value);
 
+// Type checking functions for double values
+int isInt_double(double value);
+int isFloat_double(double value);
+
 // Get type name as string
 char* myco_get_type_name(void* value);
 

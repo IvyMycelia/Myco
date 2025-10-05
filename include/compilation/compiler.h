@@ -71,6 +71,11 @@ typedef struct {
     char* continue_labels[100];
     char* catch_labels[100];
     VariableScopeStack* variable_scope;
+    // Track imported libraries to avoid duplicates
+    char* imported_libraries[100];
+    int imported_library_count;
+    // Track current variable name being declared (for context-aware code generation)
+    const char* current_variable_name;
 } CodeGenContext;
 
 // Compiler initialization and cleanup
@@ -114,7 +119,7 @@ int codegen_generate_c_while_loop(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_for_loop(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_try_catch(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_switch(CodeGenContext* context, ASTNode* node);
-int codegen_generate_c_match(CodeGenContext* context, ASTNode* node);
+int codegen_generate_c_spore(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_block(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_return(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_break(CodeGenContext* context, ASTNode* node);

@@ -817,10 +817,12 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                         const char* return_type = get_placeholder_function_return_type(func_name);
                         // printf("DEBUG: Type inference for placeholder function %s: %s\n", func_name, return_type);
                         codegen_write(context, "%s ", return_type);
-                    } else if (strcmp(func_name, "now") == 0 || strcmp(func_name, "create") == 0 || 
-                               strcmp(func_name, "add") == 0 || strcmp(func_name, "subtract") == 0) {
+                    } else if (strcmp(func_name, "now") == 0 || strcmp(func_name, "create") == 0) {
                         // Time library methods that return time objects
                         codegen_write(context, "void* ");
+                    } else if (strcmp(func_name, "add") == 0 || strcmp(func_name, "subtract") == 0) {
+                        // Time library methods that return numeric values (hour)
+                        codegen_write(context, "double ");
                     } else if (strcmp(func_name, "format") == 0 || strcmp(func_name, "iso_string") == 0) {
                         // Time library methods that return strings
                         codegen_write(context, "char* ");

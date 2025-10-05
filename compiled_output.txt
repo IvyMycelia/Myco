@@ -1,0 +1,494 @@
+=== Myco Comprehensive Test Suite ===
+Testing EVERY feature and edge case in Myco
+
+=== 1. BASIC DATA TYPES ===
+1.1. Numbers...
+✓ Integer variable: 42
+✓ Float variable: 3.140000
+✓ Negative integer: -10
+✓ Negative float: -3.140000
+✓ Zero: 0
+
+1.2. Strings...
+✓ String variable: Myco
+✓ Empty string: ''
+✓ String with spaces: hello world
+
+1.3. Booleans...
+✓ Boolean True: True
+✓ Boolean False: False
+
+1.4. Null...
+✓ Null variable: null
+
+=== 2. ARITHMETIC OPERATIONS ===
+2.1. Addition...
+✓ Integer addition (5 + 3): 8
+✓ Float addition (2.5 + 1.5): 4
+✓ Mixed addition (5 + 2.5): 7.500000
+✓ String concatenation: helloworld
+
+2.2. Subtraction...
+✓ Integer subtraction (10 - 4): 6
+✓ Float subtraction (5.5 - 2.5): 3
+✓ Negative result (3 - 5): -2
+
+2.3. Multiplication...
+✓ Integer multiplication (6 * 7): 42
+✓ Float multiplication (2.5 * 4): 10
+✓ Zero multiplication (5 * 0): 0
+
+2.4. Division...
+✓ Integer division (15 / 3): 5
+✓ Float division (10.0 / 2.5): 4
+✓ Division with remainder (7 / 2): 3.500000
+
+=== 3. COMPARISON OPERATIONS ===
+3.1. Equality...
+✓ Integer equality (5 == 5): 1
+✓ Integer inequality (5 == 6): 0
+✓ Float equality (3.14 == 3.14): 1
+✓ String equality ('hello' == 'hello'): 1
+✓ Boolean equality (True == True): 1
+
+3.2. Inequality...
+✓ Integer inequality (4 != 6): 1
+✓ String inequality ('hello' != 'world'): 1
+
+3.3. Greater than...
+✓ Greater than (10 > 5): 1
+✓ Not greater than (5 > 10): 0
+
+3.4. Less than...
+✓ Less than (3 < 7): 1
+✓ Not less than (7 < 3): 0
+
+3.5. Greater than or equal...
+✓ Greater than or equal (10 >= 5): 1
+✓ Equal values (5 >= 5): 1
+
+3.6. Less than or equal...
+✓ Less than or equal (3 <= 7): 1
+✓ Equal values (5 <= 5): 1
+
+=== 4. LOGICAL OPERATIONS ===
+4.1. Logical AND...
+✓ Logical AND (True and True): 1
+✓ Logical AND false (True and False): 0
+
+4.2. Logical OR...
+✓ Logical OR (False or True): 1
+✓ Logical OR false (False or False): 0
+
+4.3. Logical NOT...
+✓ Logical NOT (not False): 1
+✓ Logical NOT false (not True): 0
+
+4.4. Complex logical expressions...
+✓ Complex logical ((True and False) or True): 1
+✓ Nested NOT (not (True and False)): 1
+
+5. Arrays...
+✓ Simple array: 
+✓ Nested array: @�ao
+✓ Mixed type array: ��bM
+✓ Empty array: 
+
+6. String Operations...
+✓ String concatenation: Hello World
+✓ Number to string: 42
+✓ Boolean to string: True
+
+=== 7. STRING OPERATIONS ===
+7.1. String concatenation...
+✓ String concatenation: Hello World
+✓ Number to string: 42
+✓ Boolean to string: True
+
+7.2. Escape sequences...
+✓ Escape sequences work
+✓ Quoted string: He said "Hello"
+✓ Backslash string: Path: C:\Users\Name
+
+8. Control Flow...
+✓ If statement works
+✓ Else statement works
+
+9. Built-in Libraries...
+✓ Math library imported
+✓ String type available
+✓ Array type available
+✓ File library imported
+✓ Directory library imported
+✓ Maps library available
+✓ Sets type available
+✓ Trees library imported
+✓ Graphs library imported
+
+10. Math Library Functions...
+✓ Math.Pi: 3.141593
+✓ Math.E: 2.718282
+✓ Math.abs(-5): 5
+✓ Math.min(10, 5): 5
+✓ Math.max(10, 5): 10
+✓ Math.sqrt(16): 4
+
+11. String Library Functions...
+✓ String.upper('hello world'): PLACEHOLDER_UPPER
+✓ String.lower('HELLO WORLD'): placeholder_lower
+✓ String.trim('  hello  '): 'trimmed'
+✓ len('hello'): 5
+
+12. Input Function...
+✓ Input function available (tested manually)
+
+13. Array Library Functions...
+✓ Array library imported successfully
+
+13.1. Enhanced Array Operations...
+✓ array.join() successful
+✓ array.contains() with existing value
+✓ array.contains() with missing value
+✓ array.indexOf() with existing value
+✓ array.indexOf() with missing value
+✓ array.unique() successful
+✓ array.concat() successful
+✓ array.slice() successful
+✓ array.fill() successful
+
+14. File Library Functions...
+✓ File write successful
+✓ File exists check successful
+✓ File read successful
+✓ File delete successful
+
+15. Directory Library Functions...
+✓ Current directory successful
+✓ Directory listing successful
+✓ Directory creation successful
+✓ Directory exists check successful
+
+16. Maps Library Functions...
+✓ maps.has() with existing key
+✓ maps.has() with missing key
+✓ maps.size() returns correct count
+✓ maps.keys() successful
+✓ maps.delete() executed
+✓ maps.update() executed
+✓ maps.clear() executed
+
+17. Sets Library Functions...
+✓ set.has() with existing element
+✓ set.has() with missing element
+✓ set.size() returns correct count
+✓ set.add() executed
+✓ set.remove() executed
+✓ set.toArray() successful
+✓ set.union() successful
+✓ set.intersection() successful
+✓ set.clear() successful
+
+18. Trees Library Functions...
+✓ trees.create() successful
+✓ trees.size() returns correct initial size
+✓ trees.isEmpty() returns correct initial state
+✓ trees.insert() successful
+✓ trees.search() successful
+✓ trees.clear() successful
+
+19. Graphs Library Functions...
+✓ graphs.create() successful
+✓ graphs.size() returns correct initial size
+✓ graphs.is_empty() returns correct initial state
+✓ graphs.add_node() successful
+✓ graphs.add_edge() successful
+✓ graphs.clear() successful
+✓ graphs.create() with directed parameter successful
+
+20. Heaps Library Functions...
+✓ heaps.create() successful
+✓ heaps.size() successful
+✓ heaps.isEmpty() successful
+✓ heaps.insert() successful
+✓ heaps.peek() successful
+✓ heaps.extract() successful
+✓ heaps.clear() successful
+
+21. Queues Library Functions...
+✓ queues.create() successful
+✓ queues.size() successful
+✓ queues.isEmpty() successful
+✓ queues.enqueue() successful
+✓ queues.front() successful
+✓ queues.back() successful
+✓ queues.dequeue() successful
+✓ queues.clear() successful
+
+22. Stacks Library Functions...
+✓ stacks.create() successful
+✓ stacks.size() successful
+✓ stacks.isEmpty() successful
+✓ stacks.push() successful
+✓ stacks.top() successful
+✓ stacks.pop() successful
+✓ stacks.clear() successful
+
+=== 23. BUILT-IN FUNCTIONS ===
+20.1. Type checking...
+✓ 42.type(): Int
+✓ 3.14.type(): Float
+✓ 'hello'.type(): String
+✓ True.type(): Boolean
+✓ Null.type(): Null
+✓ [1,2,3].type(): Array
+
+13.2. Length function...
+✓ len('hello'): 5
+✓ len(''): 0
+✓ len([1,2,3]): 3
+
+13.3. String conversion...
+✓ toString(3.14): 3.140000
+✓ toString(False): False
+✗ toString(Null): null
+✓ toString([1,2,3]): [1, 2, 3]
+
+=== 14. UNION TYPES ===
+14.1. Basic union type declarations...
+✓ Union type with String value: hello
+✓ Union type with Int value: [union]
+14.2. Union type with multiple types...
+✓ Union type with Bool value: [union]
+✓ Union type with String value: world
+14.3. Union type type checking...
+✓ Union type type() returns correct type for String: String
+✓ Union type type() returns correct type for Int: Int
+14.4. Union type parsing and representation...
+✓ Union type parsing with three types: parsing_test
+✓ Union type with Float: [union]
+14.5. Union type edge cases...
+✓ Union type with Null: [union]
+✓ Union type with Bool: [union]
+
+=== 15. OPTIONAL TYPES ===
+15.1. Basic optional type declarations...
+✓ Optional string: hello
+✓ Optional null: null
+15.2. Optional types with different base types...
+✓ Optional array: 
+15.3. Optional type checking...
+✓ Optional string type: String
+✓ Optional null type: Null
+15.4. Optional types with match statements...
+✓ Match with optional string: found hello
+✓ Match with optional null: found null
+15.5. Optional union types...
+✓ Optional union: [union]
+
+=== 16. TYPE GUARDS ===
+16.1. Basic type guard methods...
+✓ isString('hello'): True
+✓ isString(42): False
+16.2. Integer type guards...
+✓ isInt(42): True
+✓ isInt(3.14): False
+16.3. Float type guards...
+✓ isFloat(3.14): True
+✓ isFloat(42): False
+16.4. Boolean type guards...
+✓ isBool(True): True
+✓ isBool(42): False
+16.5. Array type guards...
+✓ isArray([1, 2, 3]): True
+✓ isArray('hello'): False
+16.6. Null type guards...
+✓ isNull(Null): True
+✓ isNull('hello'): False
+16.7. Number type guards...
+✓ isNumber(42): True
+✓ isNumber(3.14): True
+✓ isNumber('hello'): False
+16.8. Type guards with optional types...
+✓ isString(optional_string): True
+✓ isNull(optional_null): True
+16.9. Type guards in conditional logic...
+✓ Type guard conditional logic: string
+
+=== 17. EDGE CASES ===
+17.1. Zero and negative numbers...
+✓ Zero addition (0 + 0): 0
+✓ Zero multiplication (0 * 5): 0
+✓ Negative addition (-5 + 3): -2
+
+17.2. Large numbers...
+✓ Large addition (999999 + 1): 1000000
+✓ Large multiplication (1000 * 1000): 1000000
+
+17.3. Floating point precision...
+✓ Float precision (0.1 + 0.2 > 0.3): 0.300000
+✓ Float equality (1.0 == 1): 1
+
+17.4. Empty values...
+✓ Empty string length: null
+✓ Empty array length: null
+✓ Empty string concatenation: hello
+
+=== 18. ERROR HANDLING (Expected Errors) ===
+18.1. Division by zero (should continue execution)...
+
+18.2. Array index out of bounds (should continue execution)...
+
+18.3. Undefined variable (should continue execution)...
+
+18.1. Function definitions (no parameters, no return type)...
+✓ Simple function definition (no params, no return)
+
+18.2. Function with single parameter (no return type)...
+✓ Function with single parameter (no return type)
+
+18.3. Function with multiple parameters (no return type)...
+✓ Function with multiple parameters (no return type)
+
+18.4. Function definitions (with return types)...
+✓ Function definitions with return types
+
+18.4. Function definitions (mixed explicit/implicit types)...
+✓ Function definitions with mixed explicit/implicit types
+
+18.5. Function calls (no parameters)...
+✓ Function calls with no parameters
+
+18.6. Function calls (with parameters)...
+
+18.7. Function calls (with type annotations)...
+
+18.8. Recursive functions...
+
+18.9. Function variables and assignments...
+
+18.10. Complex function combinations...
+
+18.11. Function scope and closures...
+
+18.12. Function error handling...
+
+18.13. Lambda functions (anonymous functions)...
+✓ Lambda functions (anonymous functions)
+
+18.14. Function variable assignments...
+✓ Function variable assignments
+
+18.15. Lambda functions with different parameter types...
+✓ Lambda functions with different parameter types
+
+18.16. Explicit function with all types...
+✓ Explicit function with all types
+
+18.17. Implicit function with no types...
+
+18.18. Mixed function - explicit parameter, implicit return...
+
+18.19. Mixed function - implicit parameter, explicit return...
+
+18.20. Function variable with explicit types...
+
+18.21. Function variable with implicit types...
+
+18.22. Function variable with mixed types...
+
+18.23. Function variable with mixed return type...
+
+18.24. Function type interchangeability with different argument types...
+✗ Class with default field values failed
+✓ Class instantiation
+✓ Class with methods
+✓ Class with self references
+✓ Class with mixed field types
+✓ Class with typed methods
+✓ Class with untyped methods
+✗ Class with complex method bodies failed
+
+=== 19. INHERITANCE TESTS ===
+✓ Basic inheritance parsing
+✓ Field inheritance
+✓ Method overriding
+✓ Multi-level inheritance parsing
+✓ Inheritance with additional fields
+✓ Inheritance without method override
+✓ Complex inheritance chain
+✓ Inheritance with default values
+✓ Multiple inheritance simulation
+✓ Inheritance with mixed field types
+
+=== 20. Time Library Functions ===
+✓ Time library import works
+✓ time.now() returns time object
+✓ time.create() returns time object
+✓ time.format() works correctly
+✓ time.year() works correctly
+✓ time.month() works correctly
+✓ time.day() works correctly
+✓ time.hour() works correctly
+✓ time.minute() works correctly
+✓ time.second() works correctly
+✓ time.iso_string() works correctly
+✓ time.unix_timestamp() works correctly
+✗ time.add() failed
+✗ time.subtract() failed
+✓ time.difference() works correctly
+
+=== 21. Regex Library Functions ===
+✓ Regex library import works
+✗ regex.match() failed
+✗ regex.match() should return Null for no match
+✓ regex.test() works for existing pattern
+✗ regex.test() failed for non-existing pattern
+✓ regex.is_email() works for valid email
+✗ regex.is_email() failed for invalid email
+✓ regex.is_url() works for valid URL
+✗ regex.is_url() failed for invalid URL
+✓ regex.is_ip() works for valid IP
+✗ regex.is_ip() failed for invalid IP
+✓ regex.CASE_INSENSITIVE flag works
+✓ regex.GLOBAL flag works
+✓ regex.MULTILINE flag works
+✓ regex.DOTALL flag works
+✓ Complex regex patterns work
+✓ Regex with special characters works
+✗ Multiple email format validation failed
+✗ Multiple URL format validation failed
+✗ Multiple IP format validation failed
+✗ Regex error handling failed
+✓ Regex with empty strings works
+
+=== 22. JSON Library Functions ===
+✓ JSON library import works
+✗ json.stringify() failed for strings
+✗ json.stringify() failed for numbers
+✗ json.stringify() failed for booleans
+✗ json.stringify() failed for null
+✓ json.stringify() works for arrays
+✓ json.validate() works for valid JSON
+✗ json.validate() failed for invalid JSON
+✗ json.size() failed for arrays
+✗ json.is_empty() failed for arrays
+✗ json.parse() failed
+
+=== 23. HTTP Library Functions ===
+✓ HTTP library import works
+✗ http.get() failed
+✗ http.post() failed
+✗ http.put() failed
+✗ http.delete() failed
+✗ HTTP response object test failed
+✗ http.status_ok() failed
+✗ http.get_header() failed
+✓ http.get_json() works
+✗ HTTP error handling failed
+
+=== RESULTS ===
+Total: 295
+Passed: 263
+Failed: 32
+Success rate: 89.152542%
+Failed tests:

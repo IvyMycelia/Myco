@@ -707,6 +707,11 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                                 return 0;
                             }
                             codegen_write(context, ")");
+                        } else if (strlen(var_name) == 1 && strchr("abcdefghijklmnopqrstuvwxyz", var_name[0]) != NULL) {
+                            // Single-letter variable (likely string iterator from for-loop) - use directly
+                            if (!codegen_generate_c_expression(context, node->data.function_call.arguments[i])) {
+                                return 0;
+                            }
                         } else {
                             // Other identifier - use myco_to_string
                             codegen_write(context, "myco_to_string((void*)(intptr_t)");

@@ -1227,8 +1227,9 @@ int codegen_generate_c_for_loop(CodeGenContext* context, ASTNode* node) {
                 // For arrays, return 0 for now (placeholder)
                 codegen_write(context, "0; %s++) {", index_var);
             } else if (strstr(var_name, "tests_failed") != NULL) {
-                // For tests_failed array, use a reasonable size estimate
-                codegen_write(context, "100; %s++) {", index_var);
+                // For tests_failed array, use a safer approach with NULL checking
+                codegen_write(context, "100 && %s[%s] != NULL; %s++) {", 
+                    var_name, index_var, index_var);
             } else {
                 // For other identifiers, assume they have .length
     if (!codegen_generate_c_expression(context, node->data.for_loop.collection)) return 0;
@@ -1247,13 +1248,21 @@ int codegen_generate_c_for_loop(CodeGenContext* context, ASTNode* node) {
     codegen_indent(context);
     
     // Declare the iterator variable inside the loop body
-    // For now, assume the collection is an array of void* pointers
     if (node->data.for_loop.collection && node->data.for_loop.collection->type == AST_NODE_IDENTIFIER) {
         const char* collection_name = node->data.for_loop.collection->data.identifier_value;
-        codegen_write_line(context, "void* %s = %s[%s];", 
-                          node->data.for_loop.iterator_name, 
-                          collection_name, 
-                          index_var);
+        // Check if this is a string array (like tests_failed)
+        if (strstr(collection_name, "tests_failed") != NULL) {
+            codegen_write_line(context, "char* %s = %s[%s];", 
+                              node->data.for_loop.iterator_name, 
+                              collection_name, 
+                              index_var);
+        } else {
+            // For other collections, assume they are arrays of void* pointers
+            codegen_write_line(context, "void* %s = %s[%s];", 
+                              node->data.for_loop.iterator_name, 
+                              collection_name, 
+                              index_var);
+        }
     }
     
     // Generate body

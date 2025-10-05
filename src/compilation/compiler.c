@@ -939,16 +939,23 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
         } else if (strcmp(member_access->data.member_access.member_name, "match") == 0) {
             // regex.match() returns object (void*)
             codegen_write(context, "void* ");
-        } else if (strcmp(member_access->data.member_access.member_name, "replace") == 0 ||
-                   strcmp(member_access->data.member_access.member_name, "stringify") == 0) {
-            // regex.replace() and json.stringify() return char*
+        } else if (strcmp(member_access->data.member_access.member_name, "replace") == 0) {
+            // regex.replace() returns char*
             codegen_write(context, "char* ");
+        } else if (strcmp(member_access->data.member_access.member_name, "stringify") == 0) {
+            // json.stringify() returns char*
+            codegen_write(context, "char* ");
+        } else if (strcmp(member_access->data.member_access.member_name, "parse") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "status_ok") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "get_header") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "get_json") == 0) {
+            // json.parse() and HTTP methods return void*
+            codegen_write(context, "void* ");
         } else if (strcmp(member_access->data.member_access.member_name, "test") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "is_email") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "is_url") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "is_ip") == 0 ||
-                   strcmp(member_access->data.member_access.member_name, "validate") == 0 ||
-                   strcmp(member_access->data.member_access.member_name, "status_ok") == 0) {
+                   strcmp(member_access->data.member_access.member_name, "validate") == 0) {
             // regex and json methods return int (boolean)
             codegen_write(context, "int ");
         } else if (strcmp(member_access->data.member_access.member_name, "size") == 0) {

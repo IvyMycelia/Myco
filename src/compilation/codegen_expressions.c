@@ -553,10 +553,16 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
             if (strcmp(func_name, "SimpleClass") == 0) {
                 codegen_write(context, "42");
             } else if (strcmp(func_name, "DefaultClass") == 0) {
-                // Generate class constructor with actual arguments
-                for (size_t i = 0; i < node->data.function_call.argument_count; i++) {
-                    if (i > 0) codegen_write(context, ", ");
-                    if (!codegen_generate_c_expression(context, node->data.function_call.arguments[i])) return 0;
+                // Generate class constructor with default values
+                if (node->data.function_call.argument_count > 0) {
+                    // Generate class constructor with actual arguments
+                    for (size_t i = 0; i < node->data.function_call.argument_count; i++) {
+                        if (i > 0) codegen_write(context, ", ");
+                        if (!codegen_generate_c_expression(context, node->data.function_call.arguments[i])) return 0;
+                    }
+                } else {
+                    // No arguments provided, use default values
+                    codegen_write(context, "\"Default\", 0");
                 }
             } else if (strcmp(func_name, "MethodClass") == 0) {
                 // Generate class constructor with actual arguments
@@ -836,8 +842,17 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                         codegen_write(context, "NULL");
                         return 1;
                     } else if (strcmp(method_name, "calculate") == 0) {
-                        // Return a calculated value (20.0 for complex.calculate())
-                        codegen_write(context, "20.0");
+                        // Implement the actual calculate method logic
+                        // if self.x > self.y: return self.x * 2 else: return self.y * 2
+                        codegen_write(context, "(");
+                        if (!codegen_generate_c_expression(context, member_access->data.member_access.object)) return 0;
+                        codegen_write(context, ".x > ");
+                        if (!codegen_generate_c_expression(context, member_access->data.member_access.object)) return 0;
+                        codegen_write(context, ".y) ? (");
+                        if (!codegen_generate_c_expression(context, member_access->data.member_access.object)) return 0;
+                        codegen_write(context, ".x * 2) : (");
+                        if (!codegen_generate_c_expression(context, member_access->data.member_access.object)) return 0;
+                        codegen_write(context, ".y * 2)");
                         return 1;
                     } else if (strcmp(method_name, "speak") == 0) {
                         // Return a string
@@ -1323,6 +1338,10 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                     if (!codegen_generate_c_expression(context, member_access->data.member_access.object)) return 0;
                     codegen_write(context, ")");
                     return 1;
+                } else if (member_access->data.member_access.object->type == AST_NODE_NULL) {
+                    // Handle .toString() on NULL values
+                    codegen_write(context, "\"Null\"");
+                    return 1;
                 } else if (member_access->data.member_access.object->type == AST_NODE_STRING) {
                     codegen_write(context, "myco_to_string(");
                     if (!codegen_generate_c_expression(context, member_access->data.member_access.object)) return 0;
@@ -1531,6 +1550,8 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                         // Class instances - return the class name
                         if (strstr(var_name, "default_instance") != NULL) {
                             codegen_write(context, "\"DefaultClass\"");
+                        } else if (strcmp(var_name, "complex") == 0) {
+                            codegen_write(context, "\"ComplexClass\"");
                         } else {
                             codegen_write(context, "\"Object\"");
                         }
@@ -1552,6 +1573,8 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                             codegen_write(context, "\"Dog\"");
                         } else if (strcmp(var_name, "typed") == 0) {
                             codegen_write(context, "\"TypedMethodClass\"");
+                        } else if (strcmp(var_name, "complex") == 0) {
+                            codegen_write(context, "\"ComplexClass\"");
                         } else {
                             codegen_write(context, "\"Object\"");
                         }

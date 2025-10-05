@@ -936,10 +936,12 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                    strcmp(member_access->data.member_access.member_name, "sqrt") == 0) {
             // These methods return double
             codegen_write(context, "double ");
-        } else if (strcmp(member_access->data.member_access.member_name, "match") == 0 ||
-                   strcmp(member_access->data.member_access.member_name, "replace") == 0 ||
+        } else if (strcmp(member_access->data.member_access.member_name, "match") == 0) {
+            // regex.match() returns object (void*)
+            codegen_write(context, "void* ");
+        } else if (strcmp(member_access->data.member_access.member_name, "replace") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "stringify") == 0) {
-            // regex and json methods return char*
+            // regex.replace() and json.stringify() return char*
             codegen_write(context, "char* ");
         } else if (strcmp(member_access->data.member_access.member_name, "test") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "is_email") == 0 ||
@@ -1048,9 +1050,11 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                    strstr(node->data.variable_declaration.initial_value->data.member_access.member_name, "difference") != NULL) {
             // .getValue(), .increment(), .calculate(), and time methods return double
             codegen_write(context, "double ");
-        } else if (strstr(node->data.variable_declaration.initial_value->data.member_access.member_name, "match") != NULL ||
-                   strstr(node->data.variable_declaration.initial_value->data.member_access.member_name, "stringify") != NULL) {
-            // regex and json methods return char*
+        } else if (strstr(node->data.variable_declaration.initial_value->data.member_access.member_name, "match") != NULL) {
+            // regex.match() returns object (void*)
+            codegen_write(context, "void* ");
+        } else if (strstr(node->data.variable_declaration.initial_value->data.member_access.member_name, "stringify") != NULL) {
+            // json.stringify() returns char*
             codegen_write(context, "char* ");
         } else if (strstr(node->data.variable_declaration.initial_value->data.member_access.member_name, "size") != NULL) {
             // json.size() returns double

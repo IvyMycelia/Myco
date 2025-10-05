@@ -128,15 +128,28 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                 c_type = strdup("void*");
             }
         } else if (initializer->type == AST_NODE_FUNCTION_CALL_EXPR) {
-            const char* member_name = initializer->data.member_access.member_name;
-            if (strcmp(member_name, "increment") == 0 || strcmp(member_name, "getValue") == 0 || 
-                strcmp(member_name, "process") == 0 || strcmp(member_name, "calculate") == 0) {
-                c_type = strdup("double");
-            } else if (strcmp(member_name, "speak") == 0 || strcmp(member_name, "match") == 0 || 
-                       strcmp(member_name, "stringify") == 0 || strcmp(member_name, "join") == 0 ||
-                       strcmp(member_name, "toString") == 0) {
-                c_type = strdup("char*");
+            printf("DEBUG: AST_NODE_FUNCTION_CALL_EXPR detected\n");
+            // Check if this is a member access function call (e.g., time.add())
+            if (initializer->data.function_call_expr.function &&
+                initializer->data.function_call_expr.function->type == AST_NODE_MEMBER_ACCESS) {
+                const char* member_name = initializer->data.function_call_expr.function->data.member_access.member_name;
+                printf("DEBUG: Member access function call: %s\n", member_name);
+                if (strcmp(member_name, "increment") == 0 || strcmp(member_name, "getValue") == 0 || 
+                    strcmp(member_name, "process") == 0 || strcmp(member_name, "calculate") == 0) {
+                    c_type = strdup("double");
+                } else if (strcmp(member_name, "add") == 0 || strcmp(member_name, "subtract") == 0 ||
+                           strcmp(member_name, "now") == 0 || strcmp(member_name, "create") == 0) {
+                    c_type = strdup("void*");
+                    printf("DEBUG: Type inference for %s: void*\n", member_name);
+                } else if (strcmp(member_name, "speak") == 0 || strcmp(member_name, "match") == 0 || 
+                           strcmp(member_name, "stringify") == 0 || strcmp(member_name, "join") == 0 ||
+                           strcmp(member_name, "toString") == 0) {
+                    c_type = strdup("char*");
+                } else {
+                    c_type = strdup("void*");
+                }
             } else {
+                printf("DEBUG: Not a member access function call, using void*\n");
                 c_type = strdup("void*");
             }
         } else if (initializer->type == AST_NODE_ARRAY_LITERAL) {

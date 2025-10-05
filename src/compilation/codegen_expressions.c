@@ -153,8 +153,8 @@ int codegen_generate_c_binary_op(CodeGenContext* context, ASTNode* node) {
         }
         
         if (is_array_concat) {
-            // Handle array concatenation - generate a simple array append
-            // For now, just keep the original array (no-op for testing)
+            // Handle array concatenation - for now, just keep the original array
+            // TODO: Implement proper array concatenation in C
             if (!codegen_generate_c_expression(context, node->data.binary.left)) return 0;
             return 1;
         }

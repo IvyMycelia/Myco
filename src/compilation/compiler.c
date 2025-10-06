@@ -234,7 +234,7 @@ CompilerConfig* compiler_config_create(void) {
     config->debug_info = 0;
     config->warnings_as_errors = 0;
     config->strict_mode = 0;
-    config->type_checking = 0;  // Disable type checking for now
+    config->type_checking = 1;  // Enable type checking for accurate type inference
     config->output_file = NULL;
     config->include_path_count = 0;
     config->library_path_count = 0;
@@ -399,8 +399,9 @@ int compiler_generate_c(CompilerConfig* config, ASTNode* ast, const char* output
     }
     
     // Run type checking if enabled
+    TypeCheckerContext* type_context = NULL;
     if (config->type_checking) {
-        TypeCheckerContext* type_context = type_checker_create_context();
+        type_context = type_checker_create_context();
         if (type_context) {
             if (!type_check_ast(type_context, ast)) {
                 fprintf(stderr, "Type checking failed:\n");
@@ -409,7 +410,6 @@ int compiler_generate_c(CompilerConfig* config, ASTNode* ast, const char* output
                 // Temporarily disable type checking to test C generation
                 // return 0;
             }
-            type_checker_free_context(type_context);
         }
     }
     
@@ -434,8 +434,12 @@ int compiler_generate_c(CompilerConfig* config, ASTNode* ast, const char* output
     CodeGenContext* context = codegen_context_create(config, output);
     if (!context) {
         fclose(output);
+        if (type_context) type_checker_free_context(type_context);
         return 0;
     }
+    
+    // Set type context for accurate type inference
+    context->type_context = type_context;
     
     // Generate C headers
     if (!codegen_generate_c_headers(context)) {
@@ -457,6 +461,7 @@ int compiler_generate_c(CompilerConfig* config, ASTNode* ast, const char* output
     // Cleanup
     codegen_context_free(context);
     fclose(output);
+    if (type_context) type_checker_free_context(type_context);
     
     return 1;
 }

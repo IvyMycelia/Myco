@@ -735,8 +735,13 @@ MycoType* type_parse_string(const char* type_string, int line, int column) {
 int type_check_ast(TypeCheckerContext* context, ASTNode* node) {
     if (!context || !node) return 0;
     
+    printf("DEBUG: type_check_ast called with node type: %d\n", node->type);
+    
     // Type check the main program
-    return type_check_statement(context, node);
+    int result = type_check_statement(context, node);
+    printf("DEBUG: type_check_statement returned: %d\n", result);
+    
+    return result;
 }
 
 int type_check_statement(TypeCheckerContext* context, ASTNode* node) {

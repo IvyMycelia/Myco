@@ -1,6 +1,7 @@
 #include "compilation/codegen_expressions.h"
 #include "compilation/compiler.h"
 #include "core/ast.h"
+#include "core/type_checker.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1902,6 +1903,22 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                 // For .type() calls, determine the actual type based on the variable
                 if (member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
                     const char* var_name = member_access->data.member_access.object->data.identifier_value;
+                    
+                    // Try to get type from type checker context if available
+                    if (context->type_context) {
+                        TypeCheckerContext* type_ctx = (TypeCheckerContext*)context->type_context;
+                        MycoType* var_type = type_environment_lookup_variable(type_ctx->current_environment, var_name);
+                        if (var_type) {
+                            const char* type_name = type_to_string(var_type);
+                            if (type_name) {
+                                codegen_write(context, "\"");
+                                codegen_write(context, type_name);
+                                codegen_write(context, "\"");
+                                // Don't free type_name - it's a static buffer from type_to_string
+                                return 1;
+                            }
+                        }
+                    }
                     
                     // Check for specific variable patterns to determine type
                     // HTTP method result types: handle specific variables before generic _response

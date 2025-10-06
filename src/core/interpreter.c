@@ -1246,9 +1246,56 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
             case VALUE_NULL:
                 result = value_create_string("Null");
                 break;
-            case VALUE_ARRAY:
-                result = value_create_string("Array");
+            case VALUE_ARRAY: {
+                // Try to infer array element type at runtime
+                if (object.data.array_value.count > 0) {
+                    // Check the type of the first element to infer array type
+                    Value* first_element = (Value*)object.data.array_value.elements[0];
+                    const char* element_type = "Unknown";
+                    
+                    if (first_element) {
+                        switch (first_element->type) {
+                            case VALUE_NUMBER:
+                                if (first_element->data.number_value == (int)first_element->data.number_value) {
+                                    element_type = "Int";
+                                } else {
+                                    element_type = "Float";
+                                }
+                                break;
+                            case VALUE_STRING:
+                                element_type = "String";
+                                break;
+                            case VALUE_BOOLEAN:
+                                element_type = "Bool";
+                                break;
+                            case VALUE_NULL:
+                                element_type = "Null";
+                                break;
+                            case VALUE_ARRAY:
+                                element_type = "Array";
+                                break;
+                            case VALUE_OBJECT:
+                                element_type = "Object";
+                                break;
+                            case VALUE_FUNCTION:
+                                element_type = "Function";
+                                break;
+                            default:
+                                element_type = "Unknown";
+                                break;
+                        }
+                    }
+                    
+                    // Create typed array string like "[Int]", "[String]", etc.
+                    char array_type[64];
+                    snprintf(array_type, sizeof(array_type), "[%s]", element_type);
+                    result = value_create_string(array_type);
+                } else {
+                    // Empty array - use [Any] as default
+                    result = value_create_string("[Any]");
+                }
                 break;
+            }
             case VALUE_OBJECT: {
                 // Check if this is a custom type (class instance)
                 Value class_name_val = value_object_get(&object, "__class_name__");

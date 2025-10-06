@@ -619,6 +619,23 @@ const char* type_kind_to_string(MycoTypeKind kind) {
     }
 }
 
+// Helper function to get type kind string without recursion issues
+static const char* type_kind_to_string_simple(MycoType* type) {
+    if (!type) return "Unknown";
+    
+    switch (type->kind) {
+        case TYPE_INT: return "Int";
+        case TYPE_FLOAT: return "Float";
+        case TYPE_STRING: return "String";
+        case TYPE_BOOL: return "Bool";
+        case TYPE_NULL: return "Null";
+        case TYPE_ANY: return "Any";
+        case TYPE_UNKNOWN: return "Unknown";
+        case TYPE_ERROR: return "Error";
+        default: return "Unknown";
+    }
+}
+
 const char* type_to_string(MycoType* type) {
     if (!type) return "Unknown";
     
@@ -626,7 +643,9 @@ const char* type_to_string(MycoType* type) {
     switch (type->kind) {
         case TYPE_ARRAY:
             if (type->data.element_type) {
-                snprintf(buffer, sizeof(buffer), "[%s]", type_to_string(type->data.element_type));
+                // For arrays, use the simple type name to avoid recursion issues
+                const char* element_str = type_kind_to_string_simple(type->data.element_type);
+                snprintf(buffer, sizeof(buffer), "[%s]", element_str);
             } else {
                 snprintf(buffer, sizeof(buffer), "Array");
             }
@@ -735,13 +754,8 @@ MycoType* type_parse_string(const char* type_string, int line, int column) {
 int type_check_ast(TypeCheckerContext* context, ASTNode* node) {
     if (!context || !node) return 0;
     
-    printf("DEBUG: type_check_ast called with node type: %d\n", node->type);
-    
     // Type check the main program
-    int result = type_check_statement(context, node);
-    printf("DEBUG: type_check_statement returned: %d\n", result);
-    
-    return result;
+    return type_check_statement(context, node);
 }
 
 int type_check_statement(TypeCheckerContext* context, ASTNode* node) {

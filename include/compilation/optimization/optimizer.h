@@ -45,13 +45,14 @@ int optimizer_fold_constants_recursive(ASTNode* node, OptimizationContext* conte
 ASTNode* optimizer_fold_binary_operation(ASTNode* node);
 ASTNode* optimizer_fold_unary_operation(ASTNode* node);
 
-// Advanced optimization functions
+// Recursive optimization functions
 int optimizer_eliminate_dead_code_recursive(ASTNode* node, OptimizationContext* context);
-int optimizer_is_constant_false(ASTNode* node);
 int optimizer_inline_functions_recursive(ASTNode* node, OptimizationContext* context);
-int optimizer_should_inline_function(ASTNode* call_node, OptimizationContext* context);
 int optimizer_optimize_variables_recursive(ASTNode* node, OptimizationContext* context);
-int optimizer_can_optimize_variable(ASTNode* var_node, OptimizationContext* context);
+
+// Function inlining utilities
+int optimizer_can_inline_function(ASTNode* call_node);
+ASTNode* optimizer_inline_function_call(ASTNode* call_node, OptimizationContext* context);
 
 // Statistics and debugging
 void optimizer_print_stats(OptimizationContext* context);

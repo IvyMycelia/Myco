@@ -4194,6 +4194,117 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 value_free(&object);
                 return result;
             }
+            if (strcmp(member_name, "type") == 0) {
+                // Handle .type property access (without parentheses)
+                Value result = value_create_null();
+                switch (object.type) {
+                    case VALUE_NUMBER:
+                        // Check if it's an integer or float
+                        if (object.data.number_value == (int)object.data.number_value) {
+                            result = value_create_string("Int");
+                        } else {
+                            result = value_create_string("Float");
+                        }
+                        break;
+                    case VALUE_STRING:
+                        result = value_create_string("String");
+                        break;
+                    case VALUE_BOOLEAN:
+                        result = value_create_string("Boolean");
+                        break;
+                    case VALUE_NULL:
+                        result = value_create_string("Null");
+                        break;
+                    case VALUE_ARRAY: {
+                        // Try to infer array element type at runtime
+                        if (object.data.array_value.count > 0) {
+                            // Check the type of the first element to infer array type
+                            Value* first_element = (Value*)object.data.array_value.elements[0];
+                            const char* element_type = "Unknown";
+                            
+                            if (first_element) {
+                                switch (first_element->type) {
+                                    case VALUE_NUMBER:
+                                        if (first_element->data.number_value == (int)first_element->data.number_value) {
+                                            element_type = "Int";
+                                        } else {
+                                            element_type = "Float";
+                                        }
+                                        break;
+                                    case VALUE_STRING:
+                                        element_type = "String";
+                                        break;
+                                    case VALUE_BOOLEAN:
+                                        element_type = "Bool";
+                                        break;
+                                    case VALUE_NULL:
+                                        element_type = "Null";
+                                        break;
+                                    case VALUE_ARRAY:
+                                        element_type = "Array";
+                                        break;
+                                    case VALUE_OBJECT:
+                                        element_type = "Object";
+                                        break;
+                                    case VALUE_FUNCTION:
+                                        element_type = "Function";
+                                        break;
+                                    default:
+                                        element_type = "Unknown";
+                                        break;
+                                }
+                            }
+                            
+                            // Create typed array string like "[Int]", "[String]", etc.
+                            char array_type[64];
+                            snprintf(array_type, sizeof(array_type), "[%s]", element_type);
+                            result = value_create_string(array_type);
+                        } else {
+                            // Empty array - use [Any] as default
+                            result = value_create_string("[Any]");
+                        }
+                        break;
+                    }
+                    case VALUE_OBJECT: {
+                        // Check if this is a custom type (class instance)
+                        Value class_name_val = value_object_get(&object, "__class_name__");
+                        if (class_name_val.type == VALUE_STRING && class_name_val.data.string_value) {
+                            result = value_create_string(class_name_val.data.string_value);
+                            value_free(&class_name_val);
+                        } else {
+                            value_free(&class_name_val);
+                            result = value_create_string("Object");
+                        }
+                        break;
+                    }
+                    case VALUE_FUNCTION:
+                        result = value_create_string("Function");
+                        break;
+                    case VALUE_RANGE:
+                        result = value_create_string("Range");
+                        break;
+                    case VALUE_HASH_MAP:
+                        result = value_create_string("HashMap");
+                        break;
+                    case VALUE_SET:
+                        result = value_create_string("Set");
+                        break;
+                    case VALUE_CLASS:
+                        result = value_create_string("Class");
+                        break;
+                    case VALUE_MODULE:
+                        result = value_create_string("Module");
+                        break;
+                    case VALUE_ERROR:
+                        result = value_create_string("Error");
+                        break;
+                    default:
+                        result = value_create_string("Unknown");
+                        break;
+                }
+                value_free(&object);
+                return result;
+            }
             
             // Handle different object types
             if (object.type == VALUE_NULL) {

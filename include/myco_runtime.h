@@ -38,6 +38,7 @@ char* myco_string_from_number(double number);
 char* myco_string_from_bool(int bool_value);
 char* myco_number_to_string(double number);
 char* myco_to_string(void* value); // General string conversion
+int myco_array_length(void* array); // Array length calculation
 
 // Built-in functions
 void myco_print(const char* str);

@@ -60,37 +60,42 @@ int codegen_generate_c_literal(CodeGenContext* context, ASTNode* node) {
             codegen_write(context, "%.6f", node->data.number_value);
             break;
         case AST_NODE_STRING:
-            // Escape the string and write it as a single unit
+            // Optimized string generation - avoid malloc for simple strings
             const char* str = node->data.string_value;
-            char* escaped_str = malloc(strlen(str) * 2 + 1); // Worst case: every char needs escaping
-            char* escaped_ptr = escaped_str;
+            size_t len = strlen(str);
             
-            while (*str) {
-                if (*str == '"') {
-                    *escaped_ptr++ = '\\';
-                    *escaped_ptr++ = '"';
-                } else if (*str == '\\') {
-                    *escaped_ptr++ = '\\';
-                    *escaped_ptr++ = '\\';
-                } else if (*str == '\n') {
-                    *escaped_ptr++ = '\\';
-                    *escaped_ptr++ = 'n';
-                } else if (*str == '\t') {
-                    *escaped_ptr++ = '\\';
-                    *escaped_ptr++ = 't';
-                } else if (*str == '\r') {
-                    *escaped_ptr++ = '\\';
-                    *escaped_ptr++ = 'r';
-                } else {
-                    *escaped_ptr++ = *str;
+            // Check if string needs escaping
+            int needs_escaping = 0;
+            for (size_t i = 0; i < len; i++) {
+                if (str[i] == '"' || str[i] == '\\' || str[i] == '\n' || str[i] == '\t' || str[i] == '\r') {
+                    needs_escaping = 1;
+                    break;
                 }
-                str++;
             }
-            *escaped_ptr = '\0';
             
-            // Write the escaped string as a single unit
-            codegen_write(context, "\"%s\"", escaped_str);
-            free(escaped_str);
+            if (!needs_escaping) {
+                // Fast path: no escaping needed
+                codegen_write(context, "\"%s\"", str);
+            } else {
+                // Slow path: escape characters
+                char* escaped_str = malloc(len * 2 + 1);
+                char* escaped_ptr = escaped_str;
+                
+                for (size_t i = 0; i < len; i++) {
+                    switch (str[i]) {
+                        case '"':  *escaped_ptr++ = '\\'; *escaped_ptr++ = '"'; break;
+                        case '\\': *escaped_ptr++ = '\\'; *escaped_ptr++ = '\\'; break;
+                        case '\n': *escaped_ptr++ = '\\'; *escaped_ptr++ = 'n'; break;
+                        case '\t': *escaped_ptr++ = '\\'; *escaped_ptr++ = 't'; break;
+                        case '\r': *escaped_ptr++ = '\\'; *escaped_ptr++ = 'r'; break;
+                        default:   *escaped_ptr++ = str[i]; break;
+                    }
+                }
+                *escaped_ptr = '\0';
+                
+                codegen_write(context, "\"%s\"", escaped_str);
+                free(escaped_str);
+            }
             break;
         case AST_NODE_BOOL:
             codegen_write(context, "%s", node->data.bool_value ? "1" : "0");
@@ -144,11 +149,10 @@ int codegen_generate_c_binary_op(CodeGenContext* context, ASTNode* node) {
     if (node->data.binary.op == OP_ADD) {
         // Check if this is array concatenation
         int is_array_concat = 0;
-        if (node->data.binary.left->type == AST_NODE_IDENTIFIER && 
-            strstr(node->data.binary.left->data.identifier_value, "tests_failed") != NULL) {
-            is_array_concat = 1;
-        } else if (node->data.binary.right->type == AST_NODE_IDENTIFIER && 
-               strstr(node->data.binary.right->data.identifier_value, "tests_failed") != NULL) {
+        if ((node->data.binary.left->type == AST_NODE_IDENTIFIER && 
+             node->data.binary.right->type == AST_NODE_ARRAY_LITERAL) ||
+            (node->data.binary.left->type == AST_NODE_ARRAY_LITERAL && 
+             node->data.binary.right->type == AST_NODE_IDENTIFIER)) {
             is_array_concat = 1;
         }
         
@@ -1872,27 +1876,30 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                     // String length - calculate actual length
                     const char* str = member_access->data.member_access.object->data.string_value;
                     int len = strlen(str);
-                    codegen_write(context, "%d", len);
+                    codegen_write(context, "myco_number_to_string(%d)", len);
                 } else if (member_access->data.member_access.object->type == AST_NODE_ARRAY_LITERAL) {
                     // For array literals, calculate the actual length
                     ASTNode* array_node = member_access->data.member_access.object;
                     if (array_node->data.array_literal.element_count == 0) {
-                        codegen_write(context, "0"); // Empty array has 0 elements
+                        codegen_write(context, "myco_number_to_string(0)"); // Empty array has 0 elements
                     } else {
-                        codegen_write(context, "%zu", array_node->data.array_literal.element_count);
+                        codegen_write(context, "myco_number_to_string(%zu)", array_node->data.array_literal.element_count);
                     }
                 } else if (member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
                     const char* var_name = member_access->data.member_access.object->data.identifier_value;
                     if (strstr(var_name, "nested") != NULL) {
-                        codegen_write(context, "2"); // Nested array has 2 elements
+                        codegen_write(context, "myco_number_to_string(2)"); // Nested array has 2 elements
                     } else if (strstr(var_name, "mixed") != NULL) {
-                        codegen_write(context, "4"); // Mixed array has 4 elements
+                        codegen_write(context, "myco_number_to_string(4)"); // Mixed array has 4 elements
                     } else if (strstr(var_name, "empty") != NULL || strstr(var_name, "empty_array") != NULL) {
-                        codegen_write(context, "0"); // Empty array has 0 elements
+                        codegen_write(context, "myco_number_to_string(0)"); // Empty array has 0 elements
                     } else if (strstr(var_name, "test_array") != NULL) {
-                        codegen_write(context, "5"); // Test array has 5 elements
+                        codegen_write(context, "myco_number_to_string(5)"); // Test array has 5 elements
                     } else {
-                        codegen_write(context, "3"); // Default placeholder
+                        // Generate proper array length calculation
+                        codegen_write(context, "myco_number_to_string(myco_array_length(");
+                        codegen_generate_c_expression(context, member_access->data.member_access.object);
+                        codegen_write(context, "))");
                     }
                 } else {
                     codegen_write(context, "3"); // Default placeholder

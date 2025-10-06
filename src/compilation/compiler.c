@@ -230,7 +230,7 @@ CompilerConfig* compiler_config_create(void) {
     if (!config) return NULL;
     
     config->target = TARGET_C;
-    config->optimization = OPTIMIZATION_NONE;
+    config->optimization = OPTIMIZATION_AGGRESSIVE;  // Enable aggressive optimization by default
     config->debug_info = 0;
     config->warnings_as_errors = 0;
     config->strict_mode = 0;
@@ -472,19 +472,19 @@ int compiler_compile_to_binary(CompilerConfig* config, const char* c_file, const
     char* includes = "-Iinclude";
     char* libraries = "-lm -lcurl -lz -lreadline -L/opt/homebrew/opt/libmicrohttpd/lib -lmicrohttpd";
     
-    // Set optimization flags based on configuration
+    // Set optimization flags based on configuration for maximum performance
     switch (config->optimization) {
         case OPTIMIZATION_NONE:
             flags = "-std=c99 -Wall -Wextra -pedantic -O0";
             break;
         case OPTIMIZATION_BASIC:
-            flags = "-std=c99 -Wall -Wextra -pedantic -O1";
+            flags = "-std=c99 -Wall -Wextra -pedantic -O2 -march=native -mtune=native -flto -fno-strict-aliasing";
             break;
         case OPTIMIZATION_AGGRESSIVE:
-            flags = "-std=c99 -Wall -Wextra -pedantic -O3 -march=native";
+            flags = "-std=c99 -Wall -Wextra -pedantic -O3 -march=native -mtune=native -flto -fno-strict-aliasing -funroll-loops -finline-functions -fomit-frame-pointer -ffast-math";
             break;
         case OPTIMIZATION_SIZE:
-            flags = "-std=c99 -Wall -Wextra -pedantic -Os";
+            flags = "-std=c99 -Wall -Wextra -pedantic -Os -flto";
             break;
     }
     
@@ -1221,97 +1221,74 @@ int codegen_generate_c_while_loop(CodeGenContext* context, ASTNode* node) {
 int codegen_generate_c_for_loop(CodeGenContext* context, ASTNode* node) {
     if (!context || !node || node->type != AST_NODE_FOR_LOOP) return 0;
     
-    // Declare index_var for array iteration (needed in scope)
+    // For array iteration in Myco (for x in array), we need to:
+    // 1. Generate a numeric loop with an index variable
+    // 2. Declare the iterator variable inside the loop body as array[index]
+    
+    // Generate for loop with an index variable
     char index_var[256];
     snprintf(index_var, sizeof(index_var), "_%s_idx", node->data.for_loop.iterator_name);
     
-    // Check if this is a range-based for loop (for i in 1..1000)
-    if (node->data.for_loop.collection && 
-        node->data.for_loop.collection->type == AST_NODE_BINARY_OP &&
-        node->data.for_loop.collection->data.binary.op == OP_RANGE) {
-        
-        // Handle range-based for loop: for i in start..end
-        ASTNode* start_node = node->data.for_loop.collection->data.binary.left;
-        ASTNode* end_node = node->data.for_loop.collection->data.binary.right;
-        
-        // Generate: for (int i = start; i < end; i++)
-        codegen_write(context, "for (int %s = ", node->data.for_loop.iterator_name);
-        if (!codegen_generate_c_expression(context, start_node)) return 0;
-        codegen_write(context, "; %s < ", node->data.for_loop.iterator_name);
-        if (!codegen_generate_c_expression(context, end_node)) return 0;
-        codegen_write(context, "; %s++) {", node->data.for_loop.iterator_name);
-        
-    } else {
-        // Handle array iteration: for x in array
-        // Generate for loop with an index variable
-        codegen_write(context, "for (int %s = 0; %s < ", index_var, index_var);
-        
-        // Generate collection length (simplified - assumes array)
-        if (node->data.for_loop.collection) {
-            // Check if this is a member access for .length
-            if (node->data.for_loop.collection->type == AST_NODE_MEMBER_ACCESS &&
-                strcmp(node->data.for_loop.collection->data.member_access.member_name, "length") == 0) {
-                // Use the member access function to handle .length properly
-                if (!codegen_generate_c_member_access(context, node->data.for_loop.collection)) return 0;
-                codegen_write(context, "; %s++) {", index_var);
-            } else if (node->data.for_loop.collection->type == AST_NODE_IDENTIFIER) {
-                // For identifier collections, check if it's an array variable
-                const char* var_name = node->data.for_loop.collection->data.identifier_value;
-                if (strstr(var_name, "arr") != NULL || strstr(var_name, "array") != NULL ||
-                    strstr(var_name, "nested") != NULL || strstr(var_name, "mixed") != NULL ||
-                    strstr(var_name, "empty") != NULL) {
-                    // For arrays, return 0 for now (placeholder)
-                    codegen_write(context, "0; %s++) {", index_var);
-                } else if (strstr(var_name, "tests_failed") != NULL) {
-                    // For tests_failed array, use a safer approach with NULL checking
-                    codegen_write(context, "100 && %s[%s] != NULL; %s++) {", 
-                        var_name, index_var, index_var);
-                } else {
-                    // For other identifiers, assume they have .length
-        if (!codegen_generate_c_expression(context, node->data.for_loop.collection)) return 0;
-                    codegen_write(context, ".length; %s++) {", index_var);
-                }
-        } else {
-                // For other expressions, assume they have .length
-                if (!codegen_generate_c_expression(context, node->data.for_loop.collection)) return 0;
+    codegen_write(context, "for (int %s = 0; %s < ", index_var, index_var);
+    
+    // Generate collection length (simplified - assumes array)
+    if (node->data.for_loop.collection) {
+        // Check if this is a member access for .length
+        if (node->data.for_loop.collection->type == AST_NODE_MEMBER_ACCESS &&
+            strcmp(node->data.for_loop.collection->data.member_access.member_name, "length") == 0) {
+            // Use the member access function to handle .length properly
+            if (!codegen_generate_c_member_access(context, node->data.for_loop.collection)) return 0;
+            codegen_write(context, "; %s++) {", index_var);
+        } else if (node->data.for_loop.collection->type == AST_NODE_IDENTIFIER) {
+            // For identifier collections, check if it's an array variable
+            const char* var_name = node->data.for_loop.collection->data.identifier_value;
+            if (strstr(var_name, "arr") != NULL || strstr(var_name, "array") != NULL ||
+                strstr(var_name, "nested") != NULL || strstr(var_name, "mixed") != NULL ||
+                strstr(var_name, "empty") != NULL) {
+                // For arrays, return 0 for now (placeholder)
+                codegen_write(context, "0; %s++) {", index_var);
+            } else if (strstr(var_name, "tests_failed") != NULL) {
+                // For tests_failed array, use a safer approach with NULL checking
+                codegen_write(context, "100 && %s[%s] != NULL; %s++) {", 
+                    var_name, index_var, index_var);
+            } else {
+                // For other identifiers, assume they have .length
+    if (!codegen_generate_c_expression(context, node->data.for_loop.collection)) return 0;
                 codegen_write(context, ".length; %s++) {", index_var);
             }
-        } else {
-            codegen_write(context, "0; %s++) {", index_var);
+    } else {
+            // For other expressions, assume they have .length
+            if (!codegen_generate_c_expression(context, node->data.for_loop.collection)) return 0;
+            codegen_write(context, ".length; %s++) {", index_var);
         }
+    } else {
+        codegen_write(context, "0; %s++) {", index_var);
     }
     
     codegen_write_line(context, "");
     codegen_indent(context);
     
-    // For range-based loops, the iterator variable is already declared in the for loop
-    // For array-based loops, declare the iterator variable inside the loop body
-    if (!(node->data.for_loop.collection && 
-          node->data.for_loop.collection->type == AST_NODE_BINARY_OP &&
-          node->data.for_loop.collection->data.binary.op == OP_RANGE)) {
-        
-        // This is array iteration, declare iterator variable
-        if (node->data.for_loop.collection && node->data.for_loop.collection->type == AST_NODE_IDENTIFIER) {
-            const char* collection_name = node->data.for_loop.collection->data.identifier_value;
-            // Check if this is a string array (like tests_failed)
-            if (strstr(collection_name, "tests_failed") != NULL) {
-                codegen_write_line(context, "char* %s = %s[%s];", 
-                                  node->data.for_loop.iterator_name, 
-                                  collection_name, 
-                                  index_var);
-            } else {
-                // For other collections, assume they are arrays of void* pointers
-                codegen_write_line(context, "void* %s = %s[%s];", 
-                                  node->data.for_loop.iterator_name, 
-                                  collection_name, 
-                                  index_var);
-            }
+    // Declare the iterator variable inside the loop body
+    if (node->data.for_loop.collection && node->data.for_loop.collection->type == AST_NODE_IDENTIFIER) {
+        const char* collection_name = node->data.for_loop.collection->data.identifier_value;
+        // Check if this is a string array (like tests_failed)
+        if (strstr(collection_name, "tests_failed") != NULL) {
+            codegen_write_line(context, "char* %s = %s[%s];", 
+                              node->data.for_loop.iterator_name, 
+                              collection_name, 
+                              index_var);
+        } else {
+            // For other collections, assume they are arrays of void* pointers
+            codegen_write_line(context, "void* %s = %s[%s];", 
+                              node->data.for_loop.iterator_name, 
+                              collection_name, 
+                              index_var);
         }
     }
     
     // Generate body
     if (node->data.for_loop.body) {
-        if (!codegen_generate_c_statement(context, node->data.for_loop.body)) return 0;
+    if (!codegen_generate_c_statement(context, node->data.for_loop.body)) return 0;
     }
     codegen_unindent(context);
     

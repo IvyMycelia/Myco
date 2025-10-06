@@ -1,0 +1,5 @@
+let result = "";
+for i in 1..1000:
+    result = result + "test" + i.toString();
+end
+print("Myco: " + result.length().toString() + " chars (interpreter)");

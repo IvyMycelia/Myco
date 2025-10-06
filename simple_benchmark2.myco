@@ -1,0 +1,34 @@
+# Simple Myco benchmark without math library
+let start = time.now();
+
+# Simple mathematical operations
+let sum = 0.0;
+let i = 0;
+while i < 10000:
+    sum = sum + i + (i * 2);
+    i = i + 1;
+end
+
+# Array operations
+let arr = [];
+i = 0;
+while i < 1000:
+    arr = arr + [i];
+    i = i + 1;
+end
+
+# String operations
+let str = "";
+i = 0;
+while i < 100:
+    str = str + "A";
+    i = i + 1;
+end
+
+let end_time = time.now();
+let duration = time.difference(start, end_time);
+
+print("Myco benchmark completed in " + duration.toString() + " seconds");
+print("Sum = " + sum.toString());
+print("Array length = " + arr.length().toString());
+print("String length = " + str.length().toString());

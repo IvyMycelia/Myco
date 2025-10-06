@@ -21,6 +21,12 @@ ErrorSystem* error_system_get_global(void);
 void interpreter_report_error_enhanced_v2(Interpreter* interpreter, int error_code, const char* message, 
                                          const char* file_name, int line, int column);
 
+// Terminal color control for error output
+void error_colors_enable(int enable);
+
+// Print the most recent error recorded in the global error system
+void error_print_last(void);
+
 // Try/catch/finally support for interpreter
 void interpreter_enter_try(Interpreter* interpreter);
 void interpreter_exit_try(Interpreter* interpreter);

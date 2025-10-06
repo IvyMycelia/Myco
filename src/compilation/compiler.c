@@ -230,7 +230,7 @@ CompilerConfig* compiler_config_create(void) {
     if (!config) return NULL;
     
     config->target = TARGET_C;
-    config->optimization = OPTIMIZATION_AGGRESSIVE;  // Enable aggressive optimization by default
+    config->optimization = OPTIMIZATION_NONE;
     config->debug_info = 0;
     config->warnings_as_errors = 0;
     config->strict_mode = 0;
@@ -472,19 +472,19 @@ int compiler_compile_to_binary(CompilerConfig* config, const char* c_file, const
     char* includes = "-Iinclude";
     char* libraries = "-lm -lcurl -lz -lreadline -L/opt/homebrew/opt/libmicrohttpd/lib -lmicrohttpd";
     
-    // Set optimization flags based on configuration for maximum performance
+    // Set optimization flags based on configuration
     switch (config->optimization) {
         case OPTIMIZATION_NONE:
             flags = "-std=c99 -Wall -Wextra -pedantic -O0";
             break;
         case OPTIMIZATION_BASIC:
-            flags = "-std=c99 -Wall -Wextra -pedantic -O2 -march=native -mtune=native -flto -fno-strict-aliasing";
+            flags = "-std=c99 -Wall -Wextra -pedantic -O1";
             break;
         case OPTIMIZATION_AGGRESSIVE:
-            flags = "-std=c99 -Wall -Wextra -pedantic -O3 -march=native -mtune=native -flto -fno-strict-aliasing -funroll-loops -finline-functions -fomit-frame-pointer -ffast-math";
+            flags = "-std=c99 -Wall -Wextra -pedantic -O3 -march=native";
             break;
         case OPTIMIZATION_SIZE:
-            flags = "-std=c99 -Wall -Wextra -pedantic -Os -flto";
+            flags = "-std=c99 -Wall -Wextra -pedantic -Os";
             break;
     }
     

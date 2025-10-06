@@ -7,6 +7,9 @@
 // Global error system instance
 static ErrorSystem* global_error_system = NULL;
 
+// Forward declarations used within this translation unit
+ErrorSystem* error_system_get_global(void);
+
 // Comprehensive error code definitions with categories
 typedef enum {
     // Lexical errors (1000-1999)
@@ -425,42 +428,79 @@ const char* get_error_solution(int error_code) {
 }
 
 // ANSI color codes for terminal output
-#define ANSI_COLOR_RED     "\x1b[31m"
-#define ANSI_COLOR_GREEN   "\x1b[32m"
-#define ANSI_COLOR_YELLOW  "\x1b[33m"
-#define ANSI_COLOR_BLUE    "\x1b[34m"
-#define ANSI_COLOR_MAGENTA "\x1b[35m"
-#define ANSI_COLOR_CYAN    "\x1b[36m"
-#define ANSI_COLOR_WHITE   "\x1b[37m"
-#define ANSI_COLOR_RESET   "\x1b[0m"
-#define ANSI_COLOR_BOLD    "\x1b[1m"
-#define ANSI_COLOR_DIM     "\x1b[2m"
+static int g_error_colors_enabled = 1;
+
+#define ANSI_COLOR_RED     (g_error_colors_enabled ? "\x1b[31m" : "")
+#define ANSI_COLOR_GREEN   (g_error_colors_enabled ? "\x1b[32m" : "")
+#define ANSI_COLOR_YELLOW  (g_error_colors_enabled ? "\x1b[33m" : "")
+#define ANSI_COLOR_BLUE    (g_error_colors_enabled ? "\x1b[34m" : "")
+#define ANSI_COLOR_MAGENTA (g_error_colors_enabled ? "\x1b[35m" : "")
+#define ANSI_COLOR_CYAN    (g_error_colors_enabled ? "\x1b[36m" : "")
+#define ANSI_COLOR_WHITE   (g_error_colors_enabled ? "\x1b[37m" : "")
+#define ANSI_COLOR_RESET   (g_error_colors_enabled ? "\x1b[0m" : "")
+#define ANSI_COLOR_BOLD    (g_error_colors_enabled ? "\x1b[1m" : "")
+#define ANSI_COLOR_DIM     (g_error_colors_enabled ? "\x1b[2m" : "")
 
 // Enhanced error reporting with colors and formatting
 void interpreter_report_error_enhanced(Interpreter* interpreter, const char* message, int line, int column) {
     if (!interpreter || !message) return;
     
-    // Get error code and details
+    // Get error code and details (no themed names, keep it simple)
     int error_code = get_error_code_from_message(message);
-    const char* fungus_name = get_fungus_error_name(error_code);
     const char* solution = get_error_solution(error_code);
     
-    // Print error with colors and formatting
-    // Column numbers should be 0-based for user display
-    printf("%sError (%s)%s at Line %d, Column %d: %s%s%s\n", 
-           ANSI_COLOR_RED ANSI_COLOR_BOLD, 
-           fungus_name, 
-           ANSI_COLOR_RESET,
-           line, column - 1, 
-           ANSI_COLOR_RED, 
-           message, 
-           ANSI_COLOR_RESET);
+    // Python-like: if stack traces are enabled and we're not inside a try-block,
+    // print a traceback before the concise error summary.
+    ErrorSystem* system = error_system_get_global();
+    int in_try_block = 0;
+    int stack_enabled = 1;
+    if (system) {
+        stack_enabled = system->stack_trace_enabled ? 1 : 0;
+        if (system->exception_context && system->exception_context->in_try_block) {
+            in_try_block = 1;
+        }
+    }
     
-    // Print solution in a different color
-    printf("%sSolution: %s%s\n", 
-           ANSI_COLOR_YELLOW, 
-           solution, 
-           ANSI_COLOR_RESET);
+    if (stack_enabled && !in_try_block && interpreter->call_stack) {
+        // Collect frames to print most-recent-last
+        // First count frames
+        size_t count = 0;
+        CallFrame* it = interpreter->call_stack;
+        while (it) { count++; it = it->next; }
+        
+        const char* header = "Traceback (most recent call last):\n";
+        printf("%s", header);
+        
+        // Copy pointers to an array
+        CallFrame** frames = (CallFrame**)malloc(sizeof(CallFrame*) * count);
+        size_t idx = 0;
+        it = interpreter->call_stack;
+        while (it && idx < count) { frames[idx++] = it; it = it->next; }
+        
+        // Print from oldest to newest (Python style)
+        for (size_t i = count; i > 0; i--) {
+            CallFrame* f = frames[i - 1];
+            const char* file_name = f->file_name ? f->file_name : "<unknown>";
+            const char* func_name = f->function_name ? f->function_name : "<unknown>";
+            unsigned line_no = (unsigned)(f->line > 0 ? f->line : 0);
+            printf("  File \"%s\", line %u, in %s\n", file_name, line_no, func_name);
+        }
+        free(frames);
+    }
+    
+    // Column numbers should be 0-based for user display
+    int display_column = column > 0 ? (column - 1) : 0;
+    // Print a single concise line. Do not print a second plain error summary.
+    printf("%s%sError:%s %s (Line %d, Column %d) [E%d]\n",
+           ANSI_COLOR_RED, ANSI_COLOR_BOLD, ANSI_COLOR_RESET,
+           message,
+           line, display_column,
+           error_code);
+    // Keep the primary line concise
+    // Print hint in a dimmer color to avoid clutter while still helpful
+    if (solution && *solution) {
+        printf("%sHint:%s %s\n", ANSI_COLOR_YELLOW, ANSI_COLOR_RESET, solution);
+    }
     
     // Set error in interpreter
     interpreter_set_error(interpreter, message, line, column);
@@ -471,7 +511,8 @@ void error_system_initialize(void) {
     if (!global_error_system) {
         global_error_system = error_system_create();
         if (global_error_system) {
-            error_enable_debug_mode(global_error_system, true);
+            // Keep debug printing off by default to avoid duplicate error lines in REPL
+            error_enable_debug_mode(global_error_system, false);
             error_enable_stack_trace(global_error_system, true);
         }
     }
@@ -550,6 +591,34 @@ void interpreter_report_error_enhanced_v2(Interpreter* interpreter, int error_co
     
     // Also set error in interpreter for backward compatibility
     interpreter_set_error(interpreter, message, line, column);
+}
+
+void error_colors_enable(int enable) {
+    g_error_colors_enabled = enable ? 1 : 0;
+}
+
+// Auto-disable colors when not writing to a TTY
+static int error_colors_should_enable(void) {
+    #ifdef __unix__
+    extern int isatty(int);
+    extern int fileno(FILE *);
+    if (!isatty(fileno(stderr)) && !isatty(fileno(stdout))) {
+        return 0;
+    }
+    #endif
+    return 1;
+}
+
+// Print last error with full details (stack/context) if available
+void error_print_last(void) {
+    ErrorSystem* system = error_system_get_global();
+    if (!system || system->error_count == 0) return;
+    // Respect auto color policy unless explicitly disabled
+    if (!error_colors_should_enable()) {
+        g_error_colors_enabled = 0;
+    }
+    ErrorInfo* last = system->errors[system->error_count - 1];
+    error_print(last);
 }
 
 // Try/catch/finally support for interpreter

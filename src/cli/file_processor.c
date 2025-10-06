@@ -182,6 +182,9 @@ int interpret_source(const char* source, int debug) {
     // Register built-in libraries
     register_all_builtin_libraries(interpreter);
     
+    // Set source for line extraction in error traces
+    interpreter_set_source(interpreter, source, "<string>");
+    
     if (debug) {
         // printf("DEBUG: Executing program...\n");
     }

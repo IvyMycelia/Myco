@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
 // Create optimization context
 OptimizationContext* optimizer_create_context(ASTNode* ast, OptimizationLevel level) {
@@ -82,92 +81,21 @@ int optimizer_dead_code_elimination(OptimizationContext* context) {
     
     int eliminated = 0;
     
+    // For now, implement basic dead code elimination
+    // This is a simplified version - in a full implementation, we'd do:
+    // 1. Build a use-def graph
+    // 2. Identify unused variables
+    // 3. Remove unused statements
+    
     if (context->debug_mode) {
         printf("Running dead code elimination...\n");
     }
     
-    // Implement aggressive dead code elimination
-    eliminated = optimizer_eliminate_dead_code_recursive(context->ast, context);
-    
+    // TODO: Implement full dead code elimination
+    // For now, just count as if we did something
     context->stats.dead_code_eliminated = eliminated;
-    context->stats.total_optimizations += eliminated;
     
     return 1;
-}
-
-// Recursively eliminate dead code
-int optimizer_eliminate_dead_code_recursive(ASTNode* node, OptimizationContext* context) {
-    if (!node) return 0;
-    
-    int eliminated = 0;
-    
-    switch (node->type) {
-        case AST_NODE_BLOCK:
-            // Remove unreachable code after return/break/continue
-            for (size_t i = 0; i < node->data.block.statement_count; i++) {
-                ASTNode* stmt = node->data.block.statements[i];
-                if (stmt && (stmt->type == AST_NODE_RETURN || 
-                            stmt->type == AST_NODE_BREAK || 
-                            stmt->type == AST_NODE_CONTINUE)) {
-                    // Remove all statements after this one
-                    for (size_t j = i + 1; j < node->data.block.statement_count; j++) {
-                        if (node->data.block.statements[j]) {
-                            eliminated++;
-                        }
-                    }
-                    node->data.block.statement_count = i + 1;
-                    break;
-                }
-                eliminated += optimizer_eliminate_dead_code_recursive(stmt, context);
-            }
-            break;
-            
-        case AST_NODE_IF_STATEMENT:
-            // If condition is always false, remove then block
-            if (optimizer_is_constant_expression(node->data.if_statement.condition)) {
-                ASTNode* folded = optimizer_fold_constant(node->data.if_statement.condition);
-                if (folded && folded->type == AST_NODE_BOOL && !folded->data.bool_value) {
-                    // Condition is always false, remove then block
-                    eliminated++;
-                }
-                if (folded) free(folded);
-            }
-            eliminated += optimizer_eliminate_dead_code_recursive(node->data.if_statement.then_block, context);
-            if (node->data.if_statement.else_block) {
-                eliminated += optimizer_eliminate_dead_code_recursive(node->data.if_statement.else_block, context);
-            }
-            break;
-            
-        case AST_NODE_WHILE_LOOP:
-            // If condition is always false, remove loop body
-            if (optimizer_is_constant_expression(node->data.while_loop.condition)) {
-                ASTNode* folded = optimizer_fold_constant(node->data.while_loop.condition);
-                if (folded && folded->type == AST_NODE_BOOL && !folded->data.bool_value) {
-                    // Condition is always false, remove body
-                    eliminated++;
-                }
-                if (folded) free(folded);
-            }
-            eliminated += optimizer_eliminate_dead_code_recursive(node->data.while_loop.body, context);
-            break;
-            
-        case AST_NODE_FOR_LOOP:
-            eliminated += optimizer_eliminate_dead_code_recursive(node->data.for_loop.collection, context);
-            eliminated += optimizer_eliminate_dead_code_recursive(node->data.for_loop.body, context);
-            break;
-            
-        case AST_NODE_FUNCTION:
-            if (node->data.function_definition.body) {
-                eliminated += optimizer_eliminate_dead_code_recursive(node->data.function_definition.body, context);
-            }
-            break;
-            
-        default:
-            // For other node types, no dead code elimination needed
-            break;
-    }
-    
-    return eliminated;
 }
 
 // Constant folding pass
@@ -217,7 +145,7 @@ int optimizer_fold_constants_recursive(ASTNode* node, OptimizationContext* conte
             
         case AST_NODE_BLOCK:
             // Process all statements in the block
-            for (size_t i = 0; i < node->data.block.statement_count; i++) {
+            for (int i = 0; i < node->data.block.statement_count; i++) {
                 folded += optimizer_fold_constants_recursive(node->data.block.statements[i], context);
             }
             break;
@@ -280,7 +208,7 @@ int optimizer_fold_constants_recursive(ASTNode* node, OptimizationContext* conte
             
         case AST_NODE_FUNCTION_CALL:
             // Fold arguments if they're constant expressions
-            for (size_t i = 0; i < node->data.function_call.argument_count; i++) {
+            for (int i = 0; i < node->data.function_call.argument_count; i++) {
                 folded += optimizer_fold_constants_recursive(node->data.function_call.arguments[i], context);
             }
             break;
@@ -436,7 +364,7 @@ ASTNode* optimizer_fold_unary_operation(ASTNode* node) {
     }
 }
 
-// Function inlining pass
+// Function inlining pass (placeholder)
 int optimizer_function_inlining(OptimizationContext* context) {
     if (!context) return 0;
     
@@ -444,116 +372,13 @@ int optimizer_function_inlining(OptimizationContext* context) {
         printf("Running function inlining...\n");
     }
     
-    int inlined = 0;
-    inlined = optimizer_inline_functions_recursive(context->ast, context);
-    
-    context->stats.functions_inlined = inlined;
-    context->stats.total_optimizations += inlined;
+    // TODO: Implement function inlining
+    context->stats.functions_inlined = 0;
     
     return 1;
 }
 
-// Recursively inline small functions
-int optimizer_inline_functions_recursive(ASTNode* node, OptimizationContext* context) {
-    if (!node) return 0;
-    
-    int inlined = 0;
-    
-    switch (node->type) {
-        case AST_NODE_FUNCTION_CALL:
-            // Check if this is a simple function that can be inlined
-            if (optimizer_can_inline_function(node)) {
-                ASTNode* inlined_body = optimizer_inline_function_call(node, context);
-                if (inlined_body) {
-                    // Replace function call with inlined body
-                    *node = *inlined_body;
-                    free(inlined_body);
-                    inlined++;
-                }
-            }
-            break;
-            
-        case AST_NODE_BLOCK:
-            for (size_t i = 0; i < node->data.block.statement_count; i++) {
-                inlined += optimizer_inline_functions_recursive(node->data.block.statements[i], context);
-            }
-            break;
-            
-        case AST_NODE_IF_STATEMENT:
-            inlined += optimizer_inline_functions_recursive(node->data.if_statement.then_block, context);
-            if (node->data.if_statement.else_block) {
-                inlined += optimizer_inline_functions_recursive(node->data.if_statement.else_block, context);
-            }
-            break;
-            
-        case AST_NODE_WHILE_LOOP:
-            inlined += optimizer_inline_functions_recursive(node->data.while_loop.body, context);
-            break;
-            
-        case AST_NODE_FOR_LOOP:
-            inlined += optimizer_inline_functions_recursive(node->data.for_loop.body, context);
-            break;
-            
-        default:
-            break;
-    }
-    
-    return inlined;
-}
-
-// Check if a function can be inlined
-int optimizer_can_inline_function(ASTNode* call_node) {
-    if (!call_node || call_node->type != AST_NODE_FUNCTION_CALL) return 0;
-    
-    // Only inline simple functions
-    const char* func_name = call_node->data.function_call.function_name;
-    if (!func_name) return 0;
-    
-    // Inline simple math functions
-    if (strcmp(func_name, "sqrt") == 0 || strcmp(func_name, "abs") == 0 || 
-        strcmp(func_name, "sin") == 0 || strcmp(func_name, "cos") == 0) {
-        return 1;
-    }
-    
-    // Inline simple string functions
-    if (strcmp(func_name, "length") == 0 || strcmp(func_name, "upper") == 0 || 
-        strcmp(func_name, "lower") == 0) {
-        return 1;
-    }
-    
-    return 0;
-}
-
-// Inline a function call
-ASTNode* optimizer_inline_function_call(ASTNode* call_node, OptimizationContext* context) {
-    if (!call_node || call_node->type != AST_NODE_FUNCTION_CALL) return NULL;
-    
-    const char* func_name = call_node->data.function_call.function_name;
-    if (!func_name) return NULL;
-    
-    // For now, create optimized inline versions of common functions
-    if (strcmp(func_name, "sqrt") == 0 && call_node->data.function_call.argument_count == 1) {
-        // Inline sqrt(x) as direct C sqrt() call
-        ASTNode* arg = call_node->data.function_call.arguments[0];
-        if (arg && arg->type == AST_NODE_NUMBER) {
-            double val = arg->data.number_value;
-            return ast_create_number(sqrt(val), 0, 0);
-        }
-    }
-    
-    if (strcmp(func_name, "abs") == 0 && call_node->data.function_call.argument_count == 1) {
-        // Inline abs(x) as direct C fabs() call
-        ASTNode* arg = call_node->data.function_call.arguments[0];
-        if (arg && arg->type == AST_NODE_NUMBER) {
-            double val = arg->data.number_value;
-            return ast_create_number(fabs(val), 0, 0);
-        }
-    }
-    
-    return NULL;
-}
-
-// Variable optimization pass
+// Variable optimization pass (placeholder)
 int optimizer_variable_optimization(OptimizationContext* context) {
     if (!context) return 0;
     
@@ -561,83 +386,10 @@ int optimizer_variable_optimization(OptimizationContext* context) {
         printf("Running variable optimization...\n");
     }
     
-    int optimized = 0;
-    optimized = optimizer_optimize_variables_recursive(context->ast, context);
-    
-    context->stats.variables_optimized = optimized;
-    context->stats.total_optimizations += optimized;
+    // TODO: Implement variable optimization
+    context->stats.variables_optimized = 0;
     
     return 1;
-}
-
-// Recursively optimize variables
-int optimizer_optimize_variables_recursive(ASTNode* node, OptimizationContext* context) {
-    if (!node) return 0;
-    
-    int optimized = 0;
-    
-    switch (node->type) {
-        case AST_NODE_VARIABLE_DECLARATION:
-            // Optimize variable declarations
-            if (node->data.variable_declaration.initial_value) {
-                // If initial value is constant, optimize it
-                if (optimizer_is_constant_expression(node->data.variable_declaration.initial_value)) {
-                    ASTNode* folded = optimizer_fold_constant(node->data.variable_declaration.initial_value);
-                    if (folded) {
-                        *node->data.variable_declaration.initial_value = *folded;
-                        free(folded);
-                        optimized++;
-                    }
-                }
-            }
-            break;
-            
-        case AST_NODE_ASSIGNMENT:
-            // Optimize assignments
-            if (node->data.assignment.value) {
-                if (optimizer_is_constant_expression(node->data.assignment.value)) {
-                    ASTNode* folded = optimizer_fold_constant(node->data.assignment.value);
-                    if (folded) {
-                        *node->data.assignment.value = *folded;
-                        free(folded);
-                        optimized++;
-                    }
-                }
-            }
-            break;
-            
-        case AST_NODE_BLOCK:
-            for (size_t i = 0; i < node->data.block.statement_count; i++) {
-                optimized += optimizer_optimize_variables_recursive(node->data.block.statements[i], context);
-            }
-            break;
-            
-        case AST_NODE_IF_STATEMENT:
-            optimized += optimizer_optimize_variables_recursive(node->data.if_statement.then_block, context);
-            if (node->data.if_statement.else_block) {
-                optimized += optimizer_optimize_variables_recursive(node->data.if_statement.else_block, context);
-            }
-            break;
-            
-        case AST_NODE_WHILE_LOOP:
-            optimized += optimizer_optimize_variables_recursive(node->data.while_loop.body, context);
-            break;
-            
-        case AST_NODE_FOR_LOOP:
-            optimized += optimizer_optimize_variables_recursive(node->data.for_loop.body, context);
-            break;
-            
-        case AST_NODE_FUNCTION:
-            if (node->data.function_definition.body) {
-                optimized += optimizer_optimize_variables_recursive(node->data.function_definition.body, context);
-            }
-            break;
-            
-        default:
-            break;
-    }
-    
-    return optimized;
 }
 
 // Check if code is dead (placeholder)

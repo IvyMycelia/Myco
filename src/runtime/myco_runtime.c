@@ -108,16 +108,6 @@ char* myco_to_string(void* value) {
     return strdup((const char*)value);
 }
 
-int myco_array_length(void* array) {
-    if (!array) {
-        return 0;
-    }
-    // This is a placeholder - in a real implementation, we would need to
-    // determine the actual array length. For now, return a reasonable default
-    // based on the array pointer value
-    return 1000; // Default for our benchmark
-}
-
 // Built-in functions
 void myco_print(const char* str) {
     if (str) {

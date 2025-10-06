@@ -1,8 +1,10 @@
 #include "repl.h"
+#include "error_handling.h"
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <signal.h>
 #include <errno.h>
+#include <unistd.h>
 
 // Global REPL state for signal handling
 static REPLState* g_repl_state = NULL;
@@ -226,6 +228,8 @@ static int repl_execute_input(REPLState* state, const char* input) {
     if (state->debug_mode) {
         repl_show_debug_info(state, input);
     }
+
+    // Fast path: avoid unnecessary overhead when debugging is off
     
     // Create lexer
     Lexer* lexer = lexer_initialize(input);
@@ -267,8 +271,26 @@ static int repl_execute_input(REPLState* state, const char* input) {
         repl_print_debug_parser(state, parser);
     }
     
-    // Parse program
+    // Set source for line extraction in error traces
+    interpreter_set_source(state->interpreter, input, "<stdin>");
+    
+    // Parse program while suppressing raw parser prints; REPL will format errors centrally
+    FILE* devnull = fopen("/dev/null", "w");
+    int saved_out = -1, saved_err = -1;
+    if (devnull) {
+        fflush(stdout); fflush(stderr);
+        saved_out = dup(fileno(stdout));
+        saved_err = dup(fileno(stderr));
+        if (saved_out >= 0) dup2(fileno(devnull), fileno(stdout));
+        if (saved_err >= 0) dup2(fileno(devnull), fileno(stderr));
+    }
     ASTNode* program = parser_parse_program(parser);
+    if (devnull) {
+        fflush(stdout); fflush(stderr);
+        if (saved_out >= 0) { dup2(saved_out, fileno(stdout)); close(saved_out); }
+        if (saved_err >= 0) { dup2(saved_err, fileno(stderr)); close(saved_err); }
+        fclose(devnull);
+    }
     
     // Show AST debug info
     if (state->debug_ast && program) {
@@ -277,7 +299,11 @@ static int repl_execute_input(REPLState* state, const char* input) {
     
     // Check for parse errors
     if (parser->error_count > 0) {
-        // Parser already printed the error message, just show suggestion
+        // Use enhanced error reporter for consistent formatting
+        interpreter_report_error_enhanced(state->interpreter,
+                                          parser->error_message ? parser->error_message : "Parse error",
+                                          parser->error_line,
+                                          parser->error_column);
         repl_show_error_suggestion(parser->error_message, state->line_number);
         ast_free_tree(program);
         parser_free(parser);
@@ -331,6 +357,34 @@ int repl_handle_command(REPLState* state, const char* command) {
         repl_load_file(state, cmd + 5);
     } else if (strncmp(cmd, "debug ", 6) == 0) {
         repl_set_debug_mode(state, cmd + 6);
+    } else if (strncmp(cmd, "colors ", 7) == 0 || strncmp(cmd, "color ", 6) == 0) {
+        const char* opt = (cmd[1] == 'c' && cmd[2] == 'o' && cmd[3] == 'l' && cmd[4] == 'o' && cmd[5] == 'r' && cmd[6] == 's' && cmd[7] == ' ')
+            ? (cmd + 7)
+            : (cmd + 6);
+        if (strcmp(opt, "on") == 0) {
+            error_colors_enable(1);
+            printf("Colors enabled.\n");
+        } else if (strcmp(opt, "off") == 0) {
+            error_colors_enable(0);
+            printf("Colors disabled.\n");
+        } else {
+            printf("Usage: :colors on|off\n");
+        }
+    } else if (strncmp(cmd, "stack ", 6) == 0) {
+        ErrorSystem* sys = error_system_get_global();
+        const char* opt = cmd + 6;
+        if (strcmp(opt, "on") == 0) {
+            error_enable_stack_trace(sys, true);
+            printf("Stack traces enabled.\n");
+        } else if (strcmp(opt, "off") == 0) {
+            error_enable_stack_trace(sys, false);
+            printf("Stack traces disabled.\n");
+        } else {
+            printf("Usage: :stack on|off\n");
+        }
+    } else if (strcmp(cmd, "errors") == 0) {
+        // Print the last error with full context/stack
+        error_print_last();
     } else if (strcmp(cmd, "vars") == 0) {
         repl_show_variables(state);
     } else {
@@ -352,6 +406,9 @@ void repl_show_help(void) {
     printf("  :vars              Show all variables\n");
     printf("  :load <file>       Load and execute a Myco file\n");
     printf("  :debug <mode>      Set debug mode (--ast, --lexer, --parser, --all, --off)\n");
+    printf("  :colors on|off     Enable/disable colored error output\n");
+    printf("  :stack on|off      Enable/disable stack traces in errors\n");
+    printf("  :errors            Print last error with full context/stack\n");
     printf("  exit, quit         Exit the REPL\n");
     printf("\n");
     printf("Multi-line input:\n");

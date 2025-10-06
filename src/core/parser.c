@@ -266,12 +266,7 @@ static void parser_error(Parser* parser, const char* message) {
         parser->error_message = strdup(buf);
     }
     
-    // ANSI color codes for terminal output
-    #define ANSI_COLOR_RED     "\x1b[31m"
-    #define ANSI_COLOR_RESET   "\x1b[0m"
-    
-    // Print the enhanced error message with color
-    fprintf(stderr, ANSI_COLOR_RED "%s\n" ANSI_COLOR_RESET, parser->error_message ? parser->error_message : message);
+    // Error message is stored in parser->error_message for the caller to handle
 }
 
 /**
@@ -298,6 +293,9 @@ ASTNode* parser_parse_program(Parser* parser) {
     ASTNode* statements = NULL;
     ASTNode* last_statement = NULL;
     
+    int consecutive_failures = 0;
+    const int MAX_CONSECUTIVE_FAILURES = 10;  // Prevent infinite loops
+    
     while (parser->current_token && parser->current_token->type != TOKEN_EOF) {
         // Treat stray semicolons as empty statements and skip them
         while (parser->current_token && parser->current_token->type == TOKEN_SEMICOLON) {
@@ -306,6 +304,9 @@ ASTNode* parser_parse_program(Parser* parser) {
         if (!parser->current_token || parser->current_token->type == TOKEN_EOF) {
             break;
         }
+        
+        // Store current position before parsing
+        int start_position = parser->current_position;
         ASTNode* statement = parser_parse_statement(parser);
         if (statement) {
             // Add the statement to our list
@@ -317,7 +318,19 @@ ASTNode* parser_parse_program(Parser* parser) {
                 last_statement->next = statement;
                 last_statement = statement;
             }
+            consecutive_failures = 0;  // Reset failure counter on success
         } else {
+            // Check if parser position actually advanced
+            if (parser->current_position == start_position) {
+                consecutive_failures++;
+                if (consecutive_failures >= MAX_CONSECUTIVE_FAILURES) {
+                    // Force advance to prevent infinite loop
+                    parser_advance(parser);
+                    consecutive_failures = 0;
+                }
+            } else {
+                consecutive_failures = 0;  // Reset if position advanced
+            }
             // Parsing failed, try to synchronize
             parser_synchronize(parser);
         }
@@ -3572,6 +3585,9 @@ int parser_sync_to_expression_boundary(Parser* parser) {
 static ASTNode* parser_collect_block(Parser* parser, int stop_on_else, int* saw_else) {
     if (saw_else) *saw_else = 0;
     ASTNode* head = NULL; ASTNode* tail = NULL;
+    int consecutive_failures = 0;
+    const int MAX_CONSECUTIVE_FAILURES = 10;  // Prevent infinite loops
+    
     while (parser->current_token && parser->current_token->type != TOKEN_EOF) {
         if (parser->current_token->type == TOKEN_KEYWORD && parser->current_token->text) {
             if (strcmp(parser->current_token->text, "end") == 0) {
@@ -3587,11 +3603,26 @@ static ASTNode* parser_collect_block(Parser* parser, int stop_on_else, int* saw_
             parser_advance(parser);
             continue;
         }
+        
+        // Store current position before parsing
+        int start_position = parser->current_position;
         ASTNode* stmt = parser_parse_statement(parser);
         if (stmt) {
             if (!head) { head = tail = stmt; }
             else { tail->next = stmt; tail = stmt; }
+            consecutive_failures = 0;  // Reset failure counter on success
         } else {
+            // Check if parser position actually advanced
+            if (parser->current_position == start_position) {
+                consecutive_failures++;
+                if (consecutive_failures >= MAX_CONSECUTIVE_FAILURES) {
+                    // Force advance to prevent infinite loop
+                    parser_advance(parser);
+                    consecutive_failures = 0;
+                }
+            } else {
+                consecutive_failures = 0;  // Reset if position advanced
+            }
             parser_synchronize(parser);
         }
     }

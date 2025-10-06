@@ -591,7 +591,9 @@ Value handle_super_method_call(Interpreter* interpreter, ASTNode* call_node, con
     interpreter->current_environment = func_env;
     
     // Execute method body
+    interpreter_push_call_frame(interpreter, "<method>", interpreter->current_filename ? interpreter->current_filename : "<stdin>", call_node ? call_node->line : 0, call_node ? call_node->column : 0);
     Value result = interpreter_execute(interpreter, method.data.function_value.body);
+    interpreter_pop_call_frame(interpreter);
     
     // If the result is null and we have a return value, use that instead
     if (result.type == VALUE_NULL && interpreter->has_return) {
@@ -1997,7 +1999,9 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
     interpreter->current_environment = func_env;
     
     // Execute method body
+    interpreter_push_call_frame(interpreter, "<method>", interpreter->current_filename ? interpreter->current_filename : "<stdin>", call_node ? call_node->line : 0, call_node ? call_node->column : 0);
     Value result = interpreter_execute(interpreter, class_method.data.function_value.body);
+    interpreter_pop_call_frame(interpreter);
     
     // If the result is null and we have a return value, use that instead
     if (result.type == VALUE_NULL && interpreter->has_return) {
@@ -3203,8 +3207,11 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
         // This is a built-in function - the body field contains the function pointer
         Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = (Value (*)(Interpreter*, Value*, size_t, int, int))func->data.function_value.body;
         
-        // Call the built-in function
-        return builtin_func(interpreter, args, arg_count, line, column);
+        // Push a frame for built-in call (Python-like traceback)
+        interpreter_push_call_frame(interpreter, "<builtin>", interpreter->current_filename ? interpreter->current_filename : "<stdin>", line, column);
+        Value out = builtin_func(interpreter, args, arg_count, line, column);
+        interpreter_pop_call_frame(interpreter);
+        return out;
     }
     
     // Handle user-defined functions
@@ -3234,8 +3241,10 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
         // Set current environment to function environment
         interpreter->current_environment = func_env;
         
-        // Execute function body
+        // Execute function body with a call frame
+        interpreter_push_call_frame(interpreter, "<function>", interpreter->current_filename ? interpreter->current_filename : "<stdin>", line, column);
         Value result = interpreter_execute(interpreter, func->data.function_value.body);
+        interpreter_pop_call_frame(interpreter);
         
         // Restore environment and self context
         interpreter->current_environment = old_env;
@@ -5138,17 +5147,8 @@ void interpreter_set_error(Interpreter* interpreter, const char* message, int li
         interpreter->error_message = strdup("Unknown runtime error");
     }
     
-    // Get error code and solution
-    MycoErrorCode error_code = get_error_code(message);
-    const char* solution = get_error_solution(error_code);
-    
-    // Get fungus-themed error name
-    const char* fungus_name = get_fungus_error_name(error_code);
-    
-    // Print clean, concise error message
-    // Column numbers should be 0-based for user display
-    fprintf(stderr, ANSI_COLOR_RED "Error: %s (Line %d, Column %d)\n" ANSI_COLOR_RESET, 
-            message, line, column - 1);
+    // Error is now stored in interpreter for caller to handle
+    // The enhanced error reporter will format and print the error
 }
 
 void interpreter_clear_error(Interpreter* interpreter) {
@@ -5415,6 +5415,40 @@ void interpreter_push_call_frame(Interpreter* interpreter, const char* function_
     frame->file_name = file_name ? strdup(file_name) : strdup("<unknown>");
     frame->line = line;
     frame->column = column;
+    
+    // Extract source line if available
+    frame->source_line = NULL;
+    if (interpreter->current_source && line > 0) {
+        const char* source = interpreter->current_source;
+        int current_line = 1;
+        const char* line_start = source;
+        
+        // Find the line
+        while (*source && current_line < line) {
+            if (*source == '\n') {
+                current_line++;
+                line_start = source + 1;
+            }
+            source++;
+        }
+        
+        if (current_line == line) {
+            // Find end of line
+            const char* line_end = source;
+            while (*line_end && *line_end != '\n') {
+                line_end++;
+            }
+            
+            // Allocate and copy the line
+            size_t line_len = line_end - line_start;
+            frame->source_line = malloc(line_len + 1);
+            if (frame->source_line) {
+                strncpy((char*)frame->source_line, line_start, line_len);
+                ((char*)frame->source_line)[line_len] = '\0';
+            }
+        }
+    }
+    
     frame->next = interpreter->call_stack;
     
     interpreter->call_stack = frame;
@@ -5430,6 +5464,9 @@ void interpreter_pop_call_frame(Interpreter* interpreter) {
     
     free((void*)frame->function_name);
     free((void*)frame->file_name);
+    if (frame->source_line) {
+        free((void*)frame->source_line);
+    }
     free(frame);
 }
 
@@ -5443,6 +5480,12 @@ void interpreter_print_stack_trace(Interpreter* interpreter) {
     while (frame) {
         fprintf(stderr, "  %d. %s at %s:%d:%d\n", 
                 depth, frame->function_name, frame->file_name, frame->line, frame->column);
+        
+        // Show source line if available
+        if (frame->source_line) {
+            fprintf(stderr, "     %s\n", frame->source_line);
+        }
+        
         frame = frame->next;
         depth++;
     }
@@ -5459,6 +5502,13 @@ void interpreter_set_error_with_stack(Interpreter* interpreter, const char* mess
     if (interpreter->call_stack) {
         interpreter_print_stack_trace(interpreter);
     }
+}
+
+// Set current source text and filename for line extraction
+void interpreter_set_source(Interpreter* interpreter, const char* source, const char* filename) {
+    if (!interpreter) return;
+    interpreter->current_source = source;
+    interpreter->current_filename = filename;
 }
 
 // Exception handling

@@ -102,6 +102,7 @@ typedef struct CallFrame {
     const char* file_name;        // Source file name
     int line;                     // Line number
     int column;                   // Column number
+    const char* source_line;      // Actual source code line content
     struct CallFrame* next;       // Next frame in stack
 } CallFrame;
 
@@ -127,6 +128,10 @@ typedef struct {
     int max_stack_depth;          // Maximum allowed stack depth
     int recursion_count;          // Recursion counter for limit detection
     int max_recursion_depth;      // Maximum recursion depth
+    
+    // Source text for line extraction
+    const char* current_source;   // Current source text (for line extraction)
+    const char* current_filename; // Current filename (stdin, file path, etc.)
     
     // JIT compilation support
     JitContext* jit_context;
@@ -300,6 +305,7 @@ void interpreter_push_call_frame(Interpreter* interpreter, const char* function_
 void interpreter_pop_call_frame(Interpreter* interpreter);
 void interpreter_print_stack_trace(Interpreter* interpreter);
 void interpreter_set_error_with_stack(Interpreter* interpreter, const char* message, int line, int column);
+void interpreter_set_source(Interpreter* interpreter, const char* source, const char* filename);
 
 // Exception handling
 void interpreter_throw_exception(Interpreter* interpreter, const char* message, int line, int column);

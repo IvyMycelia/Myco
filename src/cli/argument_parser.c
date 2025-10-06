@@ -175,5 +175,5 @@ void print_usage(const char* program_name) {
 void print_version(void) {
     printf("Myco Language Interpreter v2.0\n");
     printf("Built on %s at %s\n", __DATE__, __TIME__);
-    printf("Copyright (c) 2024 Myco Language Project\n");
+    printf("Copyright (c) 2025 Myco Language Project\n");
 }

@@ -76,6 +76,8 @@ typedef struct {
     int imported_library_count;
     // Track current variable name being declared (for context-aware code generation)
     const char* current_variable_name;
+    // Type checker context for accurate type inference
+    void* type_context;  // TypeCheckerContext* - using void* to avoid circular includes
 } CodeGenContext;
 
 // Compiler initialization and cleanup

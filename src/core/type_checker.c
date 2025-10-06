@@ -510,6 +510,45 @@ int type_is_assignable(MycoType* target, MycoType* source) {
     return type_is_compatible(target, source);
 }
 
+// Strict type compatibility (for explicit typing like Rust)
+int type_is_strictly_compatible(MycoType* expected, MycoType* actual) {
+    if (!expected || !actual) return 0;
+    
+    // Exact match required for strict typing
+    if (type_is_equal(expected, actual)) return 1;
+    
+    // Null is compatible with optional types
+    if (actual->kind == TYPE_NULL && expected->kind == TYPE_OPTIONAL) return 1;
+    
+    // Union type compatibility: actual type must match exactly one of the union types
+    if (expected->kind == TYPE_UNION) {
+        for (size_t i = 0; i < expected->data.union_type.type_count; i++) {
+            if (type_is_strictly_compatible(expected->data.union_type.types[i], actual)) {
+                return 1;
+            }
+        }
+    }
+    
+    // Optional type compatibility: T is compatible with T?
+    if (expected->kind == TYPE_OPTIONAL) {
+        return type_is_strictly_compatible(expected->data.optional_type, actual);
+    }
+    
+    // Array compatibility: arrays must have compatible element types
+    if (expected->kind == TYPE_ARRAY && actual->kind == TYPE_ARRAY) {
+        // Both must have element types for strict checking
+        if (!expected->data.element_type || !actual->data.element_type) {
+            return 0;
+        }
+        return type_is_strictly_compatible(expected->data.element_type, actual->data.element_type);
+    }
+    
+    // Int and Float are NOT strictly compatible (unlike loose compatibility)
+    // This enforces strict typing like Rust
+    
+    return 0;
+}
+
 int type_is_equal(MycoType* type1, MycoType* type2) {
     if (!type1 || !type2) return type1 == type2;
     
@@ -711,8 +750,25 @@ MycoType* type_parse_string(const char* type_string, int line, int column) {
         }
     }
     
-    // Check for optional types (e.g., "String?")
+    // Check for array types (e.g., "[Int]", "[String]")
     size_t len = strlen(type_string);
+    if (len >= 3 && type_string[0] == '[' && type_string[len - 1] == ']') {
+        // Extract the element type from [ElementType]
+        char* element_type_string = (char*)malloc(len - 1);
+        strncpy(element_type_string, type_string + 1, len - 2);
+        element_type_string[len - 2] = '\0';
+        
+        MycoType* element_type = type_parse_string(element_type_string, line, column);
+        free(element_type_string);
+        
+        if (element_type) {
+            return type_create_array(element_type, line, column);
+        } else {
+            return NULL;
+        }
+    }
+    
+    // Check for optional types (e.g., "String?")
     if (len > 0 && type_string[len - 1] == '?') {
         // Remove the '?' and parse the wrapped type
         char* wrapped_type_string = (char*)malloc(len);
@@ -812,13 +868,25 @@ int type_check_variable_declaration(TypeCheckerContext* context, ASTNode* node) 
     // If there's an initial value, check type compatibility
     if (initial_value && declared_type) {
         MycoType* inferred_type = type_infer_expression(context, initial_value);
-        if (inferred_type && !type_is_compatible(var_type, inferred_type)) {
-            type_checker_add_error(context, "Type mismatch in variable initialization", node->line, node->column);
+        if (inferred_type) {
+            // For explicitly typed variables, use strict type checking
+            if (!type_is_strictly_compatible(var_type, inferred_type)) {
+                char error_msg[256];
+                const char* expected = type_to_string(var_type);
+                const char* actual = type_to_string(inferred_type);
+                snprintf(error_msg, sizeof(error_msg), 
+                    "Type mismatch: expected '%s', got '%s'", expected, actual);
+                type_checker_add_error(context, error_msg, node->line, node->column);
+                type_free(inferred_type);
+                type_free(var_type);
+                return 0;
+            }
             type_free(inferred_type);
+        } else {
+            type_checker_add_error(context, "Failed to infer type of initial value", node->line, node->column);
             type_free(var_type);
             return 0;
         }
-        type_free(inferred_type);
     }
     
     type_free(var_type);

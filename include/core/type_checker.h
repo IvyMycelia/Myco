@@ -113,6 +113,7 @@ MycoType* type_infer_member_access(TypeCheckerContext* context, ASTNode* node);
 // Type compatibility
 int type_is_compatible(MycoType* expected, MycoType* actual);
 int type_is_assignable(MycoType* target, MycoType* source);
+int type_is_strictly_compatible(MycoType* expected, MycoType* actual);
 int type_is_equal(MycoType* type1, MycoType* type2);
 
 // Type environment management

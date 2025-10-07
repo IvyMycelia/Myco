@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "../../include/core/standardized_errors.h"
+#include "../../include/utils/shared_utilities.h"
 
 // Tree node structure
 typedef struct TreeNode {
@@ -20,7 +22,7 @@ typedef struct Tree {
 
 // Create a new tree node
 TreeNode* tree_node_create(Value data) {
-    TreeNode* node = malloc(sizeof(TreeNode));
+    TreeNode* node = shared_malloc_safe(sizeof(TreeNode), "libs", "unknown_function", 25);
     if (!node) return NULL;
     
     node->data = value_clone(&data);
@@ -36,7 +38,7 @@ void tree_node_free(TreeNode* node) {
     if (!node) return;
     
     value_free(&node->data);
-    free(node);
+    shared_free_safe(node, "libs", "unknown_function", 41);
 }
 
 // Free entire tree
@@ -48,12 +50,12 @@ void tree_free(Tree* tree) {
     if (tree->root) {
         tree_node_free(tree->root);
     }
-    free(tree);
+    shared_free_safe(tree, "libs", "unknown_function", 53);
 }
 
 // Create a new tree
 Tree* tree_create() {
-    Tree* tree = malloc(sizeof(Tree));
+    Tree* tree = shared_malloc_safe(sizeof(Tree), "libs", "unknown_function", 58);
     if (!tree) return NULL;
     
     tree->root = NULL;
@@ -119,13 +121,13 @@ int tree_is_empty(Tree* tree) {
 // Tree operations for Myco
 Value builtin_tree_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 0) {
-        interpreter_set_error(interpreter, "trees.create() expects no arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "trees.create() expects no arguments", line, column);
         return value_create_null();
     }
     
     Tree* tree = tree_create();
     if (!tree) {
-        interpreter_set_error(interpreter, "Failed to create tree", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Failed to create tree", line, column);
         return value_create_null();
     }
     
@@ -146,7 +148,7 @@ Value builtin_tree_create(Interpreter* interpreter, Value* args, size_t arg_coun
 
 Value builtin_tree_insert(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "tree.insert() expects exactly 1 argument: value", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "tree.insert() expects exactly 1 argument: value", line, column);
         return value_create_null();
     }
     
@@ -154,7 +156,7 @@ Value builtin_tree_insert(Interpreter* interpreter, Value* args, size_t arg_coun
     Value data = args[1];
     
     if (tree_obj->type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "tree.insert() can only be called on a tree object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "tree.insert() can only be called on a tree object", line, column);
         return value_create_null();
     }
     
@@ -165,7 +167,7 @@ Value builtin_tree_insert(Interpreter* interpreter, Value* args, size_t arg_coun
 
 Value builtin_tree_search(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "tree.search() expects exactly 1 argument: value", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "tree.search() expects exactly 1 argument: value", line, column);
         return value_create_null();
     }
     
@@ -173,7 +175,7 @@ Value builtin_tree_search(Interpreter* interpreter, Value* args, size_t arg_coun
     Value data = args[1];
     
     if (tree_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "tree.search() can only be called on a tree object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "tree.search() can only be called on a tree object", line, column);
         return value_create_null();
     }
     
@@ -184,14 +186,14 @@ Value builtin_tree_search(Interpreter* interpreter, Value* args, size_t arg_coun
 
 Value builtin_tree_size(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "tree.size() expects no arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "tree.size() expects no arguments", line, column);
         return value_create_null();
     }
     
     Value tree_obj = args[0];
     
     if (tree_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "tree.size() can only be called on a tree object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "tree.size() can only be called on a tree object", line, column);
         return value_create_null();
     }
     
@@ -206,14 +208,14 @@ Value builtin_tree_size(Interpreter* interpreter, Value* args, size_t arg_count,
 
 Value builtin_tree_is_empty(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "tree.isEmpty() expects no arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "tree.isEmpty() expects no arguments", line, column);
         return value_create_null();
     }
     
     Value tree_obj = args[0];
     
     if (tree_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "tree.isEmpty() can only be called on a tree object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "tree.isEmpty() can only be called on a tree object", line, column);
         return value_create_null();
     }
     
@@ -228,14 +230,14 @@ Value builtin_tree_is_empty(Interpreter* interpreter, Value* args, size_t arg_co
 
 Value builtin_tree_clear(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "tree.clear() expects no arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "tree.clear() expects no arguments", line, column);
         return value_create_null();
     }
     
     Value* tree_obj = &args[0];
     
     if (tree_obj->type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "tree.clear() can only be called on a tree object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "tree.clear() can only be called on a tree object", line, column);
         return value_create_null();
     }
     

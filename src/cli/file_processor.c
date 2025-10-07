@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include "../../include/utils/shared_utilities.h"
 
 // Process a file
 int process_file(const char* filename, int interpret, int compile, int build, int debug, int target, const char* architecture, const char* output_file, int optimization_level, int jit_enabled, int jit_mode) {
@@ -27,7 +28,7 @@ int process_file(const char* filename, int interpret, int compile, int build, in
     fseek(file, 0, SEEK_SET);
     
     // Allocate buffer for file content
-    char* source = malloc(file_size + 1);
+    char* source = shared_malloc_safe(file_size + 1, "file_processor", "unknown_function", 31);
     if (!source) {
         fclose(file);
         return MYCO_ERROR_MEMORY;
@@ -44,7 +45,7 @@ int process_file(const char* filename, int interpret, int compile, int build, in
     }
     
     int result = process_source(source, filename, interpret, compile, build, debug, target, architecture, output_file, optimization_level);
-    free(source);
+    shared_free_safe(source, "file_processor", "unknown_function", 48);
     return result;
 }
 
@@ -441,7 +442,7 @@ int build_executable(const char* source, const char* filename, const char* archi
     compiler_config_set_optimization(config, optimization_level);
     
     // Generate temporary C filename
-    char* c_output_file = malloc(256);
+    char* c_output_file = shared_malloc_safe(256, "file_processor", "unknown_function", 445);
     if (c_output_file) {
         snprintf(c_output_file, 256, "temp_output.c");
     }
@@ -466,7 +467,7 @@ int build_executable(const char* source, const char* filename, const char* archi
     // printf("DEBUG: About to call compiler_generate_c\n");
     if (!compiler_generate_c(config, program, c_output_file)) {
         fprintf(stderr, "Error: Failed to generate C code\n");
-        free(c_output_file);
+        shared_free_safe(c_output_file, "file_processor", "unknown_function", 470);
         compiler_config_free(config);
         ast_free(program);
         parser_free(parser);
@@ -490,13 +491,13 @@ int build_executable(const char* source, const char* filename, const char* archi
         if (dot) {
             *dot = '\0';  // Remove the extension
         }
-        final_output = malloc(strlen(base_name) + 1);
+        final_output = shared_malloc_safe(strlen(base_name) + 1, "file_processor", "unknown_function", 494);
         strcpy(final_output, base_name);
-        free(base_name);
+        shared_free_safe(base_name, "file_processor", "unknown_function", 496);
     }
     if (!final_output) {
         fprintf(stderr, "Error: Failed to allocate final output filename\n");
-        free(c_output_file);
+        shared_free_safe(c_output_file, "file_processor", "unknown_function", 500);
         compiler_config_free(config);
         ast_free(program);
         parser_free(parser);
@@ -511,8 +512,8 @@ int build_executable(const char* source, const char* filename, const char* archi
     
     if (!compiler_compile_to_binary(config, c_output_file, final_output)) {
         fprintf(stderr, "Error: Failed to compile C code to binary\n");
-        free(c_output_file);
-        free(final_output);
+        shared_free_safe(c_output_file, "file_processor", "unknown_function", 515);
+        shared_free_safe(final_output, "file_processor", "unknown_function", 516);
         compiler_config_free(config);
         ast_free(program);
         parser_free(parser);
@@ -531,8 +532,8 @@ int build_executable(const char* source, const char* filename, const char* archi
     // }
     
     // Clean up
-    free(c_output_file);
-    free(final_output);
+    shared_free_safe(c_output_file, "file_processor", "unknown_function", 535);
+    shared_free_safe(final_output, "file_processor", "unknown_function", 536);
     compiler_config_free(config);
     ast_free(program);
     parser_free(parser);
@@ -553,7 +554,7 @@ int build_executable(const char* source, const char* filename, const char* archi
     int result = compiler_generate_c(config, program, c_output_file);
     if (!result) {
         fprintf(stderr, "Error: Failed to generate C code\n");
-        free(c_output_file);
+        shared_free_safe(c_output_file, "file_processor", "unknown_function", 557);
         compiler_config_free(config);
         ast_free(program);
         parser_free(parser);
@@ -575,7 +576,7 @@ int build_executable(const char* source, const char* filename, const char* archi
     
     if (!executable_name) {
         fprintf(stderr, "Error: Failed to allocate executable name\n");
-        free(c_output_file);
+        shared_free_safe(c_output_file, "file_processor", "unknown_function", 579);
         compiler_config_free(config);
         ast_free(program);
         parser_free(parser);
@@ -617,8 +618,8 @@ int build_executable(const char* source, const char* filename, const char* archi
     int compile_result = system(compile_command);
     if (compile_result != 0) {
         fprintf(stderr, "Error: Failed to compile C code to executable\n");
-        free(executable_name);
-        free(c_output_file);
+        shared_free_safe(executable_name, "file_processor", "unknown_function", 621);
+        shared_free_safe(c_output_file, "file_processor", "unknown_function", 622);
         compiler_config_free(config);
         ast_free(program);
         parser_free(parser);
@@ -642,8 +643,8 @@ int build_executable(const char* source, const char* filename, const char* archi
     }
     
     // Clean up
-    free(executable_name);
-    free(c_output_file);
+    shared_free_safe(executable_name, "file_processor", "unknown_function", 646);
+    shared_free_safe(c_output_file, "file_processor", "unknown_function", 647);
     compiler_config_free(config);
     ast_free(program);
     parser_free(parser);

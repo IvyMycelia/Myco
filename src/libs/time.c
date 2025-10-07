@@ -4,6 +4,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "../../include/core/standardized_errors.h"
+#include "../../include/utils/shared_utilities.h"
 
 // Helper function to create a time value from time_t
 static Value create_time_value(time_t timestamp) {
@@ -30,7 +32,7 @@ static time_t get_timestamp(Value* time_val) {
 // time.now() - Get current timestamp
 Value builtin_time_now(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 0) {
-        interpreter_set_error(interpreter, "time.now() takes no arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "time.now() takes no arguments", line, column);
         return value_create_null();
     }
     
@@ -41,14 +43,14 @@ Value builtin_time_now(Interpreter* interpreter, Value* args, size_t arg_count, 
 // time.create(year, month, day, hour, minute, second) - Create specific time
 Value builtin_time_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 6) {
-        interpreter_set_error(interpreter, "time.create() takes exactly 6 arguments: year, month, day, hour, minute, second", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "time.create() takes exactly 6 arguments: year, month, day, hour, minute, second", line, column);
         return value_create_null();
     }
     
     // Validate argument types
     for (size_t i = 0; i < 6; i++) {
         if (args[i].type != VALUE_NUMBER) {
-            interpreter_set_error(interpreter, "time.create() arguments must be numbers", line, column);
+            std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "time.create() arguments must be numbers", line, column);
             return value_create_null();
         }
     }
@@ -62,27 +64,27 @@ Value builtin_time_create(Interpreter* interpreter, Value* args, size_t arg_coun
     
     // Basic validation
     if (year < 1970 || year > 3000) {
-        interpreter_set_error(interpreter, "Year must be between 1970 and 3000", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Year must be between 1970 and 3000", line, column);
         return value_create_null();
     }
     if (month < 1 || month > 12) {
-        interpreter_set_error(interpreter, "Month must be between 1 and 12", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Month must be between 1 and 12", line, column);
         return value_create_null();
     }
     if (day < 1 || day > 31) {
-        interpreter_set_error(interpreter, "Day must be between 1 and 31", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Day must be between 1 and 31", line, column);
         return value_create_null();
     }
     if (hour < 0 || hour > 23) {
-        interpreter_set_error(interpreter, "Hour must be between 0 and 23", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Hour must be between 0 and 23", line, column);
         return value_create_null();
     }
     if (minute < 0 || minute > 59) {
-        interpreter_set_error(interpreter, "Minute must be between 0 and 59", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Minute must be between 0 and 59", line, column);
         return value_create_null();
     }
     if (second < 0 || second > 59) {
-        interpreter_set_error(interpreter, "Second must be between 0 and 59", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Second must be between 0 and 59", line, column);
         return value_create_null();
     }
     
@@ -97,7 +99,7 @@ Value builtin_time_create(Interpreter* interpreter, Value* args, size_t arg_coun
     
     time_t timestamp = mktime(&time_struct);
     if (timestamp == -1) {
-        interpreter_set_error(interpreter, "Invalid date/time combination", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Invalid date/time combination", line, column);
         return value_create_null();
     }
     
@@ -107,29 +109,29 @@ Value builtin_time_create(Interpreter* interpreter, Value* args, size_t arg_coun
 // time.format(time_val, format_string) - Format time as string
 Value builtin_time_format(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "time.format() takes exactly 2 arguments: time, format", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "time.format() takes exactly 2 arguments: time, format", line, column);
         return value_create_null();
     }
     
     if (args[0].type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "First argument must be a time object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "time", "unknown_function", "First argument must be a time object", line, column);
         return value_create_null();
     }
     
     if (args[1].type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "Second argument must be a format string", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "time", "unknown_function", "Second argument must be a format string", line, column);
         return value_create_null();
     }
     
     time_t timestamp = get_timestamp(&args[0]);
     if (timestamp == 0) {
-        interpreter_set_error(interpreter, "Invalid time object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Invalid time object", line, column);
         return value_create_null();
     }
     
     struct tm* time_struct = localtime(&timestamp);
     if (!time_struct) {
-        interpreter_set_error(interpreter, "Failed to convert timestamp", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Failed to convert timestamp", line, column);
         return value_create_null();
     }
     
@@ -137,7 +139,7 @@ Value builtin_time_format(Interpreter* interpreter, Value* args, size_t arg_coun
     size_t result = strftime(buffer, sizeof(buffer), args[1].data.string_value, time_struct);
     
     if (result == 0) {
-        interpreter_set_error(interpreter, "Invalid format string or buffer too small", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Invalid format string or buffer too small", line, column);
         return value_create_null();
     }
     
@@ -147,17 +149,17 @@ Value builtin_time_format(Interpreter* interpreter, Value* args, size_t arg_coun
 // time.parse(time_string, format_string) - Parse string to time
 Value builtin_time_parse(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "time.parse() takes exactly 2 arguments: time_string, format", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "time.parse() takes exactly 2 arguments: time_string, format", line, column);
         return value_create_null();
     }
     
     if (args[0].type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "First argument must be a time string", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "time", "unknown_function", "First argument must be a time string", line, column);
         return value_create_null();
     }
     
     if (args[1].type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "Second argument must be a format string", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "time", "unknown_function", "Second argument must be a format string", line, column);
         return value_create_null();
     }
     
@@ -165,13 +167,13 @@ Value builtin_time_parse(Interpreter* interpreter, Value* args, size_t arg_count
     char* result = strptime(args[0].data.string_value, args[1].data.string_value, &time_struct);
     
     if (!result) {
-        interpreter_set_error(interpreter, "Failed to parse time string with given format", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Failed to parse time string with given format", line, column);
         return value_create_null();
     }
     
     time_t timestamp = mktime(&time_struct);
     if (timestamp == -1) {
-        interpreter_set_error(interpreter, "Invalid date/time after parsing", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Invalid date/time after parsing", line, column);
         return value_create_null();
     }
     
@@ -181,24 +183,24 @@ Value builtin_time_parse(Interpreter* interpreter, Value* args, size_t arg_count
 // time.year(time_val) - Get year from time
 Value builtin_time_year(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "time.year() takes exactly 1 argument: time", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "time.year() takes exactly 1 argument: time", line, column);
         return value_create_null();
     }
     
     if (args[0].type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "Argument must be a time object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "time", "unknown_function", "Argument must be a time object", line, column);
         return value_create_null();
     }
     
     time_t timestamp = get_timestamp(&args[0]);
     if (timestamp == 0) {
-        interpreter_set_error(interpreter, "Invalid time object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Invalid time object", line, column);
         return value_create_null();
     }
     
     struct tm* time_struct = localtime(&timestamp);
     if (!time_struct) {
-        interpreter_set_error(interpreter, "Failed to convert timestamp", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Failed to convert timestamp", line, column);
         return value_create_null();
     }
     
@@ -208,24 +210,24 @@ Value builtin_time_year(Interpreter* interpreter, Value* args, size_t arg_count,
 // time.month(time_val) - Get month from time
 Value builtin_time_month(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "time.month() takes exactly 1 argument: time", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "time.month() takes exactly 1 argument: time", line, column);
         return value_create_null();
     }
     
     if (args[0].type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "Argument must be a time object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "time", "unknown_function", "Argument must be a time object", line, column);
         return value_create_null();
     }
     
     time_t timestamp = get_timestamp(&args[0]);
     if (timestamp == 0) {
-        interpreter_set_error(interpreter, "Invalid time object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Invalid time object", line, column);
         return value_create_null();
     }
     
     struct tm* time_struct = localtime(&timestamp);
     if (!time_struct) {
-        interpreter_set_error(interpreter, "Failed to convert timestamp", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Failed to convert timestamp", line, column);
         return value_create_null();
     }
     
@@ -235,24 +237,24 @@ Value builtin_time_month(Interpreter* interpreter, Value* args, size_t arg_count
 // time.day(time_val) - Get day from time
 Value builtin_time_day(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "time.day() takes exactly 1 argument: time", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "time.day() takes exactly 1 argument: time", line, column);
         return value_create_null();
     }
     
     if (args[0].type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "Argument must be a time object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "time", "unknown_function", "Argument must be a time object", line, column);
         return value_create_null();
     }
     
     time_t timestamp = get_timestamp(&args[0]);
     if (timestamp == 0) {
-        interpreter_set_error(interpreter, "Invalid time object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Invalid time object", line, column);
         return value_create_null();
     }
     
     struct tm* time_struct = localtime(&timestamp);
     if (!time_struct) {
-        interpreter_set_error(interpreter, "Failed to convert timestamp", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Failed to convert timestamp", line, column);
         return value_create_null();
     }
     
@@ -262,24 +264,24 @@ Value builtin_time_day(Interpreter* interpreter, Value* args, size_t arg_count, 
 // time.hour(time_val) - Get hour from time
 Value builtin_time_hour(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "time.hour() takes exactly 1 argument: time", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "time.hour() takes exactly 1 argument: time", line, column);
         return value_create_null();
     }
     
     if (args[0].type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "Argument must be a time object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "time", "unknown_function", "Argument must be a time object", line, column);
         return value_create_null();
     }
     
     time_t timestamp = get_timestamp(&args[0]);
     if (timestamp == 0) {
-        interpreter_set_error(interpreter, "Invalid time object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Invalid time object", line, column);
         return value_create_null();
     }
     
     struct tm* time_struct = localtime(&timestamp);
     if (!time_struct) {
-        interpreter_set_error(interpreter, "Failed to convert timestamp", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Failed to convert timestamp", line, column);
         return value_create_null();
     }
     
@@ -289,24 +291,24 @@ Value builtin_time_hour(Interpreter* interpreter, Value* args, size_t arg_count,
 // time.minute(time_val) - Get minute from time
 Value builtin_time_minute(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "time.minute() takes exactly 1 argument: time", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "time.minute() takes exactly 1 argument: time", line, column);
         return value_create_null();
     }
     
     if (args[0].type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "Argument must be a time object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "time", "unknown_function", "Argument must be a time object", line, column);
         return value_create_null();
     }
     
     time_t timestamp = get_timestamp(&args[0]);
     if (timestamp == 0) {
-        interpreter_set_error(interpreter, "Invalid time object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Invalid time object", line, column);
         return value_create_null();
     }
     
     struct tm* time_struct = localtime(&timestamp);
     if (!time_struct) {
-        interpreter_set_error(interpreter, "Failed to convert timestamp", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Failed to convert timestamp", line, column);
         return value_create_null();
     }
     
@@ -316,24 +318,24 @@ Value builtin_time_minute(Interpreter* interpreter, Value* args, size_t arg_coun
 // time.second(time_val) - Get second from time
 Value builtin_time_second(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "time.second() takes exactly 1 argument: time", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "time.second() takes exactly 1 argument: time", line, column);
         return value_create_null();
     }
     
     if (args[0].type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "Argument must be a time object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "time", "unknown_function", "Argument must be a time object", line, column);
         return value_create_null();
     }
     
     time_t timestamp = get_timestamp(&args[0]);
     if (timestamp == 0) {
-        interpreter_set_error(interpreter, "Invalid time object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Invalid time object", line, column);
         return value_create_null();
     }
     
     struct tm* time_struct = localtime(&timestamp);
     if (!time_struct) {
-        interpreter_set_error(interpreter, "Failed to convert timestamp", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Failed to convert timestamp", line, column);
         return value_create_null();
     }
     
@@ -343,23 +345,23 @@ Value builtin_time_second(Interpreter* interpreter, Value* args, size_t arg_coun
 // time.add(time_val, seconds) - Add seconds to time
 Value builtin_time_add(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "time.add() takes exactly 2 arguments: time, seconds", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "time.add() takes exactly 2 arguments: time, seconds", line, column);
         return value_create_null();
     }
     
     if (args[0].type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "First argument must be a time object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "time", "unknown_function", "First argument must be a time object", line, column);
         return value_create_null();
     }
     
     if (args[1].type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "Second argument must be a number", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "time", "unknown_function", "Second argument must be a number", line, column);
         return value_create_null();
     }
     
     time_t timestamp = get_timestamp(&args[0]);
     if (timestamp == 0) {
-        interpreter_set_error(interpreter, "Invalid time object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Invalid time object", line, column);
         return value_create_null();
     }
     
@@ -372,23 +374,23 @@ Value builtin_time_add(Interpreter* interpreter, Value* args, size_t arg_count, 
 // time.subtract(time_val, seconds) - Subtract seconds from time
 Value builtin_time_subtract(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "time.subtract() takes exactly 2 arguments: time, seconds", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "time.subtract() takes exactly 2 arguments: time, seconds", line, column);
         return value_create_null();
     }
     
     if (args[0].type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "First argument must be a time object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "time", "unknown_function", "First argument must be a time object", line, column);
         return value_create_null();
     }
     
     if (args[1].type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "Second argument must be a number", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "time", "unknown_function", "Second argument must be a number", line, column);
         return value_create_null();
     }
     
     time_t timestamp = get_timestamp(&args[0]);
     if (timestamp == 0) {
-        interpreter_set_error(interpreter, "Invalid time object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Invalid time object", line, column);
         return value_create_null();
     }
     
@@ -401,12 +403,12 @@ Value builtin_time_subtract(Interpreter* interpreter, Value* args, size_t arg_co
 // time.difference(time1, time2) - Get difference in seconds between two times
 Value builtin_time_difference(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "time.difference() takes exactly 2 arguments: time1, time2", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "time.difference() takes exactly 2 arguments: time1, time2", line, column);
         return value_create_null();
     }
     
     if (args[0].type != VALUE_OBJECT || args[1].type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "Both arguments must be time objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Both arguments must be time objects", line, column);
         return value_create_null();
     }
     
@@ -414,7 +416,7 @@ Value builtin_time_difference(Interpreter* interpreter, Value* args, size_t arg_
     time_t timestamp2 = get_timestamp(&args[1]);
     
     if (timestamp1 == 0 || timestamp2 == 0) {
-        interpreter_set_error(interpreter, "Invalid time objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Invalid time objects", line, column);
         return value_create_null();
     }
     
@@ -425,24 +427,24 @@ Value builtin_time_difference(Interpreter* interpreter, Value* args, size_t arg_
 // time.iso_string(time_val) - Get ISO 8601 string representation
 Value builtin_time_iso_string(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "time.iso_string() takes exactly 1 argument: time", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "time.iso_string() takes exactly 1 argument: time", line, column);
         return value_create_null();
     }
     
     if (args[0].type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "Argument must be a time object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "time", "unknown_function", "Argument must be a time object", line, column);
         return value_create_null();
     }
     
     time_t timestamp = get_timestamp(&args[0]);
     if (timestamp == 0) {
-        interpreter_set_error(interpreter, "Invalid time object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Invalid time object", line, column);
         return value_create_null();
     }
     
     struct tm* time_struct = localtime(&timestamp);
     if (!time_struct) {
-        interpreter_set_error(interpreter, "Failed to convert timestamp", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Failed to convert timestamp", line, column);
         return value_create_null();
     }
     
@@ -455,18 +457,18 @@ Value builtin_time_iso_string(Interpreter* interpreter, Value* args, size_t arg_
 // time.unix_timestamp(time_val) - Get Unix timestamp
 Value builtin_time_unix_timestamp(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "time.unix_timestamp() takes exactly 1 argument: time", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "time.unix_timestamp() takes exactly 1 argument: time", line, column);
         return value_create_null();
     }
     
     if (args[0].type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "Argument must be a time object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "time", "unknown_function", "Argument must be a time object", line, column);
         return value_create_null();
     }
     
     time_t timestamp = get_timestamp(&args[0]);
     if (timestamp == 0) {
-        interpreter_set_error(interpreter, "Invalid time object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "time", "unknown_function", "Invalid time object", line, column);
         return value_create_null();
     }
     

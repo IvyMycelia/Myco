@@ -3,11 +3,13 @@
 #include <stdio.h>
 #include "../../include/core/interpreter.h"
 #include "../../include/core/ast.h"
+#include "../../include/core/standardized_errors.h"
+#include "../../include/utils/shared_utilities.h"
 
 // Stack utility functions
 Value builtin_stack_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 0) {
-        interpreter_set_error(interpreter, "create() requires no arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "create() requires no arguments", line, column);
         return value_create_null();
     }
     
@@ -22,7 +24,7 @@ Value builtin_stack_create(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_stack_push(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "stack.push() expects exactly 1 argument: value", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.push() expects exactly 1 argument: value", line, column);
         return value_create_null();
     }
     
@@ -30,7 +32,7 @@ Value builtin_stack_push(Interpreter* interpreter, Value* args, size_t arg_count
     Value value = args[1];
     
     if (stack_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "stack.push() can only be called on stack objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.push() can only be called on stack objects", line, column);
         return value_create_null();
     }
     
@@ -39,7 +41,7 @@ Value builtin_stack_push(Interpreter* interpreter, Value* args, size_t arg_count
     Value size = value_object_get(&stack_arg, "size");
     
     if (elements.type != VALUE_ARRAY || size.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "Invalid stack object structure", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid stack object structure", line, column);
         return value_create_null();
     }
     
@@ -71,14 +73,14 @@ Value builtin_stack_push(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_stack_pop(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "stack.pop() expects exactly 0 arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.pop() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value stack_arg = args[0];
     
     if (stack_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "stack.pop() can only be called on stack objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.pop() can only be called on stack objects", line, column);
         return value_create_null();
     }
     
@@ -87,12 +89,12 @@ Value builtin_stack_pop(Interpreter* interpreter, Value* args, size_t arg_count,
     Value size = value_object_get(&stack_arg, "size");
     
     if (elements.type != VALUE_ARRAY || size.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "Invalid stack object structure", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid stack object structure", line, column);
         return value_create_null();
     }
     
     if (elements.data.array_value.count == 0) {
-        interpreter_set_error(interpreter, "Cannot pop from empty stack", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Cannot pop from empty stack", line, column);
         return value_create_null();
     }
     
@@ -100,7 +102,7 @@ Value builtin_stack_pop(Interpreter* interpreter, Value* args, size_t arg_count,
     size_t top_index = elements.data.array_value.count - 1;
     Value* top_element = (Value*)elements.data.array_value.elements[top_index];
     if (!top_element) {
-        interpreter_set_error(interpreter, "Invalid stack element", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid stack element", line, column);
         return value_create_null();
     }
     
@@ -139,14 +141,14 @@ Value builtin_stack_pop(Interpreter* interpreter, Value* args, size_t arg_count,
 
 Value builtin_stack_top(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "stack.top() expects exactly 0 arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.top() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value stack_arg = args[0];
     
     if (stack_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "stack.top() can only be called on stack objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.top() can only be called on stack objects", line, column);
         return value_create_null();
     }
     
@@ -154,12 +156,12 @@ Value builtin_stack_top(Interpreter* interpreter, Value* args, size_t arg_count,
     Value elements = value_object_get(&stack_arg, "elements");
     
     if (elements.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "Invalid stack object structure", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid stack object structure", line, column);
         return value_create_null();
     }
     
     if (elements.data.array_value.count == 0) {
-        interpreter_set_error(interpreter, "Cannot get top of empty stack", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Cannot get top of empty stack", line, column);
         return value_create_null();
     }
     
@@ -167,7 +169,7 @@ Value builtin_stack_top(Interpreter* interpreter, Value* args, size_t arg_count,
     size_t top_index = elements.data.array_value.count - 1;
     Value* top_element = (Value*)elements.data.array_value.elements[top_index];
     if (!top_element) {
-        interpreter_set_error(interpreter, "Invalid stack element", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid stack element", line, column);
         return value_create_null();
     }
     
@@ -176,14 +178,14 @@ Value builtin_stack_top(Interpreter* interpreter, Value* args, size_t arg_count,
 
 Value builtin_stack_size(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "stack.size() expects exactly 0 arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.size() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value stack_arg = args[0];
     
     if (stack_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "stack.size() can only be called on stack objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.size() can only be called on stack objects", line, column);
         return value_create_null();
     }
     
@@ -191,7 +193,7 @@ Value builtin_stack_size(Interpreter* interpreter, Value* args, size_t arg_count
     Value size = value_object_get(&stack_arg, "size");
     
     if (size.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "Invalid stack object structure", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid stack object structure", line, column);
         return value_create_null();
     }
     
@@ -200,14 +202,14 @@ Value builtin_stack_size(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_stack_isEmpty(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "stack.isEmpty() expects exactly 0 arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.isEmpty() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value stack_arg = args[0];
     
     if (stack_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "stack.isEmpty() can only be called on stack objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.isEmpty() can only be called on stack objects", line, column);
         return value_create_null();
     }
     
@@ -215,7 +217,7 @@ Value builtin_stack_isEmpty(Interpreter* interpreter, Value* args, size_t arg_co
     Value size = value_object_get(&stack_arg, "size");
     
     if (size.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "Invalid stack object structure", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid stack object structure", line, column);
         return value_create_null();
     }
     
@@ -224,14 +226,14 @@ Value builtin_stack_isEmpty(Interpreter* interpreter, Value* args, size_t arg_co
 
 Value builtin_stack_clear(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "stack.clear() expects exactly 0 arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.clear() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value stack_arg = args[0];
     
     if (stack_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "stack.clear() can only be called on stack objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.clear() can only be called on stack objects", line, column);
         return value_create_null();
     }
     

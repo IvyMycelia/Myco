@@ -2,6 +2,8 @@
 #include <limits.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include "../../include/core/standardized_errors.h"
+#include "../../include/utils/shared_utilities.h"
 
 // Define inotify constants for compatibility
 #define IN_MODIFY 0x00000002
@@ -30,7 +32,7 @@ static char* g_response_content_type = NULL;
 
 // Create a new server instance
 MycoServer* server_create(int port, Interpreter* interpreter) {
-    MycoServer* server = (MycoServer*)malloc(sizeof(MycoServer));
+    MycoServer* server = (MycoServer*)shared_malloc_safe(sizeof(MycoServer), "libs", "unknown_function", 35);
     if (!server) return NULL;
     
     server->port = port;
@@ -79,12 +81,12 @@ void server_free(MycoServer* server) {
         current_handler = next;
     }
     
-    free(server);
+    shared_free_safe(server, "libs", "unknown_function", 84);
 }
 
 // Create a new route parameter
 RouteParam* route_param_create(const char* name, const char* value) {
-    RouteParam* param = (RouteParam*)malloc(sizeof(RouteParam));
+    RouteParam* param = (RouteParam*)shared_malloc_safe(sizeof(RouteParam), "libs", "unknown_function", 89);
     if (!param) return NULL;
     
     param->name = strdup(name);
@@ -98,9 +100,9 @@ RouteParam* route_param_create(const char* name, const char* value) {
 void route_param_free(RouteParam* param) {
     if (!param) return;
     
-    free(param->name);
-    free(param->value);
-    free(param);
+    shared_free_safe(param->name, "libs", "unknown_function", 103);
+    shared_free_safe(param->value, "libs", "unknown_function", 104);
+    shared_free_safe(param, "libs", "unknown_function", 105);
 }
 
 // Free all route parameters
@@ -126,7 +128,7 @@ RouteParam* route_params_find(RouteParam* params, const char* name) {
 
 // Create a new route
 Route* route_create(const char* method, const char* path, Value handler) {
-    Route* route = (Route*)malloc(sizeof(Route));
+    Route* route = (Route*)shared_malloc_safe(sizeof(Route), "libs", "unknown_function", 131);
     if (!route) return NULL;
     
     route->method = strdup(method);
@@ -143,12 +145,12 @@ Route* route_create(const char* method, const char* path, Value handler) {
 void route_free(Route* route) {
     if (!route) return;
     
-    free(route->method);
-    free(route->path);
-    free(route->pattern);
+    shared_free_safe(route->method, "libs", "unknown_function", 148);
+    shared_free_safe(route->path, "libs", "unknown_function", 149);
+    shared_free_safe(route->pattern, "libs", "unknown_function", 150);
     route_params_free(route->params);  // Free all parameters
     value_free(&route->handler);  // Free the function value
-    free(route);
+    shared_free_safe(route, "libs", "unknown_function", 153);
 }
 
 // Add route to the global routes list
@@ -290,7 +292,7 @@ char** split_path(const char* path) {
     // Split the path
     char* path_copy = strdup(path);
     if (!path_copy) {
-        free(segments);
+        shared_free_safe(segments, "libs", "unknown_function", 295);
         return NULL;
     }
     
@@ -302,7 +304,7 @@ char** split_path(const char* path) {
         i++;
     }
     
-    free(path_copy);
+    shared_free_safe(path_copy, "libs", "unknown_function", 307);
     return segments;
 }
 
@@ -311,9 +313,9 @@ void free_path_segments(char** segments) {
     if (!segments) return;
     
     for (int i = 0; segments[i]; i++) {
-        free(segments[i]);
+        shared_free_safe(segments[i], "libs", "unknown_function", 316);
     }
-    free(segments);
+    shared_free_safe(segments, "libs", "unknown_function", 318);
 }
 
 // Validate a typed parameter value
@@ -363,7 +365,7 @@ bool validate_typed_parameter(const char* value, const char* type) {
 
 // Static file serving functions
 StaticRoute* static_route_create(const char* url_prefix, const char* file_path) {
-    StaticRoute* route = (StaticRoute*)malloc(sizeof(StaticRoute));
+    StaticRoute* route = (StaticRoute*)shared_malloc_safe(sizeof(StaticRoute), "libs", "unknown_function", 368);
     if (!route) return NULL;
     
     route->url_prefix = strdup(url_prefix);
@@ -378,10 +380,9 @@ StaticRoute* static_route_create(const char* url_prefix, const char* file_path) 
 
 void static_route_free(StaticRoute* route) {
     if (!route) return;
-    
-    free(route->url_prefix);
-    free(route->file_path);
-    free(route);
+    shared_free_safe(route->url_prefix, "libs", "unknown_function", 383);
+    shared_free_safe(route->file_path, "libs", "unknown_function", 384);
+    shared_free_safe(route, "libs", "unknown_function", 385);
 }
 
 void static_route_add(StaticRoute* route) {
@@ -464,7 +465,7 @@ char* read_file_content(const char* path, size_t* size) {
     fseek(file, 0, SEEK_SET);
     
     // Allocate buffer
-    char* content = (char*)malloc(*size + 1);
+    char* content = (char*)shared_malloc_safe(*size + 1, "libs", "unknown_function", 469);
     if (!content) {
         fclose(file);
         return NULL;
@@ -475,7 +476,7 @@ char* read_file_content(const char* path, size_t* size) {
     fclose(file);
     
     if (bytes_read != *size) {
-        free(content);
+        shared_free_safe(content, "libs", "unknown_function", 480);
         return NULL;
     }
     
@@ -519,13 +520,13 @@ Value parse_form_body(const char* body) {
             
             value_object_set(&obj, key, value_create_string(value));
             
-            free(key);
-            free(value);
+            shared_free_safe(key, "libs", "unknown_function", 524);
+            shared_free_safe(value, "libs", "unknown_function", 525);
         }
         token = strtok(NULL, "&");
     }
     
-    free(body_copy);
+    shared_free_safe(body_copy, "libs", "unknown_function", 530);
     return obj;
 }
 
@@ -550,13 +551,13 @@ Value parse_query_string(const char* query_string) {
             
             value_object_set(&obj, key, value_create_string(value));
             
-            free(key);
-            free(value);
+            shared_free_safe(key, "libs", "unknown_function", 555);
+            shared_free_safe(value, "libs", "unknown_function", 556);
         }
         token = strtok(NULL, "&");
     }
     
-    free(query_copy);
+    shared_free_safe(query_copy, "libs", "unknown_function", 561);
     return obj;
 }
 
@@ -564,7 +565,7 @@ char* url_decode(const char* str) {
     if (!str) return NULL;
     
     size_t len = strlen(str);
-    char* decoded = (char*)malloc(len + 1);
+    char* decoded = (char*)shared_malloc_safe(len + 1, "libs", "unknown_function", 569);
     if (!decoded) return NULL;
     
     size_t j = 0;
@@ -595,9 +596,9 @@ enum MHD_Result server_handle_request(void* cls, struct MHD_Connection* connecti
     if (upload_data && upload_data_size && *upload_data_size > 0) {
         // Store the request body globally
         if (g_request_body) {
-            free(g_request_body);
+            shared_free_safe(g_request_body, "libs", "unknown_function", 600);
         }
-        g_request_body = (char*)malloc(*upload_data_size + 1);
+        g_request_body = (char*)shared_malloc_safe(*upload_data_size + 1, "libs", "unknown_function", 602);
         strncpy(g_request_body, upload_data, *upload_data_size);
         g_request_body[*upload_data_size] = '\0';
         *upload_data_size = 0; // Mark as processed
@@ -660,7 +661,7 @@ enum MHD_Result server_handle_request(void* cls, struct MHD_Connection* connecti
                                 }
                                 line = strtok(NULL, "\r\n");
                             }
-                            free(cache_headers);
+                            shared_free_safe(cache_headers, "libs", "unknown_function", 665);
                         }
                     }
                     
@@ -669,7 +670,7 @@ enum MHD_Result server_handle_request(void* cls, struct MHD_Connection* connecti
                     
                     // Free compressed content if it was created
                     if (compressed_content) {
-                        free(compressed_content);
+                        shared_free_safe(compressed_content, "libs", "unknown_function", 674);
                     }
                     
                     return ret;
@@ -731,7 +732,7 @@ enum MHD_Result server_handle_request(void* cls, struct MHD_Connection* connecti
     // Reset global response data
     g_response_status_code = 200;
     if (g_response_content_type) {
-        free(g_response_content_type);
+        shared_free_safe(g_response_content_type, "libs", "unknown_function", 736);
         g_response_content_type = NULL;
     }
     
@@ -792,7 +793,7 @@ enum MHD_Result server_handle_request(void* cls, struct MHD_Connection* connecti
 // Create a new server
 Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "server.create() requires exactly 1 argument (port or config)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "server.create() requires exactly 1 argument (port or config)", line, column);
         return value_create_null();
     }
     
@@ -805,7 +806,7 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
         // Parse config object
         config = parse_server_config(arg);
         if (!config) {
-            interpreter_set_error(interpreter, "Invalid config object", line, column);
+            std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "Invalid config object", line, column);
             return value_create_null();
         }
         port = config->port;
@@ -813,7 +814,7 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
         // Just a port number
         port = (int)arg.data.number_value;
     } else {
-        interpreter_set_error(interpreter, "server.create() requires a port number or config object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "server.create() requires a port number or config object", line, column);
         return value_create_null();
     }
     
@@ -830,7 +831,7 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
     }
     
     if (!g_server) {
-        interpreter_set_error(interpreter, "Failed to create server", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "Failed to create server", line, column);
         if (config) free_server_config(config);
         return value_create_null();
     }
@@ -864,19 +865,19 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
 // Start the server
 Value builtin_server_listen(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "server.listen() requires server object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "server.listen() requires server object", line, column);
         return value_create_null();
     }
     
     Value server_obj = args[0];
     
     if (!g_server) {
-        interpreter_set_error(interpreter, "No server created. Call server.create() first", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "No server created. Call server.create() first", line, column);
         return value_create_null();
     }
     
     if (g_server->running) {
-        interpreter_set_error(interpreter, "Server is already running", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "Server is already running", line, column);
         return value_create_null();
     }
     
@@ -891,7 +892,7 @@ Value builtin_server_listen(Interpreter* interpreter, Value* args, size_t arg_co
     );
     
     if (!g_server->daemon) {
-        interpreter_set_error(interpreter, "Failed to start server", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "Failed to start server", line, column);
         return value_create_null();
     }
     
@@ -918,14 +919,14 @@ Value builtin_server_listen(Interpreter* interpreter, Value* args, size_t arg_co
 // Stop the server
 Value builtin_server_stop(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "server.stop() requires server object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "server.stop() requires server object", line, column);
         return value_create_null();
     }
     
     Value server_obj = args[0];
     
     if (!g_server || !g_server->running) {
-        interpreter_set_error(interpreter, "Server is not running", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "Server is not running", line, column);
         return value_create_null();
     }
     
@@ -943,7 +944,7 @@ Value builtin_server_stop(Interpreter* interpreter, Value* args, size_t arg_coun
 // Register a GET route
 Value builtin_server_get(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2 && arg_count != 3) {
-        interpreter_set_error(interpreter, "server.get() requires exactly 2 arguments (path, handler)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "server.get() requires exactly 2 arguments (path, handler)", line, column);
         return value_create_null();
     }
     
@@ -952,12 +953,12 @@ Value builtin_server_get(Interpreter* interpreter, Value* args, size_t arg_count
     Value handler_val = (arg_count == 3) ? args[2] : args[1];
     
     if (path_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "server.get() path must be a string", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "server", "unknown_function", "server.get() path must be a string", line, column);
         return value_create_null();
     }
     
     if (handler_val.type != VALUE_FUNCTION) {
-        interpreter_set_error(interpreter, "server.get() handler must be a function", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "server.get() handler must be a function", line, column);
         return value_create_null();
     }
     
@@ -973,7 +974,7 @@ Value builtin_server_get(Interpreter* interpreter, Value* args, size_t arg_count
 // Register a POST route
 Value builtin_server_post(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2 && arg_count != 3) {
-        interpreter_set_error(interpreter, "server.post() requires exactly 2 arguments (path, handler)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "server.post() requires exactly 2 arguments (path, handler)", line, column);
         return value_create_null();
     }
     
@@ -982,12 +983,12 @@ Value builtin_server_post(Interpreter* interpreter, Value* args, size_t arg_coun
     Value handler_val = (arg_count == 3) ? args[2] : args[1];
     
     if (path_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "server.post() path must be a string", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "server", "unknown_function", "server.post() path must be a string", line, column);
         return value_create_null();
     }
     
     if (handler_val.type != VALUE_FUNCTION) {
-        interpreter_set_error(interpreter, "server.post() handler must be a function", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "server.post() handler must be a function", line, column);
         return value_create_null();
     }
     
@@ -1003,7 +1004,7 @@ Value builtin_server_post(Interpreter* interpreter, Value* args, size_t arg_coun
 // Register a PUT route
 Value builtin_server_put(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2 && arg_count != 3) {
-        interpreter_set_error(interpreter, "server.put() requires exactly 2 arguments (path, handler)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "server.put() requires exactly 2 arguments (path, handler)", line, column);
         return value_create_null();
     }
     
@@ -1012,12 +1013,12 @@ Value builtin_server_put(Interpreter* interpreter, Value* args, size_t arg_count
     Value handler_val = (arg_count == 3) ? args[2] : args[1];
     
     if (path_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "server.put() path must be a string", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "server", "unknown_function", "server.put() path must be a string", line, column);
         return value_create_null();
     }
     
     if (handler_val.type != VALUE_FUNCTION) {
-        interpreter_set_error(interpreter, "server.put() handler must be a function", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "server.put() handler must be a function", line, column);
         return value_create_null();
     }
     
@@ -1033,7 +1034,7 @@ Value builtin_server_put(Interpreter* interpreter, Value* args, size_t arg_count
 // Register a DELETE route
 Value builtin_server_delete(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2 && arg_count != 3) {
-        interpreter_set_error(interpreter, "server.delete() requires exactly 2 arguments (path, handler)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "server.delete() requires exactly 2 arguments (path, handler)", line, column);
         return value_create_null();
     }
     
@@ -1042,12 +1043,12 @@ Value builtin_server_delete(Interpreter* interpreter, Value* args, size_t arg_co
     Value handler_val = (arg_count == 3) ? args[2] : args[1];
     
     if (path_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "server.delete() path must be a string", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "server", "unknown_function", "server.delete() path must be a string", line, column);
         return value_create_null();
     }
     
     if (handler_val.type != VALUE_FUNCTION) {
-        interpreter_set_error(interpreter, "server.delete() handler must be a function", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "server.delete() handler must be a function", line, column);
         return value_create_null();
     }
     
@@ -1063,7 +1064,7 @@ Value builtin_server_delete(Interpreter* interpreter, Value* args, size_t arg_co
 // Register static file serving
 Value builtin_server_static(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count < 2 || arg_count > 4) {
-        interpreter_set_error(interpreter, "server.static() requires 2-3 arguments (url_prefix, file_path, [options])", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "server.static() requires 2-3 arguments (url_prefix, file_path, [options])", line, column);
         return value_create_null();
     }
     
@@ -1073,19 +1074,19 @@ Value builtin_server_static(Interpreter* interpreter, Value* args, size_t arg_co
     Value options_val = (arg_count >= 4) ? args[3] : value_create_null();
     
     if (url_prefix_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "server.static() first argument must be a string (URL prefix)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "server", "unknown_function", "server.static() first argument must be a string (URL prefix)", line, column);
         return value_create_null();
     }
     
     if (file_path_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "server.static() second argument must be a string (file path)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "server", "unknown_function", "server.static() second argument must be a string (file path)", line, column);
         return value_create_null();
     }
     
     // Create and add static route
     StaticRoute* static_route = static_route_create(url_prefix_val.data.string_value, file_path_val.data.string_value);
     if (!static_route) {
-        interpreter_set_error(interpreter, "Failed to create static route", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "Failed to create static route", line, column);
         return value_create_null();
     }
     
@@ -1137,13 +1138,13 @@ Value builtin_server_static(Interpreter* interpreter, Value* args, size_t arg_co
 // Request method implementations
 Value builtin_request_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "request.method() takes no arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "request.method() takes no arguments", line, column);
         return value_create_null();
     }
     
     Value request_obj = args[0];
     if (request_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "request.method() must be called on a request object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "request.method() must be called on a request object", line, column);
         return value_create_null();
     }
     
@@ -1155,13 +1156,13 @@ Value builtin_request_method(Interpreter* interpreter, Value* args, size_t arg_c
 
 Value builtin_request_url(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "request.url() takes no arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "request.url() takes no arguments", line, column);
         return value_create_null();
     }
     
     Value request_obj = args[0];
     if (request_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "request.url() must be called on a request object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "request.url() must be called on a request object", line, column);
         return value_create_null();
     }
     
@@ -1173,13 +1174,13 @@ Value builtin_request_url(Interpreter* interpreter, Value* args, size_t arg_coun
 
 Value builtin_request_path(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "request.path() takes no arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "request.path() takes no arguments", line, column);
         return value_create_null();
     }
     
     Value request_obj = args[0];
     if (request_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "request.path() must be called on a request object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "request.path() must be called on a request object", line, column);
         return value_create_null();
     }
     
@@ -1191,13 +1192,13 @@ Value builtin_request_path(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_request_body(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "request.body() takes no arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "request.body() takes no arguments", line, column);
         return value_create_null();
     }
     
     Value request_obj = args[0];
     if (request_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "request.body() must be called on a request object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "request.body() must be called on a request object", line, column);
         return value_create_null();
     }
     
@@ -1209,7 +1210,7 @@ Value builtin_request_body(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_request_header(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "request.header() requires exactly 2 arguments (request, header_name)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "request.header() requires exactly 2 arguments (request, header_name)", line, column);
         return value_create_null();
     }
     
@@ -1217,12 +1218,12 @@ Value builtin_request_header(Interpreter* interpreter, Value* args, size_t arg_c
     Value header_name_val = args[1];
     
     if (request_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "request.header() first argument must be a request object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "server", "unknown_function", "request.header() first argument must be a request object", line, column);
         return value_create_null();
     }
     
     if (header_name_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "request.header() second argument must be a string (header name)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "server", "unknown_function", "request.header() second argument must be a string (header name)", line, column);
         return value_create_null();
     }
     
@@ -1232,7 +1233,7 @@ Value builtin_request_header(Interpreter* interpreter, Value* args, size_t arg_c
 
 Value builtin_request_param(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "request.param() requires exactly 2 arguments (request, param_name)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "request.param() requires exactly 2 arguments (request, param_name)", line, column);
         return value_create_null();
     }
     
@@ -1240,12 +1241,12 @@ Value builtin_request_param(Interpreter* interpreter, Value* args, size_t arg_co
     Value param_name_val = args[1];
     
     if (request_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "request.param() first argument must be a request object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "server", "unknown_function", "request.param() first argument must be a request object", line, column);
         return value_create_null();
     }
     
     if (param_name_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "request.param() second argument must be a string (parameter name)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "server", "unknown_function", "request.param() second argument must be a string (parameter name)", line, column);
         return value_create_null();
     }
     
@@ -1265,14 +1266,14 @@ Value builtin_request_param(Interpreter* interpreter, Value* args, size_t arg_co
 
 Value builtin_request_json(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "request.json() takes no arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "request.json() takes no arguments", line, column);
         return value_create_null();
     }
     
     Value request_obj = args[0];
     
     if (request_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "request.json() first argument must be a request object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "server", "unknown_function", "request.json() first argument must be a request object", line, column);
         return value_create_null();
     }
     
@@ -1287,14 +1288,14 @@ Value builtin_request_json(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_request_form(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "request.form() takes no arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "request.form() takes no arguments", line, column);
         return value_create_null();
     }
     
     Value request_obj = args[0];
     
     if (request_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "request.form() first argument must be a request object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "server", "unknown_function", "request.form() first argument must be a request object", line, column);
         return value_create_null();
     }
     
@@ -1310,14 +1311,14 @@ Value builtin_request_form(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_request_query(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count < 1 || arg_count > 2) {
-        interpreter_set_error(interpreter, "request.query() requires 1 or 2 arguments (request_obj, [param_name])", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "request.query() requires 1 or 2 arguments (request_obj, [param_name])", line, column);
         return value_create_null();
     }
     
     Value request_obj = args[0];
     
     if (request_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "request.query() first argument must be a request object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "server", "unknown_function", "request.query() first argument must be a request object", line, column);
         return value_create_null();
     }
     
@@ -1345,7 +1346,7 @@ Value builtin_request_query(Interpreter* interpreter, Value* args, size_t arg_co
 // Response method implementations
 Value builtin_response_send(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "response.send() requires exactly 2 arguments (response, data)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "response.send() requires exactly 2 arguments (response, data)", line, column);
         return value_create_null();
     }
     
@@ -1353,7 +1354,7 @@ Value builtin_response_send(Interpreter* interpreter, Value* args, size_t arg_co
     Value data_val = args[1];
     
     if (response_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "response.send() first argument must be a response object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "server", "unknown_function", "response.send() first argument must be a response object", line, column);
         return value_create_null();
     }
     
@@ -1361,7 +1362,7 @@ Value builtin_response_send(Interpreter* interpreter, Value* args, size_t arg_co
     if (data_val.type == VALUE_STRING) {
         // Free existing global response body
         if (g_response_body) {
-            free(g_response_body);
+            shared_free_safe(g_response_body, "libs", "unknown_function", 1366);
         }
         
         // Store the response body globally
@@ -1378,7 +1379,7 @@ Value builtin_response_send(Interpreter* interpreter, Value* args, size_t arg_co
         
         // Free existing global response body
         if (g_response_body) {
-            free(g_response_body);
+            shared_free_safe(g_response_body, "libs", "unknown_function", 1383);
         }
         
         // Store the response body globally
@@ -1394,7 +1395,7 @@ Value builtin_response_send(Interpreter* interpreter, Value* args, size_t arg_co
 
 Value builtin_response_json(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "response.json() requires exactly 2 arguments (response, data)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "response.json() requires exactly 2 arguments (response, data)", line, column);
         return value_create_null();
     }
     
@@ -1402,7 +1403,7 @@ Value builtin_response_json(Interpreter* interpreter, Value* args, size_t arg_co
     Value data_val = args[1];
     
     if (response_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "response.json() first argument must be a response object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "server", "unknown_function", "response.json() first argument must be a response object", line, column);
         return value_create_null();
     }
     
@@ -1411,7 +1412,7 @@ Value builtin_response_json(Interpreter* interpreter, Value* args, size_t arg_co
     
     // Update global response content type
     if (g_response_content_type) {
-        free(g_response_content_type);
+        shared_free_safe(g_response_content_type, "libs", "unknown_function", 1416);
     }
     g_response_content_type = strdup("application/json");
     
@@ -1421,7 +1422,7 @@ Value builtin_response_json(Interpreter* interpreter, Value* args, size_t arg_co
     
     // Also set the global response body for the final response
     if (g_response_body) {
-        free(g_response_body);
+        shared_free_safe(g_response_body, "libs", "unknown_function", 1426);
     }
     g_response_body = strdup(str_val.data.string_value);
     
@@ -1430,7 +1431,7 @@ Value builtin_response_json(Interpreter* interpreter, Value* args, size_t arg_co
 
 Value builtin_response_status(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "response.status() requires exactly 2 arguments (response, code)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "response.status() requires exactly 2 arguments (response, code)", line, column);
         return value_create_null();
     }
     
@@ -1438,12 +1439,12 @@ Value builtin_response_status(Interpreter* interpreter, Value* args, size_t arg_
     Value code_val = args[1];
     
     if (response_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "response.status() first argument must be a response object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "server", "unknown_function", "response.status() first argument must be a response object", line, column);
         return value_create_null();
     }
     
     if (code_val.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "response.status() second argument must be a number (status code)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "server", "unknown_function", "response.status() second argument must be a number (status code)", line, column);
         return value_create_null();
     }
     
@@ -1467,7 +1468,7 @@ Value builtin_response_status(Interpreter* interpreter, Value* args, size_t arg_
 
 Value builtin_response_header(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 3) {
-        interpreter_set_error(interpreter, "response.header() requires exactly 3 arguments (response, name, value)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "response.header() requires exactly 3 arguments (response, name, value)", line, column);
         return value_create_null();
     }
     
@@ -1476,12 +1477,12 @@ Value builtin_response_header(Interpreter* interpreter, Value* args, size_t arg_
     Value value_val = args[2];
     
     if (response_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "response.header() first argument must be a response object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "server", "unknown_function", "response.header() first argument must be a response object", line, column);
         return value_create_null();
     }
     
     if (name_val.type != VALUE_STRING || value_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "response.header() name and value must be strings", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "response.header() name and value must be strings", line, column);
         return value_create_null();
     }
     
@@ -1491,7 +1492,7 @@ Value builtin_response_header(Interpreter* interpreter, Value* args, size_t arg_
 
 Value builtin_response_send_file(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "response.sendFile() requires exactly 2 arguments (response, file_path)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "response.sendFile() requires exactly 2 arguments (response, file_path)", line, column);
         return value_create_null();
     }
     
@@ -1499,18 +1500,18 @@ Value builtin_response_send_file(Interpreter* interpreter, Value* args, size_t a
     Value file_path_val = args[1];
     
     if (response_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "response.sendFile() first argument must be a response object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "server", "unknown_function", "response.sendFile() first argument must be a response object", line, column);
         return value_create_null();
     }
     
     if (file_path_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "response.sendFile() second argument must be a string (file path)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "server", "unknown_function", "response.sendFile() second argument must be a string (file path)", line, column);
         return value_create_null();
     }
     
     // Check if file exists
     if (!file_exists(file_path_val.data.string_value)) {
-        interpreter_set_error(interpreter, "File not found", line, column);
+        std_error_report(ERROR_UNDEFINED_VARIABLE, "server", "unknown_function", "File not found", line, column);
         return value_create_null();
     }
     
@@ -1518,7 +1519,7 @@ Value builtin_response_send_file(Interpreter* interpreter, Value* args, size_t a
     size_t file_size;
     char* file_content = read_file_content(file_path_val.data.string_value, &file_size);
     if (!file_content) {
-        interpreter_set_error(interpreter, "Failed to read file", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "Failed to read file", line, column);
         return value_create_null();
     }
     
@@ -1528,7 +1529,7 @@ Value builtin_response_send_file(Interpreter* interpreter, Value* args, size_t a
     
     // Set the file content as response body
     if (g_response_body) {
-        free(g_response_body);
+        shared_free_safe(g_response_body, "libs", "unknown_function", 1533);
     }
     g_response_body = file_content;  // File content will be freed by libmicrohttpd
     
@@ -1537,7 +1538,7 @@ Value builtin_response_send_file(Interpreter* interpreter, Value* args, size_t a
 
 Value builtin_response_set_header(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 3) {
-        interpreter_set_error(interpreter, "response.setHeader() requires exactly 3 arguments (response, name, value)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "response.setHeader() requires exactly 3 arguments (response, name, value)", line, column);
         return value_create_null();
     }
     
@@ -1546,12 +1547,12 @@ Value builtin_response_set_header(Interpreter* interpreter, Value* args, size_t 
     Value value_val = args[2];
     
     if (response_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "response.setHeader() first argument must be a response object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "server", "unknown_function", "response.setHeader() first argument must be a response object", line, column);
         return value_create_null();
     }
     
     if (name_val.type != VALUE_STRING || value_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "response.setHeader() name and value must be strings", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "response.setHeader() name and value must be strings", line, column);
         return value_create_null();
     }
     
@@ -1671,7 +1672,7 @@ Value create_response_object(MycoResponse* response) {
 
 // Parse HTTP request from libmicrohttpd connection
 MycoRequest* parse_http_request(struct MHD_Connection* connection, const char* url, const char* method) {
-    MycoRequest* request = (MycoRequest*)malloc(sizeof(MycoRequest));
+    MycoRequest* request = (MycoRequest*)shared_malloc_safe(sizeof(MycoRequest), "libs", "unknown_function", 1676);
     if (!request) return NULL;
     
     // Initialize request
@@ -1684,7 +1685,7 @@ MycoRequest* parse_http_request(struct MHD_Connection* connection, const char* u
         if (query_pos) {
             // Split URL into path and query string
             size_t path_len = query_pos - url;
-            request->path = (char*)malloc(path_len + 1);
+            request->path = (char*)shared_malloc_safe(path_len + 1, "libs", "unknown_function", 1689);
             strncpy(request->path, url, path_len);
             request->path[path_len] = '\0';
             
@@ -1709,7 +1710,7 @@ MycoRequest* parse_http_request(struct MHD_Connection* connection, const char* u
 
 // Create a new HTTP response
 MycoResponse* create_http_response(void) {
-    MycoResponse* response = (MycoResponse*)malloc(sizeof(MycoResponse));
+    MycoResponse* response = (MycoResponse*)shared_malloc_safe(sizeof(MycoResponse), "libs", "unknown_function", 1714);
     if (!response) return NULL;
     
     // Initialize response
@@ -1727,41 +1728,41 @@ MycoResponse* create_http_response(void) {
 void free_request_object(MycoRequest* request) {
     if (!request) return;
     
-    free(request->method);
-    free(request->url);
-    free(request->path);
-    free(request->query_string);
-    free(request->body);
+    shared_free_safe(request->method, "libs", "unknown_function", 1732);
+    shared_free_safe(request->url, "libs", "unknown_function", 1733);
+    shared_free_safe(request->path, "libs", "unknown_function", 1734);
+    shared_free_safe(request->query_string, "libs", "unknown_function", 1735);
+    shared_free_safe(request->body, "libs", "unknown_function", 1736);
     
     // Free headers
     for (size_t i = 0; i < request->header_count; i++) {
-        free(request->headers[i]);
+        shared_free_safe(request->headers[i], "libs", "unknown_function", 1740);
     }
-    free(request->headers);
+    shared_free_safe(request->headers, "libs", "unknown_function", 1742);
     
     // Free params
     for (size_t i = 0; i < request->param_count; i++) {
-        free(request->params[i]);
+        shared_free_safe(request->params[i], "libs", "unknown_function", 1746);
     }
-    free(request->params);
+    shared_free_safe(request->params, "libs", "unknown_function", 1748);
     
-    free(request);
+    shared_free_safe(request, "libs", "unknown_function", 1750);
 }
 
 // Free response object
 void free_response_object(MycoResponse* response) {
     if (!response) return;
     
-    free(response->content_type);
-    free(response->body);
+    shared_free_safe(response->content_type, "libs", "unknown_function", 1757);
+    shared_free_safe(response->body, "libs", "unknown_function", 1758);
     
     // Free headers
     for (size_t i = 0; i < response->header_count; i++) {
-        free(response->headers[i]);
+        shared_free_safe(response->headers[i], "libs", "unknown_function", 1762);
     }
-    free(response->headers);
+    shared_free_safe(response->headers, "libs", "unknown_function", 1764);
     
-    free(response);
+    shared_free_safe(response, "libs", "unknown_function", 1766);
 }
 
 // Execute a Myco function from C with 3 parameters
@@ -1947,7 +1948,7 @@ Value execute_myco_function(Interpreter* interpreter, Value function, Value* arg
 // Add middleware to server
 Value builtin_server_use(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "app.use() requires exactly 2 arguments (server, middleware_function)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "app.use() requires exactly 2 arguments (server, middleware_function)", line, column);
         return value_create_null();
     }
     
@@ -1955,12 +1956,12 @@ Value builtin_server_use(Interpreter* interpreter, Value* args, size_t arg_count
     Value middleware_func = args[1];
     
     if (middleware_func.type != VALUE_FUNCTION) {
-        interpreter_set_error(interpreter, "app.use() middleware must be a function", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "app.use() middleware must be a function", line, column);
         return value_create_null();
     }
     
     if (!g_server) {
-        interpreter_set_error(interpreter, "No server created. Call server.create() first", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "No server created. Call server.create() first", line, column);
         return value_create_null();
     }
     
@@ -1973,7 +1974,7 @@ Value builtin_server_use(Interpreter* interpreter, Value* args, size_t arg_count
 // Create route group
 Value builtin_server_group(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "app.group() requires exactly 2 arguments (server, prefix)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "app.group() requires exactly 2 arguments (server, prefix)", line, column);
         return value_create_null();
     }
     
@@ -1981,13 +1982,13 @@ Value builtin_server_group(Interpreter* interpreter, Value* args, size_t arg_cou
     Value prefix_val = args[1];
     
     if (prefix_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "app.group() prefix must be a string", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "server", "unknown_function", "app.group() prefix must be a string", line, column);
         return value_create_null();
     }
     
     // Store the prefix globally for route group functions to use
     if (g_current_route_prefix) {
-        free(g_current_route_prefix);
+        shared_free_safe(g_current_route_prefix, "libs", "unknown_function", 1992);
     }
     g_current_route_prefix = strdup(prefix_val.data.string_value);
     
@@ -2006,14 +2007,14 @@ Value builtin_server_group(Interpreter* interpreter, Value* args, size_t arg_cou
 // Close server
 Value builtin_server_close(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "app.close() requires server object", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "app.close() requires server object", line, column);
         return value_create_null();
     }
     
     Value server_obj = args[0];
     
     if (!g_server) {
-        interpreter_set_error(interpreter, "No server to close", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "No server to close", line, column);
         return value_create_null();
     }
     
@@ -2036,7 +2037,7 @@ ServerConfig* parse_server_config(Value config_obj) {
         return NULL;
     }
     
-    ServerConfig* config = (ServerConfig*)malloc(sizeof(ServerConfig));
+    ServerConfig* config = (ServerConfig*)shared_malloc_safe(sizeof(ServerConfig), "libs", "unknown_function", 2041);
     if (!config) return NULL;
     
     // Set defaults
@@ -2094,10 +2095,10 @@ void free_server_config(ServerConfig* config) {
     if (!config) return;
     
     if (config->static_dir) {
-        free(config->static_dir);
+        shared_free_safe(config->static_dir, "libs", "unknown_function", 2099);
     }
     
-    free(config);
+    shared_free_safe(config, "libs", "unknown_function", 2102);
 }
 
 // Create server with configuration
@@ -2113,7 +2114,7 @@ MycoServer* server_create_with_config(ServerConfig* config, Interpreter* interpr
 
 // Create middleware
 Middleware* middleware_create(Value function) {
-    Middleware* middleware = (Middleware*)malloc(sizeof(Middleware));
+    Middleware* middleware = (Middleware*)shared_malloc_safe(sizeof(Middleware), "libs", "unknown_function", 2118);
     if (!middleware) return NULL;
     
     middleware->function = function;
@@ -2127,7 +2128,7 @@ void middleware_free(Middleware* middleware) {
     if (!middleware) return;
     
     value_free(&middleware->function);
-    free(middleware);
+    shared_free_safe(middleware, "libs", "unknown_function", 2132);
 }
 
 // Add middleware to server
@@ -2186,7 +2187,7 @@ void execute_middleware(MycoServer* server, Value req_obj, Value res_obj, Value 
 // Route group functions that apply the prefix to routes
 Value builtin_group_get(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 3) {
-        interpreter_set_error(interpreter, "group.get() requires exactly 2 arguments (path, handler)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "group.get() requires exactly 2 arguments (path, handler)", line, column);
         return value_create_null();
     }
     
@@ -2195,38 +2196,38 @@ Value builtin_group_get(Interpreter* interpreter, Value* args, size_t arg_count,
     Value handler = args[2];    // Handler
     
     if (path_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "group.get() path must be a string", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "server", "unknown_function", "group.get() path must be a string", line, column);
         return value_create_null();
     }
     
     if (handler.type != VALUE_FUNCTION) {
-        interpreter_set_error(interpreter, "group.get() handler must be a function", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "group.get() handler must be a function", line, column);
         return value_create_null();
     }
     
     // Combine prefix with path
-    char* full_path = malloc(strlen(g_current_route_prefix) + strlen(path_val.data.string_value) + 1);
+    char* full_path = shared_malloc_safe(strlen(g_current_route_prefix) + strlen(path_val.data.string_value) + 1, "libs", "unknown_function", 2210);
     strcpy(full_path, g_current_route_prefix);
     strcat(full_path, path_val.data.string_value);
     
     // Create route with the full path
     Route* route = route_create("GET", full_path, handler);
     if (!route) {
-        free(full_path);
-        interpreter_set_error(interpreter, "Failed to create route", line, column);
+        shared_free_safe(full_path, "libs", "unknown_function", 2217);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "Failed to create route", line, column);
         return value_create_null();
     }
     
     // Add route to global routes
     route_add(route);
-    free(full_path);
+    shared_free_safe(full_path, "libs", "unknown_function", 2224);
     
     return value_create_null();
 }
 
 Value builtin_group_post(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 3) {
-        interpreter_set_error(interpreter, "group.post() requires exactly 2 arguments (path, handler)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "group.post() requires exactly 2 arguments (path, handler)", line, column);
         return value_create_null();
     }
     
@@ -2235,38 +2236,38 @@ Value builtin_group_post(Interpreter* interpreter, Value* args, size_t arg_count
     Value handler = args[2];    // Handler
     
     if (path_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "group.post() path must be a string", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "server", "unknown_function", "group.post() path must be a string", line, column);
         return value_create_null();
     }
     
     if (handler.type != VALUE_FUNCTION) {
-        interpreter_set_error(interpreter, "group.post() handler must be a function", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "group.post() handler must be a function", line, column);
         return value_create_null();
     }
     
     // Combine prefix with path
-    char* full_path = malloc(strlen(g_current_route_prefix) + strlen(path_val.data.string_value) + 1);
+    char* full_path = shared_malloc_safe(strlen(g_current_route_prefix) + strlen(path_val.data.string_value) + 1, "libs", "unknown_function", 2250);
     strcpy(full_path, g_current_route_prefix);
     strcat(full_path, path_val.data.string_value);
     
     // Create route with the full path
     Route* route = route_create("POST", full_path, handler);
     if (!route) {
-        free(full_path);
-        interpreter_set_error(interpreter, "Failed to create route", line, column);
+        shared_free_safe(full_path, "libs", "unknown_function", 2257);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "Failed to create route", line, column);
         return value_create_null();
     }
     
     // Add route to global routes
     route_add(route);
-    free(full_path);
+    shared_free_safe(full_path, "libs", "unknown_function", 2264);
     
     return value_create_null();
 }
 
 Value builtin_group_put(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 3) {
-        interpreter_set_error(interpreter, "group.put() requires exactly 2 arguments (path, handler)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "group.put() requires exactly 2 arguments (path, handler)", line, column);
         return value_create_null();
     }
     
@@ -2275,38 +2276,38 @@ Value builtin_group_put(Interpreter* interpreter, Value* args, size_t arg_count,
     Value handler = args[2];    // Handler
     
     if (path_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "group.put() path must be a string", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "server", "unknown_function", "group.put() path must be a string", line, column);
         return value_create_null();
     }
     
     if (handler.type != VALUE_FUNCTION) {
-        interpreter_set_error(interpreter, "group.put() handler must be a function", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "group.put() handler must be a function", line, column);
         return value_create_null();
     }
     
     // Combine prefix with path
-    char* full_path = malloc(strlen(g_current_route_prefix) + strlen(path_val.data.string_value) + 1);
+    char* full_path = shared_malloc_safe(strlen(g_current_route_prefix) + strlen(path_val.data.string_value) + 1, "libs", "unknown_function", 2290);
     strcpy(full_path, g_current_route_prefix);
     strcat(full_path, path_val.data.string_value);
     
     // Create route with the full path
     Route* route = route_create("PUT", full_path, handler);
     if (!route) {
-        free(full_path);
-        interpreter_set_error(interpreter, "Failed to create route", line, column);
+        shared_free_safe(full_path, "libs", "unknown_function", 2297);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "Failed to create route", line, column);
         return value_create_null();
     }
     
     // Add route to global routes
     route_add(route);
-    free(full_path);
+    shared_free_safe(full_path, "libs", "unknown_function", 2304);
     
     return value_create_null();
 }
 
 Value builtin_group_delete(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 3) {
-        interpreter_set_error(interpreter, "group.delete() requires exactly 2 arguments (path, handler)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "group.delete() requires exactly 2 arguments (path, handler)", line, column);
         return value_create_null();
     }
     
@@ -2315,31 +2316,31 @@ Value builtin_group_delete(Interpreter* interpreter, Value* args, size_t arg_cou
     Value handler = args[2];    // Handler
     
     if (path_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "group.delete() path must be a string", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "server", "unknown_function", "group.delete() path must be a string", line, column);
         return value_create_null();
     }
     
     if (handler.type != VALUE_FUNCTION) {
-        interpreter_set_error(interpreter, "group.delete() handler must be a function", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "group.delete() handler must be a function", line, column);
         return value_create_null();
     }
     
     // Combine prefix with path
-    char* full_path = malloc(strlen(g_current_route_prefix) + strlen(path_val.data.string_value) + 1);
+    char* full_path = shared_malloc_safe(strlen(g_current_route_prefix) + strlen(path_val.data.string_value) + 1, "libs", "unknown_function", 2330);
     strcpy(full_path, g_current_route_prefix);
     strcat(full_path, path_val.data.string_value);
     
     // Create route with the full path
     Route* route = route_create("DELETE", full_path, handler);
     if (!route) {
-        free(full_path);
-        interpreter_set_error(interpreter, "Failed to create route", line, column);
+        shared_free_safe(full_path, "libs", "unknown_function", 2337);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "Failed to create route", line, column);
         return value_create_null();
     }
     
     // Add route to global routes
     route_add(route);
-    free(full_path);
+    shared_free_safe(full_path, "libs", "unknown_function", 2344);
     
     return value_create_null();
 }
@@ -2354,13 +2355,13 @@ Value builtin_server_now(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_server_sleep(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "server.sleep() requires exactly 1 argument (seconds)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "server.sleep() requires exactly 1 argument (seconds)", line, column);
         return value_create_null();
     }
     
     Value seconds_val = args[0];
     if (seconds_val.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "server.sleep() seconds must be a number", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "server", "unknown_function", "server.sleep() seconds must be a number", line, column);
         return value_create_null();
     }
     
@@ -2374,7 +2375,7 @@ Value builtin_server_sleep(Interpreter* interpreter, Value* args, size_t arg_cou
 
 // File watching implementation
 FileWatcher* file_watcher_create(const char* path, Value callback) {
-    FileWatcher* watcher = (FileWatcher*)malloc(sizeof(FileWatcher));
+    FileWatcher* watcher = (FileWatcher*)shared_malloc_safe(sizeof(FileWatcher), "libs", "unknown_function", 2379);
     if (!watcher) return NULL;
     
     watcher->watch_path = strdup(path);
@@ -2384,9 +2385,9 @@ FileWatcher* file_watcher_create(const char* path, Value callback) {
     
     // Start watching thread
     if (pthread_create(&watcher->thread, NULL, file_watcher_thread, watcher) != 0) {
-        free(watcher->watch_path);
+        shared_free_safe(watcher->watch_path, "libs", "unknown_function", 2389);
         value_free(&watcher->callback);
-        free(watcher);
+        shared_free_safe(watcher, "libs", "unknown_function", 2391);
         return NULL;
     }
     
@@ -2401,9 +2402,9 @@ void file_watcher_free(FileWatcher* watcher) {
     // Join the thread
     pthread_join(watcher->thread, NULL);
     
-    free(watcher->watch_path);
+    shared_free_safe(watcher->watch_path, "libs", "unknown_function", 2406);
     value_free(&watcher->callback);
-    free(watcher);
+    shared_free_safe(watcher, "libs", "unknown_function", 2408);
 }
 
 void* file_watcher_thread(void* arg) {
@@ -2449,7 +2450,7 @@ void* file_watcher_thread(void* arg) {
 // Register file watching
 Value builtin_server_watch(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count < 1 || arg_count > 3) {
-        interpreter_set_error(interpreter, "server.watch() requires 1-2 arguments (path, [callback])", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "server.watch() requires 1-2 arguments (path, [callback])", line, column);
         return value_create_null();
     }
     
@@ -2463,18 +2464,18 @@ Value builtin_server_watch(Interpreter* interpreter, Value* args, size_t arg_cou
     }
     
     if (path_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "server.watch() path must be a string", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "server", "unknown_function", "server.watch() path must be a string", line, column);
         return value_create_null();
     }
     
     // Callback is optional - if not provided, just watch the directory
     if (callback_val.type != VALUE_NULL && callback_val.type != VALUE_FUNCTION) {
-        interpreter_set_error(interpreter, "server.watch() callback must be a function", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "server.watch() callback must be a function", line, column);
         return value_create_null();
     }
     
     if (!g_server) {
-        interpreter_set_error(interpreter, "No server created. Call server.create() first", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "No server created. Call server.create() first", line, column);
         return value_create_null();
     }
     
@@ -2486,7 +2487,7 @@ Value builtin_server_watch(Interpreter* interpreter, Value* args, size_t arg_cou
     // Create new file watcher
     g_server->file_watcher = file_watcher_create(path_val.data.string_value, callback_val);
     if (!g_server->file_watcher) {
-        interpreter_set_error(interpreter, "Failed to create file watcher", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "Failed to create file watcher", line, column);
         return value_create_null();
     }
     
@@ -2500,7 +2501,7 @@ char* compress_gzip(const char* data, size_t data_size, size_t* compressed_size)
     
     // Estimate compressed size (usually smaller than original)
     size_t max_compressed_size = data_size + (data_size / 10) + 12;
-    char* compressed = (char*)malloc(max_compressed_size);
+    char* compressed = (char*)shared_malloc_safe(max_compressed_size, "libs", "unknown_function", 2505);
     if (!compressed) return NULL;
     
     z_stream stream;
@@ -2509,7 +2510,7 @@ char* compress_gzip(const char* data, size_t data_size, size_t* compressed_size)
     stream.opaque = Z_NULL;
     
     if (deflateInit2(&stream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
-        free(compressed);
+        shared_free_safe(compressed, "libs", "unknown_function", 2514);
         return NULL;
     }
     
@@ -2522,7 +2523,7 @@ char* compress_gzip(const char* data, size_t data_size, size_t* compressed_size)
     deflateEnd(&stream);
     
     if (ret != Z_STREAM_END) {
-        free(compressed);
+        shared_free_safe(compressed, "libs", "unknown_function", 2527);
         return NULL;
     }
     
@@ -2547,7 +2548,7 @@ bool should_compress_file(const char* filename) {
 }
 
 char* get_cache_headers(int cache_duration) {
-    char* headers = (char*)malloc(256);
+    char* headers = (char*)shared_malloc_safe(256, "libs", "unknown_function", 2552);
     if (!headers) return NULL;
     
     snprintf(headers, 256, 
@@ -2561,7 +2562,7 @@ char* get_cache_headers(int cache_duration) {
 
 // Signal handling implementation
 SignalHandler* signal_handler_create(int signal, Value callback) {
-    SignalHandler* handler = (SignalHandler*)malloc(sizeof(SignalHandler));
+    SignalHandler* handler = (SignalHandler*)shared_malloc_safe(sizeof(SignalHandler), "libs", "unknown_function", 2566);
     if (!handler) return NULL;
     
     handler->signal = signal;
@@ -2575,7 +2576,7 @@ void signal_handler_free(SignalHandler* handler) {
     if (!handler) return;
     
     value_free(&handler->callback);
-    free(handler);
+    shared_free_safe(handler, "libs", "unknown_function", 2580);
 }
 
 void signal_handler_register(MycoServer* server, int signal_num, Value callback) {
@@ -2639,7 +2640,7 @@ void signal_handler_execute(int signal) {
 // Register signal handling
 Value builtin_server_onSignal(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2 && arg_count != 3) {
-        interpreter_set_error(interpreter, "server.onSignal() requires exactly 2 arguments (signal, callback)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "server.onSignal() requires exactly 2 arguments (signal, callback)", line, column);
         return value_create_null();
     }
     
@@ -2648,17 +2649,17 @@ Value builtin_server_onSignal(Interpreter* interpreter, Value* args, size_t arg_
     Value callback_val = (arg_count >= 3) ? args[2] : args[1];
     
     if (signal_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "server.onSignal() first argument must be a string (signal name)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "server", "unknown_function", "server.onSignal() first argument must be a string (signal name)", line, column);
         return value_create_null();
     }
     
     if (callback_val.type != VALUE_FUNCTION) {
-        interpreter_set_error(interpreter, "server.onSignal() second argument must be a function", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "server", "unknown_function", "server.onSignal() second argument must be a function", line, column);
         return value_create_null();
     }
     
     if (!g_server) {
-        interpreter_set_error(interpreter, "No server created. Call server.create() first", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "No server created. Call server.create() first", line, column);
         return value_create_null();
     }
     
@@ -2677,7 +2678,7 @@ Value builtin_server_onSignal(Interpreter* interpreter, Value* args, size_t arg_
     } else if (strcmp(signal_name, "SIGUSR2") == 0) {
         signal_num = SIGUSR2;
     } else {
-        interpreter_set_error(interpreter, "Unsupported signal name. Use SIGTERM, SIGINT, SIGHUP, SIGUSR1, or SIGUSR2", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "Unsupported signal name. Use SIGTERM, SIGINT, SIGHUP, SIGUSR1, or SIGUSR2", line, column);
         return value_create_null();
     }
     

@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include "../../include/utils/shared_utilities.h"
 
 // Forward declarations
 char* myco_type_to_c_type(const char* myco_type);
@@ -34,15 +35,15 @@ static void add_imported_library(CodeGenContext* context, const char* alias) {
 
 // Variable scoping system implementation
 VariableScopeStack* variable_scope_create(void) {
-    VariableScopeStack* scope = malloc(sizeof(VariableScopeStack));
+    VariableScopeStack* scope = shared_malloc_safe(sizeof(VariableScopeStack), "unknown", "unknown_function", 38);
     if (!scope) return NULL;
     
     scope->capacity = 1000;
     scope->count = 0;
     scope->current_scope_level = 0;
-    scope->entries = malloc(sizeof(VariableScopeEntry) * scope->capacity);
+    scope->entries = shared_malloc_safe(sizeof(VariableScopeEntry) * scope->capacity, "unknown", "unknown_function", 44);
     if (!scope->entries) {
-        free(scope);
+        shared_free_safe(scope, "unknown", "unknown_function", 46);
         return NULL;
     }
     
@@ -53,11 +54,11 @@ void variable_scope_free(VariableScopeStack* scope) {
     if (!scope) return;
     
     for (int i = 0; i < scope->count; i++) {
-        free(scope->entries[i].original_name);
-        free(scope->entries[i].c_name);
+        shared_free_safe(scope->entries[i].original_name, "unknown", "unknown_function", 57);
+        shared_free_safe(scope->entries[i].c_name, "unknown", "unknown_function", 58);
     }
-    free(scope->entries);
-    free(scope);
+    shared_free_safe(scope->entries, "unknown", "unknown_function", 60);
+    shared_free_safe(scope, "unknown", "unknown_function", 61);
 }
 
 void variable_scope_enter(VariableScopeStack* scope) {
@@ -78,8 +79,8 @@ void variable_scope_exit(VariableScopeStack* scope) {
             write_index++;
         } else {
             // Free the memory for variables being removed
-            free(scope->entries[i].original_name);
-            free(scope->entries[i].c_name);
+            shared_free_safe(scope->entries[i].original_name, "unknown", "unknown_function", 82);
+            shared_free_safe(scope->entries[i].c_name, "unknown", "unknown_function", 83);
         }
     }
     scope->count = write_index;
@@ -106,7 +107,7 @@ char* variable_scope_declare_variable(VariableScopeStack* scope, const char* ori
     // Create new variable entry
     if (scope->count >= scope->capacity) {
         scope->capacity *= 2;
-        scope->entries = realloc(scope->entries, sizeof(VariableScopeEntry) * scope->capacity);
+        scope->entries = shared_realloc_safe(scope->entries, sizeof(VariableScopeEntry) * scope->capacity, "unknown", "unknown_function", 110);
         if (!scope->entries) return NULL;
     }
     
@@ -116,9 +117,9 @@ char* variable_scope_declare_variable(VariableScopeStack* scope, const char* ori
     entry->is_declared = 1;
     
     // Generate unique C name based on scope level and original name
-    char* c_name = malloc(strlen(original_name) + 20);
+    char* c_name = shared_malloc_safe(strlen(original_name) + 20, "unknown", "unknown_function", 120);
     if (!c_name) {
-        free(entry->original_name);
+        shared_free_safe(entry->original_name, "unknown", "unknown_function", 122);
         return NULL;
     }
     
@@ -226,7 +227,7 @@ char* myco_type_to_c_type(const char* myco_type) {
 // This will be replaced with the full implementation
 
 CompilerConfig* compiler_config_create(void) {
-    CompilerConfig* config = malloc(sizeof(CompilerConfig));
+    CompilerConfig* config = shared_malloc_safe(sizeof(CompilerConfig), "unknown", "unknown_function", 230);
     if (!config) return NULL;
     
     config->target = TARGET_C;
@@ -246,9 +247,9 @@ CompilerConfig* compiler_config_create(void) {
 void compiler_config_free(CompilerConfig* config) {
     if (config) {
         if (config->output_file) {
-            free(config->output_file);
+            shared_free_safe(config->output_file, "unknown", "unknown_function", 250);
         }
-        free(config);
+        shared_free_safe(config, "unknown", "unknown_function", 252);
     }
 }
 
@@ -263,7 +264,7 @@ void compiler_config_set_optimization(CompilerConfig* config, OptimizationLevel 
 void compiler_config_set_output(CompilerConfig* config, const char* output_file) {
     if (config) {
         if (config->output_file) {
-            free(config->output_file);
+            shared_free_safe(config->output_file, "unknown", "unknown_function", 267);
         }
         config->output_file = strdup(output_file);
     }
@@ -295,7 +296,7 @@ void compiler_config_add_define(CompilerConfig* config, const char* define) {
 CodeGenContext* codegen_context_create(CompilerConfig* config, FILE* output) {
     if (!config || !output) return NULL;
     
-    CodeGenContext* context = malloc(sizeof(CodeGenContext));
+    CodeGenContext* context = shared_malloc_safe(sizeof(CodeGenContext), "unknown", "unknown_function", 299);
     if (!context) return NULL;
     
     context->config = config;
@@ -314,7 +315,7 @@ CodeGenContext* codegen_context_create(CompilerConfig* config, FILE* output) {
     // Initialize variable scope system
     context->variable_scope = variable_scope_create();
     if (!context->variable_scope) {
-        free(context);
+        shared_free_safe(context, "unknown", "unknown_function", 318);
         return NULL;
     }
     
@@ -338,13 +339,13 @@ void codegen_context_free(CodeGenContext* context) {
     if (!context) return;
     
     if (context->current_function) {
-        free(context->current_function);
+        shared_free_safe(context->current_function, "unknown", "unknown_function", 342);
     }
     if (context->current_class) {
-        free(context->current_class);
+        shared_free_safe(context->current_class, "unknown", "unknown_function", 345);
     }
     if (context->current_module) {
-        free(context->current_module);
+        shared_free_safe(context->current_module, "unknown", "unknown_function", 348);
     }
     
     // Free variable scope system
@@ -354,17 +355,17 @@ void codegen_context_free(CodeGenContext* context) {
     
     // Free label arrays
     for (int i = 0; i < 100; i++) {
-        if (context->break_labels[i]) free(context->break_labels[i]);
-        if (context->continue_labels[i]) free(context->continue_labels[i]);
-        if (context->catch_labels[i]) free(context->catch_labels[i]);
+        if (context->break_labels[i]) shared_free_safe(context->break_labels[i], "unknown", "unknown_function", 358);
+        if (context->continue_labels[i]) shared_free_safe(context->continue_labels[i], "unknown", "unknown_function", 359);
+        if (context->catch_labels[i]) shared_free_safe(context->catch_labels[i], "unknown", "unknown_function", 360);
     }
     
     // Free imported libraries
     for (int i = 0; i < context->imported_library_count; i++) {
-        if (context->imported_libraries[i]) free(context->imported_libraries[i]);
+        if (context->imported_libraries[i]) shared_free_safe(context->imported_libraries[i], "unknown", "unknown_function", 365);
     }
     
-    free(context);
+    shared_free_safe(context, "unknown", "unknown_function", 368);
 }
 
 void codegen_context_reset(CodeGenContext* context) {
@@ -378,15 +379,15 @@ void codegen_context_reset(CodeGenContext* context) {
     context->try_depth = 0;
     
     if (context->current_function) {
-        free(context->current_function);
+        shared_free_safe(context->current_function, "unknown", "unknown_function", 382);
         context->current_function = NULL;
     }
     if (context->current_class) {
-        free(context->current_class);
+        shared_free_safe(context->current_class, "unknown", "unknown_function", 386);
         context->current_class = NULL;
     }
     if (context->current_module) {
-        free(context->current_module);
+        shared_free_safe(context->current_module, "unknown", "unknown_function", 390);
         context->current_module = NULL;
     }
 }
@@ -649,7 +650,7 @@ int codegen_generate_c_statement(CodeGenContext* context, ASTNode* node) {
             if (node->data.typed_parameter.parameter_type) {
                 char* c_type = myco_type_to_c_type(node->data.typed_parameter.parameter_type);
                 codegen_write(context, "%s ", c_type);
-                free(c_type);
+                shared_free_safe(c_type, "unknown", "unknown_function", 653);
             } else {
                 codegen_write(context, "void* ");
             }
@@ -714,7 +715,7 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
         // Convert Myco type to C type
         char* c_type = myco_type_to_c_type(node->data.variable_declaration.type_name);
         codegen_write(context, "%s ", c_type);
-        free(c_type);
+        shared_free_safe(c_type, "unknown", "unknown_function", 718);
     } else {
         // Infer type from initial value if available
         // printf("DEBUG: Inferring type from initial value\n");
@@ -1109,7 +1110,7 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
     char* c_name = variable_scope_declare_variable(context->variable_scope, node->data.variable_declaration.variable_name);
     if (!c_name) return 0;
     codegen_write(context, "%s", c_name);
-    free(c_name);
+    shared_free_safe(c_name, "unknown", "unknown_function", 1113);
     
     // Generate initial value if present
     if (node->data.variable_declaration.initial_value) {
@@ -1368,7 +1369,7 @@ int codegen_generate_c_function_declaration(CodeGenContext* context, ASTNode* no
     if (node->data.function_definition.return_type) {
         char* c_type = myco_type_to_c_type(node->data.function_definition.return_type);
         codegen_write(context, "%s ", c_type);
-        free(c_type);
+        shared_free_safe(c_type, "unknown", "unknown_function", 1372);
     } else {
         codegen_write(context, "void ");
     }
@@ -1389,7 +1390,7 @@ int codegen_generate_c_function_declaration(CodeGenContext* context, ASTNode* no
                 if (param->data.typed_parameter.parameter_type) {
                     char* c_type = myco_type_to_c_type(param->data.typed_parameter.parameter_type);
                     codegen_write(context, "%s %s", c_type, param->data.typed_parameter.parameter_name);
-                    free(c_type);
+                    shared_free_safe(c_type, "unknown", "unknown_function", 1393);
                 } else {
                     codegen_write(context, "void* %s", param->data.typed_parameter.parameter_name);
                 }
@@ -1469,7 +1470,7 @@ int codegen_generate_c_class_declaration(CodeGenContext* context, ASTNode* node)
                 if (stmt->data.variable_declaration.type_name) {
                     char* c_type = myco_type_to_c_type(stmt->data.variable_declaration.type_name);
                     codegen_write_line(context, "%s %s;", c_type, stmt->data.variable_declaration.variable_name);
-                    free(c_type);
+                    shared_free_safe(c_type, "unknown", "unknown_function", 1473);
                 } else {
                     // Infer type from initial value
                     if (stmt->data.variable_declaration.initial_value) {
@@ -1586,7 +1587,7 @@ void codegen_write_line(CodeGenContext* context, const char* format, ...) {
 char* codegen_generate_label(CodeGenContext* context, const char* prefix) {
     if (!context) return NULL;
     
-    char* label = malloc(64);
+    char* label = shared_malloc_safe(64, "unknown", "unknown_function", 1590);
     if (label) {
     snprintf(label, 64, "%s_%d", prefix, context->label_counter++);
     }
@@ -1596,7 +1597,7 @@ char* codegen_generate_label(CodeGenContext* context, const char* prefix) {
 char* codegen_generate_temp(CodeGenContext* context, const char* prefix) {
     if (!context) return NULL;
     
-    char* temp = malloc(64);
+    char* temp = shared_malloc_safe(64, "unknown", "unknown_function", 1600);
     if (temp) {
     snprintf(temp, 64, "%s_%d", prefix, context->temp_counter++);
     }

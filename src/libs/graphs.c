@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "../../include/core/standardized_errors.h"
+#include "../../include/utils/shared_utilities.h"
 
 // Graph node structure
 typedef struct GraphNode {
@@ -22,7 +24,7 @@ typedef struct Graph {
 
 // Create a new graph node
 GraphNode* graph_node_create(Value data) {
-    GraphNode* node = malloc(sizeof(GraphNode));
+    GraphNode* node = shared_malloc_safe(sizeof(GraphNode), "libs", "unknown_function", 27);
     if (!node) return NULL;
     
     node->data = value_clone(&data);
@@ -39,14 +41,14 @@ void graph_node_free(GraphNode* node) {
     
     value_free(&node->data);
     if (node->neighbors) {
-        free(node->neighbors);
+        shared_free_safe(node->neighbors, "libs", "unknown_function", 44);
     }
-    free(node);
+    shared_free_safe(node, "libs", "unknown_function", 46);
 }
 
 // Create a new graph
 Graph* graph_create(int is_directed) {
-    Graph* graph = malloc(sizeof(Graph));
+    Graph* graph = shared_malloc_safe(sizeof(Graph), "libs", "unknown_function", 51);
     if (!graph) return NULL;
     
     graph->nodes = NULL;
@@ -66,9 +68,9 @@ void graph_free(Graph* graph) {
     }
     
     if (graph->nodes) {
-        free(graph->nodes);
+        shared_free_safe(graph->nodes, "libs", "unknown_function", 71);
     }
-    free(graph);
+    shared_free_safe(graph, "libs", "unknown_function", 73);
 }
 
 // Add a node to the graph
@@ -81,7 +83,7 @@ GraphNode* graph_add_node(Graph* graph, Value data) {
     // Resize nodes array if needed
     if (graph->node_count >= graph->capacity) {
         size_t new_capacity = graph->capacity == 0 ? 4 : graph->capacity * 2;
-        GraphNode** new_nodes = realloc(graph->nodes, new_capacity * sizeof(GraphNode*));
+        GraphNode** new_nodes = shared_realloc_safe(graph->nodes, new_capacity * sizeof(GraphNode*), "libs", "unknown_function", 86);
         if (!new_nodes) {
             graph_node_free(new_node);
             return NULL;
@@ -103,7 +105,7 @@ int graph_add_edge(Graph* graph, GraphNode* from, GraphNode* to) {
     // Add 'to' to 'from's neighbors
     if (from->neighbor_count >= from->capacity) {
         size_t new_capacity = from->capacity == 0 ? 4 : from->capacity * 2;
-        GraphNode** new_neighbors = realloc(from->neighbors, new_capacity * sizeof(GraphNode*));
+        GraphNode** new_neighbors = shared_realloc_safe(from->neighbors, new_capacity * sizeof(GraphNode*), "libs", "unknown_function", 108);
         if (!new_neighbors) return 0;
         from->neighbors = new_neighbors;
         from->capacity = new_capacity;
@@ -116,7 +118,7 @@ int graph_add_edge(Graph* graph, GraphNode* from, GraphNode* to) {
     if (!graph->is_directed) {
         if (to->neighbor_count >= to->capacity) {
             size_t new_capacity = to->capacity == 0 ? 4 : to->capacity * 2;
-            GraphNode** new_neighbors = realloc(to->neighbors, new_capacity * sizeof(GraphNode*));
+            GraphNode** new_neighbors = shared_realloc_safe(to->neighbors, new_capacity * sizeof(GraphNode*), "libs", "unknown_function", 121);
             if (!new_neighbors) return 0;
             to->neighbors = new_neighbors;
             to->capacity = new_capacity;
@@ -142,7 +144,7 @@ int graph_is_empty(Graph* graph) {
 // Graph operations for Myco
 Value builtin_graph_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count > 1) {
-        interpreter_set_error(interpreter, "graphs.create() expects 0 or 1 argument: is_directed (optional)", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "graphs.create() expects 0 or 1 argument: is_directed (optional)", line, column);
         return value_create_null();
     }
     
@@ -156,7 +158,7 @@ Value builtin_graph_create(Interpreter* interpreter, Value* args, size_t arg_cou
     
     Graph* graph = graph_create(is_directed);
     if (!graph) {
-        interpreter_set_error(interpreter, "Failed to create graph", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Failed to create graph", line, column);
         return value_create_null();
     }
     
@@ -172,7 +174,7 @@ Value builtin_graph_create(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_graph_add_node(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "graph.addNode() expects exactly 1 argument: data", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "graph.addNode() expects exactly 1 argument: data", line, column);
         return value_create_null();
     }
     
@@ -180,7 +182,7 @@ Value builtin_graph_add_node(Interpreter* interpreter, Value* args, size_t arg_c
     Value data = args[1];
     
     if (graph_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "graph.addNode() can only be called on graph objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "graph.addNode() can only be called on graph objects", line, column);
         return value_create_null();
     }
     
@@ -193,7 +195,7 @@ Value builtin_graph_add_node(Interpreter* interpreter, Value* args, size_t arg_c
 
 Value builtin_graph_add_edge(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 3) {
-        interpreter_set_error(interpreter, "graph.addEdge() expects exactly 2 arguments: from_node, to_node", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "graph.addEdge() expects exactly 2 arguments: from_node, to_node", line, column);
         return value_create_null();
     }
     
@@ -202,7 +204,7 @@ Value builtin_graph_add_edge(Interpreter* interpreter, Value* args, size_t arg_c
     Value to_node = args[2];
     
     if (graph_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "graph.addEdge() can only be called on graph objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "graph.addEdge() can only be called on graph objects", line, column);
         return value_create_null();
     }
     
@@ -215,14 +217,14 @@ Value builtin_graph_add_edge(Interpreter* interpreter, Value* args, size_t arg_c
 
 Value builtin_graph_size(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "graph.size() expects exactly 0 arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "graph.size() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value graph_obj = args[0];
     
     if (graph_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "graph.size() can only be called on graph objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "graph.size() can only be called on graph objects", line, column);
         return value_create_null();
     }
     
@@ -237,14 +239,14 @@ Value builtin_graph_size(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_graph_is_empty(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "graph.isEmpty() expects exactly 0 arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "graph.isEmpty() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value graph_obj = args[0];
     
     if (graph_obj.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "graph.isEmpty() can only be called on graph objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "graph.isEmpty() can only be called on graph objects", line, column);
         return value_create_null();
     }
     
@@ -259,14 +261,14 @@ Value builtin_graph_is_empty(Interpreter* interpreter, Value* args, size_t arg_c
 
 Value builtin_graph_clear(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "graph.clear() expects exactly 0 arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "graph.clear() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value* graph_obj = &args[0];
     
     if (graph_obj->type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "graph.clear() can only be called on graph objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "graph.clear() can only be called on graph objects", line, column);
         return value_create_null();
     }
     

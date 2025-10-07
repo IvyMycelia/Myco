@@ -4,6 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include <stdint.h>
+#include "../../include/utils/shared_utilities.h"
 
 // Myco runtime value creation
 MycoValue myco_value_number(double value) {
@@ -36,7 +37,7 @@ MycoValue myco_value_null(void) {
 // Myco runtime value cleanup
 void myco_value_free(MycoValue value) {
     if (value.type == MYCO_TYPE_STRING && value.data.string_value) {
-        free(value.data.string_value);
+        shared_free_safe(value.data.string_value, "unknown", "unknown_function", 40);
     }
 }
 
@@ -63,7 +64,7 @@ char* myco_string_concat(const char* str1, const char* str2) {
     
     size_t len1 = strlen(str1);
     size_t len2 = strlen(str2);
-    char* result = malloc(len1 + len2 + 1);
+    char* result = shared_malloc_safe(len1 + len2 + 1, "unknown", "unknown_function", 67);
     
     if (result) {
         strcpy(result, str1);
@@ -74,7 +75,7 @@ char* myco_string_concat(const char* str1, const char* str2) {
 }
 
 char* myco_string_from_number(double number) {
-    char* result = malloc(64);
+    char* result = shared_malloc_safe(64, "unknown", "unknown_function", 78);
     if (result) {
         snprintf(result, 64, "%.6g", number);
     }
@@ -86,7 +87,7 @@ char* myco_string_from_bool(int bool_value) {
 }
 
 char* myco_number_to_string(double number) {
-    char* result = malloc(64);
+    char* result = shared_malloc_safe(64, "unknown", "unknown_function", 90);
     if (result) {
         // Check if the number is a whole number (integer)
         if (number == (int)number) {
@@ -219,11 +220,11 @@ char* myco_get_type_name(void* value) {
 
 // Memory management
 void* myco_malloc(size_t size) {
-    return malloc(size);
+    return shared_malloc_safe(size, "unknown", "unknown_function", 223);
 }
 
 void myco_free(void* ptr) {
-    free(ptr);
+    shared_free_safe(ptr, "unknown", "unknown_function", 227);
 }
 
 char* myco_safe_to_string(void* value) {

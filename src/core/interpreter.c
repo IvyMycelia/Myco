@@ -1,5 +1,7 @@
 #include "interpreter.h"
 #include "environment.h"
+#include "standardized_errors.h"
+#include "shared_utilities.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -23,7 +25,7 @@
 // This will be replaced with the full implementation
 
 Interpreter* interpreter_create(void) {
-    Interpreter* interpreter = malloc(sizeof(Interpreter));
+    Interpreter* interpreter = shared_malloc_safe(sizeof(Interpreter), "interpreter", "unknown_function", 28);
     if (!interpreter) return NULL;
     
     interpreter->global_environment = NULL;
@@ -61,16 +63,16 @@ Interpreter* interpreter_create(void) {
 void interpreter_free(Interpreter* interpreter) {
     if (interpreter) {
         if (interpreter->error_message) {
-            free(interpreter->error_message);
+            shared_free_safe(interpreter->error_message, "interpreter", "unknown_function", 66);
         }
         
         // Clean up call stack
         CallFrame* frame = interpreter->call_stack;
         while (frame) {
             CallFrame* next = frame->next;
-            free((void*)frame->function_name);
-            free((void*)frame->file_name);
-            free(frame);
+            shared_free_safe((void*)frame->function_name, "interpreter", "unknown_function", 73);
+            shared_free_safe((void*)frame->file_name, "interpreter", "unknown_function", 74);
+            shared_free_safe(frame, "interpreter", "unknown_function", 75);
             frame = next;
         }
         
@@ -85,7 +87,7 @@ void interpreter_free(Interpreter* interpreter) {
         if (interpreter->current_environment && interpreter->current_environment != interpreter->global_environment) {
             environment_free(interpreter->current_environment);
         }
-        free(interpreter);
+        shared_free_safe(interpreter, "interpreter", "unknown_function", 90);
     }
 }
 
@@ -94,7 +96,7 @@ void interpreter_reset(Interpreter* interpreter) {
         interpreter->has_return = 0;
         interpreter->has_error = 0;
         if (interpreter->error_message) {
-            free(interpreter->error_message);
+            shared_free_safe(interpreter->error_message, "interpreter", "unknown_function", 99);
             interpreter->error_message = NULL;
         }
         interpreter->error_line = 0;
@@ -209,7 +211,7 @@ static char* process_escape_sequences(const char* input) {
     if (!input) return NULL;
     
     size_t input_len = strlen(input);
-    char* output = malloc(input_len + 1);  // Output might be shorter due to \n -> single char
+    char* output = shared_malloc_safe(input_len + 1, "interpreter", "unknown_function", 214);  // Output might be shorter due to \n -> single char
     if (!output) return NULL;
     
     size_t output_pos = 0;
@@ -302,11 +304,11 @@ Value value_create_object(size_t initial_capacity) {
     // If allocation fails, return a null object
     if (!v.data.object_value.keys || !v.data.object_value.values) {
         if (v.data.object_value.keys) {
-            free(v.data.object_value.keys);
+            shared_free_safe(v.data.object_value.keys, "interpreter", "unknown_function", 307);
             v.data.object_value.keys = NULL;
         }
         if (v.data.object_value.values) {
-            free(v.data.object_value.values);
+            shared_free_safe(v.data.object_value.values, "interpreter", "unknown_function", 311);
             v.data.object_value.values = NULL;
         }
         v.data.object_value.capacity = 0;
@@ -326,10 +328,10 @@ void value_object_set_member(Value* object, const char* member_name, Value membe
             Value* old_value = (Value*)object->data.object_value.values[i];
             if (old_value) {
                 value_free(old_value);
-                free(old_value);
+                shared_free_safe(old_value, "interpreter", "unknown_function", 331);
             }
             // Set the new value
-            Value* new_value = malloc(sizeof(Value));
+            Value* new_value = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 334);
             if (new_value) {
                 *new_value = value_clone(&member_value);
                 object->data.object_value.values[i] = new_value;
@@ -341,12 +343,12 @@ void value_object_set_member(Value* object, const char* member_name, Value membe
     // Resize if needed
     if (object->data.object_value.count >= object->data.object_value.capacity) {
         size_t new_capacity = object->data.object_value.capacity * 2;
-        char** new_keys = realloc(object->data.object_value.keys, new_capacity * sizeof(char*));
-        void** new_values = realloc(object->data.object_value.values, new_capacity * sizeof(void*));
+        char** new_keys = shared_realloc_safe(object->data.object_value.keys, new_capacity * sizeof(char*), "interpreter", "unknown_function", 346);
+        void** new_values = shared_realloc_safe(object->data.object_value.values, new_capacity * sizeof(void*), "interpreter", "unknown_function", 347);
         if (!new_keys || !new_values) {
             // Clean up on failure
-            if (new_keys) free(new_keys);
-            if (new_values) free(new_values);
+            if (new_keys) shared_free_safe(new_keys, "interpreter", "unknown_function", 350);
+            if (new_values) shared_free_safe(new_values, "interpreter", "unknown_function", 351);
             return;
         }
         object->data.object_value.keys = new_keys;
@@ -356,7 +358,7 @@ void value_object_set_member(Value* object, const char* member_name, Value membe
     
     // Add new member
     char* key_copy = strdup(member_name);
-    Value* new_value = malloc(sizeof(Value));
+    Value* new_value = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 361);
     if (key_copy && new_value) {
         *new_value = value_clone(&member_value);
         object->data.object_value.keys[object->data.object_value.count] = key_copy;
@@ -364,8 +366,8 @@ void value_object_set_member(Value* object, const char* member_name, Value membe
         object->data.object_value.count++;
     } else {
         // Clean up on failure
-        if (key_copy) free(key_copy);
-        if (new_value) free(new_value);
+        if (key_copy) shared_free_safe(key_copy, "interpreter", "unknown_function", 369);
+        if (new_value) shared_free_safe(new_value, "interpreter", "unknown_function", 370);
     }
 }
 Value value_create_function(ASTNode* body, ASTNode** params, size_t param_count, const char* return_type, Environment* captured_env) {
@@ -378,7 +380,7 @@ Value value_create_function(ASTNode* body, ASTNode** params, size_t param_count,
     
     // Copy parameter nodes with proper error handling
     if (param_count > 0 && params) {
-        v.data.function_value.parameters = (ASTNode**)malloc(param_count * sizeof(ASTNode*));
+        v.data.function_value.parameters = (ASTNode**)shared_malloc_safe(param_count * sizeof(ASTNode*), "interpreter", "unknown_function", 383);
         if (v.data.function_value.parameters) {
             for (size_t i = 0; i < param_count; i++) {
                 v.data.function_value.parameters[i] = params[i] ? ast_clone(params[i]) : NULL;
@@ -386,7 +388,7 @@ Value value_create_function(ASTNode* body, ASTNode** params, size_t param_count,
         } else {
             // If parameter allocation fails, clean up return type
             if (v.data.function_value.return_type) {
-                free(v.data.function_value.return_type);
+                shared_free_safe(v.data.function_value.return_type, "interpreter", "unknown_function", 391);
                 v.data.function_value.return_type = NULL;
             }
         }
@@ -443,7 +445,7 @@ void collect_inherited_fields(Interpreter* interpreter, Value* class_value, ASTN
                 // Expand capacity if needed
                 if (*field_count >= *field_capacity) {
                     size_t new_capacity = *field_capacity == 0 ? 4 : *field_capacity * 2;
-                    ASTNode** new_fields = (ASTNode**)realloc(*all_fields, new_capacity * sizeof(ASTNode*));
+                    ASTNode** new_fields = (ASTNode**)shared_realloc_safe(*all_fields, new_capacity * sizeof(ASTNode*), "interpreter", "unknown_function", 448);
                     if (new_fields) {
                         *all_fields = new_fields;
                         *field_capacity = new_capacity;
@@ -497,14 +499,14 @@ Value find_method_in_inheritance_chain(Interpreter* interpreter, Value* class_va
     
     return value_create_null();
 }
-
 // Forward declaration
 static Value eval_node(Interpreter* interpreter, ASTNode* node);
 
 // Helper function to handle super method calls
 Value handle_super_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name) {
     if (!interpreter->self_context) {
-        interpreter_set_error(interpreter, "super is not available outside of method calls", call_node->line, call_node->column);
+        std_error_report(ERROR_INVALID_ACCESS, "interpreter", "handle_super_method_call", 
+                        "super is not available outside of method calls", call_node->line, call_node->column);
         return value_create_null();
     }
     
@@ -512,7 +514,8 @@ Value handle_super_method_call(Interpreter* interpreter, ASTNode* call_node, con
     Value class_name_val = value_object_get(interpreter->self_context, "__class_name__");
     if (class_name_val.type != VALUE_STRING || !class_name_val.data.string_value) {
         value_free(&class_name_val);
-        interpreter_set_error(interpreter, "Object does not have a valid class name", call_node->line, call_node->column);
+        std_error_report(ERROR_INVALID_ACCESS, "interpreter", "handle_super_method_call", 
+                        "Object does not have a valid class name", call_node->line, call_node->column);
         return value_create_null();
     }
     
@@ -521,7 +524,8 @@ Value handle_super_method_call(Interpreter* interpreter, ASTNode* call_node, con
     if (class_ref.type != VALUE_CLASS) {
         value_free(&class_name_val);
         value_free(&class_ref);
-        interpreter_set_error(interpreter, "Class not found", call_node->line, call_node->column);
+        std_error_report(ERROR_UNDEFINED_CLASS, "interpreter", "handle_super_method_call", 
+                        "Class not found", call_node->line, call_node->column);
         return value_create_null();
     }
     
@@ -530,7 +534,8 @@ Value handle_super_method_call(Interpreter* interpreter, ASTNode* call_node, con
     if (!parent_name) {
         value_free(&class_name_val);
         value_free(&class_ref);
-        interpreter_set_error(interpreter, "Class has no parent class", call_node->line, call_node->column);
+        std_error_report(ERROR_INVALID_ACCESS, "interpreter", "handle_super_method_call", 
+                        "Class has no parent class", call_node->line, call_node->column);
         return value_create_null();
     }
     
@@ -618,7 +623,7 @@ Value handle_super_method_call(Interpreter* interpreter, ASTNode* call_node, con
         for (size_t i = 0; i < arg_count; i++) {
             value_free(&args[i]);
         }
-        free(args);
+        shared_free_safe(args, "interpreter", "unknown_function", 627);
     }
     
     return result;
@@ -664,7 +669,7 @@ Value handle_tree_method_call(Interpreter* interpreter, ASTNode* call_node, cons
     for (size_t i = 0; i < arg_count + 1; i++) {
         value_free(&args[i]);
     }
-    free(args);
+    shared_free_safe(args, "interpreter", "unknown_function", 673);
     
     return result;
 }
@@ -709,7 +714,7 @@ Value handle_graph_method_call(Interpreter* interpreter, ASTNode* call_node, con
     for (size_t i = 0; i < arg_count + 1; i++) {
         value_free(&args[i]);
     }
-    free(args);
+    shared_free_safe(args, "interpreter", "unknown_function", 718);
     
     return result;
 }
@@ -756,7 +761,7 @@ Value handle_heap_method_call(Interpreter* interpreter, ASTNode* call_node, cons
     for (size_t i = 0; i < arg_count + 1; i++) {
         value_free(&args[i]);
     }
-    free(args);
+    shared_free_safe(args, "interpreter", "unknown_function", 765);
     
     return result;
 }
@@ -805,7 +810,7 @@ Value handle_queue_method_call(Interpreter* interpreter, ASTNode* call_node, con
     for (size_t i = 0; i < arg_count + 1; i++) {
         value_free(&args[i]);
     }
-    free(args);
+    shared_free_safe(args, "interpreter", "unknown_function", 814);
     
     return result;
 }
@@ -861,7 +866,7 @@ Value handle_server_method_call(Interpreter* interpreter, ASTNode* call_node, co
     for (size_t i = 0; i < arg_count + 1; i++) {
         value_free(&args[i]);
     }
-    free(args);
+    shared_free_safe(args, "interpreter", "unknown_function", 870);
     
     return result;
 }
@@ -911,7 +916,7 @@ Value handle_request_method_call(Interpreter* interpreter, ASTNode* call_node, c
     for (size_t i = 0; i < arg_count + 1; i++) {
         value_free(&args[i]);
     }
-    free(args);
+    shared_free_safe(args, "interpreter", "unknown_function", 920);
     
     return result;
 }
@@ -955,11 +960,10 @@ Value handle_response_method_call(Interpreter* interpreter, ASTNode* call_node, 
     for (size_t i = 0; i < arg_count + 1; i++) {
         value_free(&args[i]);
     }
-    free(args);
+    shared_free_safe(args, "interpreter", "unknown_function", 964);
     
     return result;
 }
-
 Value handle_stack_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object) {
     // Pass the object directly to the builtin functions
     
@@ -1002,7 +1006,7 @@ Value handle_stack_method_call(Interpreter* interpreter, ASTNode* call_node, con
     for (size_t i = 0; i < arg_count + 1; i++) {
         value_free(&args[i]);
     }
-    free(args);
+    shared_free_safe(args, "interpreter", "unknown_function", 1011);
     
     return result;
 }
@@ -1043,7 +1047,7 @@ Value handle_route_group_method_call(Interpreter* interpreter, ASTNode* call_nod
     for (size_t i = 0; i < arg_count + 1; i++) {
         value_free(&args[i]);
     }
-    free(args);
+    shared_free_safe(args, "interpreter", "unknown_function", 1052);
     
     return result;
 }
@@ -1097,7 +1101,7 @@ Value handle_server_library_method_call(Interpreter* interpreter, ASTNode* call_
     for (size_t i = 0; i < arg_count; i++) {
         value_free(&args[i]);
     }
-    free(args);
+    shared_free_safe(args, "interpreter", "unknown_function", 1106);
     
     return result;
 }
@@ -1148,7 +1152,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                     for (size_t i = 0; i < arg_count; i++) {
                         value_free(&args[i]);
                     }
-                    free(args);
+                    shared_free_safe(args, "interpreter", "unknown_function", 1157);
                     
                     return call_result;
                 }
@@ -1160,7 +1164,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                 for (size_t i = 0; i < arg_count; i++) {
                     value_free(&args[i]);
                 }
-                free(args);
+                shared_free_safe(args, "interpreter", "unknown_function", 1169);
                 
                 return value_create_null();
             }
@@ -1192,7 +1196,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                 for (size_t i = 0; i < arg_count; i++) {
                     value_free(&args[i]);
                 }
-                free(args);
+                shared_free_safe(args, "interpreter", "unknown_function", 1201);
                 
                 return call_result;
             }
@@ -1204,7 +1208,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
             for (size_t i = 0; i < arg_count; i++) {
                 value_free(&args[i]);
             }
-            free(args);
+            shared_free_safe(args, "interpreter", "unknown_function", 1213);
             
             return value_create_null();
         }
@@ -1402,11 +1406,10 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
         for (size_t i = 0; i < arg_count + 1; i++) {
             value_free(&args[i]);
         }
-        free(args);
+        shared_free_safe(args, "interpreter", "unknown_function", 1411);
         value_free(&object);
         return result;
     }
-    
     // Handle string method calls directly
     if (object.type == VALUE_STRING) {
         // Evaluate all arguments
@@ -1460,7 +1463,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
         for (size_t i = 0; i < arg_count + 1; i++) {
             value_free(&args[i]);
         }
-        free(args);
+        shared_free_safe(args, "interpreter", "unknown_function", 1469);
         value_free(&object);
         return result;
     }
@@ -1509,7 +1512,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
         for (size_t i = 0; i < arg_count + 1; i++) {
             value_free(&args[i]);
         }
-        free(args);
+        shared_free_safe(args, "interpreter", "unknown_function", 1518);
         value_free(&object);
         return result;
     }
@@ -1554,7 +1557,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
         for (size_t i = 0; i < arg_count + 1; i++) {
             value_free(&args[i]);
         }
-        free(args);
+        shared_free_safe(args, "interpreter", "unknown_function", 1563);
         value_free(&object);
         return result;
     }
@@ -1605,7 +1608,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
             for (size_t i = 0; i < arg_count + 1; i++) {
                 value_free(&args[i]);
             }
-            free(args);
+            shared_free_safe(args, "interpreter", "unknown_function", 1614);
             value_free(&object);
             return result;
         }
@@ -1660,7 +1663,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
             for (size_t i = 0; i < arg_count + 1; i++) {
                 value_free(&args[i]);
             }
-            free(args);
+            shared_free_safe(args, "interpreter", "unknown_function", 1669);
             value_free(&object);
             return result;
         }
@@ -1717,7 +1720,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
             for (size_t i = 0; i < arg_count + 1; i++) {
                 value_free(&args[i]);
             }
-            free(args);
+            shared_free_safe(args, "interpreter", "unknown_function", 1726);
             value_free(&object);
             return result;
         }
@@ -1772,7 +1775,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
             for (size_t i = 0; i < arg_count + 1; i++) {
                 value_free(&args[i]);
             }
-            free(args);
+            shared_free_safe(args, "interpreter", "unknown_function", 1781);
             value_free(&object);
             return result;
         }
@@ -1844,7 +1847,6 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
         interpreter_set_error(interpreter, "Method calls can only be made on objects, arrays, or modules", call_node->line, call_node->column);
         return value_create_null();
     }
-    
     // Handle Module type - look up prefixed functions
     if (object.type == VALUE_MODULE) {
         // Handle special methods for modules
@@ -1856,7 +1858,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
         const char* module_name = object.data.module_value.module_name;
         if (module_name) {
             // Look up the prefixed function or constant (e.g., math_Pi, math_abs)
-            char* prefixed_name = malloc(strlen(module_name) + strlen(method_name) + 2);
+            char* prefixed_name = shared_malloc_safe(strlen(module_name) + strlen(method_name) + 2, "interpreter", "unknown_function", 1865);
             sprintf(prefixed_name, "%s_%s", module_name, method_name);
             Value module_item = environment_get(interpreter->current_environment, prefixed_name);
             
@@ -1864,7 +1866,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
             if (module_item.type == VALUE_NULL) {
                 module_item = environment_get(interpreter->global_environment, method_name);
             }
-            free(prefixed_name);
+            shared_free_safe(prefixed_name, "interpreter", "unknown_function", 1873);
             
             if (module_item.type == VALUE_FUNCTION) {
                 // Evaluate arguments
@@ -1884,7 +1886,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                     for (size_t i = 0; i < arg_count; i++) {
                         value_free(&args[i]);
                     }
-                    free(args);
+                    shared_free_safe(args, "interpreter", "unknown_function", 1893);
                     value_free(&object);
                     return value_create_null();
                 }
@@ -1907,7 +1909,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                 for (size_t i = 0; i < arg_count; i++) {
                     value_free(&args[i]);
                 }
-                free(args);
+                shared_free_safe(args, "interpreter", "unknown_function", 1916);
                 value_free(&object);
                 
                 return result;
@@ -1972,7 +1974,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
             for (size_t i = 0; i < arg_count; i++) {
                 value_free(&args[i]);
             }
-            free(args);
+            shared_free_safe(args, "interpreter", "unknown_function", 1981);
         }
         
         value_free(&method);
@@ -2073,7 +2075,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
         for (size_t i = 0; i < arg_count; i++) {
             value_free(&args[i]);
         }
-        free(args);
+        shared_free_safe(args, "interpreter", "unknown_function", 2082);
     }
     
     return result;
@@ -2143,7 +2145,7 @@ Value create_class_instance(Interpreter* interpreter, Value* class_value, ASTNod
         
         // Free the fields array
         if (all_fields) {
-            free(all_fields);
+            shared_free_safe(all_fields, "interpreter", "unknown_function", 2152);
         }
         
         // Free constructor arguments
@@ -2151,7 +2153,7 @@ Value create_class_instance(Interpreter* interpreter, Value* class_value, ASTNod
             for (size_t i = 0; i < arg_count; i++) {
                 value_free(&args[i]);
             }
-            free(args);
+            shared_free_safe(args, "interpreter", "unknown_function", 2160);
         }
     }
     
@@ -2173,7 +2175,7 @@ void value_free(Value* value) {
     switch (value->type) {
         case VALUE_STRING:
             if (value->data.string_value) {
-                free(value->data.string_value);
+                shared_free_safe(value->data.string_value, "interpreter", "unknown_function", 2182);
                 value->data.string_value = NULL;
             }
             break;
@@ -2186,12 +2188,12 @@ void value_free(Value* value) {
                         ast_free(value->data.function_value.parameters[i]);
                     }
                 }
-                free(value->data.function_value.parameters);
+                shared_free_safe(value->data.function_value.parameters, "interpreter", "unknown_function", 2195);
                 value->data.function_value.parameters = NULL;
             }
             // Free return type
             if (value->data.function_value.return_type) {
-                free(value->data.function_value.return_type);
+                shared_free_safe(value->data.function_value.return_type, "interpreter", "unknown_function", 2200);
                 value->data.function_value.return_type = NULL;
             }
             // Note: Don't free captured_environment here as it may be shared
@@ -2205,10 +2207,10 @@ void value_free(Value* value) {
                 for (size_t i = 0; i < value->data.array_value.count; i++) {
                     Value* element = (Value*)value->data.array_value.elements[i];
                     if (element) {
-                        free(element);
+                        shared_free_safe(element, "interpreter", "unknown_function", 2214);
                     }
                 }
-                free(value->data.array_value.elements);
+                shared_free_safe(value->data.array_value.elements, "interpreter", "unknown_function", 2217);
                 value->data.array_value.elements = NULL;
             }
             break;
@@ -2218,10 +2220,10 @@ void value_free(Value* value) {
                 // Free object keys
                 for (size_t i = 0; i < value->data.object_value.count; i++) {
                     if (value->data.object_value.keys[i]) {
-                        free(value->data.object_value.keys[i]);
+                        shared_free_safe(value->data.object_value.keys[i], "interpreter", "unknown_function", 2227);
                     }
                 }
-                free(value->data.object_value.keys);
+                shared_free_safe(value->data.object_value.keys, "interpreter", "unknown_function", 2230);
                 value->data.object_value.keys = NULL;
             }
             if (value->data.object_value.values) {
@@ -2230,10 +2232,10 @@ void value_free(Value* value) {
                     Value* member_value = (Value*)value->data.object_value.values[i];
                     if (member_value) {
                         value_free(member_value);
-                        free(member_value);
+                        shared_free_safe(member_value, "interpreter", "unknown_function", 2239);
                     }
                 }
-                free(value->data.object_value.values);
+                shared_free_safe(value->data.object_value.values, "interpreter", "unknown_function", 2242);
                 value->data.object_value.values = NULL;
             }
             break;
@@ -2241,12 +2243,12 @@ void value_free(Value* value) {
         case VALUE_CLASS:
             // Free class name
             if (value->data.class_value.class_name) {
-                free(value->data.class_value.class_name);
+                shared_free_safe(value->data.class_value.class_name, "interpreter", "unknown_function", 2250);
                 value->data.class_value.class_name = NULL;
             }
             // Free parent class name
             if (value->data.class_value.parent_class_name) {
-                free(value->data.class_value.parent_class_name);
+                shared_free_safe(value->data.class_value.parent_class_name, "interpreter", "unknown_function", 2255);
                 value->data.class_value.parent_class_name = NULL;
             }
             // Note: Don't free class_body or class_environment here as they may be shared
@@ -2260,10 +2262,10 @@ void value_free(Value* value) {
                     Value* key = (Value*)value->data.hash_map_value.keys[i];
                     if (key) {
                         value_free(key);
-                        free(key);
+                        shared_free_safe(key, "interpreter", "unknown_function", 2269);
                     }
                 }
-                free(value->data.hash_map_value.keys);
+                shared_free_safe(value->data.hash_map_value.keys, "interpreter", "unknown_function", 2272);
                 value->data.hash_map_value.keys = NULL;
             }
             if (value->data.hash_map_value.values) {
@@ -2271,10 +2273,10 @@ void value_free(Value* value) {
                     Value* map_value = (Value*)value->data.hash_map_value.values[i];
                     if (map_value) {
                         value_free(map_value);
-                        free(map_value);
+                        shared_free_safe(map_value, "interpreter", "unknown_function", 2280);
                     }
                 }
-                free(value->data.hash_map_value.values);
+                shared_free_safe(value->data.hash_map_value.values, "interpreter", "unknown_function", 2283);
                 value->data.hash_map_value.values = NULL;
             }
             break;
@@ -2285,10 +2287,10 @@ void value_free(Value* value) {
                 for (size_t i = 0; i < value->data.set_value.count; i++) {
                     Value* element = (Value*)value->data.set_value.elements[i];
                     if (element) {
-                        free(element);
+                        shared_free_safe(element, "interpreter", "unknown_function", 2294);
                     }
                 }
-                free(value->data.set_value.elements);
+                shared_free_safe(value->data.set_value.elements, "interpreter", "unknown_function", 2297);
                 value->data.set_value.elements = NULL;
             }
             break;
@@ -2478,7 +2480,7 @@ Value value_to_string(Value* value) {
         case VALUE_NULL: return value_create_string("Null"); 
         case VALUE_ARRAY: {
             // Format array as [item1, item2, item3, ...]
-            char* result = malloc(2); // Start with just "["
+            char* result = shared_malloc_safe(2, "interpreter", "unknown_function", 2487); // Start with just "["
             if (!result) return value_create_string("[]");
             result[0] = '[';
             result[1] = '\0';
@@ -2488,7 +2490,7 @@ Value value_to_string(Value* value) {
                 Value* element = (Value*)value->data.array_value.elements[i];
                 if (!element) {
                     // Handle NULL element
-                    result = realloc(result, result_len + 5); // +5 for "null, "
+                    result = shared_realloc_safe(result, result_len + 5, "interpreter", "unknown_function", 2497); // +5 for "null, "
                     if (!result) {
                         return value_create_string("[]");
                     }
@@ -2505,7 +2507,7 @@ Value value_to_string(Value* value) {
                 
                 if (element_str.type == VALUE_STRING && element_str.data.string_value) {
                     size_t element_len = strlen(element_str.data.string_value);
-                    result = realloc(result, result_len + element_len + 3); // +3 for ", " or "]"
+                    result = shared_realloc_safe(result, result_len + element_len + 3, "interpreter", "unknown_function", 2514); // +3 for ", " or "]"
                     if (!result) {
                         value_free(&element_str);
                         return value_create_string("[]");
@@ -2519,7 +2521,7 @@ Value value_to_string(Value* value) {
                     result_len += element_len;
                 } else {
                     // Handle case where element_str conversion failed
-                    result = realloc(result, result_len + 5); // +5 for "null, "
+                    result = shared_realloc_safe(result, result_len + 5, "interpreter", "unknown_function", 2528); // +5 for "null, "
                     if (!result) {
                         value_free(&element_str);
                         return value_create_string("[]");
@@ -2535,17 +2537,17 @@ Value value_to_string(Value* value) {
             }
             
             // Add closing bracket
-            result = realloc(result, result_len + 2);
+            result = shared_realloc_safe(result, result_len + 2, "interpreter", "unknown_function", 2544);
             if (!result) return value_create_string("[]");
             strcat(result, "]");
             
             Value result_value = value_create_string(result);
-            free(result);
+            shared_free_safe(result, "interpreter", "unknown_function", 2549);
             return result_value;
         }
         case VALUE_HASH_MAP: {
             // Format hash map as {key1: value1, key2: value2, ...}
-            char* result = malloc(2); // Start with just "{"
+            char* result = shared_malloc_safe(2, "interpreter", "unknown_function", 2554); // Start with just "{"
             if (!result) return value_create_string("{}");
             result[0] = '{';
             result[1] = '\0';
@@ -2558,7 +2560,7 @@ Value value_to_string(Value* value) {
                 if (key && map_value) {
                     // Add comma separator
                     if (i > 0) {
-                        result = realloc(result, result_len + 2);
+                        result = shared_realloc_safe(result, result_len + 2, "interpreter", "unknown_function", 2567);
                         if (!result) return value_create_string("{}");
                         strcat(result, ", ");
                         result_len += 2;
@@ -2568,7 +2570,7 @@ Value value_to_string(Value* value) {
                     Value key_str = value_to_string(key);
                     if (key_str.type == VALUE_STRING && key_str.data.string_value) {
                         size_t key_len = strlen(key_str.data.string_value);
-                        result = realloc(result, result_len + key_len + 1);
+                        result = shared_realloc_safe(result, result_len + key_len + 1, "interpreter", "unknown_function", 2577);
                         if (!result) {
                             value_free(&key_str);
                             return value_create_string("{}");
@@ -2582,7 +2584,7 @@ Value value_to_string(Value* value) {
                     }
                     
                     // Add colon
-                    result = realloc(result, result_len + 2);
+                    result = shared_realloc_safe(result, result_len + 2, "interpreter", "unknown_function", 2591);
                     if (!result) return value_create_string("{}");
                     strcat(result, ": ");
                     result_len += 2;
@@ -2591,7 +2593,7 @@ Value value_to_string(Value* value) {
                     Value value_str = value_to_string(map_value);
                     if (value_str.type == VALUE_STRING && value_str.data.string_value) {
                         size_t val_len = strlen(value_str.data.string_value);
-                        result = realloc(result, result_len + val_len + 1);
+                        result = shared_realloc_safe(result, result_len + val_len + 1, "interpreter", "unknown_function", 2600);
                         if (!result) {
                             value_free(&value_str);
                             return value_create_string("{}");
@@ -2599,7 +2601,7 @@ Value value_to_string(Value* value) {
                         strcat(result, value_str.data.string_value);
                         result_len += val_len;
                     } else {
-                        result = realloc(result, result_len + 5);
+                        result = shared_realloc_safe(result, result_len + 5, "interpreter", "unknown_function", 2608);
                         if (!result) {
                             value_free(&value_str);
                             return value_create_string("{}");
@@ -2612,17 +2614,17 @@ Value value_to_string(Value* value) {
             }
             
             // Add closing brace
-            result = realloc(result, result_len + 2);
+            result = shared_realloc_safe(result, result_len + 2, "interpreter", "unknown_function", 2621);
             if (!result) return value_create_string("{}");
             strcat(result, "}");
             
             Value result_value = value_create_string(result);
-            free(result);
+            shared_free_safe(result, "interpreter", "unknown_function", 2626);
             return result_value;
         }
         case VALUE_SET: {
             // Format set as {item1, item2, item3, ...}
-            char* result = malloc(2); // Start with just "{"
+            char* result = shared_malloc_safe(2, "interpreter", "unknown_function", 2631); // Start with just "{"
             if (!result) return value_create_string("{}");
             result[0] = '{';
             result[1] = '\0';
@@ -2634,7 +2636,7 @@ Value value_to_string(Value* value) {
                 if (element) {
                     // Add comma separator
                     if (i > 0) {
-                        result = realloc(result, result_len + 2);
+                        result = shared_realloc_safe(result, result_len + 2, "interpreter", "unknown_function", 2643);
                         if (!result) return value_create_string("{}");
                         strcat(result, ", ");
                         result_len += 2;
@@ -2644,7 +2646,7 @@ Value value_to_string(Value* value) {
                     Value element_str = value_to_string(element);
                     if (element_str.type == VALUE_STRING && element_str.data.string_value) {
                         size_t elem_len = strlen(element_str.data.string_value);
-                        result = realloc(result, result_len + elem_len + 1);
+                        result = shared_realloc_safe(result, result_len + elem_len + 1, "interpreter", "unknown_function", 2653);
                         if (!result) {
                             value_free(&element_str);
                             return value_create_string("{}");
@@ -2652,7 +2654,7 @@ Value value_to_string(Value* value) {
                         strcat(result, element_str.data.string_value);
                         result_len += elem_len;
                     } else {
-                        result = realloc(result, result_len + 5);
+                        result = shared_realloc_safe(result, result_len + 5, "interpreter", "unknown_function", 2661);
                         if (!result) {
                             value_free(&element_str);
                             return value_create_string("{}");
@@ -2665,12 +2667,12 @@ Value value_to_string(Value* value) {
             }
             
             // Add closing brace
-            result = realloc(result, result_len + 2);
+            result = shared_realloc_safe(result, result_len + 2, "interpreter", "unknown_function", 2674);
             if (!result) return value_create_string("{}");
             strcat(result, "}");
             
             Value result_value = value_create_string(result);
-            free(result);
+            shared_free_safe(result, "interpreter", "unknown_function", 2679);
             return result_value;
         }
         default: return value_create_string("<Value>"); 
@@ -2698,7 +2700,7 @@ Value value_add(Value* a, Value* b) {
         }
         
         // Allocate memory for concatenated string
-        char* out = (char*)malloc(la + lb + 1);
+        char* out = (char*)shared_malloc_safe(la + lb + 1, "interpreter", "unknown_function", 2707);
         if (!out) {
             value_free(&sa);
             value_free(&sb);
@@ -2720,7 +2722,7 @@ Value value_add(Value* a, Value* b) {
         
         // Create result and free temporary buffer
         Value result = value_create_string(out);
-        free(out);
+        shared_free_safe(out, "interpreter", "unknown_function", 2729);
         return result;
     }
     
@@ -2840,14 +2842,14 @@ void value_array_push(Value* array, Value element) {
     // Resize if needed
     if (array->data.array_value.count >= array->data.array_value.capacity) {
         size_t new_capacity = array->data.array_value.capacity == 0 ? 4 : array->data.array_value.capacity * 2;
-        void** new_elements = (void**)realloc(array->data.array_value.elements, new_capacity * sizeof(void*));
+        void** new_elements = (void**)shared_realloc_safe(array->data.array_value.elements, new_capacity * sizeof(void*), "interpreter", "unknown_function", 2849);
         if (!new_elements) return;
         array->data.array_value.elements = new_elements;
         array->data.array_value.capacity = new_capacity;
     }
     
     // Store the element (element is already cloned by caller)
-    Value* stored_element = (Value*)malloc(sizeof(Value));
+    Value* stored_element = (Value*)shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 2856);
     if (stored_element) {
         *stored_element = element; // Don't clone again - element is already cloned
         array->data.array_value.elements[array->data.array_value.count] = stored_element;
@@ -2863,7 +2865,7 @@ Value value_array_pop(Value* array) {
     Value* element = (Value*)array->data.array_value.elements[array->data.array_value.count - 1];
     if (element) {
         Value result = value_clone(element);
-        free(element);
+        shared_free_safe(element, "interpreter", "unknown_function", 2872);
         array->data.array_value.count--;
         return result;
     }
@@ -2903,7 +2905,7 @@ void value_object_set(Value* obj, const char* key, Value value) {
     // For now, just a simple implementation - don't expand, just add if there's space
     if (obj->data.object_value.count < obj->data.object_value.capacity) {
         obj->data.object_value.keys[obj->data.object_value.count] = strdup(key);
-        obj->data.object_value.values[obj->data.object_value.count] = malloc(sizeof(Value));
+        obj->data.object_value.values[obj->data.object_value.count] = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 2912);
         if (obj->data.object_value.values[obj->data.object_value.count]) {
             *((Value*)obj->data.object_value.values[obj->data.object_value.count]) = value_clone(&value);
             obj->data.object_value.count++;
@@ -2950,14 +2952,14 @@ void value_object_delete(Value* obj, const char* key) {
         if (obj->data.object_value.keys[i] && 
             strcmp(obj->data.object_value.keys[i], key) == 0) {
             // Free the key
-            free(obj->data.object_value.keys[i]);
+            shared_free_safe(obj->data.object_value.keys[i], "interpreter", "unknown_function", 2959);
             obj->data.object_value.keys[i] = NULL;
             
             // Free the value
             Value* member_value = (Value*)obj->data.object_value.values[i];
             if (member_value) {
                 value_free(member_value);
-                free(member_value);
+                shared_free_safe(member_value, "interpreter", "unknown_function", 2966);
                 obj->data.object_value.values[i] = NULL;
             }
             
@@ -2983,7 +2985,7 @@ char** value_object_keys(Value* obj, size_t* count) {
         return NULL;
     }
     
-    char** keys = malloc(*count * sizeof(char*));
+    char** keys = shared_malloc_safe(*count * sizeof(char*), "interpreter", "unknown_function", 2992);
     if (!keys) {
         *count = 0;
         return NULL;
@@ -2995,9 +2997,9 @@ char** value_object_keys(Value* obj, size_t* count) {
             if (!keys[i]) {
                 // Clean up on failure
                 for (size_t j = 0; j < i; j++) {
-                    free(keys[j]);
+                    shared_free_safe(keys[j], "interpreter", "unknown_function", 3004);
                 }
-                free(keys);
+                shared_free_safe(keys, "interpreter", "unknown_function", 3006);
                 *count = 0;
                 return NULL;
             }
@@ -3042,8 +3044,8 @@ void value_hash_map_set(Value* map, Value key, Value value) {
     if (map->data.hash_map_value.count >= map->data.hash_map_value.capacity) {
         // Resize
         size_t new_capacity = map->data.hash_map_value.capacity * 2;
-        Value** new_keys = realloc(map->data.hash_map_value.keys, new_capacity * sizeof(Value*));
-        void** new_values = realloc(map->data.hash_map_value.values, new_capacity * sizeof(void*));
+        Value** new_keys = shared_realloc_safe(map->data.hash_map_value.keys, new_capacity * sizeof(Value*), "interpreter", "unknown_function", 3051);
+        void** new_values = shared_realloc_safe(map->data.hash_map_value.values, new_capacity * sizeof(void*), "interpreter", "unknown_function", 3052);
         if (!new_keys || !new_values) return;
         
         map->data.hash_map_value.keys = new_keys;
@@ -3052,9 +3054,9 @@ void value_hash_map_set(Value* map, Value key, Value value) {
     }
     
     // Add new entry
-    map->data.hash_map_value.keys[map->data.hash_map_value.count] = malloc(sizeof(Value));
+    map->data.hash_map_value.keys[map->data.hash_map_value.count] = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 3061);
     *(Value*)map->data.hash_map_value.keys[map->data.hash_map_value.count] = value_clone(&key);
-    Value* new_value = malloc(sizeof(Value));
+    Value* new_value = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 3063);
     *new_value = value_clone(&value);
     map->data.hash_map_value.values[map->data.hash_map_value.count] = new_value;
     map->data.hash_map_value.count++;
@@ -3097,14 +3099,14 @@ void value_hash_map_delete(Value* map, Value key) {
         if (existing_key && value_equals(existing_key, &key)) {
             // Free the key
             value_free(existing_key);
-            free(existing_key);
+            shared_free_safe(existing_key, "interpreter", "unknown_function", 3106);
             map->data.hash_map_value.keys[i] = NULL;
             
             // Free the value
             Value* value = (Value*)map->data.hash_map_value.values[i];
             if (value) {
                 value_free(value);
-                free(value);
+                shared_free_safe(value, "interpreter", "unknown_function", 3113);
                 map->data.hash_map_value.values[i] = NULL;
             }
             
@@ -3131,7 +3133,7 @@ Value* value_hash_map_keys(Value* map, size_t* count) {
         return NULL;
     }
     
-    Value* keys = malloc(*count * sizeof(Value));
+    Value* keys = shared_malloc_safe(*count * sizeof(Value), "interpreter", "unknown_function", 3140);
     if (!keys) {
         *count = 0;
         return NULL;
@@ -3177,7 +3179,7 @@ void value_set_add(Value* set, Value element) {
     
     // Add new element
     if (set->data.set_value.count < set->data.set_value.capacity) {
-        Value* new_element = malloc(sizeof(Value));
+        Value* new_element = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 3186);
         *new_element = value_clone(&element);
         set->data.set_value.elements[set->data.set_value.count] = new_element;
         set->data.set_value.count++;
@@ -3205,7 +3207,7 @@ void value_set_remove(Value* set, Value element) {
         if (existing && value_equals(existing, &element)) {
             // Free the element
             value_free(existing);
-            free(existing);
+            shared_free_safe(existing, "interpreter", "unknown_function", 3214);
             set->data.set_value.elements[i] = NULL;
             
             // Shift remaining elements
@@ -3243,7 +3245,6 @@ Value value_set_to_array(Value* set) {
 Value value_function_call(Value* func, Value* args, size_t arg_count, Interpreter* interpreter, int line, int column) {
     return value_function_call_with_self(func, args, arg_count, interpreter, NULL, line, column);
 }
-
 Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, Interpreter* interpreter, Value* self, int line, int column) {
     if (!func || func->type != VALUE_FUNCTION) {
         return value_create_null();
@@ -3566,7 +3567,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 }
                 Value rv = builtin_print(interpreter, argv, n, node->line, node->column);
                 for (size_t i = 0; i < n; i++) value_free(&argv[i]);
-                if (argv) free(argv);
+                if (argv) shared_free_safe(argv, "interpreter", "unknown_function", 3575);
                 return rv;
             }
             if (strcmp(func_name, "isString") == 0) {
@@ -3653,8 +3654,6 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             if (fn.type == VALUE_NULL) {
                 fn = environment_get(interpreter->global_environment, func_name);
             }
-            
-            
             // Handle user-defined functions
             if (fn.type == VALUE_FUNCTION && fn.data.function_value.body) {
                 // Evaluate arguments in the current (caller) environment first
@@ -3681,7 +3680,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     interpreter_set_error(interpreter, "Failed to create function call environment", node->line, node->column);
                     if (args) {
                         for (size_t i = 0; i < n; i++) value_free(&args[i]);
-                        free(args);
+                        shared_free_safe(args, "interpreter", "unknown_function", 3690);
                         args = NULL;  // Prevent double-free
                     }
                     value_free(&fn);
@@ -3735,7 +3734,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                                         for (size_t j = 0; j < n; j++) {
                                             value_free(&args[j]);
                                         }
-                                        free(args);
+                                        shared_free_safe(args, "interpreter", "unknown_function", 3744);
                                     }
                                     return value_create_null();
                                 }
@@ -3765,7 +3764,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     environment_free(call_env);
                     if (args) {
                         for (size_t i = 0; i < n; i++) value_free(&args[i]);
-                        free(args);
+                        shared_free_safe(args, "interpreter", "unknown_function", 3774);
                         args = NULL;  // Prevent double-free
                     }
                     value_free(&fn);
@@ -3797,7 +3796,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     environment_free(call_env);
                     if (args) {
                         for (size_t i = 0; i < n; i++) value_free(&args[i]);
-                        free(args);
+                        shared_free_safe(args, "interpreter", "unknown_function", 3806);
                         args = NULL;  // Prevent double-free
                     }
                     value_free(&fn);
@@ -3815,7 +3814,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     for (size_t i = 0; i < n; i++) {
                         value_free(&args[i]);
                     }
-                    free(args);
+                    shared_free_safe(args, "interpreter", "unknown_function", 3824);
                 }
                 value_free(&fn);
                 return rv;
@@ -4339,17 +4338,17 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 
                 if (module_name) {
                     // Look up the prefixed function or constant (e.g., math_Pi, math_abs)
-                    char* prefixed_name = malloc(strlen(module_name) + strlen(member_name) + 2);
+                    char* prefixed_name = shared_malloc_safe(strlen(module_name) + strlen(member_name) + 2, "interpreter", "unknown_function", 4348);
                     sprintf(prefixed_name, "%s_%s", module_name, member_name);
                     Value module_item = environment_get(interpreter->current_environment, prefixed_name);
-                    free(prefixed_name);
+                    shared_free_safe(prefixed_name, "interpreter", "unknown_function", 4351);
                     
                     // If not found in current environment, try global environment for prefixed functions
                     if (module_item.type == VALUE_NULL) {
-                        char* prefixed_name_global = malloc(strlen(module_name) + strlen(member_name) + 2);
+                        char* prefixed_name_global = shared_malloc_safe(strlen(module_name) + strlen(member_name) + 2, "interpreter", "unknown_function", 4355);
                         sprintf(prefixed_name_global, "%s_%s", module_name, member_name);
                         module_item = environment_get(interpreter->global_environment, prefixed_name_global);
-                        free(prefixed_name_global);
+                        shared_free_safe(prefixed_name_global, "interpreter", "unknown_function", 4358);
                     }
                     
                     // If still not found, try looking for the function without prefix (for backward compatibility)
@@ -4409,6 +4408,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 }
                 
                 // Fallback: try to look up the member directly
+                // The prefixed functions should already be bound to the environment
                 Value member_value = environment_get(interpreter->current_environment, member_name);
                 if (member_value.type != VALUE_NULL) {
                     value_free(&object);
@@ -4566,7 +4566,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 for (size_t i = 0; i < arg_count; i++) {
                     value_free(&args[i]);
                 }
-                free(args);
+                shared_free_safe(args, "interpreter", "unknown_function", 4575);
             }
             
             value_free(&function_value);
@@ -4771,10 +4771,10 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                         const char* alias_name = specific_aliases ? specific_aliases[i] : item_name;
                         
                         // Look up the file function and bind it
-                        char* prefixed_name = malloc(strlen("file_") + strlen(item_name) + 1);
+                        char* prefixed_name = shared_malloc_safe(strlen("file_") + strlen(item_name) + 1, "interpreter", "unknown_function", 4780);
                         sprintf(prefixed_name, "file_%s", item_name);
                         Value file_func = environment_get(interpreter->global_environment, prefixed_name);
-                        free(prefixed_name);
+                        shared_free_safe(prefixed_name, "interpreter", "unknown_function", 4783);
                         
                         if (file_func.type == VALUE_FUNCTION) {
                             environment_define(interpreter->current_environment, alias_name, value_clone(&file_func));
@@ -4787,10 +4787,10 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     // Import all file functions
                     const char* file_functions[] = {"read", "write", "append", "exists", "size", "delete", "read_lines", "write_lines"};
                     for (size_t i = 0; i < sizeof(file_functions) / sizeof(file_functions[0]); i++) {
-                        char* prefixed_name = malloc(strlen("file_") + strlen(file_functions[i]) + 1);
+                        char* prefixed_name = shared_malloc_safe(strlen("file_") + strlen(file_functions[i]) + 1, "interpreter", "unknown_function", 4796);
                         sprintf(prefixed_name, "file_%s", file_functions[i]);
                         Value file_func = environment_get(interpreter->global_environment, prefixed_name);
-                        free(prefixed_name);
+                        shared_free_safe(prefixed_name, "interpreter", "unknown_function", 4799);
                         
                         if (file_func.type == VALUE_FUNCTION) {
                             environment_define(interpreter->current_environment, file_functions[i], value_clone(&file_func));
@@ -4803,17 +4803,17 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                         // This allows file.read() to work by looking up file_read
                         const char* file_functions[] = {"read", "write", "append", "exists", "size", "delete", "read_lines", "write_lines"};
                         for (size_t i = 0; i < sizeof(file_functions) / sizeof(file_functions[0]); i++) {
-                            char* prefixed_name = malloc(strlen("file_") + strlen(file_functions[i]) + 1);
+                            char* prefixed_name = shared_malloc_safe(strlen("file_") + strlen(file_functions[i]) + 1, "interpreter", "unknown_function", 4812);
                             sprintf(prefixed_name, "file_%s", file_functions[i]);
                             Value file_func = environment_get(interpreter->global_environment, prefixed_name);
-                            free(prefixed_name);
+                            shared_free_safe(prefixed_name, "interpreter", "unknown_function", 4815);
                             
                             if (file_func.type == VALUE_FUNCTION) {
                                 // Create prefixed name: alias_function
-                                char* alias_prefixed_name = malloc(strlen(alias) + strlen(file_functions[i]) + 2);
+                                char* alias_prefixed_name = shared_malloc_safe(strlen(alias) + strlen(file_functions[i]) + 2, "interpreter", "unknown_function", 4819);
                                 sprintf(alias_prefixed_name, "%s_%s", alias, file_functions[i]);
                                 environment_define(interpreter->current_environment, alias_prefixed_name, value_clone(&file_func));
-                                free(alias_prefixed_name);
+                                shared_free_safe(alias_prefixed_name, "interpreter", "unknown_function", 4822);
                             }
                         }
                         
@@ -4836,10 +4836,10 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                         const char* alias_name = specific_aliases ? specific_aliases[i] : item_name;
                         
                         // Look up the directory function and bind it
-                        char* prefixed_name = malloc(strlen("dir_") + strlen(item_name) + 1);
+                        char* prefixed_name = shared_malloc_safe(strlen("dir_") + strlen(item_name) + 1, "interpreter", "unknown_function", 4845);
                         sprintf(prefixed_name, "dir_%s", item_name);
                         Value dir_func = environment_get(interpreter->global_environment, prefixed_name);
-                        free(prefixed_name);
+                        shared_free_safe(prefixed_name, "interpreter", "unknown_function", 4848);
                         
                         if (dir_func.type == VALUE_FUNCTION) {
                             environment_define(interpreter->current_environment, alias_name, value_clone(&dir_func));
@@ -4852,10 +4852,10 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     // Import all directory functions
                     const char* dir_functions[] = {"list", "create", "remove", "exists", "current", "change", "info"};
                     for (size_t i = 0; i < sizeof(dir_functions) / sizeof(dir_functions[0]); i++) {
-                        char* prefixed_name = malloc(strlen("dir_") + strlen(dir_functions[i]) + 1);
+                        char* prefixed_name = shared_malloc_safe(strlen("dir_") + strlen(dir_functions[i]) + 1, "interpreter", "unknown_function", 4861);
                         sprintf(prefixed_name, "dir_%s", dir_functions[i]);
                         Value dir_func = environment_get(interpreter->global_environment, prefixed_name);
-                        free(prefixed_name);
+                        shared_free_safe(prefixed_name, "interpreter", "unknown_function", 4864);
                         
                         if (dir_func.type == VALUE_FUNCTION) {
                             environment_define(interpreter->current_environment, dir_functions[i], value_clone(&dir_func));
@@ -4868,17 +4868,17 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                         // This allows dir.list() to work by looking up dir_list
                         const char* dir_functions[] = {"list", "create", "remove", "exists", "current", "change", "info"};
                         for (size_t i = 0; i < sizeof(dir_functions) / sizeof(dir_functions[0]); i++) {
-                            char* prefixed_name = malloc(strlen("dir_") + strlen(dir_functions[i]) + 1);
+                            char* prefixed_name = shared_malloc_safe(strlen("dir_") + strlen(dir_functions[i]) + 1, "interpreter", "unknown_function", 4877);
                             sprintf(prefixed_name, "dir_%s", dir_functions[i]);
                             Value dir_func = environment_get(interpreter->global_environment, prefixed_name);
-                            free(prefixed_name);
+                            shared_free_safe(prefixed_name, "interpreter", "unknown_function", 4880);
                             
                             if (dir_func.type == VALUE_FUNCTION) {
                                 // Create prefixed name: alias_function
-                                char* alias_prefixed_name = malloc(strlen(alias) + strlen(dir_functions[i]) + 2);
+                                char* alias_prefixed_name = shared_malloc_safe(strlen(alias) + strlen(dir_functions[i]) + 2, "interpreter", "unknown_function", 4884);
                                 sprintf(alias_prefixed_name, "%s_%s", alias, dir_functions[i]);
                                 environment_define(interpreter->current_environment, alias_prefixed_name, value_clone(&dir_func));
-                                free(alias_prefixed_name);
+                                shared_free_safe(alias_prefixed_name, "interpreter", "unknown_function", 4887);
                             }
                         }
                         
@@ -5095,7 +5095,6 @@ static MycoErrorCode get_error_code(const char* message) {
     // Generic fallback
     return MYCO_ERROR_UNKNOWN;
 }
-
 // Get fungus-themed error name from code
 static const char* get_fungus_error_name(MycoErrorCode code) {
     switch (code) {
@@ -5295,7 +5294,7 @@ void interpreter_set_error(Interpreter* interpreter, const char* message, int li
     
     // Free existing error message
     if (interpreter->error_message) {
-        free(interpreter->error_message);
+        shared_free_safe(interpreter->error_message, "interpreter", "unknown_function", 5304);
     }
     
     // Create new error message
@@ -5317,7 +5316,7 @@ void interpreter_clear_error(Interpreter* interpreter) {
     interpreter->error_column = 0;
     
     if (interpreter->error_message) {
-        free(interpreter->error_message);
+        shared_free_safe(interpreter->error_message, "interpreter", "unknown_function", 5326);
         interpreter->error_message = NULL;
     }
 }
@@ -5461,7 +5460,7 @@ Value builtin_input(Interpreter* interpreter, Value* args, size_t arg_count, int
     if (bytes_read == -1) {
         // Error reading input or EOF
         if (buffer) {
-            free(buffer);
+            shared_free_safe(buffer, "interpreter", "unknown_function", 5470);
         }
         return value_create_string("");
     }
@@ -5472,7 +5471,7 @@ Value builtin_input(Interpreter* interpreter, Value* args, size_t arg_count, int
     }
     
     Value result = value_create_string(buffer);
-    free(buffer);
+    shared_free_safe(buffer, "interpreter", "unknown_function", 5481);
     return result;
 }
 Value builtin_len(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -5552,20 +5551,19 @@ void interpreter_register_builtins(Interpreter* interpreter) {
 const char* value_type_to_string(ValueType type) { switch (type) { case VALUE_NULL: return "Null"; case VALUE_BOOLEAN: return "Bool"; case VALUE_NUMBER: return "Number"; case VALUE_STRING: return "String"; case VALUE_ARRAY: return "Array"; case VALUE_OBJECT: return "Object"; case VALUE_FUNCTION: return "Function"; case VALUE_CLASS: return "Class"; case VALUE_MODULE: return "Object"; case VALUE_ERROR: return "Error"; default: return "Unknown"; } }
 void value_print(Value* value) { Value s = value_to_string(value); if (s.type == VALUE_STRING && s.data.string_value) { printf("%s", s.data.string_value); } value_free(&s); }
 void value_print_debug(Value* value) { value_print(value); }
-
 // Enhanced error handling with stack traces
 void interpreter_push_call_frame(Interpreter* interpreter, const char* function_name, const char* file_name, int line, int column) {
     if (!interpreter) return;
     
     // Check stack depth limit
     if (interpreter->stack_depth >= interpreter->max_stack_depth) {
-        interpreter_set_error(interpreter, "Stack overflow: maximum call depth exceeded", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "interpreter", "unknown_function", "Stack overflow: maximum call depth exceeded", line, column);
         return;
     }
     
-    CallFrame* frame = malloc(sizeof(CallFrame));
+    CallFrame* frame = shared_malloc_safe(sizeof(CallFrame), "interpreter", "unknown_function", 5572);
     if (!frame) {
-        interpreter_set_error(interpreter, "Out of memory: cannot create call frame", line, column);
+        std_error_report(ERROR_OUT_OF_MEMORY, "interpreter", "unknown_function", "Out of memory: cannot create call frame", line, column);
         return;
     }
     
@@ -5599,7 +5597,7 @@ void interpreter_push_call_frame(Interpreter* interpreter, const char* function_
             
             // Allocate and copy the line
             size_t line_len = line_end - line_start;
-            frame->source_line = malloc(line_len + 1);
+            frame->source_line = shared_malloc_safe(line_len + 1, "interpreter", "unknown_function", 5608);
             if (frame->source_line) {
                 strncpy((char*)frame->source_line, line_start, line_len);
                 ((char*)frame->source_line)[line_len] = '\0';
@@ -5620,12 +5618,12 @@ void interpreter_pop_call_frame(Interpreter* interpreter) {
     interpreter->call_stack = frame->next;
     interpreter->stack_depth--;
     
-    free((void*)frame->function_name);
-    free((void*)frame->file_name);
+    shared_free_safe((void*)frame->function_name, "interpreter", "unknown_function", 5629);
+    shared_free_safe((void*)frame->file_name, "interpreter", "unknown_function", 5630);
     if (frame->source_line) {
-        free((void*)frame->source_line);
+        shared_free_safe((void*)frame->source_line, "interpreter", "unknown_function", 5632);
     }
-    free(frame);
+    shared_free_safe(frame, "interpreter", "unknown_function", 5634);
 }
 
 void interpreter_print_stack_trace(Interpreter* interpreter) {
@@ -5749,7 +5747,7 @@ Value interpreter_execute_compiled_function(Interpreter* interpreter, const char
     }
     
     // Try to execute compiled function
-    void** native_args = malloc(sizeof(void*) * arg_count);
+    void** native_args = shared_malloc_safe(sizeof(void*) * arg_count, "interpreter", "unknown_function", 2992);
     if (!native_args) {
         return interpreter_execute_function_call(interpreter, NULL);
     }
@@ -5760,7 +5758,7 @@ Value interpreter_execute_compiled_function(Interpreter* interpreter, const char
     }
     
     void* result = jit_execute_function(interpreter->jit_context, function_name, native_args);
-    free(native_args);
+    shared_free_safe(native_args, "interpreter", "unknown_function", 5769);
     
     if (result) {
         // Convert native result back to Value
@@ -5770,6 +5768,3 @@ Value interpreter_execute_compiled_function(Interpreter* interpreter, const char
         return interpreter_execute_function_call(interpreter, NULL);
     }
 }
-
-
-

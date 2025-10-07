@@ -3,18 +3,20 @@
 #include <stdio.h>
 #include "../../include/core/interpreter.h"
 #include "../../include/core/ast.h"
+#include "../../include/core/standardized_errors.h"
+#include "../../include/utils/shared_utilities.h"
 
 // Heap utility functions
 Value builtin_heap_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "create() requires exactly 1 argument: max_heap (boolean)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "unknown", "unknown_function", "create() requires exactly 1 argument: max_heap (boolean)", line, column);
         return value_create_null();
     }
     
     Value max_heap_arg = args[0];
     
     if (max_heap_arg.type != VALUE_BOOLEAN) {
-        interpreter_set_error(interpreter, "create() argument must be a boolean (true for max heap, false for min heap)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "unknown", "unknown_function", "create() argument must be a boolean (true for max heap, false for min heap)", line, column);
         return value_create_null();
     }
     
@@ -30,7 +32,7 @@ Value builtin_heap_create(Interpreter* interpreter, Value* args, size_t arg_coun
 
 Value builtin_heap_insert(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "heap.insert() expects exactly 1 argument: value", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.insert() expects exactly 1 argument: value", line, column);
         return value_create_null();
     }
     
@@ -38,7 +40,7 @@ Value builtin_heap_insert(Interpreter* interpreter, Value* args, size_t arg_coun
     Value value = args[1];
     
     if (heap_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "heap.insert() can only be called on heap objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.insert() can only be called on heap objects", line, column);
         return value_create_null();
     }
     
@@ -48,7 +50,7 @@ Value builtin_heap_insert(Interpreter* interpreter, Value* args, size_t arg_coun
     Value size = value_object_get(&heap_arg, "size");
     
     if (elements.type != VALUE_ARRAY || is_max_heap.type != VALUE_BOOLEAN || size.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "Invalid heap object structure", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid heap object structure", line, column);
         return value_create_null();
     }
     
@@ -115,14 +117,14 @@ Value builtin_heap_insert(Interpreter* interpreter, Value* args, size_t arg_coun
 
 Value builtin_heap_extract(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "heap.extract() expects exactly 0 arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.extract() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value heap_arg = args[0];
     
     if (heap_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "heap.extract() can only be called on heap objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.extract() can only be called on heap objects", line, column);
         return value_create_null();
     }
     
@@ -132,19 +134,19 @@ Value builtin_heap_extract(Interpreter* interpreter, Value* args, size_t arg_cou
     Value size = value_object_get(&heap_arg, "size");
     
     if (elements.type != VALUE_ARRAY || is_max_heap.type != VALUE_BOOLEAN || size.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "Invalid heap object structure", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid heap object structure", line, column);
         return value_create_null();
     }
     
     if (elements.data.array_value.count == 0) {
-        interpreter_set_error(interpreter, "Cannot extract from empty heap", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Cannot extract from empty heap", line, column);
         return value_create_null();
     }
     
     // Get the root element (first element)
     Value* root_element = (Value*)elements.data.array_value.elements[0];
     if (!root_element) {
-        interpreter_set_error(interpreter, "Invalid heap element", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid heap element", line, column);
         return value_create_null();
     }
     
@@ -253,14 +255,14 @@ Value builtin_heap_extract(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_heap_peek(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "heap.peek() expects exactly 0 arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.peek() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value heap_arg = args[0];
     
     if (heap_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "heap.peek() can only be called on heap objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.peek() can only be called on heap objects", line, column);
         return value_create_null();
     }
     
@@ -268,19 +270,19 @@ Value builtin_heap_peek(Interpreter* interpreter, Value* args, size_t arg_count,
     Value elements = value_object_get(&heap_arg, "elements");
     
     if (elements.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "Invalid heap object structure", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid heap object structure", line, column);
         return value_create_null();
     }
     
     if (elements.data.array_value.count == 0) {
-        interpreter_set_error(interpreter, "Cannot peek at empty heap", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Cannot peek at empty heap", line, column);
         return value_create_null();
     }
     
     // Return the root element (first element)
     Value* root_element = (Value*)elements.data.array_value.elements[0];
     if (!root_element) {
-        interpreter_set_error(interpreter, "Invalid heap element", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid heap element", line, column);
         return value_create_null();
     }
     
@@ -289,14 +291,14 @@ Value builtin_heap_peek(Interpreter* interpreter, Value* args, size_t arg_count,
 
 Value builtin_heap_size(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "heap.size() expects exactly 0 arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.size() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value heap_arg = args[0];
     
     if (heap_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "heap.size() can only be called on heap objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.size() can only be called on heap objects", line, column);
         return value_create_null();
     }
     
@@ -304,7 +306,7 @@ Value builtin_heap_size(Interpreter* interpreter, Value* args, size_t arg_count,
     Value size = value_object_get(&heap_arg, "size");
     
     if (size.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "Invalid heap object structure", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid heap object structure", line, column);
         return value_create_null();
     }
     
@@ -313,14 +315,14 @@ Value builtin_heap_size(Interpreter* interpreter, Value* args, size_t arg_count,
 
 Value builtin_heap_isEmpty(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "heap.isEmpty() expects exactly 0 arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.isEmpty() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value heap_arg = args[0];
     
     if (heap_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "heap.isEmpty() can only be called on heap objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.isEmpty() can only be called on heap objects", line, column);
         return value_create_null();
     }
     
@@ -328,7 +330,7 @@ Value builtin_heap_isEmpty(Interpreter* interpreter, Value* args, size_t arg_cou
     Value size = value_object_get(&heap_arg, "size");
     
     if (size.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "Invalid heap object structure", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid heap object structure", line, column);
         return value_create_null();
     }
     
@@ -337,14 +339,14 @@ Value builtin_heap_isEmpty(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_heap_clear(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "heap.clear() expects exactly 0 arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.clear() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value heap_arg = args[0];
     
     if (heap_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "heap.clear() can only be called on heap objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.clear() can only be called on heap objects", line, column);
         return value_create_null();
     }
     

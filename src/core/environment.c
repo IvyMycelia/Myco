@@ -2,10 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "../../include/utils/shared_utilities.h"
 
 // Environment management functions
 Environment* environment_create(Environment* parent) {
-    Environment* env = malloc(sizeof(Environment));
+    Environment* env = shared_malloc_safe(sizeof(Environment), "core", "unknown_function", 9);
     if (!env) return NULL;
     
     env->parent = parent;
@@ -22,19 +23,19 @@ void environment_free(Environment* env) {
     
     if (env->names) {
         for (size_t i = 0; i < env->count; i++) {
-            free(env->names[i]);
+            shared_free_safe(env->names[i], "core", "unknown_function", 26);
         }
-        free(env->names);
+        shared_free_safe(env->names, "core", "unknown_function", 28);
     }
     
     if (env->values) {
         for (size_t i = 0; i < env->count; i++) {
             value_free(&env->values[i]);
         }
-        free(env->values);
+        shared_free_safe(env->values, "core", "unknown_function", 35);
     }
     
-    free(env);
+    shared_free_safe(env, "core", "unknown_function", 38);
 }
 
 static int environment_find_index(Environment* env, const char* name) {
@@ -61,12 +62,12 @@ void environment_define(Environment* env, const char* name, Value value) {
     // Resize if needed
     if (env->count >= env->capacity) {
         size_t new_capacity = env->capacity == 0 ? 8 : env->capacity * 2;
-        char** new_names = realloc(env->names, new_capacity * sizeof(char*));
-        Value* new_values = realloc(env->values, new_capacity * sizeof(Value));
+        char** new_names = shared_realloc_safe(env->names, new_capacity * sizeof(char*), "core", "unknown_function", 65);
+        Value* new_values = shared_realloc_safe(env->values, new_capacity * sizeof(Value), "core", "unknown_function", 66);
         
         if (!new_names || !new_values) {
-            free(new_names);
-            free(new_values);
+            shared_free_safe(new_names, "core", "unknown_function", 69);
+            shared_free_safe(new_values, "core", "unknown_function", 70);
             return;
         }
         

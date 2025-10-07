@@ -150,17 +150,17 @@ void print_usage(const char* program_name) {
     printf("  - A source string in backticks (e.g., `print(\"Hello, World!\");`)\n");
     printf("\n");
     printf("Options:\n");
-    printf("  -h, --help              Show this help message\n");
-    printf("  -v, --version           Show version information\n");
-    printf("  -i, --interpret         Interpret the input (default)\n");
-    printf("  -c, --compile           Compile the input to intermediate code\n");
-    printf("  -b, --build             Build executable from input\n");
-    printf("    -d, --debug             Enable debug mode\n");
-  printf("  -O, --optimize <level>  Set optimization level (0/none, 1/basic, 2/aggressive, 3/maximum)\n");
-  printf("  -j, --jit [mode]        Enable JIT compilation (0/interpreted, 1/hybrid, 2/compiled)\n");
-  printf("  -t, --target <target>   Set compilation target (c, x86_64, arm64, wasm, bytecode)\n");
-  printf("  -a, --architecture <arch> Set target architecture (arm64, x86_64, arm, x86)\n");
-  printf("  -o, --output <file>     Set output file\n");
+    printf("  -h, --help                Show this help message\n");
+    printf("  -v, --version             Show version information\n");
+    printf("  -i, --interpret           Interpret the input (default)\n");
+    printf("  -c, --compile             Compile the input to intermediate code\n");
+    printf("  -b, --build               Build executable from input\n");
+    printf("  -d, --debug               Enable debug mode\n");
+   printf("   -O, --optimize <level>    Set optimization level (0/none, 1/basic, 2/aggressive, 3/maximum)\n");
+   printf("   -j, --jit [mode]          Enable JIT compilation (0/interpreted, 1/hybrid, 2/compiled)\n");
+   printf("   -t, --target <target>     Set compilation target (c, x86_64, arm64, wasm, bytecode)\n");
+   printf("   -a, --architecture <arch> Set target architecture (arm64, x86_64, arm, x86)\n");
+   printf("   -o, --output <file>       Set output file\n");
     printf("\n");
     printf("Examples:\n");
     printf("  %s script.myco\n", program_name);
@@ -168,7 +168,7 @@ void print_usage(const char* program_name) {
     printf("  %s script.myco --compile --target c --output script.c\n", program_name);
     printf("  %s script.myco --build --architecture arm64\n", program_name);
     printf("  %s script.myco --build --architecture x86_64 --output myapp\n", program_name);
-    printf("  %s `print(\"Hello, World!\");`\n", program_name);
+    printf("  %s >print(\"Hello, World!\");\n", program_name);
 }
 
 // Print version information

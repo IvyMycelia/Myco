@@ -3,6 +3,8 @@
 #include "../../include/core/interpreter.h"
 #include "../../include/core/ast.h"
 #include <stdio.h>
+#include "../../include/core/standardized_errors.h"
+#include "../../include/utils/shared_utilities.h"
 
 // Helper function to convert Myco regex flags to POSIX regex flags
 int convert_flags(int myco_flags) {
@@ -21,7 +23,7 @@ int convert_flags(int myco_flags) {
 
 // Create a new regex match result
 RegexMatch* regex_create_match() {
-    RegexMatch* match = malloc(sizeof(RegexMatch));
+    RegexMatch* match = shared_malloc_safe(sizeof(RegexMatch), "libs", "unknown_function", 26);
     if (!match) return NULL;
     
     match->match = NULL;
@@ -50,7 +52,7 @@ char* regex_escape(const char* text) {
     if (!text) return NULL;
     
     size_t len = strlen(text);
-    char* escaped = malloc(len * 2 + 1); // Worst case: every char needs escaping
+    char* escaped = shared_malloc_safe(len * 2 + 1, "libs", "unknown_function", 55); // Worst case: every char needs escaping
     if (!escaped) return NULL;
     
     size_t j = 0;
@@ -80,7 +82,7 @@ RegexMatch* regex_match(const char* pattern, const char* text, int flags) {
     int posix_flags = convert_flags(flags);
     
     if (regcomp(&regex, pattern, posix_flags) != 0) {
-        free(match);
+        shared_free_safe(match, "libs", "unknown_function", 85);
         return NULL;
     }
     
@@ -94,7 +96,7 @@ RegexMatch* regex_match(const char* pattern, const char* text, int flags) {
         
         // Extract the main match
         int match_len = pmatch[0].rm_eo - pmatch[0].rm_so;
-        match->match = malloc(match_len + 1);
+        match->match = shared_malloc_safe(match_len + 1, "libs", "unknown_function", 99);
         if (match->match) {
             strncpy(match->match, text + pmatch[0].rm_so, match_len);
             match->match[match_len] = '\0';
@@ -109,13 +111,13 @@ RegexMatch* regex_match(const char* pattern, const char* text, int flags) {
         }
         
         if (group_count > 0) {
-            match->groups = malloc(group_count * sizeof(char*));
+            match->groups = shared_malloc_safe(group_count * sizeof(char*), "libs", "unknown_function", 114);
             match->group_count = group_count;
             
             for (int i = 0; i < group_count; i++) {
                 if (pmatch[i + 1].rm_so != -1) {
                     int group_len = pmatch[i + 1].rm_eo - pmatch[i + 1].rm_so;
-                    match->groups[i] = malloc(group_len + 1);
+                    match->groups[i] = shared_malloc_safe(group_len + 1, "libs", "unknown_function", 120);
                     if (match->groups[i]) {
                         strncpy(match->groups[i], text + pmatch[i + 1].rm_so, group_len);
                         match->groups[i][group_len] = '\0';
@@ -136,14 +138,14 @@ RegexMatch** regex_find_all(const char* pattern, const char* text, int flags, in
     if (!pattern || !text || !count) return NULL;
     
     *count = 0;
-    RegexMatch** matches = malloc(100 * sizeof(RegexMatch*)); // Max 100 matches
+    RegexMatch** matches = shared_malloc_safe(100 * sizeof(RegexMatch*), "libs", "unknown_function", 141); // Max 100 matches
     if (!matches) return NULL;
     
     regex_t regex;
     int posix_flags = convert_flags(flags);
     
     if (regcomp(&regex, pattern, posix_flags) != 0) {
-        free(matches);
+        shared_free_safe(matches, "libs", "unknown_function", 148);
         return NULL;
     }
     
@@ -160,7 +162,7 @@ RegexMatch** regex_find_all(const char* pattern, const char* text, int flags, in
         
         // Extract the match
         int match_len = pmatch.rm_eo - pmatch.rm_so;
-        match->match = malloc(match_len + 1);
+        match->match = shared_malloc_safe(match_len + 1, "libs", "unknown_function", 165);
         if (match->match) {
             strncpy(match->match, search_text + pmatch.rm_so, match_len);
             match->match[match_len] = '\0';
@@ -210,7 +212,7 @@ char* regex_replace(const char* pattern, const char* text, const char* replaceme
         }
     }
     
-    char* result = malloc(new_len + 1);
+    char* result = shared_malloc_safe(new_len + 1, "libs", "unknown_function", 215);
     if (!result) {
         regex_free_matches(matches, match_count);
         return NULL;
@@ -247,7 +249,7 @@ char** regex_split(const char* pattern, const char* text, int flags, int* count)
     if (!pattern || !text || !count) return NULL;
     
     *count = 0;
-    char** parts = malloc(100 * sizeof(char*)); // Max 100 parts
+    char** parts = shared_malloc_safe(100 * sizeof(char*), "libs", "unknown_function", 252); // Max 100 parts
     if (!parts) return NULL;
     
     RegexMatch** matches;
@@ -268,7 +270,7 @@ char** regex_split(const char* pattern, const char* text, int flags, int* count)
             // Add part before match
             if (matches[i]->start > text_pos) {
                 int part_len = matches[i]->start - text_pos;
-                parts[*count] = malloc(part_len + 1);
+                parts[*count] = shared_malloc_safe(part_len + 1, "libs", "unknown_function", 273);
                 if (parts[*count]) {
                     strncpy(parts[*count], text + text_pos, part_len);
                     parts[*count][part_len] = '\0';
@@ -320,7 +322,7 @@ char** regex_extract(const char* pattern, const char* text, int flags, int* coun
         return NULL;
     }
     
-    char** results = malloc(match_count * sizeof(char*));
+    char** results = shared_malloc_safe(match_count * sizeof(char*), "libs", "unknown_function", 325);
     if (!results) {
         regex_free_matches(matches, match_count);
         *count = 0;
@@ -376,16 +378,16 @@ bool regex_is_hex_color(const char* text) {
 void regex_free_match(RegexMatch* match) {
     if (!match) return;
     
-    if (match->match) free(match->match);
+    if (match->match) shared_free_safe(match->match, "libs", "unknown_function", 381);
     
     if (match->groups) {
         for (int i = 0; i < match->group_count; i++) {
-            if (match->groups[i]) free(match->groups[i]);
+            if (match->groups[i]) shared_free_safe(match->groups[i], "libs", "unknown_function", 385);
         }
-        free(match->groups);
+        shared_free_safe(match->groups, "libs", "unknown_function", 387);
     }
     
-    free(match);
+    shared_free_safe(match, "libs", "unknown_function", 390);
 }
 
 void regex_free_matches(RegexMatch** matches, int count) {
@@ -395,23 +397,23 @@ void regex_free_matches(RegexMatch** matches, int count) {
         regex_free_match(matches[i]);
     }
     
-    free(matches);
+    shared_free_safe(matches, "libs", "unknown_function", 400);
 }
 
 void regex_free_strings(char** strings, int count) {
     if (!strings) return;
     
     for (int i = 0; i < count; i++) {
-        if (strings[i]) free(strings[i]);
+        if (strings[i]) shared_free_safe(strings[i], "libs", "unknown_function", 407);
     }
     
-    free(strings);
+    shared_free_safe(strings, "libs", "unknown_function", 410);
 }
 
 // Myco library functions
 Value builtin_regex_match(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count < 2 || arg_count > 3) {
-        interpreter_set_error(interpreter, "regex.match() requires 2-3 arguments (pattern, text, [flags])", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "regex", "unknown_function", "regex.match() requires 2-3 arguments (pattern, text, [flags])", line, column);
         return value_create_null();
     }
     
@@ -427,7 +429,7 @@ Value builtin_regex_match(Interpreter* interpreter, Value* args, size_t arg_coun
     }
     
     if (pattern_val.type != VALUE_STRING || text_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "regex.match() arguments must be strings", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "regex", "unknown_function", "regex.match() arguments must be strings", line, column);
         return value_create_null();
     }
     
@@ -452,7 +454,7 @@ Value builtin_regex_match(Interpreter* interpreter, Value* args, size_t arg_coun
     if (match->group_count > 0) {
         Value groups = value_create_array(match->group_count);
         for (int i = 0; i < match->group_count; i++) {
-            groups.data.array_value.elements[i] = malloc(sizeof(Value));
+            groups.data.array_value.elements[i] = shared_malloc_safe(sizeof(Value), "libs", "unknown_function", 457);
             *((Value*)groups.data.array_value.elements[i]) = value_create_string(match->groups[i]);
         }
         groups.data.array_value.count = match->group_count;
@@ -465,7 +467,7 @@ Value builtin_regex_match(Interpreter* interpreter, Value* args, size_t arg_coun
 
 Value builtin_regex_test(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count < 2 || arg_count > 3) {
-        interpreter_set_error(interpreter, "regex.test() requires 2-3 arguments (pattern, text, [flags])", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "regex", "unknown_function", "regex.test() requires 2-3 arguments (pattern, text, [flags])", line, column);
         return value_create_null();
     }
     
@@ -481,7 +483,7 @@ Value builtin_regex_test(Interpreter* interpreter, Value* args, size_t arg_count
     }
     
     if (pattern_val.type != VALUE_STRING || text_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "regex.test() arguments must be strings", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "regex", "unknown_function", "regex.test() arguments must be strings", line, column);
         return value_create_null();
     }
     
@@ -491,13 +493,13 @@ Value builtin_regex_test(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_regex_is_email(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "regex.is_email() requires exactly 1 argument (text)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "regex", "unknown_function", "regex.is_email() requires exactly 1 argument (text)", line, column);
         return value_create_null();
     }
     
     Value text_val = args[0];
     if (text_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "regex.is_email() argument must be a string", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "regex", "unknown_function", "regex.is_email() argument must be a string", line, column);
         return value_create_null();
     }
     
@@ -507,13 +509,13 @@ Value builtin_regex_is_email(Interpreter* interpreter, Value* args, size_t arg_c
 
 Value builtin_regex_is_url(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "regex.is_url() requires exactly 1 argument (text)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "regex", "unknown_function", "regex.is_url() requires exactly 1 argument (text)", line, column);
         return value_create_null();
     }
     
     Value text_val = args[0];
     if (text_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "regex.is_url() argument must be a string", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "regex", "unknown_function", "regex.is_url() argument must be a string", line, column);
         return value_create_null();
     }
     
@@ -523,13 +525,13 @@ Value builtin_regex_is_url(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_regex_is_ip(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "regex.is_ip() requires exactly 1 argument (text)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "regex", "unknown_function", "regex.is_ip() requires exactly 1 argument (text)", line, column);
         return value_create_null();
     }
     
     Value text_val = args[0];
     if (text_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "regex.is_ip() argument must be a string", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "regex", "unknown_function", "regex.is_ip() argument must be a string", line, column);
         return value_create_null();
     }
     

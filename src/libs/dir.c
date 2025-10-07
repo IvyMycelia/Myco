@@ -7,19 +7,21 @@
 #include <unistd.h>
 #include "../../include/core/interpreter.h"
 #include "../../include/core/ast.h"
+#include "../../include/core/standardized_errors.h"
+#include "../../include/utils/shared_utilities.h"
 
 // Directory library functions
 
 // List directory contents
 Value builtin_dir_list(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "dir.list() requires exactly 1 argument (directory path)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "dir", "unknown_function", "dir.list() requires exactly 1 argument (directory path)", line, column);
         return value_create_null();
     }
     
     Value dirname_val = args[0];
     if (dirname_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "dir.list() argument must be a string (directory path)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "dir", "unknown_function", "dir.list() argument must be a string (directory path)", line, column);
         return value_create_null();
     }
     
@@ -53,13 +55,13 @@ Value builtin_dir_list(Interpreter* interpreter, Value* args, size_t arg_count, 
 // Create directory
 Value builtin_dir_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "dir.create() requires exactly 1 argument (directory path)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "dir", "unknown_function", "dir.create() requires exactly 1 argument (directory path)", line, column);
         return value_create_null();
     }
     
     Value dirname_val = args[0];
     if (dirname_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "dir.create() argument must be a string (directory path)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "dir", "unknown_function", "dir.create() argument must be a string (directory path)", line, column);
         return value_create_null();
     }
     
@@ -79,13 +81,13 @@ Value builtin_dir_create(Interpreter* interpreter, Value* args, size_t arg_count
 // Remove directory
 Value builtin_dir_remove(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "dir.remove() requires exactly 1 argument (directory path)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "dir", "unknown_function", "dir.remove() requires exactly 1 argument (directory path)", line, column);
         return value_create_null();
     }
     
     Value dirname_val = args[0];
     if (dirname_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "dir.remove() argument must be a string (directory path)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "dir", "unknown_function", "dir.remove() argument must be a string (directory path)", line, column);
         return value_create_null();
     }
     
@@ -105,13 +107,13 @@ Value builtin_dir_remove(Interpreter* interpreter, Value* args, size_t arg_count
 // Check if path is a directory
 Value builtin_dir_exists(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "dir.exists() requires exactly 1 argument (directory path)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "dir", "unknown_function", "dir.exists() requires exactly 1 argument (directory path)", line, column);
         return value_create_null();
     }
     
     Value dirname_val = args[0];
     if (dirname_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "dir.exists() argument must be a string (directory path)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "dir", "unknown_function", "dir.exists() argument must be a string (directory path)", line, column);
         return value_create_null();
     }
     
@@ -140,20 +142,20 @@ Value builtin_dir_current(Interpreter* interpreter, Value* args, size_t arg_coun
     }
     
     Value result = value_create_string(cwd);
-    free(cwd);
+    shared_free_safe(cwd, "libs", "unknown_function", 145);
     return result;
 }
 
 // Change directory
 Value builtin_dir_change(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "dir.change() requires exactly 1 argument (directory path)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "dir", "unknown_function", "dir.change() requires exactly 1 argument (directory path)", line, column);
         return value_create_null();
     }
     
     Value dirname_val = args[0];
     if (dirname_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "dir.change() argument must be a string (directory path)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "dir", "unknown_function", "dir.change() argument must be a string (directory path)", line, column);
         return value_create_null();
     }
     
@@ -173,13 +175,13 @@ Value builtin_dir_change(Interpreter* interpreter, Value* args, size_t arg_count
 // Get file/directory information
 Value builtin_dir_info(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "dir.info() requires exactly 1 argument (path)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "dir", "unknown_function", "dir.info() requires exactly 1 argument (path)", line, column);
         return value_create_null();
     }
     
     Value path_val = args[0];
     if (path_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "dir.info() argument must be a string (path)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "dir", "unknown_function", "dir.info() argument must be a string (path)", line, column);
         return value_create_null();
     }
     

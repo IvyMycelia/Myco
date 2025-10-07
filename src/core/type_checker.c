@@ -73,6 +73,16 @@ MycoType* type_create(MycoTypeKind kind, int line, int column) {
         case TYPE_OPTIONAL:
             type->data.optional_type = NULL;
             break;
+        case TYPE_GENERIC:
+            type->data.generic_type.parameter_names = NULL;
+            type->data.generic_type.parameter_count = 0;
+            type->data.generic_type.constraints = NULL;
+            type->data.generic_type.base_type = NULL;
+            break;
+        case TYPE_GENERIC_PARAMETER:
+            type->data.generic_parameter.parameter_name = NULL;
+            type->data.generic_parameter.constraint = NULL;
+            break;
         default:
             break;
     }
@@ -191,6 +201,28 @@ void type_free(MycoType* type) {
             break;
         case TYPE_OPTIONAL:
             type_free(type->data.optional_type);
+            break;
+        case TYPE_GENERIC:
+            // Free parameter names
+            if (type->data.generic_type.parameter_names) {
+                for (size_t i = 0; i < type->data.generic_type.parameter_count; i++) {
+                    shared_free_safe(type->data.generic_type.parameter_names[i], "core", "unknown_function", 204);
+                }
+                shared_free_safe(type->data.generic_type.parameter_names, "core", "unknown_function", 205);
+            }
+            // Free constraints
+            if (type->data.generic_type.constraints) {
+                for (size_t i = 0; i < type->data.generic_type.parameter_count; i++) {
+                    type_free(type->data.generic_type.constraints[i]);
+                }
+                shared_free_safe(type->data.generic_type.constraints, "core", "unknown_function", 210);
+            }
+            // Free base type
+            type_free(type->data.generic_type.base_type);
+            break;
+        case TYPE_GENERIC_PARAMETER:
+            shared_free_safe(type->data.generic_parameter.parameter_name, "core", "unknown_function", 214);
+            type_free(type->data.generic_parameter.constraint);
             break;
         default:
             break;
@@ -681,6 +713,33 @@ int type_is_equal(MycoType* type1, MycoType* type2) {
         case TYPE_OPTIONAL:
             return type_is_equal(type1->data.optional_type, type2->data.optional_type);
             
+        case TYPE_GENERIC:
+            if (type1->data.generic_type.parameter_count != type2->data.generic_type.parameter_count) {
+                return 0;
+            }
+            // Check parameter names
+            for (size_t i = 0; i < type1->data.generic_type.parameter_count; i++) {
+                if (strcmp(type1->data.generic_type.parameter_names[i], 
+                         type2->data.generic_type.parameter_names[i]) != 0) {
+                    return 0;
+                }
+            }
+            // Check constraints
+            for (size_t i = 0; i < type1->data.generic_type.parameter_count; i++) {
+                if (!type_is_equal(type1->data.generic_type.constraints[i], 
+                                  type2->data.generic_type.constraints[i])) {
+                    return 0;
+                }
+            }
+            // Check base type
+            return type_is_equal(type1->data.generic_type.base_type, type2->data.generic_type.base_type);
+            
+        case TYPE_GENERIC_PARAMETER:
+            return strcmp(type1->data.generic_parameter.parameter_name, 
+                         type2->data.generic_parameter.parameter_name) == 0 &&
+                   type_is_equal(type1->data.generic_parameter.constraint, 
+                                type2->data.generic_parameter.constraint);
+            
         default:
             return 0;
     }
@@ -734,6 +793,8 @@ const char* type_kind_to_string(MycoTypeKind kind) {
         case TYPE_CLASS: return "Class";
         case TYPE_UNION: return "Union";
         case TYPE_OPTIONAL: return "Optional";
+        case TYPE_GENERIC: return "Generic";
+        case TYPE_GENERIC_PARAMETER: return "GenericParameter";
         case TYPE_ANY: return "Any";
         case TYPE_UNKNOWN: return "Unknown";
         case TYPE_ERROR: return "Error";
@@ -790,6 +851,21 @@ const char* type_to_string(MycoType* type) {
             break;
         case TYPE_OPTIONAL:
             snprintf(buffer, sizeof(buffer), "%s?", type_to_string(type->data.optional_type));
+            break;
+        case TYPE_GENERIC:
+            {
+                char generic_str[512] = {0};
+                strcat(generic_str, "<");
+                for (size_t i = 0; i < type->data.generic_type.parameter_count; i++) {
+                    if (i > 0) strcat(generic_str, ", ");
+                    strcat(generic_str, type->data.generic_type.parameter_names[i]);
+                }
+                strcat(generic_str, ">");
+                snprintf(buffer, sizeof(buffer), "Generic%s", generic_str);
+            }
+            break;
+        case TYPE_GENERIC_PARAMETER:
+            snprintf(buffer, sizeof(buffer), "%s", type->data.generic_parameter.parameter_name);
             break;
         default:
             snprintf(buffer, sizeof(buffer), "%s", type_kind_to_string(type->kind));
@@ -1208,4 +1284,132 @@ MycoType* type_infer_member_access(TypeCheckerContext* context, ASTNode* node) {
     // For other member access, return TYPE_ANY for better inference
     type_free(object_type);
     return type_create(TYPE_ANY, node->line, node->column);
+}
+
+// Generic type support functions
+
+/**
+ * @brief Create a generic type with type parameters
+ */
+MycoType* type_create_generic(const char** parameter_names, size_t parameter_count,
+                              MycoType** constraints, MycoType* base_type, int line, int column) {
+    MycoType* type = type_create(TYPE_GENERIC, line, column);
+    if (!type) return NULL;
+    
+    type->data.generic_type.parameter_count = parameter_count;
+    type->data.generic_type.base_type = base_type;
+    
+    if (parameter_count > 0) {
+        // Allocate parameter names
+        type->data.generic_type.parameter_names = shared_malloc_safe(parameter_count * sizeof(char*), "type_checker", "unknown_function", 1225);
+        if (!type->data.generic_type.parameter_names) {
+            type_free(type);
+            return NULL;
+        }
+        
+        // Copy parameter names
+        for (size_t i = 0; i < parameter_count; i++) {
+            type->data.generic_type.parameter_names[i] = strdup(parameter_names[i]);
+        }
+        
+        // Allocate constraints if provided
+        if (constraints) {
+            type->data.generic_type.constraints = shared_malloc_safe(parameter_count * sizeof(MycoType*), "type_checker", "unknown_function", 1235);
+            if (!type->data.generic_type.constraints) {
+                type_free(type);
+                return NULL;
+            }
+            
+            // Copy constraints
+            for (size_t i = 0; i < parameter_count; i++) {
+                type->data.generic_type.constraints[i] = constraints[i] ? type_clone(constraints[i]) : NULL;
+            }
+        } else {
+            type->data.generic_type.constraints = NULL;
+        }
+    } else {
+        type->data.generic_type.parameter_names = NULL;
+        type->data.generic_type.constraints = NULL;
+    }
+    
+    return type;
+}
+
+/**
+ * @brief Create a generic parameter type
+ */
+MycoType* type_create_generic_parameter(const char* parameter_name, MycoType* constraint, int line, int column) {
+    MycoType* type = type_create(TYPE_GENERIC_PARAMETER, line, column);
+    if (!type) return NULL;
+    
+    type->data.generic_parameter.parameter_name = strdup(parameter_name);
+    type->data.generic_parameter.constraint = constraint ? type_clone(constraint) : NULL;
+    
+    return type;
+}
+
+/**
+ * @brief Instantiate a generic type with concrete type arguments
+ */
+MycoType* type_instantiate_generic(MycoType* generic_type, MycoType** type_arguments, int line, int column) {
+    if (!generic_type || generic_type->kind != TYPE_GENERIC) return NULL;
+    
+    // Create a copy of the base type
+    MycoType* instantiated = type_clone(generic_type->data.generic_type.base_type);
+    if (!instantiated) return NULL;
+    
+    // Replace generic parameters with concrete types
+    // This is a simplified implementation - in a full implementation,
+    // you would need to traverse the type tree and replace all generic parameters
+    return instantiated;
+}
+
+/**
+ * @brief Check if a type satisfies generic constraints
+ */
+int type_satisfies_constraints(MycoType* type, MycoType* constraint) {
+    if (!type || !constraint) return 0;
+    
+    // If constraint is TYPE_ANY, any type satisfies it
+    if (constraint->kind == TYPE_ANY) return 1;
+    
+    // Check compatibility
+    return type_is_compatible(constraint, type);
+}
+
+/**
+ * @brief Find common type between two types (for generic inference)
+ */
+MycoType* type_find_common_type(MycoType* type1, MycoType* type2) {
+    if (!type1 || !type2) return NULL;
+    
+    // If types are equal, return a copy
+    if (type_is_equal(type1, type2)) {
+        return type_clone(type1);
+    }
+    
+    // If one is TYPE_ANY, return the other
+    if (type1->kind == TYPE_ANY) {
+        return type_clone(type2);
+    }
+    if (type2->kind == TYPE_ANY) {
+        return type_clone(type1);
+    }
+    
+    // For numeric types, promote to float
+    if ((type1->kind == TYPE_INT || type1->kind == TYPE_FLOAT) &&
+        (type2->kind == TYPE_INT || type2->kind == TYPE_FLOAT)) {
+        return type_create(TYPE_FLOAT, type1->line, type1->column);
+    }
+    
+    // For arrays, try to find common element type
+    if (type1->kind == TYPE_ARRAY && type2->kind == TYPE_ARRAY) {
+        MycoType* common_element = type_find_common_type(type1->data.element_type, type2->data.element_type);
+        if (common_element) {
+            return type_create_array(common_element, type1->line, type1->column);
+        }
+    }
+    
+    // If no common type found, return TYPE_ANY
+    return type_create(TYPE_ANY, type1->line, type1->column);
 }

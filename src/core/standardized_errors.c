@@ -36,17 +36,17 @@ typedef struct {
 
 static const ErrorInfo error_database[] = {
     // Lexical errors
-    {ERROR_UNKNOWN_TOKEN, "Unknown token encountered", "Check for typos or unsupported characters", ERROR_SEVERITY_ERROR, "Lexical"},
-    {ERROR_UNTERMINATED_STRING, "Unterminated string literal", "Add closing quote to string", ERROR_SEVERITY_ERROR, "Lexical"},
-    {ERROR_UNTERMINATED_COMMENT, "Unterminated comment", "Add comment closing marker", ERROR_SEVERITY_ERROR, "Lexical"},
-    {ERROR_INVALID_NUMBER, "Invalid number format", "Check number syntax and format", ERROR_SEVERITY_ERROR, "Lexical"},
-    {ERROR_INVALID_ESCAPE, "Invalid escape sequence", "Use valid escape sequences (\\n, \\t, etc.)", ERROR_SEVERITY_ERROR, "Lexical"},
-    {ERROR_INVALID_CHARACTER, "Invalid character", "Use valid characters for the language", ERROR_SEVERITY_ERROR, "Lexical"},
+    {ERROR_UNKNOWN_TOKEN, "Unknown token encountered", "Check for typos or unsupported characters. Common issues: missing quotes, invalid operators, or special characters", ERROR_SEVERITY_ERROR, "Lexical"},
+    {ERROR_UNTERMINATED_STRING, "Unterminated string literal", "Add closing quote to string. Make sure to escape quotes inside strings with \\\"", ERROR_SEVERITY_ERROR, "Lexical"},
+    {ERROR_UNTERMINATED_COMMENT, "Unterminated comment", "Add comment closing marker (/* */) or use single-line comments (//)", ERROR_SEVERITY_ERROR, "Lexical"},
+    {ERROR_INVALID_NUMBER, "Invalid number format", "Check number syntax and format. Use decimal notation (3.14) or scientific notation (1e5)", ERROR_SEVERITY_ERROR, "Lexical"},
+    {ERROR_INVALID_ESCAPE, "Invalid escape sequence", "Use valid escape sequences: \\n (newline), \\t (tab), \\r (carriage return), \\\\ (backslash), \\\" (quote)", ERROR_SEVERITY_ERROR, "Lexical"},
+    {ERROR_INVALID_CHARACTER, "Invalid character", "Use valid characters for the language. Check for non-ASCII characters or special symbols", ERROR_SEVERITY_ERROR, "Lexical"},
     
     // Syntax errors
-    {ERROR_UNEXPECTED_TOKEN, "Unexpected token", "Check syntax and token placement", ERROR_SEVERITY_ERROR, "Syntax"},
-    {ERROR_MISSING_SEMICOLON, "Missing semicolon", "Add semicolon at end of statement", ERROR_SEVERITY_ERROR, "Syntax"},
-    {ERROR_MISSING_PARENTHESIS, "Missing parenthesis", "Add matching opening/closing parenthesis", ERROR_SEVERITY_ERROR, "Syntax"},
+    {ERROR_UNEXPECTED_TOKEN, "Unexpected token", "Check syntax and token placement. Common issues: missing operators, incorrect punctuation, or incomplete expressions", ERROR_SEVERITY_ERROR, "Syntax"},
+    {ERROR_MISSING_SEMICOLON, "Missing semicolon", "Add semicolon (;) at end of statement. All statements must end with a semicolon", ERROR_SEVERITY_ERROR, "Syntax"},
+    {ERROR_MISSING_PARENTHESIS, "Missing parenthesis", "Add matching opening/closing parenthesis. Check function calls, expressions, and control structures", ERROR_SEVERITY_ERROR, "Syntax"},
     {ERROR_MISSING_BRACE, "Missing brace", "Add matching opening/closing brace", ERROR_SEVERITY_ERROR, "Syntax"},
     {ERROR_MISSING_BRACKET, "Missing bracket", "Add matching opening/closing bracket", ERROR_SEVERITY_ERROR, "Syntax"},
     {ERROR_INVALID_EXPRESSION, "Invalid expression", "Check expression syntax and operators", ERROR_SEVERITY_ERROR, "Syntax"},
@@ -232,6 +232,91 @@ void std_error_report_with_suggestion(int error_code, const char* component, con
     // Print suggestion
     if (suggestion) {
         fprintf(stderr, "  Hint: %s\n", suggestion);
+    }
+}
+
+// Enhanced error reporting with better formatting and context
+void std_error_report_enhanced(int error_code, const char* component, const char* function,
+                              const char* message, const char* file, int line, int column,
+                              const char* source_line, const char* variable_context) {
+    // Check component filter
+    if (component_filter && component && strcmp(component_filter, component) != 0) {
+        return;
+    }
+    
+    const ErrorInfo* info = find_error_info(error_code);
+    ErrorSeverity severity = info ? info->severity : ERROR_SEVERITY_ERROR;
+    const char* suggestion = info ? info->suggestion : NULL;
+    
+    // Get enhanced color codes
+    const char* severity_color = get_severity_color(severity);
+    const char* reset_color = colors_enabled ? ANSI_COLOR_RESET : "";
+    const char* dim_color = colors_enabled ? "\x1b[2m" : "";
+    const char* bold_color = colors_enabled ? "\x1b[1m" : "";
+    const char* underline_color = colors_enabled ? "\x1b[4m" : "";
+    
+    // Print enhanced error header
+    fprintf(stderr, "%s[%s]%s ", severity_color, get_severity_name(severity), reset_color);
+    
+    // Print error code and component with enhanced formatting
+    fprintf(stderr, "%sE%d%s [%s%s%s::%s%s%s]", 
+            dim_color, error_code, reset_color,
+            bold_color, component ? component : "unknown", reset_color,
+            dim_color, function ? function : "unknown", reset_color);
+    
+    // Print enhanced location information
+    if (file) {
+        fprintf(stderr, " %sin%s %s%s%s", dim_color, reset_color, bold_color, file, reset_color);
+    }
+    if (line > 0) {
+        fprintf(stderr, "%s:%s%d", dim_color, reset_color, line);
+        if (column > 0) {
+            fprintf(stderr, "%s:%s%d", dim_color, reset_color, column);
+        }
+    }
+    fprintf(stderr, "%s: ", reset_color);
+    
+    // Print error message with enhanced formatting
+    if (message) {
+        fprintf(stderr, "%s", message);
+    } else if (info && info->message) {
+        fprintf(stderr, "%s", info->message);
+    } else {
+        fprintf(stderr, "Unknown error");
+    }
+    
+    fprintf(stderr, "\n");
+    
+    // Print source code snippet if available
+    if (source_line && line > 0) {
+        fprintf(stderr, "  %s┌─ Source:%s\n", dim_color, reset_color);
+        fprintf(stderr, "  %s│%s %s", dim_color, reset_color, source_line);
+        if (column > 0) {
+            fprintf(stderr, "\n  %s│%s %*s%s^%s", dim_color, reset_color, column - 1, "", underline_color, reset_color);
+        }
+        fprintf(stderr, "\n  %s└─%s\n", dim_color, reset_color);
+    }
+    
+    // Print variable context if available
+    if (variable_context) {
+        fprintf(stderr, "  %s🔍 Context:%s %s\n", dim_color, reset_color, variable_context);
+    }
+    
+    // Print enhanced suggestion with better formatting
+    if (suggestion) {
+        fprintf(stderr, "  %s💡 Hint:%s %s\n", severity_color, reset_color, suggestion);
+    }
+    
+    // Print error category if available
+    if (info && info->category) {
+        fprintf(stderr, "  %s📁 Category:%s %s\n", dim_color, reset_color, info->category);
+    }
+    
+    // Print related error suggestions
+    if (info && info->code >= 2000 && info->code < 3000) {
+        fprintf(stderr, "  %s🔗 Related:%s Check syntax documentation for similar constructs\n", dim_color, reset_color);
+    } else if (info && info->code >= 3000 && info->code < 4000) {
+        fprintf(stderr, "  %s🔗 Related:%s Check variable declarations and type annotations\n", dim_color, reset_color);
     }
 }
 

@@ -15,6 +15,7 @@ static int repl_execute_input(REPLState* state, const char* input);
 
 // Signal handler for graceful exit
 static void repl_signal_handler(int sig) {
+    (void)sig; // Suppress unused parameter warning
     if (g_repl_state) {
         printf("\n");
         repl_free(g_repl_state);
@@ -388,6 +389,26 @@ int repl_handle_command(REPLState* state, const char* command) {
         error_print_last();
     } else if (strcmp(cmd, "vars") == 0) {
         repl_show_variables(state);
+    } else if (strcmp(cmd, "types") == 0) {
+        repl_show_variable_types(state);
+    } else if (strcmp(cmd, "memory") == 0) {
+        repl_show_memory_usage(state);
+    } else if (strcmp(cmd, "trace") == 0) {
+        repl_show_call_trace(state);
+    } else if (strncmp(cmd, "inspect ", 8) == 0) {
+        repl_inspect_variable(state, cmd + 8);
+    } else if (strcmp(cmd, "breakpoints") == 0) {
+        repl_show_breakpoints(state);
+    } else if (strncmp(cmd, "break ", 6) == 0) {
+        repl_set_breakpoint(state, cmd + 6);
+    } else if (strncmp(cmd, "unbreak ", 8) == 0) {
+        repl_remove_breakpoint(state, cmd + 8);
+    } else if (strcmp(cmd, "step") == 0) {
+        repl_step_execution(state);
+    } else if (strcmp(cmd, "continue") == 0) {
+        repl_continue_execution(state);
+    } else if (strcmp(cmd, "profile") == 0) {
+        repl_show_performance_profile(state);
     } else {
         printf("Unknown command: %s\n", cmd);
         printf("Type :help for available commands.\n");
@@ -405,11 +426,21 @@ void repl_show_help(void) {
     printf("  :clear             Clear all variables\n");
     printf("  :reset             Reset REPL state\n");
     printf("  :vars              Show all variables\n");
+    printf("  :types             Show variable types with details\n");
+    printf("  :memory            Show memory usage statistics\n");
+    printf("  :trace             Show call trace information\n");
+    printf("  :inspect <var>     Inspect a specific variable in detail\n");
     printf("  :load <file>       Load and execute a Myco file\n");
     printf("  :debug <mode>      Set debug mode (--ast, --lexer, --parser, --all, --off)\n");
     printf("  :colors on|off     Enable/disable colored error output\n");
     printf("  :stack on|off      Enable/disable stack traces in errors\n");
     printf("  :errors            Print last error with full context/stack\n");
+    printf("  :breakpoints       Show breakpoints (future)\n");
+    printf("  :break <loc>       Set breakpoint (future)\n");
+    printf("  :unbreak <loc>     Remove breakpoint (future)\n");
+    printf("  :step              Step execution (future)\n");
+    printf("  :continue          Continue execution (future)\n");
+    printf("  :profile           Show performance profile\n");
     printf("  exit, quit         Exit the REPL\n");
     printf("\n");
     printf("Multi-line input:\n");
@@ -418,6 +449,9 @@ void repl_show_help(void) {
     printf("\n");
     printf("Examples:\n");
     printf("  let x = 42;\n");
+    printf("  :types             # Show all variable types\n");
+    printf("  :inspect x         # Inspect variable x\n");
+    printf("  :memory            # Show memory usage\n");
     printf("  func add(a, b):\n");
     printf("  ...   return a + b;\n");
     printf("  ... end\n");
@@ -873,4 +907,312 @@ void repl_print_debug_parser(REPLState* state, Parser* parser) {
         printf("  Error: %s\n", parser->error_message);
     }
     printf("\n");
+}
+
+// Enhanced debugging functions
+
+/**
+ * @brief Show variable types with detailed information
+ */
+void repl_show_variable_types(REPLState* state) {
+    if (!state || !state->interpreter) {
+        printf("No interpreter available.\n");
+        return;
+    }
+    
+    Environment* env = state->interpreter->global_environment;
+    if (!env || env->count == 0) {
+        printf("No variables defined.\n");
+        return;
+    }
+    
+    printf("Variable Types:\n");
+    printf("┌─────────────┬─────────────┬─────────────────────────────────────┐\n");
+    printf("│ Name        │ Type        │ Value                               │\n");
+    printf("├─────────────┼─────────────┼─────────────────────────────────────┤\n");
+    
+    for (size_t i = 0; i < env->count; i++) {
+        const char* name = env->names[i];
+        Value* value = &env->values[i];
+        
+        // Get type name
+        const char* type_name = "Unknown";
+        switch (value->type) {
+            case VALUE_NUMBER:
+                type_name = "Number";
+                break;
+            case VALUE_STRING:
+                type_name = "String";
+                break;
+            case VALUE_BOOLEAN:
+                type_name = "Boolean";
+                break;
+            case VALUE_ARRAY:
+                type_name = "Array";
+                break;
+            case VALUE_OBJECT:
+                type_name = "Object";
+                break;
+            case VALUE_FUNCTION:
+                type_name = "Function";
+                break;
+            case VALUE_NULL:
+                type_name = "Null";
+                break;
+            default:
+                type_name = "Unknown";
+                break;
+        }
+        
+        // Get value preview
+        char value_preview[32] = {0};
+        switch (value->type) {
+            case VALUE_NUMBER:
+                snprintf(value_preview, sizeof(value_preview), "%.2f", value->data.number_value);
+                break;
+            case VALUE_STRING:
+                snprintf(value_preview, sizeof(value_preview), "\"%s\"", 
+                        value->data.string_value ? value->data.string_value : "NULL");
+                break;
+            case VALUE_BOOLEAN:
+                snprintf(value_preview, sizeof(value_preview), "%s", 
+                        value->data.boolean_value ? "true" : "false");
+                break;
+            case VALUE_ARRAY:
+                snprintf(value_preview, sizeof(value_preview), "[%zu items]", 
+                        value->data.array_value.count);
+                break;
+            case VALUE_OBJECT:
+                snprintf(value_preview, sizeof(value_preview), "{object}");
+                break;
+            case VALUE_FUNCTION:
+                snprintf(value_preview, sizeof(value_preview), "{function}");
+                break;
+            case VALUE_NULL:
+                snprintf(value_preview, sizeof(value_preview), "null");
+                break;
+            default:
+                snprintf(value_preview, sizeof(value_preview), "unknown");
+                break;
+        }
+        
+        printf("│ %-11s │ %-11s │ %-35s │\n", name, type_name, value_preview);
+    }
+    
+    printf("└─────────────┴─────────────┴─────────────────────────────────────┘\n");
+}
+
+/**
+ * @brief Show memory usage statistics
+ */
+void repl_show_memory_usage(REPLState* state) {
+    if (!state || !state->interpreter) {
+        printf("No interpreter available.\n");
+        return;
+    }
+    
+    printf("Memory Usage:\n");
+    printf("┌─────────────────────┬─────────────────────┐\n");
+    printf("│ Metric              │ Value               │\n");
+    printf("├─────────────────────┼─────────────────────┤\n");
+    
+    // Get basic memory stats
+    size_t total_variables = 0;
+    size_t total_strings = 0;
+    size_t total_arrays = 0;
+    
+    Environment* env = state->interpreter->global_environment;
+    if (env) {
+        total_variables = env->count;
+        for (size_t i = 0; i < env->count; i++) {
+            Value* value = &env->values[i];
+            if (value->type == VALUE_STRING && value->data.string_value) {
+                total_strings++;
+            } else if (value->type == VALUE_ARRAY) {
+                total_arrays++;
+            }
+        }
+    }
+    
+    printf("│ Variables           │ %-19zu │\n", total_variables);
+    printf("│ String Objects      │ %-19zu │\n", total_strings);
+    printf("│ Array Objects       │ %-19zu │\n", total_arrays);
+    printf("│ Call Stack Depth    │ %-19d │\n", state->interpreter->stack_depth);
+    printf("│ Max Stack Depth     │ %-19d │\n", state->interpreter->max_stack_depth);
+    printf("└─────────────────────┴─────────────────────┘\n");
+}
+
+/**
+ * @brief Show call trace information
+ */
+void repl_show_call_trace(REPLState* state) {
+    if (!state || !state->interpreter) {
+        printf("No interpreter available.\n");
+        return;
+    }
+    
+    printf("Call Trace:\n");
+    if (state->interpreter->call_stack) {
+        CallFrame* frame = state->interpreter->call_stack;
+        int frame_num = 0;
+        while (frame) {
+            printf("  #%d %s in %s at line %d\n", 
+                   frame_num,
+                   frame->function_name ? frame->function_name : "unknown",
+                   frame->file_name ? frame->file_name : "unknown",
+                   frame->line);
+            frame = frame->next;
+            frame_num++;
+        }
+    } else {
+        printf("  No active call stack.\n");
+    }
+}
+
+/**
+ * @brief Inspect a specific variable in detail
+ */
+void repl_inspect_variable(REPLState* state, const char* var_name) {
+    if (!state || !state->interpreter || !var_name) {
+        printf("Invalid parameters.\n");
+        return;
+    }
+    
+    Environment* env = state->interpreter->global_environment;
+    if (!env) {
+        printf("No environment available.\n");
+        return;
+    }
+    
+    // Find the variable
+    Value* value = NULL;
+    for (size_t i = 0; i < env->count; i++) {
+        if (strcmp(env->names[i], var_name) == 0) {
+            value = &env->values[i];
+            break;
+        }
+    }
+    
+    if (!value) {
+        printf("Variable '%s' not found.\n", var_name);
+        return;
+    }
+    
+    printf("Variable Inspection: %s\n", var_name);
+    printf("┌─────────────────────┬─────────────────────────────────────────┐\n");
+    printf("│ Property            │ Value                                   │\n");
+    printf("├─────────────────────┼─────────────────────────────────────────┤\n");
+    
+    // Type information
+    const char* type_name = "Unknown";
+    switch (value->type) {
+        case VALUE_NUMBER: type_name = "Number"; break;
+        case VALUE_STRING: type_name = "String"; break;
+        case VALUE_BOOLEAN: type_name = "Boolean"; break;
+        case VALUE_ARRAY: type_name = "Array"; break;
+        case VALUE_OBJECT: type_name = "Object"; break;
+        case VALUE_FUNCTION: type_name = "Function"; break;
+        case VALUE_NULL: type_name = "Null"; break;
+        default: type_name = "Unknown"; break;
+    }
+    
+    printf("│ Type                │ %-39s │\n", type_name);
+    
+    // Value information
+    char value_str[64] = {0};
+    switch (value->type) {
+        case VALUE_NUMBER:
+            snprintf(value_str, sizeof(value_str), "%.15g", value->data.number_value);
+            break;
+        case VALUE_STRING:
+            snprintf(value_str, sizeof(value_str), "\"%s\"", 
+                    value->data.string_value ? value->data.string_value : "NULL");
+            break;
+        case VALUE_BOOLEAN:
+            snprintf(value_str, sizeof(value_str), "%s", 
+                    value->data.boolean_value ? "true" : "false");
+            break;
+        case VALUE_ARRAY:
+            snprintf(value_str, sizeof(value_str), "[%zu items]", 
+                    value->data.array_value.count);
+            break;
+        case VALUE_OBJECT:
+            snprintf(value_str, sizeof(value_str), "{object}");
+            break;
+        case VALUE_FUNCTION:
+            snprintf(value_str, sizeof(value_str), "{function}");
+            break;
+        case VALUE_NULL:
+            snprintf(value_str, sizeof(value_str), "null");
+            break;
+        default:
+            snprintf(value_str, sizeof(value_str), "unknown");
+            break;
+    }
+    
+    printf("│ Value               │ %-39s │\n", value_str);
+    printf("└─────────────────────┴─────────────────────────────────────────┘\n");
+}
+
+/**
+ * @brief Show breakpoints (placeholder for future implementation)
+ */
+void repl_show_breakpoints(REPLState* state) {
+    (void)state; // Suppress unused parameter warning
+    printf("Breakpoints: (Not yet implemented)\n");
+    printf("  No breakpoints set.\n");
+}
+
+/**
+ * @brief Set a breakpoint (placeholder for future implementation)
+ */
+void repl_set_breakpoint(REPLState* state, const char* location) {
+    (void)state; // Suppress unused parameter warning
+    printf("Breakpoint at '%s': (Not yet implemented)\n", location);
+}
+
+/**
+ * @brief Remove a breakpoint (placeholder for future implementation)
+ */
+void repl_remove_breakpoint(REPLState* state, const char* location) {
+    (void)state; // Suppress unused parameter warning
+    printf("Remove breakpoint at '%s': (Not yet implemented)\n", location);
+}
+
+/**
+ * @brief Step execution (placeholder for future implementation)
+ */
+void repl_step_execution(REPLState* state) {
+    (void)state; // Suppress unused parameter warning
+    printf("Step execution: (Not yet implemented)\n");
+}
+
+/**
+ * @brief Continue execution (placeholder for future implementation)
+ */
+void repl_continue_execution(REPLState* state) {
+    (void)state; // Suppress unused parameter warning
+    printf("Continue execution: (Not yet implemented)\n");
+}
+
+/**
+ * @brief Show performance profile
+ */
+void repl_show_performance_profile(REPLState* state) {
+    if (!state || !state->interpreter) {
+        printf("No interpreter available.\n");
+        return;
+    }
+    
+    printf("Performance Profile:\n");
+    printf("┌─────────────────────┬─────────────────────┐\n");
+    printf("│ Metric              │ Value               │\n");
+    printf("├─────────────────────┼─────────────────────┤\n");
+    printf("│ Execution Time      │ %-19s │\n", "N/A");
+    printf("│ Memory Allocations  │ %-19s │\n", "N/A");
+    printf("│ Function Calls      │ %-19s │\n", "N/A");
+    printf("│ Parse Time          │ %-19s │\n", "N/A");
+    printf("│ Lex Time            │ %-19s │\n", "N/A");
+    printf("└─────────────────────┴─────────────────────┘\n");
+    printf("Note: Performance profiling not yet implemented.\n");
 }

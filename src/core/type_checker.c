@@ -467,22 +467,43 @@ MycoType* type_infer_function_call(TypeCheckerContext* context, ASTNode* node) {
         if (dot_pos) {
             const char* method_name = dot_pos + 1;
             
-            // For common method names, return appropriate types
-            if (strcmp(method_name, "speak") == 0) {
+            // Enhanced method type inference
+            if (strcmp(method_name, "speak") == 0 || strcmp(method_name, "name") == 0 || 
+                strcmp(method_name, "type") == 0 || strcmp(method_name, "toString") == 0) {
                 return type_create(TYPE_STRING, node->line, node->column);
-            } else if (strcmp(method_name, "name") == 0) {
-                return type_create(TYPE_STRING, node->line, node->column);
-            } else if (strcmp(method_name, "age") == 0) {
+            } else if (strcmp(method_name, "age") == 0 || strcmp(method_name, "length") == 0 ||
+                       strcmp(method_name, "size") == 0 || strcmp(method_name, "count") == 0) {
                 return type_create(TYPE_INT, node->line, node->column);
-            } else if (strcmp(method_name, "active") == 0) {
+            } else if (strcmp(method_name, "active") == 0 || strcmp(method_name, "enabled") == 0 ||
+                       strcmp(method_name, "valid") == 0 || strcmp(method_name, "empty") == 0) {
                 return type_create(TYPE_BOOL, node->line, node->column);
-            } else if (strcmp(method_name, "type") == 0) {
+            } else if (strcmp(method_name, "join") == 0 || strcmp(method_name, "concat") == 0 ||
+                       strcmp(method_name, "toString") == 0) {
                 return type_create(TYPE_STRING, node->line, node->column);
-            } else if (strcmp(method_name, "toString") == 0) {
-                return type_create(TYPE_STRING, node->line, node->column);
-            } else if (strcmp(method_name, "length") == 0) {
-                return type_create(TYPE_INT, node->line, node->column);
+            } else if (strcmp(method_name, "push") == 0 || strcmp(method_name, "pop") == 0 ||
+                       strcmp(method_name, "shift") == 0 || strcmp(method_name, "unshift") == 0) {
+                // Array methods that return the element type
+                return type_create(TYPE_ANY, node->line, node->column);
+            } else if (strcmp(method_name, "slice") == 0 || strcmp(method_name, "filter") == 0 ||
+                       strcmp(method_name, "map") == 0 || strcmp(method_name, "unique") == 0) {
+                // Array methods that return arrays
+                return type_create_array(NULL, node->line, node->column);
             }
+        }
+        
+        // Built-in function type inference
+        if (strcmp(func_name, "print") == 0 || strcmp(func_name, "println") == 0) {
+            return type_create(TYPE_NULL, node->line, node->column);
+        } else if (strcmp(func_name, "len") == 0 || strcmp(func_name, "length") == 0) {
+            return type_create(TYPE_INT, node->line, node->column);
+        } else if (strcmp(func_name, "str") == 0 || strcmp(func_name, "string") == 0) {
+            return type_create(TYPE_STRING, node->line, node->column);
+        } else if (strcmp(func_name, "int") == 0) {
+            return type_create(TYPE_INT, node->line, node->column);
+        } else if (strcmp(func_name, "float") == 0) {
+            return type_create(TYPE_FLOAT, node->line, node->column);
+        } else if (strcmp(func_name, "bool") == 0) {
+            return type_create(TYPE_BOOL, node->line, node->column);
         }
     }
     
@@ -492,28 +513,31 @@ MycoType* type_infer_function_call(TypeCheckerContext* context, ASTNode* node) {
         if (node->data.function_call_expr.function->type == AST_NODE_MEMBER_ACCESS) {
             const char* member_name = node->data.function_call_expr.function->data.member_access.member_name;
             
-            // For common method names, return appropriate types
-            if (strcmp(member_name, "speak") == 0) {
+            // Enhanced method type inference for member access
+            if (strcmp(member_name, "speak") == 0 || strcmp(member_name, "name") == 0 || 
+                strcmp(member_name, "type") == 0 || strcmp(member_name, "toString") == 0) {
                 return type_create(TYPE_STRING, node->line, node->column);
-            } else if (strcmp(member_name, "name") == 0) {
-                return type_create(TYPE_STRING, node->line, node->column);
-            } else if (strcmp(member_name, "age") == 0) {
+            } else if (strcmp(member_name, "age") == 0 || strcmp(member_name, "length") == 0 ||
+                       strcmp(member_name, "size") == 0 || strcmp(member_name, "count") == 0) {
                 return type_create(TYPE_INT, node->line, node->column);
-            } else if (strcmp(member_name, "active") == 0) {
+            } else if (strcmp(member_name, "active") == 0 || strcmp(member_name, "enabled") == 0 ||
+                       strcmp(member_name, "valid") == 0 || strcmp(member_name, "empty") == 0) {
                 return type_create(TYPE_BOOL, node->line, node->column);
-            } else if (strcmp(member_name, "type") == 0) {
+            } else if (strcmp(member_name, "join") == 0 || strcmp(member_name, "concat") == 0) {
                 return type_create(TYPE_STRING, node->line, node->column);
-            } else if (strcmp(member_name, "toString") == 0) {
-                return type_create(TYPE_STRING, node->line, node->column);
-            } else if (strcmp(member_name, "length") == 0) {
-                return type_create(TYPE_INT, node->line, node->column);
+            } else if (strcmp(member_name, "push") == 0 || strcmp(member_name, "pop") == 0 ||
+                       strcmp(member_name, "shift") == 0 || strcmp(member_name, "unshift") == 0) {
+                return type_create(TYPE_ANY, node->line, node->column);
+            } else if (strcmp(member_name, "slice") == 0 || strcmp(member_name, "filter") == 0 ||
+                       strcmp(member_name, "map") == 0 || strcmp(member_name, "unique") == 0) {
+                return type_create_array(NULL, node->line, node->column);
             }
         }
     }
     
-    // For other function calls, return TYPE_UNKNOWN for now
-    // This would need to be expanded to look up function signatures
-    return type_create(TYPE_UNKNOWN, node->line, node->column);
+    // For other function calls, try to infer from context
+    // This could be expanded to look up function signatures in the future
+    return type_create(TYPE_ANY, node->line, node->column);
 }
 
 // Type compatibility
@@ -936,11 +960,11 @@ int type_check_variable_declaration(TypeCheckerContext* context, ASTNode* node) 
                 snprintf(error_msg, sizeof(error_msg), 
                     "Type mismatch: expected '%s', got '%s'", expected, actual);
                 type_checker_add_error(context, error_msg, node->line, node->column);
-                type_free(inferred_type);
-                type_free(var_type);
-                return 0;
-            }
             type_free(inferred_type);
+            type_free(var_type);
+            return 0;
+        }
+        type_free(inferred_type);
         } else {
             type_checker_add_error(context, "Failed to infer type of initial value", node->line, node->column);
             type_free(var_type);
@@ -1101,12 +1125,27 @@ MycoType* type_infer_array_literal(TypeCheckerContext* context, ASTNode* node) {
     if (!context || !node || node->type != AST_NODE_ARRAY_LITERAL) return NULL;
     
     if (node->data.array_literal.element_count == 0) {
-        return type_create_array(type_create(TYPE_ANY, node->line, node->column), node->line, node->column);
+        // Empty array - return generic Array type
+        return type_create_array(NULL, node->line, node->column);
     }
     
-    // Infer type from first element
+    // Infer element type from first element
     MycoType* element_type = type_infer_expression(context, node->data.array_literal.elements[0]);
-    if (!element_type) return NULL;
+    if (!element_type) {
+        return type_create_array(NULL, node->line, node->column);
+    }
+    
+    // Check if all elements have compatible types
+    for (size_t i = 1; i < node->data.array_literal.element_count; i++) {
+        MycoType* current_type = type_infer_expression(context, node->data.array_literal.elements[i]);
+        if (!current_type || !type_is_compatible(element_type, current_type)) {
+            // Mixed types - use generic Array
+            type_free(element_type);
+            type_free(current_type);
+            return type_create_array(NULL, node->line, node->column);
+        }
+        type_free(current_type);
+    }
     
     return type_create_array(element_type, node->line, node->column);
 }
@@ -1114,25 +1153,59 @@ MycoType* type_infer_array_literal(TypeCheckerContext* context, ASTNode* node) {
 MycoType* type_infer_member_access(TypeCheckerContext* context, ASTNode* node) {
     if (!context || !node || node->type != AST_NODE_MEMBER_ACCESS) return NULL;
     
-    // Check if this is a method call (has parentheses)
-    if (node->data.member_access.member_name) {
-        const char* member_name = node->data.member_access.member_name;
-        
-        // For common method names, return appropriate types
-        if (strcmp(member_name, "speak") == 0) {
-            return type_create(TYPE_STRING, node->line, node->column);
-        } else if (strcmp(member_name, "name") == 0) {
-            return type_create(TYPE_STRING, node->line, node->column);
-        } else if (strcmp(member_name, "age") == 0) {
+    // Get the type of the object being accessed
+    MycoType* object_type = type_infer_expression(context, node->data.member_access.object);
+    if (!object_type) {
+    return type_create(TYPE_UNKNOWN, node->line, node->column);
+    }
+    
+    const char* member_name = node->data.member_access.member_name;
+    if (!member_name) {
+        type_free(object_type);
+        return type_create(TYPE_UNKNOWN, node->line, node->column);
+    }
+    
+    // Enhanced member access type inference based on object type
+    if (object_type->kind == TYPE_ARRAY) {
+        if (strcmp(member_name, "length") == 0 || strcmp(member_name, "size") == 0) {
+            type_free(object_type);
             return type_create(TYPE_INT, node->line, node->column);
-        } else if (strcmp(member_name, "active") == 0) {
-            return type_create(TYPE_BOOL, node->line, node->column);
-        } else if (strcmp(member_name, "type") == 0) {
+        } else if (strcmp(member_name, "join") == 0 || strcmp(member_name, "toString") == 0) {
+            type_free(object_type);
             return type_create(TYPE_STRING, node->line, node->column);
+        } else if (strcmp(member_name, "push") == 0 || strcmp(member_name, "pop") == 0 ||
+                   strcmp(member_name, "shift") == 0 || strcmp(member_name, "unshift") == 0) {
+            type_free(object_type);
+            return type_create(TYPE_ANY, node->line, node->column);
+        } else if (strcmp(member_name, "slice") == 0 || strcmp(member_name, "filter") == 0 ||
+                   strcmp(member_name, "map") == 0 || strcmp(member_name, "unique") == 0) {
+            type_free(object_type);
+            return type_create_array(NULL, node->line, node->column);
+        }
+    } else if (object_type->kind == TYPE_STRING) {
+        if (strcmp(member_name, "length") == 0 || strcmp(member_name, "size") == 0) {
+            type_free(object_type);
+            return type_create(TYPE_INT, node->line, node->column);
+        } else if (strcmp(member_name, "toUpperCase") == 0 || strcmp(member_name, "toLowerCase") == 0 ||
+                   strcmp(member_name, "trim") == 0 || strcmp(member_name, "toString") == 0) {
+            type_free(object_type);
+            return type_create(TYPE_STRING, node->line, node->column);
+        }
+    } else if (object_type->kind == TYPE_CLASS) {
+        // For class objects, try to infer based on common property names
+        if (strcmp(member_name, "name") == 0 || strcmp(member_name, "toString") == 0) {
+            type_free(object_type);
+            return type_create(TYPE_STRING, node->line, node->column);
+        } else if (strcmp(member_name, "age") == 0 || strcmp(member_name, "id") == 0) {
+            type_free(object_type);
+            return type_create(TYPE_INT, node->line, node->column);
+        } else if (strcmp(member_name, "active") == 0 || strcmp(member_name, "enabled") == 0) {
+            type_free(object_type);
+            return type_create(TYPE_BOOL, node->line, node->column);
         }
     }
     
-    // For other member access, return TYPE_UNKNOWN for now
-    // This would need to be expanded to look up class definitions
-    return type_create(TYPE_UNKNOWN, node->line, node->column);
+    // For other member access, return TYPE_ANY for better inference
+    type_free(object_type);
+    return type_create(TYPE_ANY, node->line, node->column);
 }

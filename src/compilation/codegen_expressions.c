@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include "../../include/utils/shared_utilities.h"
 
 // Forward declarations
 int codegen_generate_c_promise(CodeGenContext* context, ASTNode* node);
@@ -63,7 +64,7 @@ int codegen_generate_c_literal(CodeGenContext* context, ASTNode* node) {
         case AST_NODE_STRING:
             // Escape the string and write it as a single unit
             const char* str = node->data.string_value;
-            char* escaped_str = malloc(strlen(str) * 2 + 1); // Worst case: every char needs escaping
+            char* escaped_str = shared_malloc_safe(strlen(str) * 2 + 1, "unknown", "unknown_function", 67); // Worst case: every char needs escaping
             char* escaped_ptr = escaped_str;
             
             while (*str) {
@@ -91,7 +92,7 @@ int codegen_generate_c_literal(CodeGenContext* context, ASTNode* node) {
             
             // Write the escaped string as a single unit
             codegen_write(context, "\"%s\"", escaped_str);
-            free(escaped_str);
+            shared_free_safe(escaped_str, "unknown", "unknown_function", 95);
             break;
         case AST_NODE_BOOL:
             codegen_write(context, "%s", node->data.bool_value ? "1" : "0");
@@ -131,7 +132,7 @@ int codegen_generate_c_identifier(CodeGenContext* context, ASTNode* node) {
     // Use scoped name if available, otherwise use original name
     if (scoped_name) {
         codegen_write(context, "%s", scoped_name);
-        free(scoped_name);
+        shared_free_safe(scoped_name, "unknown", "unknown_function", 135);
     } else {
         codegen_write(context, "%s", var_name);
     }

@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <errno.h>
 #include <unistd.h>
+#include "../../include/utils/shared_utilities.h"
 
 // Global REPL state for signal handling
 static REPLState* g_repl_state = NULL;
@@ -30,7 +31,7 @@ static void repl_signal_handler(int sig) {
  * @return A pointer to the initialized REPL state, or NULL if allocation failed
  */
 REPLState* repl_create(void) {
-    REPLState* state = malloc(sizeof(REPLState));
+    REPLState* state = shared_malloc_safe(sizeof(REPLState), "repl", "unknown_function", 34);
     if (!state) {
         return NULL;
     }
@@ -38,7 +39,7 @@ REPLState* repl_create(void) {
     // Initialize interpreter
     state->interpreter = interpreter_create();
     if (!state->interpreter) {
-        free(state);
+        shared_free_safe(state, "repl", "unknown_function", 42);
         return NULL;
     }
     
@@ -86,17 +87,17 @@ void repl_free(REPLState* state) {
     // Free history
     if (state->history) {
         for (int i = 0; i < state->history_count; i++) {
-            free(state->history[i]);
+            shared_free_safe(state->history[i], "repl", "unknown_function", 90);
         }
-        free(state->history);
+        shared_free_safe(state->history, "repl", "unknown_function", 92);
     }
     
     // Free input buffer
     if (state->current_input) {
-        free(state->current_input);
+        shared_free_safe(state->current_input, "repl", "unknown_function", 97);
     }
     
-    free(state);
+    shared_free_safe(state, "repl", "unknown_function", 100);
     g_repl_state = NULL;
 }
 
@@ -122,13 +123,13 @@ int repl_run(REPLState* state) {
         
         // Skip empty input
         if (strlen(input) == 0) {
-            free(input);
+            shared_free_safe(input, "repl", "unknown_function", 126);
             continue;
         }
         
         // Check for exit commands
         if (strcmp(input, "exit") == 0 || strcmp(input, "quit") == 0) {
-            free(input);
+            shared_free_safe(input, "repl", "unknown_function", 132);
             break;
         }
         
@@ -138,7 +139,7 @@ int repl_run(REPLState* state) {
         // Add to history
         repl_add_to_history(state, input);
         
-        free(input);
+        shared_free_safe(input, "repl", "unknown_function", 142);
     }
     
     return 0;
@@ -178,14 +179,14 @@ int repl_process_input(REPLState* state, const char* input) {
             size_t new_len = strlen(state->current_input) + strlen(content) + 2;
             if (new_len > state->input_capacity) {
                 state->input_capacity = new_len * 2;
-                state->current_input = realloc(state->current_input, state->input_capacity);
+                state->current_input = shared_realloc_safe(state->current_input, state->input_capacity, "repl", "unknown_function", 182);
             }
             strcat(state->current_input, "\n");
             strcat(state->current_input, content);
         } else {
             // Start new multiline input
             state->input_capacity = strlen(content) + 1;
-            state->current_input = malloc(state->input_capacity);
+            state->current_input = shared_malloc_safe(state->input_capacity, "repl", "unknown_function", 189);
             strcpy(state->current_input, content);
         }
         
@@ -198,7 +199,7 @@ int repl_process_input(REPLState* state, const char* input) {
             
             
             int result = repl_execute_input(state, complete_input);
-            free(complete_input);
+            shared_free_safe(complete_input, "repl", "unknown_function", 202);
             return result;
         } else {
             // Show continuation prompt
@@ -502,7 +503,7 @@ void repl_reset_state(REPLState* state) {
     
     // Clear current input
     if (state->current_input) {
-        free(state->current_input);
+        shared_free_safe(state->current_input, "repl", "unknown_function", 506);
         state->current_input = NULL;
         state->input_length = 0;
         state->input_capacity = 0;
@@ -536,7 +537,7 @@ void repl_load_file(REPLState* state, const char* filename) {
     long file_size = ftell(file);
     fseek(file, 0, SEEK_SET);
     
-    char* source = malloc(file_size + 1);
+    char* source = shared_malloc_safe(file_size + 1, "repl", "unknown_function", 540);
     if (!source) {
         fclose(file);
         printf("Error: Out of memory\n");
@@ -550,7 +551,7 @@ void repl_load_file(REPLState* state, const char* filename) {
     printf("Loading file: %s\n", filename);
     repl_execute_input(state, source);
     
-    free(source);
+    shared_free_safe(source, "repl", "unknown_function", 554);
 }
 
 /**
@@ -623,7 +624,7 @@ void repl_add_to_history(REPLState* state, const char* input) {
     // Expand history if needed
     if (state->history_count >= state->history_capacity) {
         state->history_capacity = state->history_capacity == 0 ? 100 : state->history_capacity * 2;
-        state->history = realloc(state->history, sizeof(char*) * state->history_capacity);
+        state->history = shared_realloc_safe(state->history, state->history_capacity * sizeof(char*), "repl", "unknown_function", 627);
     }
     
     // Add to history
@@ -663,7 +664,7 @@ char* repl_read_line(REPLState* state) {
             }
             
             if (strlen(buffer) > 0) {
-                input = malloc(strlen(buffer) + 1);
+                input = shared_malloc_safe(strlen(buffer) + 1, "repl", "unknown_function", 667);
                 strcpy(input, buffer);
                 add_history(input);
             }

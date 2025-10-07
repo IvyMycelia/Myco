@@ -2,10 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "../../include/utils/shared_utilities.h"
 
 // AST Node Creation Functions
 ASTNode* ast_create_number(double value, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 9);
     if (!node) return NULL;
     
     node->type = AST_NODE_NUMBER;
@@ -18,7 +19,7 @@ ASTNode* ast_create_number(double value, int line, int column) {
 }
 
 ASTNode* ast_create_bool(int value, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 22);
     if (!node) return NULL;
     
     node->type = AST_NODE_BOOL;
@@ -31,7 +32,7 @@ ASTNode* ast_create_bool(int value, int line, int column) {
 }
 
 ASTNode* ast_create_null(int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 35);
     if (!node) return NULL;
     
     node->type = AST_NODE_NULL;
@@ -43,7 +44,7 @@ ASTNode* ast_create_null(int line, int column) {
 }
 
 ASTNode* ast_create_string(const char* value, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 47);
     if (!node) return NULL;
     
     node->type = AST_NODE_STRING;
@@ -56,7 +57,7 @@ ASTNode* ast_create_string(const char* value, int line, int column) {
 }
 
 ASTNode* ast_create_identifier(const char* name, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 60);
     if (!node) return NULL;
     
     node->type = AST_NODE_IDENTIFIER;
@@ -69,7 +70,7 @@ ASTNode* ast_create_identifier(const char* name, int line, int column) {
 }
 
 ASTNode* ast_create_typed_parameter(const char* name, const char* type, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 73);
     if (!node) return NULL;
     
     node->type = AST_NODE_TYPED_PARAMETER;
@@ -83,7 +84,7 @@ ASTNode* ast_create_typed_parameter(const char* name, const char* type, int line
 }
 
 ASTNode* ast_create_binary_op(BinaryOperator op, ASTNode* left, ASTNode* right, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 87);
     if (!node) return NULL;
     
     node->type = AST_NODE_BINARY_OP;
@@ -99,7 +100,7 @@ ASTNode* ast_create_binary_op(BinaryOperator op, ASTNode* left, ASTNode* right, 
 }
 
 ASTNode* ast_create_range_with_step(ASTNode* start, ASTNode* end, ASTNode* step, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 103);
     if (!node) return NULL;
     
     node->type = AST_NODE_BINARY_OP;
@@ -115,7 +116,7 @@ ASTNode* ast_create_range_with_step(ASTNode* start, ASTNode* end, ASTNode* step,
 }
 
 ASTNode* ast_create_unary_op(UnaryOperator op, ASTNode* operand, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 119);
     if (!node) return NULL;
     
     node->type = AST_NODE_UNARY_OP;
@@ -129,7 +130,7 @@ ASTNode* ast_create_unary_op(UnaryOperator op, ASTNode* operand, int line, int c
 }
 
 ASTNode* ast_create_assignment(const char* variable, ASTNode* value, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 133);
     if (!node) return NULL;
     
     node->type = AST_NODE_ASSIGNMENT;
@@ -143,13 +144,13 @@ ASTNode* ast_create_assignment(const char* variable, ASTNode* value, int line, i
 }
 
 ASTNode* ast_create_function_call(const char* name, ASTNode** args, size_t arg_count, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 147);
     if (!node) return NULL;
     
     node->type = AST_NODE_FUNCTION_CALL;
     node->data.function_call.function_name = strdup(name);
     if (!node->data.function_call.function_name) {
-        free(node);
+        shared_free_safe(node, "ast", "unknown_function", 153);
         return NULL;
     }
     node->data.function_call.arguments = args;
@@ -162,7 +163,7 @@ ASTNode* ast_create_function_call(const char* name, ASTNode** args, size_t arg_c
 }
 
 ASTNode* ast_create_variable_declaration(const char* name, const char* type, ASTNode* initial_value, int is_mutable, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 166);
     if (!node) return NULL;
     
     node->type = AST_NODE_VARIABLE_DECLARATION;
@@ -178,7 +179,7 @@ ASTNode* ast_create_variable_declaration(const char* name, const char* type, AST
 }
 
 ASTNode* ast_create_if_statement(ASTNode* condition, ASTNode* then_block, ASTNode* else_block, ASTNode* else_if_chain, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 182);
     if (!node) return NULL;
     
     node->type = AST_NODE_IF_STATEMENT;
@@ -194,7 +195,7 @@ ASTNode* ast_create_if_statement(ASTNode* condition, ASTNode* then_block, ASTNod
 }
 
 ASTNode* ast_create_while_loop(ASTNode* condition, ASTNode* body, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 198);
     if (!node) return NULL;
     
     node->type = AST_NODE_WHILE_LOOP;
@@ -208,7 +209,7 @@ ASTNode* ast_create_while_loop(ASTNode* condition, ASTNode* body, int line, int 
 }
 
 ASTNode* ast_create_for_loop(const char* iterator, ASTNode* collection, ASTNode* body, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 212);
     if (!node) return NULL;
     
     node->type = AST_NODE_FOR_LOOP;
@@ -223,7 +224,7 @@ ASTNode* ast_create_for_loop(const char* iterator, ASTNode* collection, ASTNode*
 }
 
 ASTNode* ast_create_block(ASTNode** statements, size_t statement_count, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 227);
     if (!node) return NULL;
     
     node->type = AST_NODE_BLOCK;
@@ -237,7 +238,7 @@ ASTNode* ast_create_block(ASTNode** statements, size_t statement_count, int line
 }
 
 ASTNode* ast_create_return(ASTNode* value, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 241);
     if (!node) return NULL;
     
     node->type = AST_NODE_RETURN;
@@ -250,7 +251,7 @@ ASTNode* ast_create_return(ASTNode* value, int line, int column) {
 }
 
 ASTNode* ast_create_throw(ASTNode* value, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 254);
     if (!node) return NULL;
     
     node->type = AST_NODE_THROW;
@@ -263,7 +264,7 @@ ASTNode* ast_create_throw(ASTNode* value, int line, int column) {
 }
 
 ASTNode* ast_create_try_catch(ASTNode* try_block, const char* catch_var, ASTNode* catch_block, ASTNode* finally_block, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 267);
     if (!node) return NULL;
     
     node->type = AST_NODE_TRY_CATCH;
@@ -279,7 +280,7 @@ ASTNode* ast_create_try_catch(ASTNode* try_block, const char* catch_var, ASTNode
 }
 
 ASTNode* ast_create_switch(ASTNode* expression, ASTNode** cases, size_t case_count, ASTNode* default_case, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 283);
     if (!node) return NULL;
     
     node->type = AST_NODE_SWITCH;
@@ -295,7 +296,7 @@ ASTNode* ast_create_switch(ASTNode* expression, ASTNode** cases, size_t case_cou
 }
 
 ASTNode* ast_create_match(ASTNode* expression, ASTNode** patterns, size_t pattern_count, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 299);
     if (!node) return NULL;
     
     node->type = AST_NODE_MATCH;
@@ -310,7 +311,7 @@ ASTNode* ast_create_match(ASTNode* expression, ASTNode** patterns, size_t patter
 }
 
 ASTNode* ast_create_spore(ASTNode* expression, ASTNode** cases, size_t case_count, ASTNode* root_case, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 314);
     if (!node) return NULL;
     
     node->type = AST_NODE_SPORE;
@@ -326,7 +327,7 @@ ASTNode* ast_create_spore(ASTNode* expression, ASTNode** cases, size_t case_coun
 }
 
 ASTNode* ast_create_spore_case(ASTNode* pattern, ASTNode* body, int is_lambda, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 330);
     if (!node) return NULL;
     
     node->type = AST_NODE_SPORE_CASE;
@@ -341,7 +342,7 @@ ASTNode* ast_create_spore_case(ASTNode* pattern, ASTNode* body, int is_lambda, i
 }
 
 ASTNode* ast_create_class(const char* name, const char* parent, ASTNode* body, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 345);
     if (!node) return NULL;
     
     node->type = AST_NODE_CLASS;
@@ -356,7 +357,7 @@ ASTNode* ast_create_class(const char* name, const char* parent, ASTNode* body, i
 }
 
 ASTNode* ast_create_function(const char* name, ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 360);
     if (!node) return NULL;
     
     node->type = AST_NODE_FUNCTION;
@@ -373,7 +374,7 @@ ASTNode* ast_create_function(const char* name, ASTNode** params, size_t param_co
 }
 
 ASTNode* ast_create_lambda(ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 377);
     if (!node) return NULL;
     
     node->type = AST_NODE_LAMBDA;
@@ -389,7 +390,7 @@ ASTNode* ast_create_lambda(ASTNode** params, size_t param_count, const char* ret
 }
 
 ASTNode* ast_create_array_literal(ASTNode** elements, size_t element_count, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 393);
     if (!node) return NULL;
     
     node->type = AST_NODE_ARRAY_LITERAL;
@@ -403,7 +404,7 @@ ASTNode* ast_create_array_literal(ASTNode** elements, size_t element_count, int 
 }
 
 ASTNode* ast_create_hash_map_literal(ASTNode** keys, ASTNode** values, size_t pair_count, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 407);
     if (!node) return NULL;
     
     node->type = AST_NODE_HASH_MAP_LITERAL;
@@ -418,7 +419,7 @@ ASTNode* ast_create_hash_map_literal(ASTNode** keys, ASTNode** values, size_t pa
 }
 
 ASTNode* ast_create_set_literal(ASTNode** elements, size_t element_count, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 422);
     if (!node) return NULL;
     
     node->type = AST_NODE_SET_LITERAL;
@@ -432,7 +433,7 @@ ASTNode* ast_create_set_literal(ASTNode** elements, size_t element_count, int li
 }
 
 ASTNode* ast_create_array_access(ASTNode* array, ASTNode* index, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 436);
     if (!node) return NULL;
     
     node->type = AST_NODE_ARRAY_ACCESS;
@@ -446,7 +447,7 @@ ASTNode* ast_create_array_access(ASTNode* array, ASTNode* index, int line, int c
 }
 
 ASTNode* ast_create_function_call_expr(ASTNode* function, ASTNode** args, size_t arg_count, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 450);
     if (!node) return NULL;
     
     node->type = AST_NODE_FUNCTION_CALL_EXPR;
@@ -461,7 +462,7 @@ ASTNode* ast_create_function_call_expr(ASTNode* function, ASTNode** args, size_t
 }
 
 ASTNode* ast_create_member_access(ASTNode* object, const char* member_name, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 465);
     if (!node) return NULL;
     
     node->type = AST_NODE_MEMBER_ACCESS;
@@ -475,7 +476,7 @@ ASTNode* ast_create_member_access(ASTNode* object, const char* member_name, int 
 }
 
 ASTNode* ast_create_import(const char* module, const char* alias, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 479);
     if (!node) return NULL;
     
     node->type = AST_NODE_IMPORT;
@@ -489,7 +490,7 @@ ASTNode* ast_create_import(const char* module, const char* alias, int line, int 
 }
 
 ASTNode* ast_create_use(const char* library, const char* alias, char** specific_items, char** specific_aliases, size_t item_count, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 493);
     if (!node) return NULL;
     
     node->type = AST_NODE_USE;
@@ -498,9 +499,9 @@ ASTNode* ast_create_use(const char* library, const char* alias, char** specific_
     node->data.use_statement.item_count = item_count;
     
     if (specific_items && item_count > 0) {
-        node->data.use_statement.specific_items = malloc(item_count * sizeof(char*));
+        node->data.use_statement.specific_items = shared_malloc_safe(item_count * sizeof(char*), "ast", "unknown_function", 502);
         if (!node->data.use_statement.specific_items) {
-            free(node);
+            shared_free_safe(node, "ast", "unknown_function", 504);
             return NULL;
         }
         for (size_t i = 0; i < item_count; i++) {
@@ -511,16 +512,16 @@ ASTNode* ast_create_use(const char* library, const char* alias, char** specific_
     }
     
     if (specific_aliases && item_count > 0) {
-        node->data.use_statement.specific_aliases = malloc(item_count * sizeof(char*));
+        node->data.use_statement.specific_aliases = shared_malloc_safe(item_count * sizeof(char*), "ast", "unknown_function", 515);
         if (!node->data.use_statement.specific_aliases) {
             // Clean up specific_items if we allocated them
             if (node->data.use_statement.specific_items) {
                 for (size_t i = 0; i < item_count; i++) {
-                    free(node->data.use_statement.specific_items[i]);
+                    shared_free_safe(node->data.use_statement.specific_items[i], "ast", "unknown_function", 520);
                 }
-                free(node->data.use_statement.specific_items);
+                shared_free_safe(node->data.use_statement.specific_items, "ast", "unknown_function", 522);
             }
-            free(node);
+            shared_free_safe(node, "ast", "unknown_function", 524);
             return NULL;
         }
         for (size_t i = 0; i < item_count; i++) {
@@ -538,7 +539,7 @@ ASTNode* ast_create_use(const char* library, const char* alias, char** specific_
 }
 
 ASTNode* ast_create_module(const char* name, ASTNode* body, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 542);
     if (!node) return NULL;
     
     node->type = AST_NODE_MODULE;
@@ -552,7 +553,7 @@ ASTNode* ast_create_module(const char* name, ASTNode* body, int line, int column
 }
 
 ASTNode* ast_create_package(const char* name, ASTNode* body, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 556);
     if (!node) return NULL;
     
     node->type = AST_NODE_PACKAGE;
@@ -573,12 +574,12 @@ void ast_free(ASTNode* node) {
     switch (node->type) {
         case AST_NODE_STRING:
         case AST_NODE_IDENTIFIER:
-            free(node->data.string_value);
+            shared_free_safe(node->data.string_value, "ast", "unknown_function", 577);
             break;
             
         case AST_NODE_TYPED_PARAMETER:
-            free(node->data.typed_parameter.parameter_name);
-            free(node->data.typed_parameter.parameter_type);
+            shared_free_safe(node->data.typed_parameter.parameter_name, "ast", "unknown_function", 581);
+            shared_free_safe(node->data.typed_parameter.parameter_type, "ast", "unknown_function", 582);
             break;
             
         case AST_NODE_BOOL:
@@ -598,22 +599,22 @@ void ast_free(ASTNode* node) {
             break;
             
         case AST_NODE_ASSIGNMENT:
-            free(node->data.assignment.variable_name);
+            shared_free_safe(node->data.assignment.variable_name, "ast", "unknown_function", 602);
             ast_free(node->data.assignment.value);
             break;
             
         case AST_NODE_FUNCTION_CALL:
-            free(node->data.function_call.function_name);
+            shared_free_safe(node->data.function_call.function_name, "ast", "unknown_function", 607);
             for (size_t i = 0; i < node->data.function_call.argument_count; i++) {
                 ast_free(node->data.function_call.arguments[i]);
             }
-            free(node->data.function_call.arguments);
+            shared_free_safe(node->data.function_call.arguments, "ast", "unknown_function", 611);
             break;
             
         case AST_NODE_VARIABLE_DECLARATION:
-            free(node->data.variable_declaration.variable_name);
+            shared_free_safe(node->data.variable_declaration.variable_name, "ast", "unknown_function", 615);
             if (node->data.variable_declaration.type_name) {
-                free(node->data.variable_declaration.type_name);
+                shared_free_safe(node->data.variable_declaration.type_name, "ast", "unknown_function", 617);
             }
             if (node->data.variable_declaration.initial_value) {
                 ast_free(node->data.variable_declaration.initial_value);
@@ -634,7 +635,7 @@ void ast_free(ASTNode* node) {
             break;
             
         case AST_NODE_FOR_LOOP:
-            free(node->data.for_loop.iterator_name);
+            shared_free_safe(node->data.for_loop.iterator_name, "ast", "unknown_function", 638);
             ast_free(node->data.for_loop.collection);
             ast_free(node->data.for_loop.body);
             break;
@@ -643,7 +644,7 @@ void ast_free(ASTNode* node) {
             for (size_t i = 0; i < node->data.block.statement_count; i++) {
                 ast_free(node->data.block.statements[i]);
             }
-            free(node->data.block.statements);
+            shared_free_safe(node->data.block.statements, "ast", "unknown_function", 647);
             break;
             
         case AST_NODE_RETURN:
@@ -655,7 +656,7 @@ void ast_free(ASTNode* node) {
         case AST_NODE_TRY_CATCH:
             ast_free(node->data.try_catch.try_block);
             if (node->data.try_catch.catch_variable) {
-                free(node->data.try_catch.catch_variable);
+                shared_free_safe(node->data.try_catch.catch_variable, "ast", "unknown_function", 659);
             }
             if (node->data.try_catch.catch_block) {
                 ast_free(node->data.try_catch.catch_block);
@@ -670,7 +671,7 @@ void ast_free(ASTNode* node) {
             for (size_t i = 0; i < node->data.switch_statement.case_count; i++) {
                 ast_free(node->data.switch_statement.cases[i]);
             }
-            free(node->data.switch_statement.cases);
+            shared_free_safe(node->data.switch_statement.cases, "ast", "unknown_function", 674);
             if (node->data.switch_statement.default_case) {
                 ast_free(node->data.switch_statement.default_case);
             }
@@ -681,7 +682,7 @@ void ast_free(ASTNode* node) {
             for (size_t i = 0; i < node->data.match.pattern_count; i++) {
                 ast_free(node->data.match.patterns[i]);
             }
-            free(node->data.match.patterns);
+            shared_free_safe(node->data.match.patterns, "ast", "unknown_function", 685);
             break;
             
         case AST_NODE_SPORE:
@@ -689,7 +690,7 @@ void ast_free(ASTNode* node) {
             for (size_t i = 0; i < node->data.spore.case_count; i++) {
                 ast_free(node->data.spore.cases[i]);
             }
-            free(node->data.spore.cases);
+            shared_free_safe(node->data.spore.cases, "ast", "unknown_function", 693);
             if (node->data.spore.root_case) {
                 ast_free(node->data.spore.root_case);
             }
@@ -701,25 +702,25 @@ void ast_free(ASTNode* node) {
             break;
             
         case AST_NODE_ERROR:
-            free(node->data.error_node.error_message);
+            shared_free_safe(node->data.error_node.error_message, "ast", "unknown_function", 705);
             break;
             
         case AST_NODE_CLASS:
-            free(node->data.class_definition.class_name);
+            shared_free_safe(node->data.class_definition.class_name, "ast", "unknown_function", 709);
             if (node->data.class_definition.parent_class) {
-                free(node->data.class_definition.parent_class);
+                shared_free_safe(node->data.class_definition.parent_class, "ast", "unknown_function", 711);
             }
             ast_free(node->data.class_definition.body);
             break;
             
         case AST_NODE_FUNCTION:
-            free(node->data.function_definition.function_name);
+            shared_free_safe(node->data.function_definition.function_name, "ast", "unknown_function", 717);
             for (size_t i = 0; i < node->data.function_definition.parameter_count; i++) {
                 ast_free(node->data.function_definition.parameters[i]);
             }
-            free(node->data.function_definition.parameters);
+            shared_free_safe(node->data.function_definition.parameters, "ast", "unknown_function", 721);
             if (node->data.function_definition.return_type) {
-                free(node->data.function_definition.return_type);
+                shared_free_safe(node->data.function_definition.return_type, "ast", "unknown_function", 723);
             }
             ast_free(node->data.function_definition.body);
             break;
@@ -728,9 +729,9 @@ void ast_free(ASTNode* node) {
             for (size_t i = 0; i < node->data.lambda.parameter_count; i++) {
                 ast_free(node->data.lambda.parameters[i]);
             }
-            free(node->data.lambda.parameters);
+            shared_free_safe(node->data.lambda.parameters, "ast", "unknown_function", 732);
             if (node->data.lambda.return_type) {
-                free(node->data.lambda.return_type);
+                shared_free_safe(node->data.lambda.return_type, "ast", "unknown_function", 734);
             }
             ast_free(node->data.lambda.body);
             break;
@@ -739,7 +740,7 @@ void ast_free(ASTNode* node) {
             for (size_t i = 0; i < node->data.array_literal.element_count; i++) {
                 ast_free(node->data.array_literal.elements[i]);
             }
-            free(node->data.array_literal.elements);
+            shared_free_safe(node->data.array_literal.elements, "ast", "unknown_function", 743);
             break;
             
         case AST_NODE_ARRAY_ACCESS:
@@ -749,7 +750,7 @@ void ast_free(ASTNode* node) {
             
         case AST_NODE_MEMBER_ACCESS:
             ast_free(node->data.member_access.object);
-            free(node->data.member_access.member_name);
+            shared_free_safe(node->data.member_access.member_name, "ast", "unknown_function", 753);
             break;
             
         case AST_NODE_FUNCTION_CALL_EXPR:
@@ -758,56 +759,56 @@ void ast_free(ASTNode* node) {
                 for (size_t i = 0; i < node->data.function_call_expr.argument_count; i++) {
                     ast_free(node->data.function_call_expr.arguments[i]);
                 }
-                free(node->data.function_call_expr.arguments);
+                shared_free_safe(node->data.function_call_expr.arguments, "ast", "unknown_function", 762);
             }
             break;
             
         case AST_NODE_IMPORT:
-            free(node->data.import_statement.module_name);
+            shared_free_safe(node->data.import_statement.module_name, "ast", "unknown_function", 767);
             if (node->data.import_statement.alias) {
-                free(node->data.import_statement.alias);
+                shared_free_safe(node->data.import_statement.alias, "ast", "unknown_function", 769);
             }
             break;
             
         case AST_NODE_USE:
-            free(node->data.use_statement.library_name);
+            shared_free_safe(node->data.use_statement.library_name, "ast", "unknown_function", 774);
             if (node->data.use_statement.alias) {
-                free(node->data.use_statement.alias);
+                shared_free_safe(node->data.use_statement.alias, "ast", "unknown_function", 776);
             }
             if (node->data.use_statement.specific_items) {
                 for (size_t i = 0; i < node->data.use_statement.item_count; i++) {
-                    free(node->data.use_statement.specific_items[i]);
+                    shared_free_safe(node->data.use_statement.specific_items[i], "ast", "unknown_function", 780);
                 }
-                free(node->data.use_statement.specific_items);
+                shared_free_safe(node->data.use_statement.specific_items, "ast", "unknown_function", 782);
             }
             if (node->data.use_statement.specific_aliases) {
                 for (size_t i = 0; i < node->data.use_statement.item_count; i++) {
                     if (node->data.use_statement.specific_aliases[i]) {
-                        free(node->data.use_statement.specific_aliases[i]);
+                        shared_free_safe(node->data.use_statement.specific_aliases[i], "ast", "unknown_function", 787);
                     }
                 }
-                free(node->data.use_statement.specific_aliases);
+                shared_free_safe(node->data.use_statement.specific_aliases, "ast", "unknown_function", 790);
             }
             break;
             
         case AST_NODE_MODULE:
-            free(node->data.module_definition.module_name);
+            shared_free_safe(node->data.module_definition.module_name, "ast", "unknown_function", 795);
             ast_free(node->data.module_definition.body);
             break;
             
         case AST_NODE_PACKAGE:
-            free(node->data.package_definition.package_name);
+            shared_free_safe(node->data.package_definition.package_name, "ast", "unknown_function", 800);
             ast_free(node->data.package_definition.body);
             break;
             
         case AST_NODE_ASYNC_FUNCTION:
-            free(node->data.async_function_definition.function_name);
+            shared_free_safe(node->data.async_function_definition.function_name, "ast", "unknown_function", 805);
             for (size_t i = 0; i < node->data.async_function_definition.parameter_count; i++) {
                 ast_free(node->data.async_function_definition.parameters[i]);
             }
-            free(node->data.async_function_definition.parameters);
+            shared_free_safe(node->data.async_function_definition.parameters, "ast", "unknown_function", 809);
             if (node->data.async_function_definition.return_type) {
-                free(node->data.async_function_definition.return_type);
+                shared_free_safe(node->data.async_function_definition.return_type, "ast", "unknown_function", 811);
             }
             ast_free(node->data.async_function_definition.body);
             break;
@@ -825,7 +826,7 @@ void ast_free(ASTNode* node) {
     }
     
     // Free the node itself
-    free(node);
+    shared_free_safe(node, "ast", "unknown_function", 829);
 }
 
 void ast_free_tree(ASTNode* root) {
@@ -843,7 +844,7 @@ void ast_free_tree(ASTNode* root) {
 ASTNode* ast_clone(ASTNode* node) {
     if (!node) return NULL;
     
-    ASTNode* clone = malloc(sizeof(ASTNode));
+    ASTNode* clone = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 847);
     if (!clone) return NULL;
     
     // Copy basic fields
@@ -888,7 +889,7 @@ ASTNode* ast_clone(ASTNode* node) {
             
         case AST_NODE_BLOCK:
             clone->data.block.statement_count = node->data.block.statement_count;
-            clone->data.block.statements = malloc(node->data.block.statement_count * sizeof(ASTNode*));
+            clone->data.block.statements = shared_malloc_safe(node->data.block.statement_count * sizeof(ASTNode*), "ast", "unknown_function", 892);
             for (size_t i = 0; i < node->data.block.statement_count; i++) {
                 clone->data.block.statements[i] = ast_clone(node->data.block.statements[i]);
             }
@@ -897,7 +898,7 @@ ASTNode* ast_clone(ASTNode* node) {
         case AST_NODE_FUNCTION_CALL:
             clone->data.function_call.function_name = strdup(node->data.function_call.function_name);
             clone->data.function_call.argument_count = node->data.function_call.argument_count;
-            clone->data.function_call.arguments = malloc(node->data.function_call.argument_count * sizeof(ASTNode*));
+            clone->data.function_call.arguments = shared_malloc_safe(node->data.function_call.argument_count * sizeof(ASTNode*), "ast", "unknown_function", 901);
             for (size_t i = 0; i < node->data.function_call.argument_count; i++) {
                 clone->data.function_call.arguments[i] = ast_clone(node->data.function_call.arguments[i]);
             }
@@ -1156,7 +1157,7 @@ const char* unary_op_to_string(UnaryOperator op) {
 
 // AST Error Node Creation Function
 ASTNode* ast_create_error_node(const char* error_message, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 1160);
     if (!node) return NULL;
     
     node->type = AST_NODE_ERROR;
@@ -1170,7 +1171,7 @@ ASTNode* ast_create_error_node(const char* error_message, int line, int column) 
 
 // Async/Await AST Node Creation Functions
 ASTNode* ast_create_async_function(const char* name, ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 1174);
     if (!node) return NULL;
     
     node->type = AST_NODE_ASYNC_FUNCTION;
@@ -1187,7 +1188,7 @@ ASTNode* ast_create_async_function(const char* name, ASTNode** params, size_t pa
 }
 
 ASTNode* ast_create_await(ASTNode* expression, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 1191);
     if (!node) return NULL;
     
     node->type = AST_NODE_AWAIT;
@@ -1200,7 +1201,7 @@ ASTNode* ast_create_await(ASTNode* expression, int line, int column) {
 }
 
 ASTNode* ast_create_promise(ASTNode* expression, int line, int column) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 1204);
     if (!node) return NULL;
     
     node->type = AST_NODE_PROMISE;

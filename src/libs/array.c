@@ -2,11 +2,14 @@
 #include <string.h>
 #include "../../include/core/interpreter.h"
 #include "../../include/core/ast.h"
+#include "../../include/core/standardized_errors.h"
+#include "../../include/utils/shared_utilities.h"
 
 // Array utility functions
 Value builtin_array_push(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "push() requires exactly 2 arguments", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "array", "builtin_array_push", 
+                        "push() requires exactly 2 arguments", line, column);
         return value_create_null();
     }
     
@@ -14,7 +17,8 @@ Value builtin_array_push(Interpreter* interpreter, Value* args, size_t arg_count
     Value element = args[1];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "push() first argument must be an array", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "builtin_array_push", 
+                        "push() first argument must be an array", line, column);
         return value_create_null();
     }
     
@@ -41,19 +45,20 @@ Value builtin_array_push(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_array_pop(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "pop() requires exactly 1 argument", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "array", "builtin_array_pop", 
+                        "pop() requires exactly 1 argument", line, column);
         return value_create_null();
     }
     
     Value array_arg = args[0];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "pop() argument must be an array", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "pop() argument must be an array", line, column);
         return value_create_null();
     }
     
     if (array_arg.data.array_value.count == 0) {
-        interpreter_set_error(interpreter, "Cannot pop from empty array", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "array", "unknown_function", "Cannot pop from empty array", line, column);
         return value_create_null();
     }
     
@@ -62,7 +67,7 @@ Value builtin_array_pop(Interpreter* interpreter, Value* args, size_t arg_count,
 
 Value builtin_array_insert(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 3) {
-        interpreter_set_error(interpreter, "insert() requires exactly 3 arguments", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "array", "unknown_function", "insert() requires exactly 3 arguments", line, column);
         return value_create_null();
     }
     
@@ -71,12 +76,12 @@ Value builtin_array_insert(Interpreter* interpreter, Value* args, size_t arg_cou
     Value element = args[2];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "insert() first argument must be an array", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "insert() first argument must be an array", line, column);
         return value_create_null();
     }
     
     if (index_arg.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "insert() second argument must be a number", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "insert() second argument must be a number", line, column);
         return value_create_null();
     }
     
@@ -84,7 +89,7 @@ Value builtin_array_insert(Interpreter* interpreter, Value* args, size_t arg_cou
     size_t array_len = array_arg.data.array_value.count;
     
     if (index < 0 || index > (int)array_len) {
-        interpreter_set_error(interpreter, "insert() index out of bounds", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "array", "unknown_function", "insert() index out of bounds", line, column);
         return value_create_null();
     }
     
@@ -94,9 +99,9 @@ Value builtin_array_insert(Interpreter* interpreter, Value* args, size_t arg_cou
     // Expand array if needed
     if (array_len >= array_arg.data.array_value.capacity) {
         size_t new_capacity = array_arg.data.array_value.capacity == 0 ? 4 : array_arg.data.array_value.capacity * 2;
-        void** new_elements = realloc(array_arg.data.array_value.elements, new_capacity * sizeof(void*));
+        void** new_elements = shared_realloc_safe(array_arg.data.array_value.elements, new_capacity * sizeof(void*), "array", "unknown_function", 102);
         if (!new_elements) {
-            interpreter_set_error(interpreter, "Out of memory in insert()", line, column);
+            std_error_report(ERROR_OUT_OF_MEMORY, "array", "unknown_function", "Out of memory in insert()", line, column);
             value_free(&cloned_element);
             return value_create_null();
         }
@@ -110,9 +115,9 @@ Value builtin_array_insert(Interpreter* interpreter, Value* args, size_t arg_cou
     }
     
     // Insert element
-    array_arg.data.array_value.elements[index] = malloc(sizeof(Value));
+    array_arg.data.array_value.elements[index] = shared_malloc_safe(sizeof(Value), "array", "unknown_function", 118);
     if (!array_arg.data.array_value.elements[index]) {
-        interpreter_set_error(interpreter, "Out of memory in insert()", line, column);
+        std_error_report(ERROR_OUT_OF_MEMORY, "array", "unknown_function", "Out of memory in insert()", line, column);
         value_free(&cloned_element);
         return value_create_null();
     }
@@ -125,7 +130,7 @@ Value builtin_array_insert(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_array_remove(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "remove() requires exactly 2 arguments", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "array", "unknown_function", "remove() requires exactly 2 arguments", line, column);
         return value_create_null();
     }
     
@@ -133,12 +138,12 @@ Value builtin_array_remove(Interpreter* interpreter, Value* args, size_t arg_cou
     Value index_arg = args[1];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "remove() first argument must be an array", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "remove() first argument must be an array", line, column);
         return value_create_null();
     }
     
     if (index_arg.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "remove() second argument must be a number", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "remove() second argument must be a number", line, column);
         return value_create_null();
     }
     
@@ -146,7 +151,7 @@ Value builtin_array_remove(Interpreter* interpreter, Value* args, size_t arg_cou
     size_t array_len = array_arg.data.array_value.count;
     
     if (index < 0 || index >= (int)array_len) {
-        interpreter_set_error(interpreter, "remove() index out of bounds", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "array", "unknown_function", "remove() index out of bounds", line, column);
         return value_create_null();
     }
     
@@ -154,7 +159,7 @@ Value builtin_array_remove(Interpreter* interpreter, Value* args, size_t arg_cou
     Value* element = (Value*)array_arg.data.array_value.elements[index];
     if (element) {
         value_free(element);
-        free(element);
+        shared_free_safe(element, "array", "unknown_function", 162);
     }
     
     // Shift remaining elements
@@ -169,14 +174,14 @@ Value builtin_array_remove(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_array_reverse(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "reverse() requires exactly 1 argument", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "array", "unknown_function", "reverse() requires exactly 1 argument", line, column);
         return value_create_null();
     }
     
     Value array_arg = args[0];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "reverse() argument must be an array", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "reverse() argument must be an array", line, column);
         return value_create_null();
     }
     
@@ -194,14 +199,14 @@ Value builtin_array_reverse(Interpreter* interpreter, Value* args, size_t arg_co
 
 Value builtin_array_sort(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "sort() requires exactly 1 argument", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "array", "unknown_function", "sort() requires exactly 1 argument", line, column);
         return value_create_null();
     }
     
     Value array_arg = args[0];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "sort() argument must be an array", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "sort() argument must be an array", line, column);
         return value_create_null();
     }
     
@@ -229,7 +234,7 @@ Value builtin_array_sort(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_array_filter(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "filter() requires exactly 2 arguments", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "array", "unknown_function", "filter() requires exactly 2 arguments", line, column);
         return value_create_null();
     }
     
@@ -237,12 +242,12 @@ Value builtin_array_filter(Interpreter* interpreter, Value* args, size_t arg_cou
     Value predicate_arg = args[1];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "filter() first argument must be an array", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "filter() first argument must be an array", line, column);
         return value_create_null();
     }
     
     if (predicate_arg.type != VALUE_FUNCTION) {
-        interpreter_set_error(interpreter, "filter() second argument must be a function", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "filter() second argument must be a function", line, column);
         return value_create_null();
     }
     
@@ -271,7 +276,7 @@ Value builtin_array_filter(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_array_map(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "map() requires exactly 2 arguments", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "array", "unknown_function", "map() requires exactly 2 arguments", line, column);
         return value_create_null();
     }
     
@@ -279,12 +284,12 @@ Value builtin_array_map(Interpreter* interpreter, Value* args, size_t arg_count,
     Value transform_arg = args[1];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "map() first argument must be an array", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "map() first argument must be an array", line, column);
         return value_create_null();
     }
     
     if (transform_arg.type != VALUE_FUNCTION) {
-        interpreter_set_error(interpreter, "map() second argument must be a function", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "map() second argument must be a function", line, column);
         return value_create_null();
     }
     
@@ -308,7 +313,7 @@ Value builtin_array_map(Interpreter* interpreter, Value* args, size_t arg_count,
 
 Value builtin_array_reduce(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 3) {
-        interpreter_set_error(interpreter, "reduce() requires exactly 3 arguments", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "array", "unknown_function", "reduce() requires exactly 3 arguments", line, column);
         return value_create_null();
     }
     
@@ -317,12 +322,12 @@ Value builtin_array_reduce(Interpreter* interpreter, Value* args, size_t arg_cou
     Value initial_arg = args[2];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "reduce() first argument must be an array", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "reduce() first argument must be an array", line, column);
         return value_create_null();
     }
     
     if (reducer_arg.type != VALUE_FUNCTION) {
-        interpreter_set_error(interpreter, "reduce() second argument must be a function", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "reduce() second argument must be a function", line, column);
         return value_create_null();
     }
     
@@ -347,7 +352,7 @@ Value builtin_array_reduce(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_array_find(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "find() requires exactly 2 arguments", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "array", "unknown_function", "find() requires exactly 2 arguments", line, column);
         return value_create_null();
     }
     
@@ -355,12 +360,12 @@ Value builtin_array_find(Interpreter* interpreter, Value* args, size_t arg_count
     Value predicate_arg = args[1];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "find() first argument must be an array", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "find() first argument must be an array", line, column);
         return value_create_null();
     }
     
     if (predicate_arg.type != VALUE_FUNCTION) {
-        interpreter_set_error(interpreter, "find() second argument must be a function", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "find() second argument must be a function", line, column);
         return value_create_null();
     }
     
@@ -388,7 +393,7 @@ Value builtin_array_find(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_array_slice(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 3) {
-        interpreter_set_error(interpreter, "slice() requires exactly 3 arguments", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "array", "unknown_function", "slice() requires exactly 3 arguments", line, column);
         return value_create_null();
     }
     
@@ -397,12 +402,12 @@ Value builtin_array_slice(Interpreter* interpreter, Value* args, size_t arg_coun
     Value end_arg = args[2];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "slice() first argument must be an array", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "slice() first argument must be an array", line, column);
         return value_create_null();
     }
     
     if (start_arg.type != VALUE_NUMBER || end_arg.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "slice() start and end arguments must be numbers", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "array", "unknown_function", "slice() start and end arguments must be numbers", line, column);
         return value_create_null();
     }
     
@@ -438,7 +443,7 @@ Value builtin_array_slice(Interpreter* interpreter, Value* args, size_t arg_coun
 
 Value builtin_array_join(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "join() requires exactly 2 arguments: array and separator", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "array", "unknown_function", "join() requires exactly 2 arguments: array and separator", line, column);
         return value_create_null();
     }
     
@@ -446,12 +451,12 @@ Value builtin_array_join(Interpreter* interpreter, Value* args, size_t arg_count
     Value separator_arg = args[1];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "join() first argument must be an array", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "join() first argument must be an array", line, column);
         return value_create_null();
     }
     
     if (separator_arg.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "join() second argument must be a string", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "join() second argument must be a string", line, column);
         return value_create_null();
     }
     
@@ -477,9 +482,9 @@ Value builtin_array_join(Interpreter* interpreter, Value* args, size_t arg_count
     total_length += (array_len - 1) * strlen(separator_arg.data.string_value);
     total_length += 1; // Null terminator
     
-    char* result_str = malloc(total_length);
+    char* result_str = shared_malloc_safe(total_length, "array", "unknown_function", 485);
     if (!result_str) {
-        interpreter_set_error(interpreter, "Out of memory in join()", line, column);
+        std_error_report(ERROR_OUT_OF_MEMORY, "array", "unknown_function", "Out of memory in join()", line, column);
         return value_create_null();
     }
     
@@ -512,7 +517,7 @@ Value builtin_array_join(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_array_contains(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "contains() requires exactly 2 arguments: array and value", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "array", "unknown_function", "contains() requires exactly 2 arguments: array and value", line, column);
         return value_create_null();
     }
     
@@ -520,7 +525,7 @@ Value builtin_array_contains(Interpreter* interpreter, Value* args, size_t arg_c
     Value search_value = args[1];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "contains() first argument must be an array", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "contains() first argument must be an array", line, column);
         return value_create_null();
     }
     
@@ -539,7 +544,7 @@ Value builtin_array_contains(Interpreter* interpreter, Value* args, size_t arg_c
 
 Value builtin_array_index_of(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "indexOf() requires exactly 2 arguments: array and value", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "array", "unknown_function", "indexOf() requires exactly 2 arguments: array and value", line, column);
         return value_create_null();
     }
     
@@ -547,7 +552,7 @@ Value builtin_array_index_of(Interpreter* interpreter, Value* args, size_t arg_c
     Value search_value = args[1];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "indexOf() first argument must be an array", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "indexOf() first argument must be an array", line, column);
         return value_create_null();
     }
     
@@ -566,14 +571,14 @@ Value builtin_array_index_of(Interpreter* interpreter, Value* args, size_t arg_c
 
 Value builtin_array_unique(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "unique() requires exactly 1 argument: array", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "array", "unknown_function", "unique() requires exactly 1 argument: array", line, column);
         return value_create_null();
     }
     
     Value array_arg = args[0];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "unique() argument must be an array", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "unique() argument must be an array", line, column);
         return value_create_null();
     }
     
@@ -606,7 +611,7 @@ Value builtin_array_unique(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_array_concat(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "concat() requires exactly 2 arguments: array1 and array2", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "array", "unknown_function", "concat() requires exactly 2 arguments: array1 and array2", line, column);
         return value_create_null();
     }
     
@@ -614,7 +619,7 @@ Value builtin_array_concat(Interpreter* interpreter, Value* args, size_t arg_cou
     Value array2_arg = args[1];
     
     if (array1_arg.type != VALUE_ARRAY || array2_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "concat() both arguments must be arrays", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "array", "unknown_function", "concat() both arguments must be arrays", line, column);
         return value_create_null();
     }
     
@@ -647,7 +652,7 @@ Value builtin_array_concat(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_array_fill(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 3) {
-        interpreter_set_error(interpreter, "fill() requires exactly 3 arguments: array, value, and count", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "array", "unknown_function", "fill() requires exactly 3 arguments: array, value, and count", line, column);
         return value_create_null();
     }
     
@@ -656,18 +661,18 @@ Value builtin_array_fill(Interpreter* interpreter, Value* args, size_t arg_count
     Value count_arg = args[2];
     
     if (array_arg.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "fill() first argument must be an array", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "fill() first argument must be an array", line, column);
         return value_create_null();
     }
     
     if (count_arg.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "fill() third argument must be a number", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "fill() third argument must be a number", line, column);
         return value_create_null();
     }
     
     int count = (int)count_arg.data.number_value;
     if (count < 0) {
-        interpreter_set_error(interpreter, "fill() count must be non-negative", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "array", "unknown_function", "fill() count must be non-negative", line, column);
         return value_create_null();
     }
     

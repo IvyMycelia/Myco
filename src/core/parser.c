@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "../../include/utils/shared_utilities.h"
 
 // Forward declarations for helper functions
 static void parser_advance(Parser* parser);
@@ -37,7 +38,7 @@ static ASTNode* parser_parse_member_access_chain(Parser* parser, ASTNode* base);
  * if (parser) {
  *     ASTNode* ast = parser_parse_program(parser);
  *     // Use the AST...
- *     parser_free(parser);
+ *     parser_shared_free_safe(parser, "parser", "parser", 41);
  * }
  * @endcode
  */
@@ -47,7 +48,7 @@ Parser* parser_initialize(Lexer* lexer) {
     }
     
     // Allocate memory for the parser structure
-    Parser* parser = malloc(sizeof(Parser));
+    Parser* parser = shared_malloc_safe(sizeof(Parser), "parser", "unknown_function", 51);
     if (!parser) {
         return NULL;  // Memory allocation failed
     }
@@ -79,15 +80,15 @@ void parser_free(Parser* parser) {
     }
     
     // Free any error message that was stored
-        if (parser->error_message) {
-            free(parser->error_message);
+    if (parser->error_message) {
+        shared_free_safe(parser->error_message, "parser", "unknown_function", 84);
         parser->error_message = NULL;
-        }
+    }
     
     // Free the parser structure itself
     // Note: We don't free the lexer as it's owned by the caller
-        free(parser);
-    }
+    shared_free_safe(parser, "parser", "unknown_function", 90);
+}
 
 /**
  * @brief Advance to the next token in the stream
@@ -238,7 +239,7 @@ static void parser_error(Parser* parser, const char* message) {
     
     // Free any existing error message
         if (parser->error_message) {
-            free(parser->error_message);
+            shared_free_safe(parser->error_message, "parser", "unknown_function", 242);
         }
     
     // Build much richer and more helpful error message
@@ -347,7 +348,7 @@ ASTNode* parser_parse_program(Parser* parser) {
         }
         
         // Create an array of statement pointers
-        ASTNode** statement_array = malloc(statement_count * sizeof(ASTNode*));
+        ASTNode** statement_array = shared_malloc_safe((size_t)statement_count * sizeof(ASTNode*), "parser", "unknown_function", 351);
         if (statement_array) {
             current = statements;
             for (int i = 0; i < statement_count; i++) {
@@ -370,7 +371,7 @@ ASTNode* parser_parse_program(Parser* parser) {
                 }
                 return block;
             }
-            free(statement_array);
+            shared_free_safe(statement_array, "parser", "unknown_function", 374);
         }
     }
     
@@ -584,7 +585,7 @@ ASTNode* parser_parse_assignment(Parser* parser) {
     // Expect an equals sign
     if (!parser_check(parser, TOKEN_ASSIGN)) {
         parser_error(parser, "Expected '=' in assignment");
-        free(var_name);
+        shared_free_safe(var_name, "parser", "unknown_function", 588);
         return NULL;
     }
     parser_advance(parser);  // Consume the '='
@@ -593,7 +594,7 @@ ASTNode* parser_parse_assignment(Parser* parser) {
     ASTNode* value = parser_parse_expression(parser);
     if (!value) {
         parser_error(parser, "Expected expression after '='");
-        free(var_name);
+        shared_free_safe(var_name, "parser", "unknown_function", 597);
         return NULL;
     }
     
@@ -1129,7 +1130,7 @@ ASTNode* parser_parse_primary(Parser* parser) {
                             }
                             if (arg_count == arg_capacity) {
                                 size_t new_cap = arg_capacity == 0 ? 4 : arg_capacity * 2;
-                                ASTNode** new_args = (ASTNode**)realloc(args, new_cap * sizeof(ASTNode*));
+                                ASTNode** new_args = (ASTNode**)shared_realloc_safe(args, new_cap * sizeof(ASTNode*), "parser", "unknown_function", 1133);
                                 if (!new_args) {
                                     parser_error(parser, "Out of memory while parsing arguments");
                                     break;
@@ -1269,7 +1270,7 @@ ASTNode* parser_parse_primary(Parser* parser) {
                     }
                     if (arg_count == arg_capacity) {
                         size_t new_cap = arg_capacity == 0 ? 4 : arg_capacity * 2;
-                        ASTNode** new_args = (ASTNode**)realloc(args, new_cap * sizeof(ASTNode*));
+                        ASTNode** new_args = (ASTNode**)shared_realloc_safe(args, new_cap * sizeof(ASTNode*), "parser", "unknown_function", 1273);
                         if (!new_args) {
                             parser_error(parser, "Out of memory while parsing arguments");
                             break;
@@ -1293,7 +1294,7 @@ ASTNode* parser_parse_primary(Parser* parser) {
             // Create simple function call node
             ASTNode* call = ast_create_function_call(ident_token->text, args, arg_count, ident_token->line, ident_token->column);
             if (!call && args) {
-                free(args);
+                shared_free_safe(args, "parser", "unknown_function", 1297);
             }
             return call;
         }
@@ -1379,7 +1380,7 @@ ASTNode* parser_parse_primary(Parser* parser) {
                         }
                         if (arg_count == arg_capacity) {
                             size_t new_cap = arg_capacity == 0 ? 4 : arg_capacity * 2;
-                            ASTNode** new_args = (ASTNode**)realloc(args, new_cap * sizeof(ASTNode*));
+                            ASTNode** new_args = (ASTNode**)shared_realloc_safe(args, new_cap * sizeof(ASTNode*), "parser", "unknown_function", 1383);
                             if (!new_args) {
                                 parser_error(parser, "Out of memory while parsing arguments");
                                 break;
@@ -1404,7 +1405,7 @@ ASTNode* parser_parse_primary(Parser* parser) {
                 ASTNode* call = ast_create_function_call_expr(member_access, args, arg_count, ident_token->line, ident_token->column);
                 if (!call) {
                     if (args) {
-                        free(args);
+                        shared_free_safe(args, "parser", "unknown_function", 1408);
                     }
                     return member_access;
                 }
@@ -1645,7 +1646,7 @@ char* parser_parse_type_annotation(Parser* parser) {
         
         // Expect another type after the pipe (identifier or keyword like Null)
         if (!parser_check(parser, TOKEN_IDENTIFIER) && !parser_check(parser, TOKEN_KEYWORD)) {
-            free(result);
+            shared_free_safe(result, "parser", "unknown_function", 1649);
             return NULL;
         }
         
@@ -1653,12 +1654,12 @@ char* parser_parse_type_annotation(Parser* parser) {
         parser_advance(parser);
         
         // Append to the result: "String | Int"
-        char* new_result = malloc(strlen(result) + strlen(parser->previous_token->text) + 4);
+        char* new_result = shared_malloc_safe(strlen(result) + strlen(parser->previous_token->text) + 4, "parser", "unknown_function", 1657);
         strcpy(new_result, result);
         strcat(new_result, " | ");
         strcat(new_result, parser->previous_token->text);
         
-        free(result);
+        shared_free_safe(result, "parser", "unknown_function", 1662);
         result = new_result;
     }
     
@@ -1667,11 +1668,11 @@ char* parser_parse_type_annotation(Parser* parser) {
         parser_advance(parser);  // Consume the question mark
         
         // Append to the result: "String?" or "String | Int?"
-        char* new_result = malloc(strlen(result) + 2);
+        char* new_result = shared_malloc_safe(strlen(result) + 2, "parser", "unknown_function", 1671);
         strcpy(new_result, result);
         strcat(new_result, "?");
         
-        free(result);
+        shared_free_safe(result, "parser", "unknown_function", 1675);
         result = new_result;
     }
     
@@ -1724,7 +1725,7 @@ ASTNode* parser_parse_variable_declaration(Parser* parser) {
             
             if (!parser_check(parser, TOKEN_IDENTIFIER) && !parser_check(parser, TOKEN_KEYWORD)) {
                 parser_error(parser, "Array type must specify element type (e.g., [Int], [String], [Any] for mixed types)");
-                free(variable_name);
+                shared_free_safe(variable_name, "parser", "unknown_function", 1728);
                 return NULL;
             }
             
@@ -1735,22 +1736,22 @@ ASTNode* parser_parse_variable_declaration(Parser* parser) {
             
             if (!parser_match(parser, TOKEN_RIGHT_BRACKET)) {
                 parser_error(parser, "Array type must end with ']'");
-                free(variable_name);
-                free(element_type);
+                shared_free_safe(variable_name, "parser", "unknown_function", 1739);
+                shared_free_safe(element_type, "parser", "unknown_function", 1740);
                 return NULL;
             }
             
             // Create array type string: [Type] or [Any]
             int len = strlen(element_type) + 3;
-            type_name = malloc(len);
+            type_name = shared_malloc_safe(len, "parser", "unknown_function", 1746);
             snprintf(type_name, len, "[%s]", element_type);
-            free(element_type);
+            shared_free_safe(element_type, "parser", "unknown_function", 1748);
         } else {
             // Regular type annotation or union type
             type_name = parser_parse_type_annotation(parser);
             if (!type_name) {
                 parser_error(parser, "Type annotation must be a valid type name (Int, String, Bool, Float, or union type like String | Int)");
-                free(variable_name);
+                shared_free_safe(variable_name, "parser", "unknown_function", 1754);
                 return NULL;
             }
         }
@@ -1764,8 +1765,8 @@ ASTNode* parser_parse_variable_declaration(Parser* parser) {
         ASTNode* error_node = ast_create_error_node("Invalid variable declaration: missing '=' operator", 
                                                    parser->previous_token ? parser->previous_token->line : 0,
                                                    parser->previous_token ? parser->previous_token->column : 0);
-        free(variable_name);
-        if (type_name) free(type_name);
+        shared_free_safe(variable_name, "parser", "unknown_function", 1768);
+        if (type_name) shared_free_safe(type_name, "parser", "unknown_function", 1769);
         return error_node;
     }
     
@@ -1773,8 +1774,8 @@ ASTNode* parser_parse_variable_declaration(Parser* parser) {
     ASTNode* initial_value = parser_parse_expression(parser);
     if (!initial_value) {
         parser_error(parser, "Variable declarations must have an initial value after the equals sign (=)");
-        free(variable_name);
-        if (type_name) free(type_name);
+        shared_free_safe(variable_name, "parser", "unknown_function", 1777);
+        if (type_name) shared_free_safe(type_name, "parser", "unknown_function", 1778);
         return NULL;
     }
     
@@ -1791,8 +1792,8 @@ ASTNode* parser_parse_variable_declaration(Parser* parser) {
     }
     
     // Cleanup on failure
-    free(variable_name);
-    if (type_name) free(type_name);
+    shared_free_safe(variable_name, "parser", "unknown_function", 1795);
+    if (type_name) shared_free_safe(type_name, "parser", "unknown_function", 1796);
     return NULL;
 }
 
@@ -2071,7 +2072,7 @@ ASTNode* parser_parse_for_loop(Parser* parser) {
     // Expect 'in'
     if (!(parser_check(parser, TOKEN_KEYWORD) && parser->current_token && parser->current_token->text && strcmp(parser->current_token->text, "in") == 0)) {
         parser_error(parser, "Expected 'in' in for-loop");
-        free(iterator_name);
+        shared_free_safe(iterator_name, "parser", "unknown_function", 2075);
         parser_synchronize(parser);
         return NULL;
     }
@@ -2081,7 +2082,7 @@ ASTNode* parser_parse_for_loop(Parser* parser) {
     ASTNode* collection = parser_parse_expression(parser);
     if (!collection) {
         parser_error(parser, "Expected collection expression after 'in'");
-        free(iterator_name);
+        shared_free_safe(iterator_name, "parser", "unknown_function", 2085);
         parser_synchronize(parser);
         return NULL;
     }
@@ -2089,7 +2090,7 @@ ASTNode* parser_parse_for_loop(Parser* parser) {
     // Expect ':'
     if (!parser_match(parser, TOKEN_COLON)) {
         parser_error(parser, "Expected ':' after for header");
-        free(iterator_name);
+        shared_free_safe(iterator_name, "parser", "unknown_function", 2093);
         parser_synchronize(parser);
     }
 
@@ -2200,7 +2201,7 @@ ASTNode* parser_parse_match_statement(Parser* parser) {
                     if (case_node) {
                         if (case_count >= case_capacity) {
                             size_t new_capacity = case_capacity == 0 ? 4 : case_capacity * 2;
-                            ASTNode** new_cases = realloc(cases, new_capacity * sizeof(ASTNode*));
+                            ASTNode** new_cases = shared_realloc_safe(cases, new_capacity * sizeof(ASTNode*), "parser", "unknown_function", 2204);
                             if (new_cases) {
                                 cases = new_cases;
                                 case_capacity = new_capacity;
@@ -2228,7 +2229,7 @@ ASTNode* parser_parse_match_statement(Parser* parser) {
                         if (stmt) {
                             if (case_stmt_count >= case_stmt_capacity) {
                                 size_t new_capacity = case_stmt_capacity == 0 ? 4 : case_stmt_capacity * 2;
-                                ASTNode** new_statements = realloc(case_statements, new_capacity * sizeof(ASTNode*));
+                                ASTNode** new_statements = shared_realloc_safe(case_statements, new_capacity * sizeof(ASTNode*), "parser", "unknown_function", 2232);
                                 if (new_statements) {
                                     case_statements = new_statements;
                                     case_stmt_capacity = new_capacity;
@@ -2240,7 +2241,7 @@ ASTNode* parser_parse_match_statement(Parser* parser) {
                     
                     ASTNode* body = ast_create_block(case_statements, case_stmt_count, 0, 0);
                     if (!body && case_statements) {
-                        free(case_statements);
+                        shared_free_safe(case_statements, "parser", "unknown_function", 2244);
                     }
                     
                     if (!body) {
@@ -2255,7 +2256,7 @@ ASTNode* parser_parse_match_statement(Parser* parser) {
                     if (case_node) {
                         if (case_count >= case_capacity) {
                             size_t new_capacity = case_capacity == 0 ? 4 : case_capacity * 2;
-                            ASTNode** new_cases = realloc(cases, new_capacity * sizeof(ASTNode*));
+                            ASTNode** new_cases = shared_realloc_safe(cases, new_capacity * sizeof(ASTNode*), "parser", "unknown_function", 2259);
                             if (new_cases) {
                                 cases = new_cases;
                                 case_capacity = new_capacity;
@@ -2289,7 +2290,7 @@ ASTNode* parser_parse_match_statement(Parser* parser) {
                     if (else_node) {
                         if (case_count >= case_capacity) {
                             size_t new_capacity = case_capacity == 0 ? 4 : case_capacity * 2;
-                            ASTNode** new_cases = realloc(cases, new_capacity * sizeof(ASTNode*));
+                            ASTNode** new_cases = shared_realloc_safe(cases, new_capacity * sizeof(ASTNode*), "parser", "unknown_function", 2293);
                             if (new_cases) {
                                 cases = new_cases;
                                 case_capacity = new_capacity;
@@ -2315,7 +2316,7 @@ ASTNode* parser_parse_match_statement(Parser* parser) {
                         if (stmt) {
                             if (else_stmt_count >= else_stmt_capacity) {
                                 size_t new_capacity = else_stmt_capacity == 0 ? 4 : else_stmt_capacity * 2;
-                                ASTNode** new_statements = realloc(else_statements, new_capacity * sizeof(ASTNode*));
+                                ASTNode** new_statements = shared_realloc_safe(else_statements, new_capacity * sizeof(ASTNode*), "parser", "unknown_function", 2319);
                                 if (new_statements) {
                                     else_statements = new_statements;
                                     else_stmt_capacity = new_capacity;
@@ -2327,7 +2328,7 @@ ASTNode* parser_parse_match_statement(Parser* parser) {
                     
                     ASTNode* body = ast_create_block(else_statements, else_stmt_count, 0, 0);
                     if (!body && else_statements) {
-                        free(else_statements);
+                        shared_free_safe(else_statements, "parser", "unknown_function", 2331);
                     }
                     
                     if (!body) {
@@ -2340,7 +2341,7 @@ ASTNode* parser_parse_match_statement(Parser* parser) {
                     if (else_node) {
                         if (case_count >= case_capacity) {
                             size_t new_capacity = case_capacity == 0 ? 4 : case_capacity * 2;
-                            ASTNode** new_cases = realloc(cases, new_capacity * sizeof(ASTNode*));
+                            ASTNode** new_cases = shared_realloc_safe(cases, new_capacity * sizeof(ASTNode*), "parser", "unknown_function", 2344);
                             if (new_cases) {
                                 cases = new_cases;
                                 case_capacity = new_capacity;
@@ -2373,14 +2374,14 @@ ASTNode* parser_parse_match_statement(Parser* parser) {
         for (size_t i = 0; i < case_count; i++) {
             ast_free(cases[i]);
         }
-        free(cases);
+        shared_free_safe(cases, "parser", "unknown_function", 2377);
         ast_free(expression);
         return NULL;
     }
     
     ASTNode* match_node = ast_create_spore(expression, cases, case_count, NULL, 0, 0);
     if (!match_node && cases) {
-        free(cases);
+        shared_free_safe(cases, "parser", "unknown_function", 2384);
     }
     
     return match_node;
@@ -2559,7 +2560,7 @@ ASTNode* parser_parse_function_declaration(Parser* parser) {
             if (parser->previous_token && parser->previous_token->text) {
                 if (param_count == param_cap) {
                     size_t new_cap = param_cap == 0 ? 4 : param_cap * 2;
-                    ASTNode** new_params = (ASTNode**)realloc(params, new_cap * sizeof(ASTNode*));
+                    ASTNode** new_params = (ASTNode**)shared_realloc_safe(params, new_cap * sizeof(ASTNode*), "parser", "unknown_function", 2563);
                     if (!new_params) { parser_error(parser, "Out of memory while parsing parameters"); break; }
                     params = new_params; param_cap = new_cap;
                 }
@@ -2573,19 +2574,19 @@ ASTNode* parser_parse_function_declaration(Parser* parser) {
                     if (!type_name) {
                         parser_error(parser, "Expected type name after ':' (supports union types like String | Int)");
                         parser_synchronize(parser);
-                        free(param_name);
+                        shared_free_safe(param_name, "parser", "unknown_function", 2577);
                         break;
                     }
                     // Create typed parameter node
                     ASTNode* tparam = ast_create_typed_parameter(param_name, type_name, 0, 0);
-                    free(type_name);
+                    shared_free_safe(type_name, "parser", "unknown_function", 2582);
                     params[param_count++] = tparam;
                 } else {
                     // Create regular identifier node for untyped parameter
                     ASTNode* pid = ast_create_identifier(param_name, 0, 0);
                     params[param_count++] = pid;
                 }
-                free(param_name);
+                shared_free_safe(param_name, "parser", "unknown_function", 2589);
             }
             if (parser_check(parser, TOKEN_COMMA)) { parser_advance(parser); continue; }
             break;
@@ -2626,7 +2627,7 @@ ASTNode* parser_parse_function_declaration(Parser* parser) {
     
     // Clean up return type if we allocated it
     if (return_type) {
-        free(return_type);
+        shared_free_safe(return_type, "parser", "unknown_function", 2630);
     }
     
     return func;
@@ -2683,7 +2684,7 @@ ASTNode* parser_parse_async_function_declaration(Parser* parser) {
             if (parser->previous_token && parser->previous_token->text) {
                 if (param_count == param_cap) {
                     size_t new_cap = param_cap == 0 ? 4 : param_cap * 2;
-                    ASTNode** new_params = (ASTNode**)realloc(params, new_cap * sizeof(ASTNode*));
+                    ASTNode** new_params = (ASTNode**)shared_realloc_safe(params, new_cap * sizeof(ASTNode*), "parser", "unknown_function", 2687);
                     if (!new_params) { parser_error(parser, "Out of memory while parsing parameters"); break; }
                     params = new_params; param_cap = new_cap;
                 }
@@ -2697,19 +2698,19 @@ ASTNode* parser_parse_async_function_declaration(Parser* parser) {
                     if (!type_name) {
                         parser_error(parser, "Expected type name after ':' (supports union types like String | Int)");
                         parser_synchronize(parser);
-                        free(param_name);
+                        shared_free_safe(param_name, "parser", "unknown_function", 2701);
                         break;
                     }
                     // Create typed parameter node
                     ASTNode* tparam = ast_create_typed_parameter(param_name, type_name, 0, 0);
-                    free(type_name);
+                    shared_free_safe(type_name, "parser", "unknown_function", 2706);
                     params[param_count++] = tparam;
                 } else {
                     // Create regular identifier node for untyped parameter
                     ASTNode* pid = ast_create_identifier(param_name, 0, 0);
                     params[param_count++] = pid;
                 }
-                free(param_name);
+                shared_free_safe(param_name, "parser", "unknown_function", 2713);
             }
             if (parser_check(parser, TOKEN_COMMA)) { parser_advance(parser); continue; }
             break;
@@ -2750,7 +2751,7 @@ ASTNode* parser_parse_async_function_declaration(Parser* parser) {
     
     // Clean up return type if we allocated it
     if (return_type) {
-        free(return_type);
+        shared_free_safe(return_type, "parser", "unknown_function", 2754);
     }
     
     return func;
@@ -2796,7 +2797,7 @@ ASTNode* parser_parse_lambda_expression(Parser* parser) {
             if (parser->previous_token && parser->previous_token->text) {
                 if (param_count == param_cap) {
                     size_t new_cap = param_cap == 0 ? 4 : param_cap * 2;
-                    ASTNode** new_params = (ASTNode**)realloc(params, new_cap * sizeof(ASTNode*));
+                    ASTNode** new_params = (ASTNode**)shared_realloc_safe(params, new_cap * sizeof(ASTNode*), "parser", "unknown_function", 2800);
                     if (!new_params) { 
                         parser_error(parser, "Out of memory while parsing parameters"); 
                         break; 
@@ -2861,7 +2862,7 @@ ASTNode* parser_parse_lambda_expression(Parser* parser) {
     
     // Clean up return type if we allocated it
     if (return_type) {
-        free(return_type);
+        shared_free_safe(return_type, "parser", "unknown_function", 2865);
     }
     
     return lambda;
@@ -2902,7 +2903,7 @@ ASTNode* parser_parse_class_declaration(Parser* parser) {
         if (!parser_match(parser, TOKEN_IDENTIFIER)) {
             parser_error(parser, "Expected parent class name after 'extends'");
             parser_synchronize(parser);
-            free(class_name);
+            shared_free_safe(class_name, "parser", "unknown_function", 2906);
             return NULL;
         }
         parent_class = strdup(parser->previous_token->text);
@@ -2912,8 +2913,8 @@ ASTNode* parser_parse_class_declaration(Parser* parser) {
     if (!parser_match(parser, TOKEN_COLON)) {
         parser_error(parser, "Expected ':' after class name");
         parser_synchronize(parser);
-        free(class_name);
-        if (parent_class) free(parent_class);
+        shared_free_safe(class_name, "parser", "unknown_function", 2916);
+        if (parent_class) shared_free_safe(parent_class, "parser", "unknown_function", 2917);
         return NULL;
     }
     
@@ -2922,14 +2923,14 @@ ASTNode* parser_parse_class_declaration(Parser* parser) {
     if (!body) {
         parser_error(parser, "Expected class body");
         parser_synchronize(parser);
-        free(class_name);
+        shared_free_safe(class_name, "parser", "unknown_function", 2926);
         return NULL;
     }
     
     // Create class node
     ASTNode* class_node = ast_create_class(class_name, parent_class, body, 0, 0);
-    free(class_name);
-    if (parent_class) free(parent_class);
+    shared_free_safe(class_name, "parser", "unknown_function", 2932);
+    if (parent_class) shared_free_safe(parent_class, "parser", "unknown_function", 2933);
     
     return class_node;
 }
@@ -3004,7 +3005,7 @@ ASTNode* parser_parse_class_body(Parser* parser) {
     int count = 0; 
     for (ASTNode* n = head; n; n = n->next) count++;
     
-    ASTNode** statements = malloc(count * sizeof(ASTNode*));
+    ASTNode** statements = shared_malloc_safe(count * sizeof(ASTNode*), "parser", "unknown_function", 3008);
     if (!statements) return NULL;
     
     int i = 0;
@@ -3047,7 +3048,7 @@ ASTNode* parser_parse_class_field(Parser* parser) {
         if (!parser_match(parser, TOKEN_IDENTIFIER)) {
             parser_error(parser, "Expected type name after ':'");
             parser_synchronize(parser);
-            free(field_name);
+            shared_free_safe(field_name, "parser", "unknown_function", 3051);
             return NULL;
         }
         
@@ -3057,8 +3058,8 @@ ASTNode* parser_parse_class_field(Parser* parser) {
         int line = parser->previous_token ? parser->previous_token->line : 0;
         int column = parser->previous_token ? parser->previous_token->column : 0;
         ASTNode* field = ast_create_variable_declaration(field_name, type_name, NULL, 0, line, column);
-        free(field_name);
-        free(type_name);
+        shared_free_safe(field_name, "parser", "unknown_function", 3061);
+        shared_free_safe(type_name, "parser", "unknown_function", 3062);
         return field;
         
     } else if (parser_check(parser, TOKEN_ASSIGN)) {
@@ -3069,7 +3070,7 @@ ASTNode* parser_parse_class_field(Parser* parser) {
         if (!initial_value) {
             parser_error(parser, "Expected initial value after '='");
             parser_synchronize(parser);
-            free(field_name);
+            shared_free_safe(field_name, "parser", "unknown_function", 3073);
             return NULL;
         }
         
@@ -3077,13 +3078,13 @@ ASTNode* parser_parse_class_field(Parser* parser) {
         int line = parser->previous_token ? parser->previous_token->line : 0;
         int column = parser->previous_token ? parser->previous_token->column : 0;
         ASTNode* field = ast_create_variable_declaration(field_name, NULL, initial_value, 0, line, column);
-        free(field_name);
+        shared_free_safe(field_name, "parser", "unknown_function", 3081);
         return field;
         
     } else {
         parser_error(parser, "Expected ':' for type or '=' for assignment");
         parser_synchronize(parser);
-        free(field_name);
+        shared_free_safe(field_name, "parser", "unknown_function", 3087);
         return NULL;
     }
 }
@@ -3217,7 +3218,7 @@ ASTNode* parser_parse_use_statement(Parser* parser) {
                 }
                 
                 // Add item to list
-                char** new_items = realloc(specific_items, (item_count + 1) * sizeof(char*));
+                char** new_items = shared_realloc_safe(specific_items, (item_count + 1) * sizeof(char*), "parser", "unknown_function", 3221);
                 if (!new_items) {
                     parser_error(parser, "Out of memory while parsing use statement");
                     return NULL;
@@ -3269,10 +3270,10 @@ ASTNode* parser_parse_use_statement(Parser* parser) {
         
         if (specific_items && item_count > 0) {
             // This is a specific import with aliases: use Pi, E from math as pi, e
-            specific_aliases = malloc(item_count * sizeof(char*));
+            specific_aliases = shared_malloc_safe(item_count * sizeof(char*), "parser", "unknown_function", 3273);
             if (!specific_aliases) {
                 parser_error(parser, "Out of memory while parsing use statement aliases");
-                free(library_name);
+                shared_free_safe(library_name, "parser", "unknown_function", 3276);
                 return NULL;
             }
             
@@ -3282,10 +3283,10 @@ ASTNode* parser_parse_use_statement(Parser* parser) {
                     parser_error(parser, "Expected alias name after 'as'");
                     // Clean up
                     for (size_t j = 0; j < i; j++) {
-                        free(specific_aliases[j]);
+                        shared_free_safe(specific_aliases[j], "parser", "unknown_function", 3286);
                     }
-                    free(specific_aliases);
-                    free(library_name);
+                    shared_free_safe(specific_aliases, "parser", "unknown_function", 3288);
+                    shared_free_safe(library_name, "parser", "unknown_function", 3289);
                     return NULL;
                 }
                 specific_aliases[i] = strdup(parser->previous_token->text);
@@ -3295,10 +3296,10 @@ ASTNode* parser_parse_use_statement(Parser* parser) {
                         parser_error(parser, "Expected comma between aliases");
                         // Clean up
                         for (size_t j = 0; j <= i; j++) {
-                            free(specific_aliases[j]);
+                            shared_free_safe(specific_aliases[j], "parser", "unknown_function", 3299);
                         }
-                        free(specific_aliases);
-                        free(library_name);
+                        shared_free_safe(specific_aliases, "parser", "unknown_function", 3301);
+                        shared_free_safe(library_name, "parser", "unknown_function", 3302);
                         return NULL;
                     }
                     parser_advance(parser); // consume comma
@@ -3308,7 +3309,7 @@ ASTNode* parser_parse_use_statement(Parser* parser) {
             // This is a general import with alias: use math as m
             if (!parser_match(parser, TOKEN_IDENTIFIER)) {
                 parser_error(parser, "Expected alias name after 'as'");
-                free(library_name);
+                shared_free_safe(library_name, "parser", "unknown_function", 3312);
                 return NULL;
             }
             alias = strdup(parser->previous_token->text);
@@ -3320,20 +3321,20 @@ ASTNode* parser_parse_use_statement(Parser* parser) {
                                   parser->previous_token->line, parser->previous_token->column);
     
     // Clean up temporary storage
-    free(library_name);
+    shared_free_safe(library_name, "parser", "unknown_function", 3324);
     if (specific_items) {
         for (size_t i = 0; i < item_count; i++) {
-            free(specific_items[i]);
+            shared_free_safe(specific_items[i], "parser", "unknown_function", 3327);
         }
-        free(specific_items);
+        shared_free_safe(specific_items, "parser", "unknown_function", 3329);
     }
     if (specific_aliases) {
         for (size_t i = 0; i < item_count; i++) {
             if (specific_aliases[i]) {
-                free(specific_aliases[i]);
+                shared_free_safe(specific_aliases[i], "parser", "unknown_function", 3334);
             }
         }
-        free(specific_aliases);
+        shared_free_safe(specific_aliases, "parser", "unknown_function", 3337);
     }
     
     return node;
@@ -3629,10 +3630,10 @@ static ASTNode* parser_collect_block(Parser* parser, int stop_on_else, int* saw_
     // Convert linked list to block node
     if (!head) return ast_create_block(NULL, 0, 0, 0);
     int count = 0; for (ASTNode* n = head; n; n = n->next) count++;
-    ASTNode** arr = (ASTNode**)malloc(sizeof(ASTNode*) * count);
+    ASTNode** arr = (ASTNode**)shared_malloc_safe(sizeof(ASTNode*) * (size_t)count, "parser", "unknown_function", 3633);
     ASTNode* cur = head; for (int i = 0; i < count; i++) { arr[i] = cur; cur = cur->next; }
     ASTNode* block = ast_create_block(arr, (size_t)count, 0, 0);
-    if (!block) free(arr);
+    if (!block) shared_free_safe(arr, "parser", "unknown_function", 3636);
     return block;
 }
 
@@ -3699,62 +3700,12 @@ ASTNode* parser_parse_spore_statement(Parser* parser) {
                     // Lambda style: case pattern => expression
                     parser_advance(parser); // consume "=>"
                     
-                    ASTNode* result = NULL;
-                    
-                    // In lambda contexts, we need to handle assignments as expressions
-                    // Check if this looks like an assignment (identifier = value)
-                    if (parser_check(parser, TOKEN_IDENTIFIER)) {
-                        // Peek ahead to see if the next token is an assignment operator
-                        Token* current_id = parser->current_token;
-                        parser_advance(parser);
-                        
-                        if (parser_check(parser, TOKEN_ASSIGN)) {
-                            // This is an assignment, go back and parse it as an assignment expression
-                            parser->current_position--;
-                            parser->current_token = current_id;
-                            
-                            // Parse the assignment without requiring a semicolon
-                            char* var_name = strdup(parser->current_token->text);
-                            parser_advance(parser);  // Consume the identifier
-                            parser_advance(parser);  // Consume the '='
-                            
-                            ASTNode* value = parser_parse_expression(parser);
-                            if (!value) {
-                                parser_error(parser, "Expected expression after '=' in lambda case");
-                                free(var_name);
-                                ast_free(pattern);
-                                parser_synchronize(parser);
-                                continue;
-                            }
-                            
-                            result = ast_create_assignment(var_name, value, 0, 0);
-                            if (!result) {
-                                free(var_name);
-                                ast_free(pattern);
-                                parser_synchronize(parser);
-                                continue;
-                            }
-                        } else {
-                            // Not an assignment, go back and parse as expression
-                            parser->current_position--;
-                            parser->current_token = current_id;
-                            result = parser_parse_expression(parser);
-                            if (!result) {
-                                parser_error(parser, "Expected expression after \"=>\"");
-                                ast_free(pattern);
-                                parser_synchronize(parser);
-                                continue;
-                            }
-                        }
-                    } else {
-                        // Try to parse as expression
-                        result = parser_parse_expression(parser);
-                        if (!result) {
-                            parser_error(parser, "Expected expression after \"=>\"");
-                            ast_free(pattern);
-                            parser_synchronize(parser);
-                            continue;
-                        }
+                    ASTNode* result = parser_parse_expression(parser);
+                    if (!result) {
+                        parser_error(parser, "Expected expression after '=>' in lambda case");
+                        ast_free(pattern);
+                        parser_synchronize(parser);
+                        continue;
                     }
                     
                     // Create lambda case node
@@ -3763,7 +3714,7 @@ ASTNode* parser_parse_spore_statement(Parser* parser) {
                         // Expand array if needed
                         if (case_count >= case_capacity) {
                             size_t new_capacity = case_capacity == 0 ? 4 : case_capacity * 2;
-                            ASTNode** new_cases = realloc(cases, new_capacity * sizeof(ASTNode*));
+                            ASTNode** new_cases = shared_realloc_safe(cases, new_capacity * sizeof(ASTNode*), "parser", "unknown_function", 3767);
                             if (new_cases) {
                                 cases = new_cases;
                                 case_capacity = new_capacity;
@@ -3801,7 +3752,7 @@ ASTNode* parser_parse_spore_statement(Parser* parser) {
                             // Expand array if needed
                             if (case_stmt_count >= case_stmt_capacity) {
                                 size_t new_capacity = case_stmt_capacity == 0 ? 4 : case_stmt_capacity * 2;
-                                ASTNode** new_statements = realloc(case_statements, new_capacity * sizeof(ASTNode*));
+                                ASTNode** new_statements = shared_realloc_safe(case_statements, new_capacity * sizeof(ASTNode*), "parser", "unknown_function", 3805);
                                 if (new_statements) {
                                     case_statements = new_statements;
                                     case_stmt_capacity = new_capacity;
@@ -3815,7 +3766,7 @@ ASTNode* parser_parse_spore_statement(Parser* parser) {
                     
                     ASTNode* body = ast_create_block(case_statements, case_stmt_count, 0, 0);
                     if (!body && case_statements) {
-                        free(case_statements);
+                        shared_free_safe(case_statements, "parser", "unknown_function", 3819);
                     }
                     if (!body) {
                         parser_error(parser, "Expected case body");
@@ -3830,7 +3781,7 @@ ASTNode* parser_parse_spore_statement(Parser* parser) {
                         // Expand array if needed
                         if (case_count >= case_capacity) {
                             size_t new_capacity = case_capacity == 0 ? 4 : case_capacity * 2;
-                            ASTNode** new_cases = realloc(cases, new_capacity * sizeof(ASTNode*));
+                            ASTNode** new_cases = shared_realloc_safe(cases, new_capacity * sizeof(ASTNode*), "parser", "unknown_function", 3834);
                             if (new_cases) {
                                 cases = new_cases;
                                 case_capacity = new_capacity;
@@ -3868,7 +3819,7 @@ ASTNode* parser_parse_spore_statement(Parser* parser) {
                         // Expand array if needed
                         if (case_count >= case_capacity) {
                             size_t new_capacity = case_capacity == 0 ? 4 : case_capacity * 2;
-                            ASTNode** new_cases = realloc(cases, new_capacity * sizeof(ASTNode*));
+                            ASTNode** new_cases = shared_realloc_safe(cases, new_capacity * sizeof(ASTNode*), "parser", "unknown_function", 3872);
                             if (new_cases) {
                                 cases = new_cases;
                                 case_capacity = new_capacity;
@@ -3903,7 +3854,7 @@ ASTNode* parser_parse_spore_statement(Parser* parser) {
                             // Expand array if needed
                             if (root_stmt_count >= root_stmt_capacity) {
                                 size_t new_capacity = root_stmt_capacity == 0 ? 4 : root_stmt_capacity * 2;
-                                ASTNode** new_statements = realloc(root_statements, new_capacity * sizeof(ASTNode*));
+                                ASTNode** new_statements = shared_realloc_safe(root_statements, new_capacity * sizeof(ASTNode*), "parser", "unknown_function", 3907);
                                 if (new_statements) {
                                     root_statements = new_statements;
                                     root_stmt_capacity = new_capacity;
@@ -3917,7 +3868,7 @@ ASTNode* parser_parse_spore_statement(Parser* parser) {
                     
                     ASTNode* body = ast_create_block(root_statements, root_stmt_count, 0, 0);
                     if (!body && root_statements) {
-                        free(root_statements);
+                        shared_free_safe(root_statements, "parser", "unknown_function", 3921);
                     }
                     if (!body) {
                         parser_error(parser, "Expected root body");
@@ -3930,7 +3881,7 @@ ASTNode* parser_parse_spore_statement(Parser* parser) {
                         // Expand array if needed
                         if (case_count >= case_capacity) {
                             size_t new_capacity = case_capacity == 0 ? 4 : case_capacity * 2;
-                            ASTNode** new_cases = realloc(cases, new_capacity * sizeof(ASTNode*));
+                            ASTNode** new_cases = shared_realloc_safe(cases, new_capacity * sizeof(ASTNode*), "parser", "unknown_function", 3934);
                             if (new_cases) {
                                 cases = new_cases;
                                 case_capacity = new_capacity;
@@ -3964,14 +3915,14 @@ ASTNode* parser_parse_spore_statement(Parser* parser) {
         for (size_t i = 0; i < case_count; i++) {
             ast_free(cases[i]);
         }
-        free(cases);
+        shared_free_safe(cases, "parser", "unknown_function", 3968);
         return NULL;
     }
     
     // Create proper spore node
     ASTNode* spore_node = ast_create_spore(expression, cases, case_count, NULL, 0, 0);
     if (!spore_node && cases) {
-        free(cases);
+        shared_free_safe(cases, "parser", "unknown_function", 3975);
     }
     
     return spore_node;
@@ -4106,7 +4057,7 @@ static ASTNode* parser_parse_array_literal(Parser* parser) {
                             }
                             if (arg_count == arg_capacity) {
                                 size_t new_cap = arg_capacity == 0 ? 4 : arg_capacity * 2;
-                                ASTNode** new_args = (ASTNode**)realloc(args, new_cap * sizeof(ASTNode*));
+                                ASTNode** new_args = (ASTNode**)shared_realloc_safe(args, new_cap * sizeof(ASTNode*), "parser", "unknown_function", 4110);
                                 if (!new_args) {
                                     parser_error(parser, "Out of memory while parsing arguments");
                                     break;
@@ -4156,7 +4107,7 @@ static ASTNode* parser_parse_array_literal(Parser* parser) {
     }
     
     // Add first element
-    elements = malloc(sizeof(ASTNode*));
+    elements = shared_malloc_safe(sizeof(ASTNode*), "parser", "unknown_function", 4160);
     if (!elements) {
         parser_error(parser, "Out of memory while parsing array literal");
         ast_free(first_element);
@@ -4177,21 +4128,21 @@ static ASTNode* parser_parse_array_literal(Parser* parser) {
             for (size_t i = 0; i < element_count; i++) {
                 ast_free(elements[i]);
             }
-            free(elements);
+            shared_free_safe(elements, "parser", "unknown_function", 4181);
             return NULL;
         }
         
         // Expand array if needed
         if (element_count >= element_capacity) {
             element_capacity *= 2;
-            ASTNode** new_elements = realloc(elements, element_capacity * sizeof(ASTNode*));
+            ASTNode** new_elements = shared_realloc_safe(elements, element_capacity * sizeof(ASTNode*), "parser", "unknown_function", 4188);
             if (!new_elements) {
                 parser_error(parser, "Out of memory while parsing array literal");
                 ast_free(element);
                 for (size_t i = 0; i < element_count; i++) {
                     ast_free(elements[i]);
                 }
-                free(elements);
+                shared_free_safe(elements, "parser", "unknown_function", 4195);
                 return NULL;
             }
             elements = new_elements;
@@ -4207,7 +4158,7 @@ static ASTNode* parser_parse_array_literal(Parser* parser) {
         for (size_t i = 0; i < element_count; i++) {
                 ast_free(elements[i]);
         }
-        free(elements);
+        shared_free_safe(elements, "parser", "unknown_function", 4211);
         return NULL;
     }
     
@@ -4252,7 +4203,7 @@ static ASTNode* parser_parse_array_literal(Parser* parser) {
                         }
                         if (arg_count == arg_capacity) {
                             size_t new_cap = arg_capacity == 0 ? 4 : arg_capacity * 2;
-                            ASTNode** new_args = (ASTNode**)realloc(args, new_cap * sizeof(ASTNode*));
+                            ASTNode** new_args = (ASTNode**)shared_realloc_safe(args, new_cap * sizeof(ASTNode*), "parser", "unknown_function", 4256);
                             if (!new_args) {
                                 parser_error(parser, "Out of memory while parsing arguments");
                                 break;
@@ -4364,14 +4315,14 @@ static ASTNode* parser_parse_hash_map_literal(Parser* parser) {
     }
     
     // Allocate arrays for keys and values
-    ASTNode** keys = malloc(sizeof(ASTNode*));
-    ASTNode** values = malloc(sizeof(ASTNode*));
+    ASTNode** keys = shared_malloc_safe(sizeof(ASTNode*), "parser", "unknown_function", 4368);
+    ASTNode** values = shared_malloc_safe(sizeof(ASTNode*), "parser", "unknown_function", 4369);
     if (!keys || !values) {
         parser_error(parser, "Memory allocation failed for hash map literal");
         ast_free(first_key);
         ast_free(first_value);
-        free(keys);
-        free(values);
+        shared_free_safe(keys, "parser", "unknown_function", 4374);
+        shared_free_safe(values, "parser", "unknown_function", 4375);
         return NULL;
     }
     keys[0] = first_key;
@@ -4391,8 +4342,8 @@ static ASTNode* parser_parse_hash_map_literal(Parser* parser) {
                 ast_free(keys[i]);
                 ast_free(values[i]);
             }
-            free(keys);
-            free(values);
+            shared_free_safe(keys, "parser", "unknown_function", 4395);
+            shared_free_safe(values, "parser", "unknown_function", 4396);
             return NULL;
         }
         
@@ -4405,8 +4356,8 @@ static ASTNode* parser_parse_hash_map_literal(Parser* parser) {
                 ast_free(keys[i]);
                 ast_free(values[i]);
             }
-            free(keys);
-            free(values);
+            shared_free_safe(keys, "parser", "unknown_function", 4409);
+            shared_free_safe(values, "parser", "unknown_function", 4410);
             return NULL;
         }
         
@@ -4419,16 +4370,16 @@ static ASTNode* parser_parse_hash_map_literal(Parser* parser) {
                 ast_free(keys[i]);
                 ast_free(values[i]);
             }
-            free(keys);
-            free(values);
+            shared_free_safe(keys, "parser", "unknown_function", 4423);
+            shared_free_safe(values, "parser", "unknown_function", 4424);
             return NULL;
         }
         
         // Expand arrays if needed
         if (pair_count >= pair_capacity) {
             pair_capacity *= 2;
-            keys = realloc(keys, pair_capacity * sizeof(ASTNode*));
-            values = realloc(values, pair_capacity * sizeof(ASTNode*));
+            keys = shared_realloc_safe(keys, pair_capacity * sizeof(ASTNode*), "parser", "unknown_function", 4431);
+            values = shared_realloc_safe(values, pair_capacity * sizeof(ASTNode*), "parser", "unknown_function", 4432);
             if (!keys || !values) {
                 parser_error(parser, "Memory allocation failed for hash map literal");
                 ast_free(key);
@@ -4438,8 +4389,8 @@ static ASTNode* parser_parse_hash_map_literal(Parser* parser) {
                     ast_free(keys[i]);
                     ast_free(values[i]);
                 }
-                free(keys);
-                free(values);
+                shared_free_safe(keys, "parser", "unknown_function", 4442);
+                shared_free_safe(values, "parser", "unknown_function", 4443);
                 return NULL;
             }
         }
@@ -4457,8 +4408,8 @@ static ASTNode* parser_parse_hash_map_literal(Parser* parser) {
             ast_free(keys[i]);
             ast_free(values[i]);
         }
-        free(keys);
-        free(values);
+        shared_free_safe(keys, "parser", "unknown_function", 4461);
+        shared_free_safe(values, "parser", "unknown_function", 4462);
         return NULL;
     }
     
@@ -4493,7 +4444,7 @@ static ASTNode* parser_parse_set_literal(Parser* parser) {
     }
     
     // Allocate array for elements
-    ASTNode** elements = malloc(sizeof(ASTNode*));
+    ASTNode** elements = shared_malloc_safe(sizeof(ASTNode*), "parser", "unknown_function", 4497);
     if (!elements) {
         parser_error(parser, "Memory allocation failed for set literal");
         ast_free(first_element);
@@ -4514,14 +4465,14 @@ static ASTNode* parser_parse_set_literal(Parser* parser) {
             for (size_t i = 0; i < element_count; i++) {
                 ast_free(elements[i]);
             }
-            free(elements);
+            shared_free_safe(elements, "parser", "unknown_function", 4518);
             return NULL;
         }
         
         // Expand array if needed
         if (element_count >= element_capacity) {
             element_capacity *= 2;
-            elements = realloc(elements, element_capacity * sizeof(ASTNode*));
+            elements = shared_realloc_safe(elements, element_capacity * sizeof(ASTNode*), "parser", "unknown_function", 4525);
             if (!elements) {
                 parser_error(parser, "Memory allocation failed for set literal");
                 ast_free(element);
@@ -4529,7 +4480,7 @@ static ASTNode* parser_parse_set_literal(Parser* parser) {
                 for (size_t i = 0; i < element_count; i++) {
                     ast_free(elements[i]);
                 }
-                free(elements);
+                shared_free_safe(elements, "parser", "unknown_function", 4533);
                 return NULL;
             }
         }
@@ -4545,7 +4496,7 @@ static ASTNode* parser_parse_set_literal(Parser* parser) {
         for (size_t i = 0; i < element_count; i++) {
             ast_free(elements[i]);
         }
-        free(elements);
+        shared_free_safe(elements, "parser", "unknown_function", 4549);
         return NULL;
     }
     
@@ -4594,7 +4545,7 @@ static ASTNode* parser_parse_try_catch_statement(Parser* parser) {
             // Expand array if needed
             if (try_count >= try_capacity) {
                 size_t new_capacity = try_capacity == 0 ? 4 : try_capacity * 2;
-                ASTNode** new_statements = realloc(try_statements, new_capacity * sizeof(ASTNode*));
+                ASTNode** new_statements = shared_realloc_safe(try_statements, new_capacity * sizeof(ASTNode*), "parser", "unknown_function", 4598);
                 if (new_statements) {
                     try_statements = new_statements;
                     try_capacity = new_capacity;
@@ -4608,7 +4559,7 @@ static ASTNode* parser_parse_try_catch_statement(Parser* parser) {
     
     ASTNode* try_block = ast_create_block(try_statements, try_count, 0, 0);
     if (!try_block && try_statements) {
-        free(try_statements);
+        shared_free_safe(try_statements, "parser", "unknown_function", 4612);
     }
     if (!try_block) {
         parser_error(parser, "Expected try block");
@@ -4638,7 +4589,7 @@ static ASTNode* parser_parse_try_catch_statement(Parser* parser) {
     // Expect colon after catch variable
     if (!parser_match(parser, TOKEN_COLON)) {
         parser_error(parser, "Catch block must start with colon (:)");
-        free(catch_variable);
+        shared_free_safe(catch_variable, "parser", "unknown_function", 4642);
         ast_free(try_block);
         return NULL;
     }
@@ -4647,7 +4598,7 @@ static ASTNode* parser_parse_try_catch_statement(Parser* parser) {
     ASTNode* catch_block = parser_collect_block(parser, 0, NULL);
     if (!catch_block) {
         parser_error(parser, "Expected catch block");
-        free(catch_variable);
+        shared_free_safe(catch_variable, "parser", "unknown_function", 4651);
         ast_free(try_block);
         return NULL;
     }
@@ -4657,7 +4608,7 @@ static ASTNode* parser_parse_try_catch_statement(Parser* parser) {
         !parser->current_token || !parser->current_token->text || 
         strcmp(parser->current_token->text, "end") != 0) {
         parser_error(parser, "Expected 'end' to close try-catch statement");
-        free(catch_variable);
+        shared_free_safe(catch_variable, "parser", "unknown_function", 4661);
         ast_free(try_block);
         ast_free(catch_block);
         return NULL;
@@ -4723,7 +4674,7 @@ static ASTNode* parser_parse_member_access_chain(Parser* parser, ASTNode* base) 
                     }
                     if (arg_count == arg_capacity) {
                         size_t new_cap = arg_capacity == 0 ? 4 : arg_capacity * 2;
-                        ASTNode** new_args = (ASTNode**)realloc(args, new_cap * sizeof(ASTNode*));
+                        ASTNode** new_args = (ASTNode**)shared_realloc_safe(args, new_cap * sizeof(ASTNode*), "parser", "unknown_function", 4727);
                         if (!new_args) {
                             parser_error(parser, "Out of memory while parsing arguments");
                             break;

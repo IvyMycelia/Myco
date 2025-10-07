@@ -2,10 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "../../include/utils/shared_utilities.h"
 
 // Type checker context management
 TypeCheckerContext* type_checker_create_context(void) {
-    TypeCheckerContext* context = malloc(sizeof(TypeCheckerContext));
+    TypeCheckerContext* context = shared_malloc_safe(sizeof(TypeCheckerContext), "type_checker", "unknown_function", 9);
     if (!context) return NULL;
     
     context->current_environment = type_environment_create(NULL);
@@ -28,23 +29,23 @@ void type_checker_free_context(TypeCheckerContext* context) {
     // Free function types
     for (size_t i = 0; i < context->function_count; i++) {
         type_free(context->function_return_types[i]);
-        free(context->function_names[i]);
+        shared_free_safe(context->function_names[i], "core", "unknown_function", 32);
     }
-    free(context->function_return_types);
-    free(context->function_names);
+    shared_free_safe(context->function_return_types, "core", "unknown_function", 34);
+    shared_free_safe(context->function_names, "core", "unknown_function", 35);
     
     // Free error messages
     for (int i = 0; i < context->error_count; i++) {
-        free(context->error_messages[i]);
+        shared_free_safe(context->error_messages[i], "core", "unknown_function", 39);
     }
-    free(context->error_messages);
+    shared_free_safe(context->error_messages, "core", "unknown_function", 41);
     
-    free(context);
+    shared_free_safe(context, "core", "unknown_function", 43);
 }
 
 // Type creation and management
 MycoType* type_create(MycoTypeKind kind, int line, int column) {
-    MycoType* type = malloc(sizeof(MycoType));
+    MycoType* type = shared_malloc_safe(sizeof(MycoType), "type_checker", "unknown_function", 48);
     if (!type) return NULL;
     
     type->kind = kind;
@@ -135,7 +136,7 @@ MycoType* type_clone(MycoType* type) {
             break;
         case TYPE_FUNCTION:
             clone->data.function_type.parameter_count = type->data.function_type.parameter_count;
-            clone->data.function_type.parameter_types = malloc(sizeof(MycoType*) * type->data.function_type.parameter_count);
+            clone->data.function_type.parameter_types = shared_malloc_safe(sizeof(MycoType*) * type->data.function_type.parameter_count, "type_checker", "unknown_function", 139);
             if (clone->data.function_type.parameter_types) {
                 for (size_t i = 0; i < type->data.function_type.parameter_count; i++) {
                     clone->data.function_type.parameter_types[i] = type_clone(type->data.function_type.parameter_types[i]);
@@ -148,7 +149,7 @@ MycoType* type_clone(MycoType* type) {
             break;
         case TYPE_UNION:
             clone->data.union_type.type_count = type->data.union_type.type_count;
-            clone->data.union_type.types = malloc(sizeof(MycoType*) * type->data.union_type.type_count);
+            clone->data.union_type.types = shared_malloc_safe(sizeof(MycoType*) * type->data.union_type.type_count, "type_checker", "unknown_function", 152);
             if (clone->data.union_type.types) {
                 for (size_t i = 0; i < type->data.union_type.type_count; i++) {
                     clone->data.union_type.types[i] = type_clone(type->data.union_type.types[i]);
@@ -176,17 +177,17 @@ void type_free(MycoType* type) {
             for (size_t i = 0; i < type->data.function_type.parameter_count; i++) {
                 type_free(type->data.function_type.parameter_types[i]);
             }
-            free(type->data.function_type.parameter_types);
+            shared_free_safe(type->data.function_type.parameter_types, "core", "unknown_function", 180);
             type_free(type->data.function_type.return_type);
             break;
         case TYPE_CLASS:
-            free(type->data.class_name);
+            shared_free_safe(type->data.class_name, "core", "unknown_function", 184);
             break;
         case TYPE_UNION:
             for (size_t i = 0; i < type->data.union_type.type_count; i++) {
                 type_free(type->data.union_type.types[i]);
             }
-            free(type->data.union_type.types);
+            shared_free_safe(type->data.union_type.types, "core", "unknown_function", 190);
             break;
         case TYPE_OPTIONAL:
             type_free(type->data.optional_type);
@@ -195,12 +196,12 @@ void type_free(MycoType* type) {
             break;
     }
     
-    free(type);
+    shared_free_safe(type, "core", "unknown_function", 199);
 }
 
 // Type environment management
 TypeEnvironment* type_environment_create(TypeEnvironment* parent) {
-    TypeEnvironment* env = malloc(sizeof(TypeEnvironment));
+    TypeEnvironment* env = shared_malloc_safe(sizeof(TypeEnvironment), "type_checker", "unknown_function", 204);
     if (!env) return NULL;
     
     env->parent = parent;
@@ -216,12 +217,12 @@ void type_environment_free(TypeEnvironment* env) {
     if (!env) return;
     
     for (size_t i = 0; i < env->variable_count; i++) {
-        free(env->variable_names[i]);
+        shared_free_safe(env->variable_names[i], "core", "unknown_function", 220);
         type_free(env->variable_types[i]);
     }
-    free(env->variable_names);
-    free(env->variable_types);
-    free(env);
+    shared_free_safe(env->variable_names, "core", "unknown_function", 223);
+    shared_free_safe(env->variable_types, "core", "unknown_function", 224);
+    shared_free_safe(env, "core", "unknown_function", 225);
 }
 
 int type_environment_add_variable(TypeEnvironment* env, const char* name, MycoType* type) {
@@ -235,12 +236,12 @@ int type_environment_add_variable(TypeEnvironment* env, const char* name, MycoTy
     // Expand capacity if needed
     if (env->variable_count >= env->variable_capacity) {
         size_t new_capacity = env->variable_capacity == 0 ? 4 : env->variable_capacity * 2;
-        char** new_names = realloc(env->variable_names, new_capacity * sizeof(char*));
-        MycoType** new_types = realloc(env->variable_types, new_capacity * sizeof(MycoType*));
+        char** new_names = shared_realloc_safe(env->variable_names, new_capacity * sizeof(char*), "type_checker", "unknown_function", 239);
+        MycoType** new_types = shared_realloc_safe(env->variable_types, new_capacity * sizeof(MycoType*), "type_checker", "unknown_function", 240);
         
         if (!new_names || !new_types) {
-            free(new_names);
-            free(new_types);
+            shared_free_safe(new_names, "core", "unknown_function", 243);
+            shared_free_safe(new_types, "core", "unknown_function", 244);
             return 0;
         }
         
@@ -610,7 +611,7 @@ void type_checker_add_error(TypeCheckerContext* context, const char* message, in
     // Expand error capacity if needed
     if (context->error_count >= context->error_capacity) {
         size_t new_capacity = context->error_capacity == 0 ? 4 : context->error_capacity * 2;
-        char** new_messages = realloc(context->error_messages, new_capacity * sizeof(char*));
+        char** new_messages = shared_realloc_safe(context->error_messages, new_capacity * sizeof(char*), "type_checker", "unknown_function", 614);
         
         if (!new_messages) return;
         
@@ -619,7 +620,7 @@ void type_checker_add_error(TypeCheckerContext* context, const char* message, in
     }
     
     // Format error message with location
-    char* error_msg = malloc(strlen(message) + 50);
+    char* error_msg = shared_malloc_safe(strlen(message) + 50, "type_checker", "unknown_function", 623);
     if (error_msg) {
         snprintf(error_msg, strlen(message) + 50, "Type error at line %d, column %d: %s", line, column, message);
         context->error_messages[context->error_count] = error_msg;
@@ -724,7 +725,7 @@ MycoType* type_parse_string(const char* type_string, int line, int column) {
     if (pipe_pos) {
         // Split the string at the pipe
         size_t left_len = pipe_pos - type_string;
-        char* left_type = (char*)malloc(left_len + 1);
+        char* left_type = (char*)shared_malloc_safe(left_len + 1, "core", "unknown_function", 728);
         strncpy(left_type, type_string, left_len);
         left_type[left_len] = '\0';
         
@@ -734,12 +735,12 @@ MycoType* type_parse_string(const char* type_string, int line, int column) {
         MycoType* left = type_parse_string(left_type, line, column);
         MycoType* right = type_parse_string(right_type, line, column);
         
-        free(left_type);
-        free(right_type);
+        shared_free_safe(left_type, "core", "unknown_function", 738);
+        shared_free_safe(right_type, "core", "unknown_function", 739);
         
         if (left && right) {
             // Create union type
-            MycoType** types = (MycoType**)malloc(2 * sizeof(MycoType*));
+            MycoType** types = (MycoType**)shared_malloc_safe(2 * sizeof(MycoType*), "type_checker", "unknown_function", 743);
             types[0] = left;
             types[1] = right;
             return type_create_union(types, 2, line, column);
@@ -754,12 +755,12 @@ MycoType* type_parse_string(const char* type_string, int line, int column) {
     size_t len = strlen(type_string);
     if (len >= 3 && type_string[0] == '[' && type_string[len - 1] == ']') {
         // Extract the element type from [ElementType]
-        char* element_type_string = (char*)malloc(len - 1);
+        char* element_type_string = (char*)shared_malloc_safe(len - 1, "core", "unknown_function", 758);
         strncpy(element_type_string, type_string + 1, len - 2);
         element_type_string[len - 2] = '\0';
         
         MycoType* element_type = type_parse_string(element_type_string, line, column);
-        free(element_type_string);
+        shared_free_safe(element_type_string, "core", "unknown_function", 763);
         
         if (element_type) {
             return type_create_array(element_type, line, column);
@@ -771,12 +772,12 @@ MycoType* type_parse_string(const char* type_string, int line, int column) {
     // Check for optional types (e.g., "String?")
     if (len > 0 && type_string[len - 1] == '?') {
         // Remove the '?' and parse the wrapped type
-        char* wrapped_type_string = (char*)malloc(len);
+        char* wrapped_type_string = (char*)shared_malloc_safe(len, "core", "unknown_function", 775);
         strncpy(wrapped_type_string, type_string, len - 1);
         wrapped_type_string[len - 1] = '\0';
         
         MycoType* wrapped_type = type_parse_string(wrapped_type_string, line, column);
-        free(wrapped_type_string);
+        shared_free_safe(wrapped_type_string, "core", "unknown_function", 780);
         
         if (wrapped_type) {
             return type_create_optional(wrapped_type, line, column);

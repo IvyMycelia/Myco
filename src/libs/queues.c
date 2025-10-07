@@ -3,11 +3,13 @@
 #include <stdio.h>
 #include "../../include/core/interpreter.h"
 #include "../../include/core/ast.h"
+#include "../../include/core/standardized_errors.h"
+#include "../../include/utils/shared_utilities.h"
 
 // Queue utility functions
 Value builtin_queue_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 0) {
-        interpreter_set_error(interpreter, "create() requires no arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "create() requires no arguments", line, column);
         return value_create_null();
     }
     
@@ -22,7 +24,7 @@ Value builtin_queue_create(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_queue_enqueue(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "queue.enqueue() expects exactly 1 argument: value", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.enqueue() expects exactly 1 argument: value", line, column);
         return value_create_null();
     }
     
@@ -30,7 +32,7 @@ Value builtin_queue_enqueue(Interpreter* interpreter, Value* args, size_t arg_co
     Value value = args[1];
     
     if (queue_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "queue.enqueue() can only be called on queue objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.enqueue() can only be called on queue objects", line, column);
         return value_create_null();
     }
     
@@ -39,7 +41,7 @@ Value builtin_queue_enqueue(Interpreter* interpreter, Value* args, size_t arg_co
     Value size = value_object_get(&queue_arg, "size");
     
     if (elements.type != VALUE_ARRAY || size.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "Invalid queue object structure", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid queue object structure", line, column);
         return value_create_null();
     }
     
@@ -71,14 +73,14 @@ Value builtin_queue_enqueue(Interpreter* interpreter, Value* args, size_t arg_co
 
 Value builtin_queue_dequeue(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "queue.dequeue() expects exactly 0 arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.dequeue() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value queue_arg = args[0];
     
     if (queue_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "queue.dequeue() can only be called on queue objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.dequeue() can only be called on queue objects", line, column);
         return value_create_null();
     }
     
@@ -87,19 +89,19 @@ Value builtin_queue_dequeue(Interpreter* interpreter, Value* args, size_t arg_co
     Value size = value_object_get(&queue_arg, "size");
     
     if (elements.type != VALUE_ARRAY || size.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "Invalid queue object structure", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid queue object structure", line, column);
         return value_create_null();
     }
     
     if (elements.data.array_value.count == 0) {
-        interpreter_set_error(interpreter, "Cannot dequeue from empty queue", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Cannot dequeue from empty queue", line, column);
         return value_create_null();
     }
     
     // Get the front element (first element - FIFO)
     Value* front_element = (Value*)elements.data.array_value.elements[0];
     if (!front_element) {
-        interpreter_set_error(interpreter, "Invalid queue element", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid queue element", line, column);
         return value_create_null();
     }
     
@@ -138,14 +140,14 @@ Value builtin_queue_dequeue(Interpreter* interpreter, Value* args, size_t arg_co
 
 Value builtin_queue_front(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "queue.front() expects exactly 0 arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.front() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value queue_arg = args[0];
     
     if (queue_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "queue.front() can only be called on queue objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.front() can only be called on queue objects", line, column);
         return value_create_null();
     }
     
@@ -153,19 +155,19 @@ Value builtin_queue_front(Interpreter* interpreter, Value* args, size_t arg_coun
     Value elements = value_object_get(&queue_arg, "elements");
     
     if (elements.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "Invalid queue object structure", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid queue object structure", line, column);
         return value_create_null();
     }
     
     if (elements.data.array_value.count == 0) {
-        interpreter_set_error(interpreter, "Cannot get front of empty queue", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Cannot get front of empty queue", line, column);
         return value_create_null();
     }
     
     // Return the front element (first element)
     Value* front_element = (Value*)elements.data.array_value.elements[0];
     if (!front_element) {
-        interpreter_set_error(interpreter, "Invalid queue element", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid queue element", line, column);
         return value_create_null();
     }
     
@@ -174,14 +176,14 @@ Value builtin_queue_front(Interpreter* interpreter, Value* args, size_t arg_coun
 
 Value builtin_queue_back(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "queue.back() expects exactly 0 arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.back() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value queue_arg = args[0];
     
     if (queue_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "queue.back() can only be called on queue objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.back() can only be called on queue objects", line, column);
         return value_create_null();
     }
     
@@ -189,12 +191,12 @@ Value builtin_queue_back(Interpreter* interpreter, Value* args, size_t arg_count
     Value elements = value_object_get(&queue_arg, "elements");
     
     if (elements.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "Invalid queue object structure", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid queue object structure", line, column);
         return value_create_null();
     }
     
     if (elements.data.array_value.count == 0) {
-        interpreter_set_error(interpreter, "Cannot get back of empty queue", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Cannot get back of empty queue", line, column);
         return value_create_null();
     }
     
@@ -202,7 +204,7 @@ Value builtin_queue_back(Interpreter* interpreter, Value* args, size_t arg_count
     size_t last_index = elements.data.array_value.count - 1;
     Value* back_element = (Value*)elements.data.array_value.elements[last_index];
     if (!back_element) {
-        interpreter_set_error(interpreter, "Invalid queue element", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid queue element", line, column);
         return value_create_null();
     }
     
@@ -211,14 +213,14 @@ Value builtin_queue_back(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_queue_size(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "queue.size() expects exactly 0 arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.size() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value queue_arg = args[0];
     
     if (queue_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "queue.size() can only be called on queue objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.size() can only be called on queue objects", line, column);
         return value_create_null();
     }
     
@@ -226,7 +228,7 @@ Value builtin_queue_size(Interpreter* interpreter, Value* args, size_t arg_count
     Value size = value_object_get(&queue_arg, "size");
     
     if (size.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "Invalid queue object structure", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid queue object structure", line, column);
         return value_create_null();
     }
     
@@ -235,14 +237,14 @@ Value builtin_queue_size(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_queue_isEmpty(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "queue.isEmpty() expects exactly 0 arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.isEmpty() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value queue_arg = args[0];
     
     if (queue_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "queue.isEmpty() can only be called on queue objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.isEmpty() can only be called on queue objects", line, column);
         return value_create_null();
     }
     
@@ -250,7 +252,7 @@ Value builtin_queue_isEmpty(Interpreter* interpreter, Value* args, size_t arg_co
     Value size = value_object_get(&queue_arg, "size");
     
     if (size.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "Invalid queue object structure", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid queue object structure", line, column);
         return value_create_null();
     }
     
@@ -259,14 +261,14 @@ Value builtin_queue_isEmpty(Interpreter* interpreter, Value* args, size_t arg_co
 
 Value builtin_queue_clear(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "queue.clear() expects exactly 0 arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.clear() expects exactly 0 arguments", line, column);
         return value_create_null();
     }
     
     Value queue_arg = args[0];
     
     if (queue_arg.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "queue.clear() can only be called on queue objects", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.clear() can only be called on queue objects", line, column);
         return value_create_null();
     }
     

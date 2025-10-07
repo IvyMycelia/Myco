@@ -3,11 +3,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "../../include/core/standardized_errors.h"
+#include "../../include/utils/shared_utilities.h"
 
 // Set operations
 Value builtin_set_add(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "set.add() expects exactly 1 argument: element", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "sets", "unknown_function", "set.add() expects exactly 1 argument: element", line, column);
         return value_create_null();
     }
     
@@ -15,7 +17,7 @@ Value builtin_set_add(Interpreter* interpreter, Value* args, size_t arg_count, i
     Value element = args[1];
     
     if (set->type != VALUE_SET) {
-        interpreter_set_error(interpreter, "set.add() can only be called on a set", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "sets", "unknown_function", "set.add() can only be called on a set", line, column);
         return value_create_null();
     }
     
@@ -25,7 +27,7 @@ Value builtin_set_add(Interpreter* interpreter, Value* args, size_t arg_count, i
 
 Value builtin_set_has(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "set.has() expects exactly 1 argument: element", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "sets", "unknown_function", "set.has() expects exactly 1 argument: element", line, column);
         return value_create_null();
     }
     
@@ -33,7 +35,7 @@ Value builtin_set_has(Interpreter* interpreter, Value* args, size_t arg_count, i
     Value element = args[1];
     
     if (set.type != VALUE_SET) {
-        interpreter_set_error(interpreter, "set.has() can only be called on a set", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "sets", "unknown_function", "set.has() can only be called on a set", line, column);
         return value_create_null();
     }
     
@@ -43,7 +45,7 @@ Value builtin_set_has(Interpreter* interpreter, Value* args, size_t arg_count, i
 
 Value builtin_set_remove(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "set.remove() expects exactly 1 argument: element", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "sets", "unknown_function", "set.remove() expects exactly 1 argument: element", line, column);
         return value_create_null();
     }
     
@@ -51,7 +53,7 @@ Value builtin_set_remove(Interpreter* interpreter, Value* args, size_t arg_count
     Value element = args[1];
     
     if (set->type != VALUE_SET) {
-        interpreter_set_error(interpreter, "set.remove() can only be called on a set", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "sets", "unknown_function", "set.remove() can only be called on a set", line, column);
         return value_create_null();
     }
     
@@ -61,14 +63,14 @@ Value builtin_set_remove(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_set_size(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "set.size() expects no arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "sets", "unknown_function", "set.size() expects no arguments", line, column);
         return value_create_null();
     }
     
     Value set = args[0];
     
     if (set.type != VALUE_SET) {
-        interpreter_set_error(interpreter, "set.size() can only be called on a set", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "sets", "unknown_function", "set.size() can only be called on a set", line, column);
         return value_create_null();
     }
     
@@ -78,14 +80,14 @@ Value builtin_set_size(Interpreter* interpreter, Value* args, size_t arg_count, 
 
 Value builtin_set_clear(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "set.clear() expects no arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "sets", "unknown_function", "set.clear() expects no arguments", line, column);
         return value_create_null();
     }
     
     Value* set = &args[0];
     
     if (set->type != VALUE_SET) {
-        interpreter_set_error(interpreter, "set.clear() can only be called on a set", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "sets", "unknown_function", "set.clear() can only be called on a set", line, column);
         return value_create_null();
     }
     
@@ -106,14 +108,14 @@ Value builtin_set_clear(Interpreter* interpreter, Value* args, size_t arg_count,
 
 Value builtin_set_to_array(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "set.toArray() expects no arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "sets", "unknown_function", "set.toArray() expects no arguments", line, column);
         return value_create_null();
     }
     
     Value set = args[0];
     
     if (set.type != VALUE_SET) {
-        interpreter_set_error(interpreter, "set.toArray() can only be called on a set", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "sets", "unknown_function", "set.toArray() can only be called on a set", line, column);
         return value_create_null();
     }
     
@@ -123,7 +125,7 @@ Value builtin_set_to_array(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_set_union(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "set.union() expects exactly 1 argument: other_set", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "sets", "unknown_function", "set.union() expects exactly 1 argument: other_set", line, column);
         return value_create_null();
     }
     
@@ -131,7 +133,7 @@ Value builtin_set_union(Interpreter* interpreter, Value* args, size_t arg_count,
     Value set2 = args[1];
     
     if (set1.type != VALUE_SET || set2.type != VALUE_SET) {
-        interpreter_set_error(interpreter, "set.union() can only be called on a set with another set", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "sets", "unknown_function", "set.union() can only be called on a set with another set", line, column);
         return value_create_null();
     }
     
@@ -167,7 +169,7 @@ Value builtin_set_union(Interpreter* interpreter, Value* args, size_t arg_count,
 
 Value builtin_set_intersection(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "set.intersection() expects exactly 1 argument: other_set", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "sets", "unknown_function", "set.intersection() expects exactly 1 argument: other_set", line, column);
         return value_create_null();
     }
     
@@ -175,7 +177,7 @@ Value builtin_set_intersection(Interpreter* interpreter, Value* args, size_t arg
     Value set2 = args[1];
     
     if (set1.type != VALUE_SET || set2.type != VALUE_SET) {
-        interpreter_set_error(interpreter, "set.intersection() can only be called on a set with another set", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "sets", "unknown_function", "set.intersection() can only be called on a set with another set", line, column);
         return value_create_null();
     }
     

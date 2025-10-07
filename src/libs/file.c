@@ -5,6 +5,8 @@
 #include <errno.h>
 #include "../../include/core/interpreter.h"
 #include "../../include/core/ast.h"
+#include "../../include/core/standardized_errors.h"
+#include "../../include/utils/shared_utilities.h"
 
 // File handle structure for stream operations
 typedef struct {
@@ -23,7 +25,7 @@ static size_t file_handle_capacity = 0;
 
 // File handle functions
 static FileHandle* file_handle_create(FILE* file, const char* filename, const char* mode) {
-    FileHandle* handle = malloc(sizeof(FileHandle));
+    FileHandle* handle = shared_malloc_safe(sizeof(FileHandle), "file", "unknown_function", 28);
     if (!handle) return NULL;
     
     handle->file = file;
@@ -53,9 +55,9 @@ static void file_handle_free(FileHandle* handle) {
         fclose(handle->file);
     }
     
-    free(handle->filename);
-    free(handle->mode);
-    free(handle);
+    shared_free_safe(handle->filename, "file", "unknown_function", 58);
+    shared_free_safe(handle->mode, "file", "unknown_function", 59);
+    shared_free_safe(handle, "file", "unknown_function", 60);
 }
 
 static FileHandle* file_handle_find(Value handle_value) {
@@ -70,13 +72,13 @@ static FileHandle* file_handle_find(Value handle_value) {
 static int file_handle_register(FileHandle* handle) {
     if (!file_handles) {
         file_handle_capacity = 10;
-        file_handles = malloc(sizeof(FileHandle) * file_handle_capacity);
+        file_handles = shared_malloc_safe(sizeof(FileHandle) * file_handle_capacity, "file", "file_handle", 75);
         if (!file_handles) return -1;
     }
     
     if (file_handle_count >= file_handle_capacity) {
         file_handle_capacity *= 2;
-        file_handles = realloc(file_handles, sizeof(FileHandle) * file_handle_capacity);
+        file_handles = shared_realloc_safe(file_handles, sizeof(FileHandle) * file_handle_capacity, "file", "file_handle", 81);
         if (!file_handles) return -1;
     }
     
@@ -89,13 +91,13 @@ static int file_handle_register(FileHandle* handle) {
 // File handle operations
 Value builtin_file_open(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count < 1 || arg_count > 2) {
-        interpreter_set_error(interpreter, "file.open() requires 1-2 arguments (filename, [mode])", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "file.open() requires 1-2 arguments (filename, [mode])", line, column);
         return value_create_null();
     }
     
     Value filename_val = args[0];
     if (filename_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "file.open() first argument must be a string (filename)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "file", "unknown_function", "file.open() first argument must be a string (filename)", line, column);
         return value_create_null();
     }
     
@@ -105,7 +107,7 @@ Value builtin_file_open(Interpreter* interpreter, Value* args, size_t arg_count,
     if (arg_count == 2) {
         Value mode_val = args[1];
         if (mode_val.type != VALUE_STRING) {
-            interpreter_set_error(interpreter, "file.open() second argument must be a string (mode)", line, column);
+            std_error_report(ERROR_INVALID_ARGUMENT, "file", "unknown_function", "file.open() second argument must be a string (mode)", line, column);
             return value_create_null();
         }
         mode = mode_val.data.string_value;
@@ -136,9 +138,9 @@ Value builtin_file_open(Interpreter* interpreter, Value* args, size_t arg_count,
     int handle_id = file_handle_register(&handle);
     if (handle_id == -1) {
         fclose(file);
-        free(handle.filename);
-        free(handle.mode);
-        interpreter_set_error(interpreter, "Failed to register file handle", line, column);
+        shared_free_safe(handle.filename, "file", "unknown_function", 141);
+        shared_free_safe(handle.mode, "file", "unknown_function", 142);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "Failed to register file handle", line, column);
         return value_create_null();
     }
     
@@ -147,18 +149,18 @@ Value builtin_file_open(Interpreter* interpreter, Value* args, size_t arg_count,
 
 Value builtin_file_close(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "file.close() requires exactly 1 argument (handle)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "file", "unknown_function", "file.close() requires exactly 1 argument (handle)", line, column);
         return value_create_null();
     }
     
     FileHandle* handle = file_handle_find(args[0]);
     if (!handle) {
-        interpreter_set_error(interpreter, "Invalid file handle", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "Invalid file handle", line, column);
         return value_create_null();
     }
     
     if (!handle->is_open) {
-        interpreter_set_error(interpreter, "File handle is already closed", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "File handle is already closed", line, column);
         return value_create_null();
     }
     
@@ -178,18 +180,18 @@ Value builtin_file_close(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_file_read_chunk(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count < 1 || arg_count > 2) {
-        interpreter_set_error(interpreter, "file.read() requires 1-2 arguments (handle, [size])", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "file.read() requires 1-2 arguments (handle, [size])", line, column);
         return value_create_null();
     }
     
     FileHandle* handle = file_handle_find(args[0]);
     if (!handle) {
-        interpreter_set_error(interpreter, "Invalid file handle", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "Invalid file handle", line, column);
         return value_create_null();
     }
     
     if (!handle->is_open) {
-        interpreter_set_error(interpreter, "File handle is closed", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "File handle is closed", line, column);
         return value_create_null();
     }
     
@@ -197,15 +199,15 @@ Value builtin_file_read_chunk(Interpreter* interpreter, Value* args, size_t arg_
     if (arg_count == 2) {
         Value size_val = args[1];
         if (size_val.type != VALUE_NUMBER) {
-            interpreter_set_error(interpreter, "file.read() second argument must be a number (size)", line, column);
+            std_error_report(ERROR_INVALID_ARGUMENT, "file", "unknown_function", "file.read() second argument must be a number (size)", line, column);
             return value_create_null();
         }
         size = (size_t)size_val.data.number_value;
     }
     
-    char* buffer = malloc(size + 1);
+    char* buffer = shared_malloc_safe(size + 1, "file", "unknown_function", 208);
     if (!buffer) {
-        interpreter_set_error(interpreter, "Out of memory while reading file", line, column);
+        std_error_report(ERROR_OUT_OF_MEMORY, "file", "unknown_function", "Out of memory while reading file", line, column);
         return value_create_null();
     }
     
@@ -215,31 +217,31 @@ Value builtin_file_read_chunk(Interpreter* interpreter, Value* args, size_t arg_
     handle->position = ftell(handle->file);
     
     Value result = value_create_string(buffer);
-    free(buffer);
+    shared_free_safe(buffer, "file", "unknown_function", 220);
     
     return result;
 }
 
 Value builtin_file_write_chunk(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "file.write() requires exactly 2 arguments (handle, data)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "file", "unknown_function", "file.write() requires exactly 2 arguments (handle, data)", line, column);
         return value_create_null();
     }
     
     FileHandle* handle = file_handle_find(args[0]);
     if (!handle) {
-        interpreter_set_error(interpreter, "Invalid file handle", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "Invalid file handle", line, column);
         return value_create_null();
     }
     
     if (!handle->is_open) {
-        interpreter_set_error(interpreter, "File handle is closed", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "File handle is closed", line, column);
         return value_create_null();
     }
     
     Value data_val = args[1];
     if (data_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "file.write() second argument must be a string (data)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "file", "unknown_function", "file.write() second argument must be a string (data)", line, column);
         return value_create_null();
     }
     
@@ -261,24 +263,24 @@ Value builtin_file_write_chunk(Interpreter* interpreter, Value* args, size_t arg
 
 Value builtin_file_seek(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "file.seek() requires exactly 2 arguments (handle, position)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "file", "unknown_function", "file.seek() requires exactly 2 arguments (handle, position)", line, column);
         return value_create_null();
     }
     
     FileHandle* handle = file_handle_find(args[0]);
     if (!handle) {
-        interpreter_set_error(interpreter, "Invalid file handle", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "Invalid file handle", line, column);
         return value_create_null();
     }
     
     if (!handle->is_open) {
-        interpreter_set_error(interpreter, "File handle is closed", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "File handle is closed", line, column);
         return value_create_null();
     }
     
     Value pos_val = args[1];
     if (pos_val.type != VALUE_NUMBER) {
-        interpreter_set_error(interpreter, "file.seek() second argument must be a number (position)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "file", "unknown_function", "file.seek() second argument must be a number (position)", line, column);
         return value_create_null();
     }
     
@@ -298,18 +300,18 @@ Value builtin_file_seek(Interpreter* interpreter, Value* args, size_t arg_count,
 
 Value builtin_file_tell(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "file.tell() requires exactly 1 argument (handle)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "file", "unknown_function", "file.tell() requires exactly 1 argument (handle)", line, column);
         return value_create_null();
     }
     
     FileHandle* handle = file_handle_find(args[0]);
     if (!handle) {
-        interpreter_set_error(interpreter, "Invalid file handle", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "Invalid file handle", line, column);
         return value_create_null();
     }
     
     if (!handle->is_open) {
-        interpreter_set_error(interpreter, "File handle is closed", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "File handle is closed", line, column);
         return value_create_null();
     }
     
@@ -328,18 +330,18 @@ Value builtin_file_tell(Interpreter* interpreter, Value* args, size_t arg_count,
 
 Value builtin_file_eof(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "file.eof() requires exactly 1 argument (handle)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "file", "unknown_function", "file.eof() requires exactly 1 argument (handle)", line, column);
         return value_create_null();
     }
     
     FileHandle* handle = file_handle_find(args[0]);
     if (!handle) {
-        interpreter_set_error(interpreter, "Invalid file handle", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "Invalid file handle", line, column);
         return value_create_null();
     }
     
     if (!handle->is_open) {
-        interpreter_set_error(interpreter, "File handle is closed", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "File handle is closed", line, column);
         return value_create_null();
     }
     
@@ -348,18 +350,18 @@ Value builtin_file_eof(Interpreter* interpreter, Value* args, size_t arg_count, 
 
 Value builtin_file_size_handle(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "file.size() requires exactly 1 argument (handle)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "file", "unknown_function", "file.size() requires exactly 1 argument (handle)", line, column);
         return value_create_null();
     }
     
     FileHandle* handle = file_handle_find(args[0]);
     if (!handle) {
-        interpreter_set_error(interpreter, "Invalid file handle", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "Invalid file handle", line, column);
         return value_create_null();
     }
     
     if (!handle->is_open) {
-        interpreter_set_error(interpreter, "File handle is closed", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "File handle is closed", line, column);
         return value_create_null();
     }
     
@@ -368,18 +370,18 @@ Value builtin_file_size_handle(Interpreter* interpreter, Value* args, size_t arg
 
 Value builtin_file_flush(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "file.flush() requires exactly 1 argument (handle)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "file", "unknown_function", "file.flush() requires exactly 1 argument (handle)", line, column);
         return value_create_null();
     }
     
     FileHandle* handle = file_handle_find(args[0]);
     if (!handle) {
-        interpreter_set_error(interpreter, "Invalid file handle", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "Invalid file handle", line, column);
         return value_create_null();
     }
     
     if (!handle->is_open) {
-        interpreter_set_error(interpreter, "File handle is closed", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "File handle is closed", line, column);
         return value_create_null();
     }
     
@@ -396,13 +398,13 @@ Value builtin_file_flush(Interpreter* interpreter, Value* args, size_t arg_count
 // Read entire file content as string
 Value builtin_file_read(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "file.read() requires exactly 1 argument (filename)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "file", "unknown_function", "file.read() requires exactly 1 argument (filename)", line, column);
         return value_create_null();
     }
     
     Value filename_val = args[0];
     if (filename_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "file.read() argument must be a string (filename)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "file", "unknown_function", "file.read() argument must be a string (filename)", line, column);
         return value_create_null();
     }
     
@@ -422,15 +424,15 @@ Value builtin_file_read(Interpreter* interpreter, Value* args, size_t arg_count,
     
     if (file_size < 0) {
         fclose(file);
-        interpreter_set_error(interpreter, "Cannot determine file size", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "Cannot determine file size", line, column);
         return value_create_null();
     }
     
     // Allocate buffer and read file
-    char* buffer = malloc(file_size + 1);
+    char* buffer = shared_malloc_safe(file_size + 1, "file", "unknown_function", 432);
     if (!buffer) {
         fclose(file);
-        interpreter_set_error(interpreter, "Out of memory while reading file", line, column);
+        std_error_report(ERROR_OUT_OF_MEMORY, "file", "unknown_function", "Out of memory while reading file", line, column);
         return value_create_null();
     }
     
@@ -439,8 +441,8 @@ Value builtin_file_read(Interpreter* interpreter, Value* args, size_t arg_count,
     fclose(file);
     
     if (bytes_read != (size_t)file_size) {
-        free(buffer);
-        interpreter_set_error(interpreter, "Error reading file content", line, column);
+        shared_free_safe(buffer, "file", "unknown_function", 444);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "Error reading file content", line, column);
         return value_create_null();
     }
     
@@ -450,7 +452,7 @@ Value builtin_file_read(Interpreter* interpreter, Value* args, size_t arg_count,
 // Write string content to file
 Value builtin_file_write(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "file.write() requires exactly 2 arguments (filename, content)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "file", "unknown_function", "file.write() requires exactly 2 arguments (filename, content)", line, column);
         return value_create_null();
     }
     
@@ -458,12 +460,12 @@ Value builtin_file_write(Interpreter* interpreter, Value* args, size_t arg_count
     Value content_val = args[1];
     
     if (filename_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "file.write() first argument must be a string (filename)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "file", "unknown_function", "file.write() first argument must be a string (filename)", line, column);
         return value_create_null();
     }
     
     if (content_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "file.write() second argument must be a string (content)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "file", "unknown_function", "file.write() second argument must be a string (content)", line, column);
         return value_create_null();
     }
     
@@ -483,7 +485,7 @@ Value builtin_file_write(Interpreter* interpreter, Value* args, size_t arg_count
     fclose(file);
     
     if (bytes_written != content_len) {
-        interpreter_set_error(interpreter, "Error writing file content", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "Error writing file content", line, column);
         return value_create_null();
     }
     
@@ -493,7 +495,7 @@ Value builtin_file_write(Interpreter* interpreter, Value* args, size_t arg_count
 // Append string content to file
 Value builtin_file_append(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "file.append() requires exactly 2 arguments (filename, content)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "file", "unknown_function", "file.append() requires exactly 2 arguments (filename, content)", line, column);
         return value_create_null();
     }
     
@@ -501,12 +503,12 @@ Value builtin_file_append(Interpreter* interpreter, Value* args, size_t arg_coun
     Value content_val = args[1];
     
     if (filename_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "file.append() first argument must be a string (filename)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "file", "unknown_function", "file.append() first argument must be a string (filename)", line, column);
         return value_create_null();
     }
     
     if (content_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "file.append() second argument must be a string (content)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "file", "unknown_function", "file.append() second argument must be a string (content)", line, column);
         return value_create_null();
     }
     
@@ -526,7 +528,7 @@ Value builtin_file_append(Interpreter* interpreter, Value* args, size_t arg_coun
     fclose(file);
     
     if (bytes_written != content_len) {
-        interpreter_set_error(interpreter, "Error appending to file", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "file", "unknown_function", "Error appending to file", line, column);
         return value_create_null();
     }
     
@@ -536,13 +538,13 @@ Value builtin_file_append(Interpreter* interpreter, Value* args, size_t arg_coun
 // Check if file exists
 Value builtin_file_exists(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "file.exists() requires exactly 1 argument (filename)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "file", "unknown_function", "file.exists() requires exactly 1 argument (filename)", line, column);
         return value_create_null();
     }
     
     Value filename_val = args[0];
     if (filename_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "file.exists() argument must be a string (filename)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "file", "unknown_function", "file.exists() argument must be a string (filename)", line, column);
         return value_create_null();
     }
     
@@ -556,13 +558,13 @@ Value builtin_file_exists(Interpreter* interpreter, Value* args, size_t arg_coun
 // Get file size in bytes
 Value builtin_file_size(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "file.size() requires exactly 1 argument (filename)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "file", "unknown_function", "file.size() requires exactly 1 argument (filename)", line, column);
         return value_create_null();
     }
     
     Value filename_val = args[0];
     if (filename_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "file.size() argument must be a string (filename)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "file", "unknown_function", "file.size() argument must be a string (filename)", line, column);
         return value_create_null();
     }
     
@@ -583,13 +585,13 @@ Value builtin_file_size(Interpreter* interpreter, Value* args, size_t arg_count,
 // Delete file
 Value builtin_file_delete(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "file.delete() requires exactly 1 argument (filename)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "file", "unknown_function", "file.delete() requires exactly 1 argument (filename)", line, column);
         return value_create_null();
     }
     
     Value filename_val = args[0];
     if (filename_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "file.delete() argument must be a string (filename)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "file", "unknown_function", "file.delete() argument must be a string (filename)", line, column);
         return value_create_null();
     }
     
@@ -609,13 +611,13 @@ Value builtin_file_delete(Interpreter* interpreter, Value* args, size_t arg_coun
 // Read file as array of lines
 Value builtin_file_read_lines(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "file.read_lines() requires exactly 1 argument (filename)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "file", "unknown_function", "file.read_lines() requires exactly 1 argument (filename)", line, column);
         return value_create_null();
     }
     
     Value filename_val = args[0];
     if (filename_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "file.read_lines() argument must be a string (filename)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "file", "unknown_function", "file.read_lines() argument must be a string (filename)", line, column);
         return value_create_null();
     }
     
@@ -645,7 +647,7 @@ Value builtin_file_read_lines(Interpreter* interpreter, Value* args, size_t arg_
     }
     
     if (line_buffer) {
-        free(line_buffer);
+        shared_free_safe(line_buffer, "file", "unknown_function", 650);
     }
     fclose(file);
     
@@ -655,7 +657,7 @@ Value builtin_file_read_lines(Interpreter* interpreter, Value* args, size_t arg_
 // Write array of lines to file
 Value builtin_file_write_lines(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "file.write_lines() requires exactly 2 arguments (filename, lines)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "file", "unknown_function", "file.write_lines() requires exactly 2 arguments (filename, lines)", line, column);
         return value_create_null();
     }
     
@@ -663,12 +665,12 @@ Value builtin_file_write_lines(Interpreter* interpreter, Value* args, size_t arg
     Value lines_val = args[1];
     
     if (filename_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "file.write_lines() first argument must be a string (filename)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "file", "unknown_function", "file.write_lines() first argument must be a string (filename)", line, column);
         return value_create_null();
     }
     
     if (lines_val.type != VALUE_ARRAY) {
-        interpreter_set_error(interpreter, "file.write_lines() second argument must be an array of strings", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "file", "unknown_function", "file.write_lines() second argument must be an array of strings", line, column);
         return value_create_null();
     }
     

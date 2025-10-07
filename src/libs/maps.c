@@ -3,11 +3,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "../../include/core/standardized_errors.h"
+#include "../../include/utils/shared_utilities.h"
 
 // Map operations
 Value builtin_map_has(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "map.has() expects exactly 1 argument: key", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.has() expects exactly 1 argument: key", line, column);
         return value_create_null();
     }
     
@@ -15,7 +17,7 @@ Value builtin_map_has(Interpreter* interpreter, Value* args, size_t arg_count, i
     Value key = args[1];
     
     if (map.type != VALUE_HASH_MAP) {
-        interpreter_set_error(interpreter, "map.has() can only be called on a hash map", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.has() can only be called on a hash map", line, column);
         return value_create_null();
     }
     
@@ -25,14 +27,14 @@ Value builtin_map_has(Interpreter* interpreter, Value* args, size_t arg_count, i
 
 Value builtin_map_size(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "map.size() expects no arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.size() expects no arguments", line, column);
         return value_create_null();
     }
     
     Value map = args[0];
     
     if (map.type != VALUE_HASH_MAP) {
-        interpreter_set_error(interpreter, "map.size() can only be called on a hash map", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.size() can only be called on a hash map", line, column);
         return value_create_null();
     }
     
@@ -42,14 +44,14 @@ Value builtin_map_size(Interpreter* interpreter, Value* args, size_t arg_count, 
 
 Value builtin_map_keys(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "map.keys() expects no arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.keys() expects no arguments", line, column);
         return value_create_null();
     }
     
     Value map = args[0];
     
     if (map.type != VALUE_HASH_MAP) {
-        interpreter_set_error(interpreter, "map.keys() can only be called on a hash map", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.keys() can only be called on a hash map", line, column);
         return value_create_null();
     }
     
@@ -66,20 +68,20 @@ Value builtin_map_keys(Interpreter* interpreter, Value* args, size_t arg_count, 
     // Clone each key and store in the array
     for (size_t i = 0; i < count; i++) {
         Value cloned_key = value_clone(&keys[i]);
-        array.data.array_value.elements[i] = malloc(sizeof(Value));
+        array.data.array_value.elements[i] = shared_malloc_safe(sizeof(Value), "libs", "unknown_function", 71);
         *((Value*)array.data.array_value.elements[i]) = cloned_key;
     }
     array.data.array_value.count = count;
     
     // Free the original keys array
-    free(keys);
+    shared_free_safe(keys, "libs", "unknown_function", 77);
     
     return array;
 }
 
 Value builtin_map_delete(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "map.delete() expects exactly 1 argument: key", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.delete() expects exactly 1 argument: key", line, column);
         return value_create_null();
     }
     
@@ -87,7 +89,7 @@ Value builtin_map_delete(Interpreter* interpreter, Value* args, size_t arg_count
     Value key = args[1];
     
     if (map->type != VALUE_HASH_MAP) {
-        interpreter_set_error(interpreter, "map.delete() can only be called on a hash map", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.delete() can only be called on a hash map", line, column);
         return value_create_null();
     }
     
@@ -97,14 +99,14 @@ Value builtin_map_delete(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_map_clear(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "map.clear() expects no arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.clear() expects no arguments", line, column);
         return value_create_null();
     }
     
     Value* map = &args[0];
     
     if (map->type != VALUE_HASH_MAP) {
-        interpreter_set_error(interpreter, "map.clear() can only be called on a hash map", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.clear() can only be called on a hash map", line, column);
         return value_create_null();
     }
     
@@ -116,7 +118,7 @@ Value builtin_map_clear(Interpreter* interpreter, Value* args, size_t arg_count,
         for (size_t i = 0; i < count; i++) {
             value_hash_map_delete(map, keys[i]);
         }
-        free(keys);
+        shared_free_safe(keys, "libs", "unknown_function", 121);
     }
     
     return value_clone(map);
@@ -124,7 +126,7 @@ Value builtin_map_clear(Interpreter* interpreter, Value* args, size_t arg_count,
 
 Value builtin_map_update(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "map.update() expects exactly 1 argument: other_map", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.update() expects exactly 1 argument: other_map", line, column);
         return value_create_null();
     }
     
@@ -132,7 +134,7 @@ Value builtin_map_update(Interpreter* interpreter, Value* args, size_t arg_count
     Value other_map = args[1];
     
     if (map->type != VALUE_HASH_MAP || other_map.type != VALUE_HASH_MAP) {
-        interpreter_set_error(interpreter, "map.update() argument must be a hash map", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "maps", "unknown_function", "map.update() argument must be a hash map", line, column);
         return value_create_null();
     }
     
@@ -146,7 +148,7 @@ Value builtin_map_update(Interpreter* interpreter, Value* args, size_t arg_count
             value_hash_map_set(map, keys[i], value);
             value_free(&value);
         }
-        free(keys);
+        shared_free_safe(keys, "libs", "unknown_function", 151);
     }
     
     return value_clone(map);

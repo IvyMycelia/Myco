@@ -3,6 +3,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
+#include "../../include/utils/shared_utilities.h"
 
 /**
  * @brief Initialize a new lexer with source code
@@ -24,7 +25,7 @@ Lexer* lexer_initialize(const char* source) {
     }
     
     // Allocate memory for the lexer structure
-    Lexer* lexer = malloc(sizeof(Lexer));
+    Lexer* lexer = shared_malloc_safe(sizeof(Lexer), "core", "unknown_function", 28);
     if (!lexer) {
         return NULL;  // Memory allocation failed
     }
@@ -69,15 +70,15 @@ void lexer_free(Lexer* lexer) {
     if (lexer->tokens) {
         for (int i = 0; i < lexer->token_count; i++) {
             if (lexer->tokens[i].text) {
-                free(lexer->tokens[i].text);
+                shared_free_safe(lexer->tokens[i].text, "core", "unknown_function", 73);
             }
         }
-        free(lexer->tokens);
+        shared_free_safe(lexer->tokens, "core", "unknown_function", 76);
         lexer->tokens = NULL;
     }
     
     // Free the lexer structure itself
-        free(lexer);
+        shared_free_safe(lexer, "core", "unknown_function", 81);
 }
 
 /**
@@ -97,7 +98,7 @@ static int lexer_add_token(Lexer* lexer, TokenType type, const char* text, int l
     // Expand token array if needed
     if (lexer->token_count >= lexer->token_capacity) {
         int new_capacity = lexer->token_capacity == 0 ? 100 : lexer->token_capacity * 2;
-        Token* new_tokens = realloc(lexer->tokens, sizeof(Token) * new_capacity);
+        Token* new_tokens = shared_realloc_safe(lexer->tokens, sizeof(Token) * new_capacity, "core", "unknown_function", 101);
         if (!new_tokens) {
             return 0;  // Memory allocation failed
         }
@@ -253,7 +254,7 @@ static void lexer_skip_comments(Lexer* lexer) {
  */
 static char* lexer_extract_text(Lexer* lexer) {
     int length = lexer->current - lexer->start;
-    char* text = malloc(length + 1);
+    char* text = shared_malloc_safe(length + 1, "core", "unknown_function", 257);
     if (text) {
         strncpy(text, lexer->source + lexer->start, length);
         text[length] = '\0';
@@ -287,7 +288,7 @@ static void lexer_parse_number(Lexer* lexer) {
     char* text = lexer_extract_text(lexer);
     if (text) {
         // Remove underscores from the number text before converting to double
-        char* clean_text = malloc(strlen(text) + 1);
+        char* clean_text = shared_malloc_safe(strlen(text) + 1, "core", "unknown_function", 291);
         if (clean_text) {
             size_t j = 0;
             for (size_t i = 0; text[i] != '\0'; i++) {
@@ -298,12 +299,12 @@ static void lexer_parse_number(Lexer* lexer) {
             clean_text[j] = '\0';
             
             lexer_add_token(lexer, TOKEN_NUMBER, clean_text, lexer->line, lexer->column - strlen(text));
-            free(clean_text);
+            shared_free_safe(clean_text, "core", "unknown_function", 302);
         } else {
             // Fallback to original text if memory allocation fails
             lexer_add_token(lexer, TOKEN_NUMBER, text, lexer->line, lexer->column - strlen(text));
         }
-        free(text);
+        shared_free_safe(text, "core", "unknown_function", 307);
     }
 }
 
@@ -319,7 +320,7 @@ static void lexer_parse_string(Lexer* lexer) {
     lexer_advance(lexer);  // Consume the opening quote
     
     // Build the string content with proper escape sequence processing
-    char* result = malloc(1024);  // Start with reasonable buffer size
+    char* result = shared_malloc_safe(1024, "core", "unknown_function", 323);  // Start with reasonable buffer size
     int result_len = 0;
     int result_capacity = 1024;
     
@@ -327,7 +328,7 @@ static void lexer_parse_string(Lexer* lexer) {
         if (lexer_current_char(lexer) == '\n') {
             // String spans multiple lines - this is an error
             lexer_add_token(lexer, TOKEN_ERROR, "Unterminated string", lexer->line, lexer->column);
-            free(result);
+            shared_free_safe(result, "core", "unknown_function", 331);
             return;
         }
         
@@ -350,7 +351,7 @@ static void lexer_parse_string(Lexer* lexer) {
                 // Add the actual character to result
                 if (result_len >= result_capacity - 1) {
                     result_capacity *= 2;
-                    result = realloc(result, result_capacity);
+                    result = shared_realloc_safe(result, result_capacity, "core", "unknown_function", 354);
                 }
                 result[result_len++] = actual_char;
                 lexer_advance(lexer);
@@ -359,7 +360,7 @@ static void lexer_parse_string(Lexer* lexer) {
             // Add regular character to result
             if (result_len >= result_capacity - 1) {
                 result_capacity *= 2;
-                result = realloc(result, result_capacity);
+                result = shared_realloc_safe(result, result_capacity, "core", "unknown_function", 363);
             }
             result[result_len++] = lexer_current_char(lexer);
             lexer_advance(lexer);
@@ -369,14 +370,14 @@ static void lexer_parse_string(Lexer* lexer) {
     if (lexer_is_at_end(lexer)) {
         // String was not terminated
         lexer_add_token(lexer, TOKEN_ERROR, "Unterminated string", lexer->line, lexer->column);
-        free(result);
+        shared_free_safe(result, "core", "unknown_function", 373);
         return;
     }
     
     // Null terminate the result
     result[result_len] = '\0';
     lexer_add_token(lexer, TOKEN_STRING, result, lexer->line, lexer->column - result_len - 1);
-    free(result);
+    shared_free_safe(result, "core", "unknown_function", 380);
     
     lexer_advance(lexer);  // Consume the closing quote
 }
@@ -435,7 +436,7 @@ static void lexer_parse_identifier(Lexer* lexer) {
         else if (strcmp(text, "public") == 0) type = TOKEN_KEYWORD;
         
         lexer_add_token(lexer, type, text, lexer->line, lexer->column - strlen(text));
-        free(text);
+        shared_free_safe(text, "core", "unknown_function", 439);
     }
 }
 

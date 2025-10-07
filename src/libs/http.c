@@ -2,6 +2,8 @@
 #include "libs/builtin_libs.h"
 #include "core/interpreter.h"
 #include "core/ast.h"
+#include "../../include/core/standardized_errors.h"
+#include "../../include/utils/shared_utilities.h"
 
 // Global CURL initialization flag
 static bool curl_initialized = false;
@@ -23,7 +25,7 @@ static size_t http_write_callback(void* contents, size_t size, size_t nmemb, voi
     size_t realsize = size * nmemb;
     HttpResponse* response = (HttpResponse*)userp;
     
-    char* ptr = realloc(response->body, response->content_length + realsize + 1);
+    char* ptr = shared_realloc_safe(response->body, response->content_length + realsize + 1, "libs", "unknown_function", 28);
     if (!ptr) {
         return 0;
     }
@@ -41,7 +43,7 @@ static size_t http_header_callback(void* contents, size_t size, size_t nmemb, vo
     size_t realsize = size * nmemb;
     HttpResponse* response = (HttpResponse*)userp;
     
-    char* header = malloc(realsize + 1);
+    char* header = shared_malloc_safe(realsize + 1, "libs", "unknown_function", 46);
     if (!header) return 0;
     
     memcpy(header, contents, realsize);
@@ -56,7 +58,7 @@ static size_t http_header_callback(void* contents, size_t size, size_t nmemb, vo
     }
     
     // Reallocate headers array
-    response->headers = realloc(response->headers, (response->header_count + 1) * sizeof(char*));
+    response->headers = shared_realloc_safe(response->headers, (response->header_count + 1) * sizeof(char*), "libs", "unknown_function", 61);
     response->headers[response->header_count] = header;
     response->header_count++;
     
@@ -65,7 +67,7 @@ static size_t http_header_callback(void* contents, size_t size, size_t nmemb, vo
 
 // Create HTTP request
 HttpRequest* http_create_request(HttpMethod method, const char* url) {
-    HttpRequest* request = malloc(sizeof(HttpRequest));
+    HttpRequest* request = shared_malloc_safe(sizeof(HttpRequest), "libs", "unknown_function", 70);
     if (!request) return NULL;
     
     request->method = method;
@@ -84,12 +86,12 @@ HttpRequest* http_create_request(HttpMethod method, const char* url) {
 void http_add_header(HttpRequest* request, const char* name, const char* value) {
     if (!request || !name || !value) return;
     
-    char* header = malloc(strlen(name) + strlen(value) + 3);
+    char* header = shared_malloc_safe(strlen(name) + strlen(value) + 3, "libs", "unknown_function", 89);
     if (!header) return;
     
     sprintf(header, "%s: %s", name, value);
     
-    request->headers = realloc(request->headers, (request->header_count + 1) * sizeof(char*));
+    request->headers = shared_realloc_safe(request->headers, (request->header_count + 1) * sizeof(char*), "libs", "unknown_function", 94);
     request->headers[request->header_count] = header;
     request->header_count++;
 }
@@ -99,7 +101,7 @@ void http_set_body(HttpRequest* request, const char* body) {
     if (!request) return;
     
     if (request->body) {
-        free(request->body);
+        shared_free_safe(request->body, "libs", "unknown_function", 104);
     }
     
     request->body = body ? strdup(body) : NULL;
@@ -114,7 +116,7 @@ void http_set_timeout(HttpRequest* request, int seconds) {
 // Perform HTTP request
 HttpResponse* http_request(HttpRequest* request) {
     if (!request || !http_init_curl()) {
-        HttpResponse* error_response = malloc(sizeof(HttpResponse));
+        HttpResponse* error_response = shared_malloc_safe(sizeof(HttpResponse), "libs", "unknown_function", 119);
         error_response->status_code = 0;
         error_response->status_text = strdup("CURL initialization failed");
         error_response->body = NULL;
@@ -129,7 +131,7 @@ HttpResponse* http_request(HttpRequest* request) {
     
     CURL* curl = curl_easy_init();
     if (!curl) {
-        HttpResponse* error_response = malloc(sizeof(HttpResponse));
+        HttpResponse* error_response = shared_malloc_safe(sizeof(HttpResponse), "libs", "unknown_function", 134);
         error_response->status_code = 0;
         error_response->status_text = strdup("CURL initialization failed");
         error_response->body = NULL;
@@ -143,8 +145,8 @@ HttpResponse* http_request(HttpRequest* request) {
     }
     
     // Initialize response
-    HttpResponse* response = malloc(sizeof(HttpResponse));
-    response->body = malloc(1);
+    HttpResponse* response = shared_malloc_safe(sizeof(HttpResponse), "libs", "unknown_function", 148);
+    response->body = shared_malloc_safe(1, "libs", "unknown_function", 149);
     response->body[0] = '\0';
     response->content_length = 0;
     response->headers = NULL;
@@ -305,37 +307,37 @@ HttpResponse* http_delete(const char* url, char** headers, size_t header_count) 
 void http_free_response(HttpResponse* response) {
     if (!response) return;
     
-    if (response->body) free(response->body);
-    if (response->status_text) free(response->status_text);
-    if (response->content_type) free(response->content_type);
-    if (response->error_message) free(response->error_message);
+    if (response->body) shared_free_safe(response->body, "libs", "unknown_function", 310);
+    if (response->status_text) shared_free_safe(response->status_text, "libs", "unknown_function", 311);
+    if (response->content_type) shared_free_safe(response->content_type, "libs", "unknown_function", 312);
+    if (response->error_message) shared_free_safe(response->error_message, "libs", "unknown_function", 313);
     
     if (response->headers) {
         for (size_t i = 0; i < response->header_count; i++) {
-            free(response->headers[i]);
+            shared_free_safe(response->headers[i], "libs", "unknown_function", 317);
         }
-        free(response->headers);
+        shared_free_safe(response->headers, "libs", "unknown_function", 319);
     }
     
-    free(response);
+    shared_free_safe(response, "libs", "unknown_function", 322);
 }
 
 // Free request memory
 void http_free_request(HttpRequest* request) {
     if (!request) return;
     
-    if (request->url) free(request->url);
-    if (request->body) free(request->body);
-    if (request->user_agent) free(request->user_agent);
+    if (request->url) shared_free_safe(request->url, "libs", "unknown_function", 329);
+    if (request->body) shared_free_safe(request->body, "libs", "unknown_function", 330);
+    if (request->user_agent) shared_free_safe(request->user_agent, "libs", "unknown_function", 331);
     
     if (request->headers) {
         for (size_t i = 0; i < request->header_count; i++) {
-            free(request->headers[i]);
+            shared_free_safe(request->headers[i], "libs", "unknown_function", 335);
         }
-        free(request->headers);
+        shared_free_safe(request->headers, "libs", "unknown_function", 337);
     }
     
-    free(request);
+    shared_free_safe(request, "libs", "unknown_function", 340);
 }
 
 // Response utility functions
@@ -379,13 +381,13 @@ char* http_get_json(HttpResponse* response) {
 // Myco library functions
 Value builtin_http_get(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count < 1) {
-        interpreter_set_error(interpreter, "http.get() requires at least 1 argument (url)", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "http", "unknown_function", "http.get() requires at least 1 argument (url)", line, column);
         return value_create_null();
     }
     
     Value url_value = args[0];
     if (url_value.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "http.get() URL must be a string", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "http", "unknown_function", "http.get() URL must be a string", line, column);
         return value_create_null();
     }
     
@@ -413,7 +415,7 @@ Value builtin_http_get(Interpreter* interpreter, Value* args, size_t arg_count, 
 
 Value builtin_http_post(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count < 2) {
-        interpreter_set_error(interpreter, "http.post() requires at least 2 arguments (url, data)", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "http", "unknown_function", "http.post() requires at least 2 arguments (url, data)", line, column);
         return value_create_null();
     }
     
@@ -421,12 +423,12 @@ Value builtin_http_post(Interpreter* interpreter, Value* args, size_t arg_count,
     Value data_value = args[1];
     
     if (url_value.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "http.post() URL must be a string", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "http", "unknown_function", "http.post() URL must be a string", line, column);
         return value_create_null();
     }
     
     if (data_value.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "http.post() data must be a string", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "http", "unknown_function", "http.post() data must be a string", line, column);
         return value_create_null();
     }
     
@@ -454,7 +456,7 @@ Value builtin_http_post(Interpreter* interpreter, Value* args, size_t arg_count,
 
 Value builtin_http_put(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count < 2) {
-        interpreter_set_error(interpreter, "http.put() requires at least 2 arguments (url, data)", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "http", "unknown_function", "http.put() requires at least 2 arguments (url, data)", line, column);
         return value_create_null();
     }
     
@@ -462,12 +464,12 @@ Value builtin_http_put(Interpreter* interpreter, Value* args, size_t arg_count, 
     Value data_value = args[1];
     
     if (url_value.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "http.put() URL must be a string", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "http", "unknown_function", "http.put() URL must be a string", line, column);
         return value_create_null();
     }
     
     if (data_value.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "http.put() data must be a string", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "http", "unknown_function", "http.put() data must be a string", line, column);
         return value_create_null();
     }
     
@@ -495,13 +497,13 @@ Value builtin_http_put(Interpreter* interpreter, Value* args, size_t arg_count, 
 
 Value builtin_http_delete(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count < 1) {
-        interpreter_set_error(interpreter, "http.delete() requires at least 1 argument (url)", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "http", "unknown_function", "http.delete() requires at least 1 argument (url)", line, column);
         return value_create_null();
     }
     
     Value url_value = args[0];
     if (url_value.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "http.delete() URL must be a string", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "http", "unknown_function", "http.delete() URL must be a string", line, column);
         return value_create_null();
     }
     
@@ -538,13 +540,13 @@ Value builtin_http_request(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_http_status_ok(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "http.status_ok() requires exactly 1 argument (response)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "http", "unknown_function", "http.status_ok() requires exactly 1 argument (response)", line, column);
         return value_create_null();
     }
     
     Value response = args[0];
     if (response.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "http.status_ok() argument must be a response object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "http", "unknown_function", "http.status_ok() argument must be a response object", line, column);
         return value_create_null();
     }
     
@@ -564,7 +566,7 @@ Value builtin_http_status_ok(Interpreter* interpreter, Value* args, size_t arg_c
 
 Value builtin_http_get_header(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "http.get_header() requires exactly 2 arguments (response, header_name)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "http", "unknown_function", "http.get_header() requires exactly 2 arguments (response, header_name)", line, column);
         return value_create_null();
     }
     
@@ -572,12 +574,12 @@ Value builtin_http_get_header(Interpreter* interpreter, Value* args, size_t arg_
     Value header_name_val = args[1];
     
     if (response_val.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "http.get_header() first argument must be a response object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "http", "unknown_function", "http.get_header() first argument must be a response object", line, column);
         return value_create_null();
     }
     
     if (header_name_val.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "http.get_header() second argument must be a string (header name)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "http", "unknown_function", "http.get_header() second argument must be a string (header name)", line, column);
         return value_create_null();
     }
     
@@ -600,13 +602,13 @@ Value builtin_http_get_header(Interpreter* interpreter, Value* args, size_t arg_
 
 Value builtin_http_get_json(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "http.get_json() requires exactly 1 argument (response)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "http", "unknown_function", "http.get_json() requires exactly 1 argument (response)", line, column);
         return value_create_null();
     }
     
     Value response = args[0];
     if (response.type != VALUE_OBJECT) {
-        interpreter_set_error(interpreter, "http.get_json() argument must be a response object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "http", "unknown_function", "http.get_json() argument must be a response object", line, column);
         return value_create_null();
     }
     
@@ -626,13 +628,13 @@ Value builtin_http_get_json(Interpreter* interpreter, Value* args, size_t arg_co
 // Additional HTTP methods
 Value builtin_http_head(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count < 1) {
-        interpreter_set_error(interpreter, "http.head() requires at least 1 argument (url)", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "http", "unknown_function", "http.head() requires at least 1 argument (url)", line, column);
         return value_create_null();
     }
     
     Value url_value = args[0];
     if (url_value.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "http.head() URL must be a string", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "http", "unknown_function", "http.head() URL must be a string", line, column);
         return value_create_null();
     }
     
@@ -665,7 +667,7 @@ Value builtin_http_head(Interpreter* interpreter, Value* args, size_t arg_count,
 
 Value builtin_http_patch(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count < 2) {
-        interpreter_set_error(interpreter, "http.patch() requires at least 2 arguments (url, data)", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "http", "unknown_function", "http.patch() requires at least 2 arguments (url, data)", line, column);
         return value_create_null();
     }
     
@@ -673,12 +675,12 @@ Value builtin_http_patch(Interpreter* interpreter, Value* args, size_t arg_count
     Value data_value = args[1];
     
     if (url_value.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "http.patch() URL must be a string", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "http", "unknown_function", "http.patch() URL must be a string", line, column);
         return value_create_null();
     }
     
     if (data_value.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "http.patch() data must be a string", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "http", "unknown_function", "http.patch() data must be a string", line, column);
         return value_create_null();
     }
     
@@ -713,13 +715,13 @@ Value builtin_http_patch(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_http_options(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count < 1) {
-        interpreter_set_error(interpreter, "http.options() requires at least 1 argument (url)", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "http", "unknown_function", "http.options() requires at least 1 argument (url)", line, column);
         return value_create_null();
     }
     
     Value url_value = args[0];
     if (url_value.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "http.options() URL must be a string", line, column);
+        std_error_report(ERROR_TYPE_MISMATCH, "http", "unknown_function", "http.options() URL must be a string", line, column);
         return value_create_null();
     }
     

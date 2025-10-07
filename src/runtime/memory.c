@@ -3,12 +3,13 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
+#include "../../include/utils/shared_utilities.h"
 
 // Garbage Collection Implementation
 // This implements a mark-and-sweep garbage collector with generational optimization
 
 MemoryTracker* memory_tracker_create(MemoryStrategy strategy) {
-    MemoryTracker* tracker = malloc(sizeof(MemoryTracker));
+    MemoryTracker* tracker = shared_malloc_safe(sizeof(MemoryTracker), "unknown", "unknown_function", 12);
     if (!tracker) return NULL;
     
     tracker->strategy = strategy;
@@ -50,7 +51,7 @@ void memory_tracker_free(MemoryTracker* tracker) {
             arena = next;
         }
         
-        free(tracker);
+        shared_free_safe(tracker, "unknown", "unknown_function", 54);
     }
 }
 
@@ -67,12 +68,12 @@ void memory_tracker_reset(MemoryTracker* tracker) {
 
 // Memory allocation functions with garbage collection
 void* memory_allocate(MemoryTracker* tracker, size_t size) {
-    if (!tracker) return malloc(size);
+    if (!tracker) return shared_malloc_safe(size, "unknown", "unknown_function", 71);
     
     // Align size to word boundary
     size = memory_align_size(size, sizeof(void*));
     
-    void* ptr = malloc(size);
+    void* ptr = shared_malloc_safe(size, "unknown", "unknown_function", 76);
     if (!ptr) return NULL;
     
     // Update statistics
@@ -102,7 +103,7 @@ void* memory_allocate_aligned(MemoryTracker* tracker, size_t size, size_t alignm
 }
 
 void* memory_reallocate(MemoryTracker* tracker, void* ptr, size_t new_size) {
-    if (!tracker) return realloc(ptr, new_size);
+    if (!tracker) return shared_realloc_safe(ptr, new_size, "unknown", "unknown_function", 106);
     
     if (!ptr) return memory_allocate(tracker, new_size);
     
@@ -110,7 +111,7 @@ void* memory_reallocate(MemoryTracker* tracker, void* ptr, size_t new_size) {
     // Note: malloc_usable_size is not portable, so we use a simplified approach
     size_t old_size = 0; // We'd need to track this properly in a real implementation
     
-    void* new_ptr = realloc(ptr, new_size);
+    void* new_ptr = shared_realloc_safe(ptr, new_size, "unknown", "unknown_function", 114);
     if (!new_ptr) return NULL;
     
     // Update statistics
@@ -132,7 +133,7 @@ void memory_free(MemoryTracker* tracker, void* ptr) {
         // We'd need to track the actual size to update current_usage properly
     }
     
-    free(ptr);
+    shared_free_safe(ptr, "unknown", "unknown_function", 136);
 }
 
 MemoryPool* memory_pool_create(MemoryTracker* tracker, size_t size, const char* name) { return NULL; }

@@ -2,6 +2,8 @@
 #include "libs/builtin_libs.h"
 #include "core/interpreter.h"
 #include "core/ast.h"
+#include "../../include/core/standardized_errors.h"
+#include "../../include/utils/shared_utilities.h"
 
 // Forward declarations
 static JsonValue* json_parse_value(JsonContext* ctx);
@@ -35,14 +37,14 @@ static void json_advance(JsonContext* ctx) {
 static void json_set_error(JsonContext* ctx, const char* message) {
     ctx->has_error = true;
     if (ctx->error_message) {
-        free(ctx->error_message);
+        shared_free_safe(ctx->error_message, "libs", "unknown_function", 40);
     }
     ctx->error_message = strdup(message);
 }
 
 // Helper function to create JSON value
 static JsonValue* json_create_value(JsonValueType type) {
-    JsonValue* value = malloc(sizeof(JsonValue));
+    JsonValue* value = shared_malloc_safe(sizeof(JsonValue), "libs", "unknown_function", 47);
     if (!value) return NULL;
     
     value->type = type;
@@ -129,13 +131,13 @@ static JsonValue* json_parse_number(JsonContext* ctx) {
     
     // Convert to number
     size_t length = ctx->position - start;
-    char* number_str = malloc(length + 1);
+    char* number_str = shared_malloc_safe(length + 1, "libs", "unknown_function", 134);
     strncpy(number_str, ctx->input + start, length);
     number_str[length] = '\0';
     
     JsonValue* value = json_create_value(JSON_NUMBER);
     value->data.number_value = atof(number_str);
-    free(number_str);
+    shared_free_safe(number_str, "libs", "unknown_function", 140);
     
     return value;
 }
@@ -166,12 +168,12 @@ static JsonValue* json_parse_string(JsonContext* ctx) {
     }
     
     size_t length = ctx->position - start;
-    char* string_value = malloc(length + 1);
+    char* string_value = shared_malloc_safe(length + 1, "libs", "unknown_function", 171);
     strncpy(string_value, ctx->input + start, length);
     string_value[length] = '\0';
     
     // Handle escape sequences
-    char* processed = malloc(length + 1);
+    char* processed = shared_malloc_safe(length + 1, "libs", "unknown_function", 176);
     size_t processed_len = 0;
     for (size_t i = 0; i < length; i++) {
         if (string_value[i] == '\\' && i + 1 < length) {
@@ -194,7 +196,7 @@ static JsonValue* json_parse_string(JsonContext* ctx) {
     
     JsonValue* value = json_create_value(JSON_STRING);
     value->data.string_value = processed;
-    free(string_value);
+    shared_free_safe(string_value, "libs", "unknown_function", 199);
     
     json_advance(ctx); // Skip closing quote
     return value;
@@ -210,7 +212,7 @@ static JsonValue* json_parse_array(JsonContext* ctx) {
     
     JsonValue* array = json_create_value(JSON_ARRAY);
     array->data.array_value.capacity = 4;
-    array->data.array_value.elements = malloc(sizeof(JsonValue*) * array->data.array_value.capacity);
+    array->data.array_value.elements = shared_malloc_safe(sizeof(JsonValue*) * array->data.array_value.capacity, "libs", "unknown_function", 215);
     array->data.array_value.count = 0;
     
     json_skip_whitespace(ctx);
@@ -223,7 +225,9 @@ static JsonValue* json_parse_array(JsonContext* ctx) {
     while (!json_is_at_end(ctx)) {
         JsonValue* element = json_parse_value(ctx);
         if (ctx->has_error) {
-            json_free(array);
+            // free array value structure on error
+            shared_free_safe(array->data.array_value.elements, "libs", "unknown_function", 228);
+            shared_free_safe(array, "libs", "unknown_function", 228);
             return NULL;
         }
         
@@ -263,8 +267,8 @@ static JsonValue* json_parse_object(JsonContext* ctx) {
     
     JsonValue* object = json_create_value(JSON_OBJECT);
     object->data.object_value.capacity = 4;
-    object->data.object_value.keys = malloc(sizeof(char*) * object->data.object_value.capacity);
-    object->data.object_value.values = malloc(sizeof(JsonValue*) * object->data.object_value.capacity);
+    object->data.object_value.keys = shared_malloc_safe(sizeof(char*) * object->data.object_value.capacity, "libs", "unknown_function", 270);
+    object->data.object_value.values = shared_malloc_safe(sizeof(JsonValue*) * object->data.object_value.capacity, "libs", "unknown_function", 271);
     object->data.object_value.count = 0;
     
     json_skip_whitespace(ctx);
@@ -287,7 +291,7 @@ static JsonValue* json_parse_object(JsonContext* ctx) {
         json_skip_whitespace(ctx);
         if (json_current_char(ctx) != ':') {
             json_set_error(ctx, "Expected ':'");
-            free(key);
+            shared_free_safe(key, "libs", "unknown_function", 292);
             json_free(object);
             return NULL;
         }
@@ -295,7 +299,7 @@ static JsonValue* json_parse_object(JsonContext* ctx) {
         
         JsonValue* value = json_parse_value(ctx);
         if (ctx->has_error) {
-            free(key);
+            shared_free_safe(key, "libs", "unknown_function", 300);
             json_free(object);
             return NULL;
         }
@@ -380,7 +384,7 @@ JsonValue* json_parse(const char* input) {
     
     if (ctx.has_error) {
         if (result) json_free(result);
-        if (ctx.error_message) free(ctx.error_message);
+        if (ctx.error_message) shared_free_safe(ctx.error_message, "libs", "unknown_function", 385);
         return NULL;
     }
     
@@ -402,7 +406,7 @@ static void json_stringify_value(const JsonValue* value, char** output, size_t* 
             *length += 4;
             if (*length >= *capacity) {
                 *capacity = *length + 1;
-                *output = realloc(*output, *capacity);
+                *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 407);
             }
             strcat(*output, "null");
             break;
@@ -411,7 +415,7 @@ static void json_stringify_value(const JsonValue* value, char** output, size_t* 
             *length += value->data.boolean_value ? 4 : 5;
             if (*length >= *capacity) {
                 *capacity = *length + 1;
-                *output = realloc(*output, *capacity);
+                *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 416);
             }
             strcat(*output, value->data.boolean_value ? "true" : "false");
             break;
@@ -422,7 +426,7 @@ static void json_stringify_value(const JsonValue* value, char** output, size_t* 
             *length += strlen(number_str);
             if (*length >= *capacity) {
                 *capacity = *length + 1;
-                *output = realloc(*output, *capacity);
+                *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 427);
             }
             strcat(*output, number_str);
             break;
@@ -432,7 +436,7 @@ static void json_stringify_value(const JsonValue* value, char** output, size_t* 
             *length += strlen(value->data.string_value) + 2; // +2 for quotes
             if (*length >= *capacity) {
                 *capacity = *length + 1;
-                *output = realloc(*output, *capacity);
+                *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 437);
             }
             strcat(*output, "\"");
             strcat(*output, value->data.string_value);
@@ -444,7 +448,7 @@ static void json_stringify_value(const JsonValue* value, char** output, size_t* 
             *length += 2; // for []
             if (*length >= *capacity) {
                 *capacity = *length + 1;
-                *output = realloc(*output, *capacity);
+                *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 449);
             }
             strcat(*output, "[");
             
@@ -453,7 +457,7 @@ static void json_stringify_value(const JsonValue* value, char** output, size_t* 
                     *length += 1;
                     if (*length >= *capacity) {
                         *capacity = *length + 1;
-                        *output = realloc(*output, *capacity);
+                        *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 458);
                     }
                     strcat(*output, ",");
                 }
@@ -463,7 +467,7 @@ static void json_stringify_value(const JsonValue* value, char** output, size_t* 
             *length += 1;
             if (*length >= *capacity) {
                 *capacity = *length + 1;
-                *output = realloc(*output, *capacity);
+                *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 468);
             }
             strcat(*output, "]");
             break;
@@ -473,7 +477,7 @@ static void json_stringify_value(const JsonValue* value, char** output, size_t* 
             *length += 2; // for {}
             if (*length >= *capacity) {
                 *capacity = *length + 1;
-                *output = realloc(*output, *capacity);
+                *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 478);
             }
             strcat(*output, "{");
             
@@ -482,7 +486,7 @@ static void json_stringify_value(const JsonValue* value, char** output, size_t* 
                     *length += 1;
                     if (*length >= *capacity) {
                         *capacity = *length + 1;
-                        *output = realloc(*output, *capacity);
+                        *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 487);
                     }
                     strcat(*output, ",");
                 }
@@ -491,7 +495,7 @@ static void json_stringify_value(const JsonValue* value, char** output, size_t* 
                 *length += strlen(value->data.object_value.keys[i]) + 2;
                 if (*length >= *capacity) {
                     *capacity = *length + 1;
-                    *output = realloc(*output, *capacity);
+                    *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 496);
                 }
                 strcat(*output, "\"");
                 strcat(*output, value->data.object_value.keys[i]);
@@ -504,7 +508,7 @@ static void json_stringify_value(const JsonValue* value, char** output, size_t* 
             *length += 1;
             if (*length >= *capacity) {
                 *capacity = *length + 1;
-                *output = realloc(*output, *capacity);
+                *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 509);
             }
             strcat(*output, "}");
             break;
@@ -517,7 +521,7 @@ char* json_stringify(const JsonValue* value) {
     
     size_t capacity = 256;
     size_t length = 0;
-    char* output = malloc(capacity);
+    char* output = shared_malloc_safe(capacity, "libs", "unknown_function", 522);
     output[0] = '\0';
     
     json_stringify_value(value, &output, &capacity, &length);
@@ -542,7 +546,7 @@ void json_free(JsonValue* value) {
     switch (value->type) {
         case JSON_STRING:
             if (value->data.string_value) {
-                free(value->data.string_value);
+                shared_free_safe(value->data.string_value, "libs", "unknown_function", 547);
             }
             break;
             
@@ -551,20 +555,20 @@ void json_free(JsonValue* value) {
                 json_free(value->data.array_value.elements[i]);
             }
             if (value->data.array_value.elements) {
-                free(value->data.array_value.elements);
+                shared_free_safe(value->data.array_value.elements, "libs", "unknown_function", 556);
             }
             break;
             
         case JSON_OBJECT:
             for (size_t i = 0; i < value->data.object_value.count; i++) {
-                free(value->data.object_value.keys[i]);
+                shared_free_safe(value->data.object_value.keys[i], "libs", "unknown_function", 562);
                 json_free(value->data.object_value.values[i]);
             }
             if (value->data.object_value.keys) {
-                free(value->data.object_value.keys);
+                shared_free_safe(value->data.object_value.keys, "libs", "unknown_function", 566);
             }
             if (value->data.object_value.values) {
-                free(value->data.object_value.values);
+                shared_free_safe(value->data.object_value.values, "libs", "unknown_function", 569);
             }
             break;
             
@@ -572,19 +576,19 @@ void json_free(JsonValue* value) {
             break;
     }
     
-    free(value);
+    shared_free_safe(value, "libs", "unknown_function", 577);
 }
 
 // Myco library functions
 Value builtin_json_parse(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "json.parse() requires exactly 1 argument (json_string)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "json", "unknown_function", "json.parse() requires exactly 1 argument (json_string)", line, column);
         return value_create_null();
     }
     
     Value json_string = args[0];
     if (json_string.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "json.parse() argument must be a string", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "json", "unknown_function", "json.parse() argument must be a string", line, column);
         return value_create_null();
     }
     
@@ -595,7 +599,7 @@ Value builtin_json_parse(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_json_stringify(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "json.stringify() requires exactly 1 argument (value)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "json", "unknown_function", "json.stringify() requires exactly 1 argument (value)", line, column);
         return value_create_null();
     }
     
@@ -604,7 +608,7 @@ Value builtin_json_stringify(Interpreter* interpreter, Value* args, size_t arg_c
     // Handle different Myco value types
     if (myco_value.type == VALUE_OBJECT || myco_value.type == VALUE_HASH_MAP) {
         // Convert Myco object to JSON
-        char* result = malloc(1024);
+        char* result = shared_malloc_safe(1024, "libs", "unknown_function", 609);
         strcpy(result, "{");
         
         // Add object properties
@@ -647,11 +651,11 @@ Value builtin_json_stringify(Interpreter* interpreter, Value* args, size_t arg_c
         
         strcat(result, "}");
         Value json_result = value_create_string(result);
-        free(result);
+        shared_free_safe(result, "libs", "unknown_function", 652);
         return json_result;
     } else if (myco_value.type == VALUE_ARRAY) {
         // Convert Myco array to JSON
-        char* result = malloc(1024);
+        char* result = shared_malloc_safe(1024, "libs", "unknown_function", 656);
         strcpy(result, "[");
         
         // Add array elements
@@ -680,29 +684,29 @@ Value builtin_json_stringify(Interpreter* interpreter, Value* args, size_t arg_c
         
         strcat(result, "]");
         Value json_result = value_create_string(result);
-        free(result);
+        shared_free_safe(result, "libs", "unknown_function", 685);
         return json_result;
     } else if (myco_value.type == VALUE_STRING) {
         // String values
-        char* result = malloc(strlen(myco_value.data.string_value) + 3);
+        char* result = shared_malloc_safe(strlen(myco_value.data.string_value) + 3, "libs", "unknown_function", 691);
         snprintf(result, strlen(myco_value.data.string_value) + 3, "\"%s\"", myco_value.data.string_value);
         Value json_result = value_create_string(result);
-        free(result);
+        shared_free_safe(result, "libs", "unknown_function", 692);
         return json_result;
     } else if (myco_value.type == VALUE_NUMBER) {
         // Number values
-        char* result = malloc(64);
+        char* result = shared_malloc_safe(64, "libs", "unknown_function", 696);
         snprintf(result, 64, "%.15g", myco_value.data.number_value);
         Value json_result = value_create_string(result);
-        free(result);
+        shared_free_safe(result, "libs", "unknown_function", 699);
         return json_result;
     } else if (myco_value.type == VALUE_BOOLEAN) {
         // Boolean values - Myco stores booleans as integers (0/1)
-        char* result = malloc(8);
+        char* result = shared_malloc_safe(8, "libs", "unknown_function", 703);
         // Check if the boolean value is non-zero (true) or zero (false)
         snprintf(result, 8, "%s", myco_value.data.boolean_value != 0 ? "true" : "false");
         Value json_result = value_create_string(result);
-        free(result);
+        shared_free_safe(result, "libs", "unknown_function", 707);
         return json_result;
     } else {
         // Null or unknown types
@@ -712,13 +716,13 @@ Value builtin_json_stringify(Interpreter* interpreter, Value* args, size_t arg_c
 
 Value builtin_json_validate(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "json.validate() requires exactly 1 argument (json_string)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "json", "unknown_function", "json.validate() requires exactly 1 argument (json_string)", line, column);
         return value_create_null();
     }
     
     Value json_string = args[0];
     if (json_string.type != VALUE_STRING) {
-        interpreter_set_error(interpreter, "json.validate() argument must be a string", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "json", "unknown_function", "json.validate() argument must be a string", line, column);
         return value_create_null();
     }
     
@@ -742,7 +746,7 @@ Value builtin_json_validate(Interpreter* interpreter, Value* args, size_t arg_co
 JsonValue* json_from_myco_value(const Value* value) {
     if (!value) return NULL;
     
-    JsonValue* json_value = malloc(sizeof(JsonValue));
+    JsonValue* json_value = shared_malloc_safe(sizeof(JsonValue), "libs", "unknown_function", 747);
     if (!json_value) return NULL;
     
     // Initialize to null by default
@@ -772,7 +776,7 @@ JsonValue* json_from_myco_value(const Value* value) {
             json_value->type = JSON_ARRAY;
             json_value->data.array_value.count = value->data.array_value.count;
             json_value->data.array_value.capacity = value->data.array_value.capacity;
-            json_value->data.array_value.elements = malloc(sizeof(JsonValue*) * value->data.array_value.capacity);
+            json_value->data.array_value.elements = shared_malloc_safe(sizeof(JsonValue*) * value->data.array_value.capacity, "libs", "unknown_function", 777);
             
             for (size_t i = 0; i < value->data.array_value.count; i++) {
                 Value* element = (Value*)value->data.array_value.elements[i];
@@ -785,8 +789,8 @@ JsonValue* json_from_myco_value(const Value* value) {
             json_value->type = JSON_OBJECT;
             json_value->data.object_value.count = value->data.object_value.count;
             json_value->data.object_value.capacity = value->data.object_value.capacity;
-            json_value->data.object_value.keys = malloc(sizeof(char*) * value->data.object_value.capacity);
-            json_value->data.object_value.values = malloc(sizeof(JsonValue*) * value->data.object_value.capacity);
+            json_value->data.object_value.keys = shared_malloc_safe(sizeof(char*) * value->data.object_value.capacity, "libs", "unknown_function", 790);
+            json_value->data.object_value.values = shared_malloc_safe(sizeof(JsonValue*) * value->data.object_value.capacity, "libs", "unknown_function", 791);
             
             for (size_t i = 0; i < value->data.object_value.count; i++) {
                 json_value->data.object_value.keys[i] = strdup(value->data.object_value.keys[i]);
@@ -797,7 +801,7 @@ JsonValue* json_from_myco_value(const Value* value) {
         }
         
         default:
-            free(json_value);
+            shared_free_safe(json_value, "libs", "unknown_function", 802);
             return NULL;
     }
     
@@ -824,7 +828,7 @@ Value json_to_myco_value(const JsonValue* json_value) {
         case JSON_ARRAY: {
             Value array = value_create_array(json_value->data.array_value.capacity);
             for (size_t i = 0; i < json_value->data.array_value.count; i++) {
-                Value* element = malloc(sizeof(Value));
+                Value* element = shared_malloc_safe(sizeof(Value), "libs", "unknown_function", 829);
                 *element = json_to_myco_value(json_value->data.array_value.elements[i]);
                 array.data.array_value.elements[i] = element;
             }
@@ -854,7 +858,7 @@ Value builtin_json_pretty(Interpreter* interpreter, Value* args, size_t arg_coun
 
 Value builtin_json_merge(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "json.merge() requires exactly 2 arguments (obj1, obj2)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "json", "unknown_function", "json.merge() requires exactly 2 arguments (obj1, obj2)", line, column);
         return value_create_null();
     }
     
@@ -864,7 +868,7 @@ Value builtin_json_merge(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_json_extract(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "json.extract() requires exactly 2 arguments (value, path)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "json", "unknown_function", "json.extract() requires exactly 2 arguments (value, path)", line, column);
         return value_create_null();
     }
     
@@ -874,7 +878,7 @@ Value builtin_json_extract(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_json_get(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        interpreter_set_error(interpreter, "json.get() requires exactly 2 arguments (object, key)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "json", "unknown_function", "json.get() requires exactly 2 arguments (object, key)", line, column);
         return value_create_null();
     }
     
@@ -884,7 +888,7 @@ Value builtin_json_get(Interpreter* interpreter, Value* args, size_t arg_count, 
 
 Value builtin_json_set(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 3) {
-        interpreter_set_error(interpreter, "json.set() requires exactly 3 arguments (object, key, value)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "json", "unknown_function", "json.set() requires exactly 3 arguments (object, key, value)", line, column);
         return value_create_null();
     }
     
@@ -894,7 +898,7 @@ Value builtin_json_set(Interpreter* interpreter, Value* args, size_t arg_count, 
 
 Value builtin_json_size(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "json.size() requires exactly 1 argument (value)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "json", "unknown_function", "json.size() requires exactly 1 argument (value)", line, column);
         return value_create_null();
     }
     
@@ -910,7 +914,7 @@ Value builtin_json_size(Interpreter* interpreter, Value* args, size_t arg_count,
 
 Value builtin_json_is_empty(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        interpreter_set_error(interpreter, "json.is_empty() requires exactly 1 argument (value)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "json", "unknown_function", "json.is_empty() requires exactly 1 argument (value)", line, column);
         return value_create_null();
     }
     

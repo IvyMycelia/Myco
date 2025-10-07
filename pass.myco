@@ -697,7 +697,7 @@ end
 
 total_tests = total_tests + 1;
 let test_array_1 = [1, 2, 3];
-if test_array_1.type() == "Array" and test_array_1 != Null:
+if (test_array_1.type() == "[Int]" or test_array_1.type() == "Array") and test_array_1 != Null:
     print("✓ Array type available");
     tests_passed = tests_passed + 1;
 else:
@@ -889,7 +889,7 @@ end
 total_tests = total_tests + 1;
 let duplicates_array = [1, 2, 2, 3, 3, 3, 4];
 let unique_result = duplicates_array.unique();
-if unique_result.type() == "Array" and unique_result != Null:
+if (unique_result.type() == "[Int]" or unique_result.type() == "Array") and unique_result != Null:
     print("✓ array.unique() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -901,7 +901,7 @@ total_tests = total_tests + 1;
 let array1 = [1, 2, 3];
 let array2 = [4, 5, 6];
 let concat_result = array1.concat(array2);
-if concat_result.type() == "Array" and concat_result != Null:
+if (concat_result.type() == "[Int]" or concat_result.type() == "Array") and concat_result != Null:
     print("✓ array.concat() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -911,7 +911,7 @@ end
 
 total_tests = total_tests + 1;
 let slice_result = test_array.slice(1, 4);
-if slice_result.type() == "Array" and slice_result != Null:
+if (slice_result.type() == "[Int]" or slice_result.type() == "Array") and slice_result != Null:
     print("✓ array.slice() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -922,7 +922,7 @@ end
 total_tests = total_tests + 1;
 let fill_array = [];
 fill_array.fill("test", 3);
-if fill_array.type() == "Array":
+if (fill_array.type() == "[String]" or fill_array.type() == "[Any]" or fill_array.type() == "Array"):
     print("✓ array.fill() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -985,7 +985,7 @@ end
 
 total_tests = total_tests + 1;
 let files = dir.list(".");
-if files != Null and files.type() == "Array":
+if files != Null and (files.type() == "[String]" or files.type() == "Array"):
     print("✓ Directory listing successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1051,7 +1051,7 @@ end
 
 total_tests = total_tests + 1;
 let map_keys = test_map.keys();
-if map_keys.type() == "Array" and map_keys != Null:
+if (map_keys.type() == "[String]" or map_keys.type() == "Array") and map_keys != Null:
     print("✓ maps.keys() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1143,7 +1143,7 @@ end
 
 total_tests = total_tests + 1;
 let set_to_array = test_set.toArray();
-if set_to_array.type() == "Array" and set_to_array != Null:
+if (set_to_array.type() == "[String]" or set_to_array.type() == "Array") and set_to_array != Null:
     print("✓ set.toArray() successful");
     tests_passed = tests_passed + 1;
 else:
@@ -1606,7 +1606,7 @@ end
 
 total_tests = total_tests + 1;
 let type_array = [1, 2, 3].type();
-if type_array == "Array":
+if (type_array == "[Int]" or type_array == "Array"):
     print("✓ [1,2,3].type(): " + type_array);
     tests_passed = tests_passed + 1;
 else:
@@ -1838,7 +1838,7 @@ print("15.2. Optional types with different base types...");
 
 total_tests = total_tests + 1;
 let optional_array: Array? = [1, 2, 3];
-if optional_array.type() == "Array":
+if (optional_array.type() == "[Int]" or optional_array.type() == "Array"):
     print("✓ Optional array: " + optional_array.toString());
     tests_passed = tests_passed + 1;
 else:

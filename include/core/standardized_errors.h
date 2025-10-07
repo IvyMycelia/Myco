@@ -117,6 +117,11 @@ void std_error_report_file(int error_code, const char* component, const char* fu
 void std_error_report_with_suggestion(int error_code, const char* component, const char* function,
                                      const char* message, const char* suggestion, int line, int column);
 
+// Enhanced error reporting with better formatting and context
+void std_error_report_enhanced(int error_code, const char* component, const char* function,
+                              const char* message, const char* file, int line, int column,
+                              const char* source_line, const char* variable_context);
+
 // ============================================================================
 // ERROR INFORMATION RETRIEVAL
 // ============================================================================

@@ -111,7 +111,7 @@
 
 ### 10. **Real World Applications**
 
-[ ] **Web Framework**: HTTP server and routing
+[x] **Web Framework**: HTTP server and routing
 [ ] **Database ORM**: Object relational mapping
 [ ] **CLI Tools**: Command line application framework
 [ ] **GUI Framework**: Desktop application development

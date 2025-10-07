@@ -18,6 +18,8 @@ typedef enum {
     TYPE_CLASS,
     TYPE_UNION,
     TYPE_OPTIONAL,
+    TYPE_GENERIC,
+    TYPE_GENERIC_PARAMETER,
     TYPE_ANY,
     TYPE_UNKNOWN,
     TYPE_ERROR
@@ -48,6 +50,20 @@ typedef struct MycoType {
         
         // Optional type: wrapped type
         struct MycoType* optional_type;
+        
+        // Generic type: type parameters and constraints
+        struct {
+            char** parameter_names;
+            size_t parameter_count;
+            struct MycoType** constraints;  // Optional constraints for each parameter
+            struct MycoType* base_type;     // The generic base type
+        } generic_type;
+        
+        // Generic parameter: parameter name and constraint
+        struct {
+            char* parameter_name;
+            struct MycoType* constraint;    // Optional constraint
+        } generic_parameter;
     } data;
     
     // Source location for error reporting
@@ -88,6 +104,10 @@ MycoType* type_create_function(MycoType** parameter_types, size_t parameter_coun
 MycoType* type_create_class(const char* class_name, int line, int column);
 MycoType* type_create_union(MycoType** types, size_t type_count, int line, int column);
 MycoType* type_create_optional(MycoType* wrapped_type, int line, int column);
+MycoType* type_create_generic(const char** parameter_names, size_t parameter_count,
+                              MycoType** constraints, MycoType* base_type, int line, int column);
+MycoType* type_create_generic_parameter(const char* parameter_name, MycoType* constraint, int line, int column);
+MycoType* type_instantiate_generic(MycoType* generic_type, MycoType** type_arguments, int line, int column);
 MycoType* type_clone(MycoType* type);
 void type_free(MycoType* type);
 

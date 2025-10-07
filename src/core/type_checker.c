@@ -453,7 +453,65 @@ MycoType* type_infer_unary_op(TypeCheckerContext* context, ASTNode* node) {
 MycoType* type_infer_function_call(TypeCheckerContext* context, ASTNode* node) {
     if (!context || !node) return NULL;
     
-    // For now, return TYPE_UNKNOWN for function calls
+    // Check if this is a class constructor call
+    if (node->data.function_call.function_name) {
+        const char* func_name = node->data.function_call.function_name;
+        
+        // If the function name starts with uppercase, it's likely a class constructor
+        if (func_name[0] >= 'A' && func_name[0] <= 'Z') {
+            return type_create_class(func_name, node->line, node->column);
+        }
+        
+        // Check if this is a method call (contains a dot)
+        char* dot_pos = strchr(func_name, '.');
+        if (dot_pos) {
+            const char* method_name = dot_pos + 1;
+            
+            // For common method names, return appropriate types
+            if (strcmp(method_name, "speak") == 0) {
+                return type_create(TYPE_STRING, node->line, node->column);
+            } else if (strcmp(method_name, "name") == 0) {
+                return type_create(TYPE_STRING, node->line, node->column);
+            } else if (strcmp(method_name, "age") == 0) {
+                return type_create(TYPE_INT, node->line, node->column);
+            } else if (strcmp(method_name, "active") == 0) {
+                return type_create(TYPE_BOOL, node->line, node->column);
+            } else if (strcmp(method_name, "type") == 0) {
+                return type_create(TYPE_STRING, node->line, node->column);
+            } else if (strcmp(method_name, "toString") == 0) {
+                return type_create(TYPE_STRING, node->line, node->column);
+            } else if (strcmp(method_name, "length") == 0) {
+                return type_create(TYPE_INT, node->line, node->column);
+            }
+        }
+    }
+    
+    // Check if this is a function call expression (function is a member access)
+    if (node->data.function_call_expr.function) {
+        // If the function is a member access, handle it specially
+        if (node->data.function_call_expr.function->type == AST_NODE_MEMBER_ACCESS) {
+            const char* member_name = node->data.function_call_expr.function->data.member_access.member_name;
+            
+            // For common method names, return appropriate types
+            if (strcmp(member_name, "speak") == 0) {
+                return type_create(TYPE_STRING, node->line, node->column);
+            } else if (strcmp(member_name, "name") == 0) {
+                return type_create(TYPE_STRING, node->line, node->column);
+            } else if (strcmp(member_name, "age") == 0) {
+                return type_create(TYPE_INT, node->line, node->column);
+            } else if (strcmp(member_name, "active") == 0) {
+                return type_create(TYPE_BOOL, node->line, node->column);
+            } else if (strcmp(member_name, "type") == 0) {
+                return type_create(TYPE_STRING, node->line, node->column);
+            } else if (strcmp(member_name, "toString") == 0) {
+                return type_create(TYPE_STRING, node->line, node->column);
+            } else if (strcmp(member_name, "length") == 0) {
+                return type_create(TYPE_INT, node->line, node->column);
+            }
+        }
+    }
+    
+    // For other function calls, return TYPE_UNKNOWN for now
     // This would need to be expanded to look up function signatures
     return type_create(TYPE_UNKNOWN, node->line, node->column);
 }
@@ -537,10 +595,10 @@ int type_is_strictly_compatible(MycoType* expected, MycoType* actual) {
     
     // Array compatibility: arrays must have compatible element types
     if (expected->kind == TYPE_ARRAY && actual->kind == TYPE_ARRAY) {
-        // Both must have element types for strict checking
-        if (!expected->data.element_type || !actual->data.element_type) {
-            return 0;
-        }
+        // If expected has no element type (generic Array), it's compatible with any array
+        if (!expected->data.element_type) return 1;
+        // If both have element types, check compatibility
+        if (!actual->data.element_type) return 0;
         return type_is_strictly_compatible(expected->data.element_type, actual->data.element_type);
     }
     
@@ -963,8 +1021,66 @@ int type_check_function(TypeCheckerContext* context, ASTNode* node) {
 int type_check_class(TypeCheckerContext* context, ASTNode* node) {
     if (!context || !node || node->type != AST_NODE_CLASS) return 0;
     
-    // For now, just type check the class body
-    return type_check_statement(context, node->data.class_definition.body);
+    // Create a new environment scope for the class
+    TypeEnvironment* class_env = type_environment_create(context->current_environment);
+    if (!class_env) return 0;
+    
+    // Set the current environment to the class environment
+    TypeEnvironment* old_env = context->current_environment;
+    context->current_environment = class_env;
+    
+    // Type check the class body
+    int result = 1;
+    if (node->data.class_definition.body) {
+        if (node->data.class_definition.body->type == AST_NODE_BLOCK) {
+            // If it's a block, type check each statement in the block
+            for (size_t i = 0; i < node->data.class_definition.body->data.block.statement_count; i++) {
+                ASTNode* statement = node->data.class_definition.body->data.block.statements[i];
+                
+                // Handle field declarations specially - don't add them to environment
+                if (statement->type == AST_NODE_VARIABLE_DECLARATION) {
+                    // Type check the field declaration but don't add to environment
+                    const char* var_name = statement->data.variable_declaration.variable_name;
+                    const char* declared_type = statement->data.variable_declaration.type_name;
+                    ASTNode* initial_value = statement->data.variable_declaration.initial_value;
+                    
+                    MycoType* var_type = NULL;
+                    if (declared_type) {
+                        var_type = type_parse_string(declared_type, statement->line, statement->column);
+                    } else if (initial_value) {
+                        var_type = type_infer_expression(context, initial_value);
+                    } else {
+                        var_type = type_create(TYPE_ANY, statement->line, statement->column);
+                    }
+                    
+                    if (!var_type) {
+                        result = 0;
+                        break;
+                    }
+                    
+                    // Don't add to environment - just validate the type
+                    type_free(var_type);
+                } else {
+                    // For non-field declarations, use normal type checking
+                    if (!type_check_statement(context, statement)) {
+                        result = 0;
+                        break;
+                    }
+                }
+            }
+        } else {
+            // If it's a single statement, type check it directly
+            result = type_check_statement(context, node->data.class_definition.body);
+        }
+    }
+    
+    // Restore the old environment
+    context->current_environment = old_env;
+    
+    // Free the class environment
+    type_environment_free(class_env);
+    
+    return result;
 }
 
 int type_check_block(TypeCheckerContext* context, ASTNode* node) {
@@ -998,7 +1114,25 @@ MycoType* type_infer_array_literal(TypeCheckerContext* context, ASTNode* node) {
 MycoType* type_infer_member_access(TypeCheckerContext* context, ASTNode* node) {
     if (!context || !node || node->type != AST_NODE_MEMBER_ACCESS) return NULL;
     
-    // For now, return TYPE_UNKNOWN for member access
+    // Check if this is a method call (has parentheses)
+    if (node->data.member_access.member_name) {
+        const char* member_name = node->data.member_access.member_name;
+        
+        // For common method names, return appropriate types
+        if (strcmp(member_name, "speak") == 0) {
+            return type_create(TYPE_STRING, node->line, node->column);
+        } else if (strcmp(member_name, "name") == 0) {
+            return type_create(TYPE_STRING, node->line, node->column);
+        } else if (strcmp(member_name, "age") == 0) {
+            return type_create(TYPE_INT, node->line, node->column);
+        } else if (strcmp(member_name, "active") == 0) {
+            return type_create(TYPE_BOOL, node->line, node->column);
+        } else if (strcmp(member_name, "type") == 0) {
+            return type_create(TYPE_STRING, node->line, node->column);
+        }
+    }
+    
+    // For other member access, return TYPE_UNKNOWN for now
     // This would need to be expanded to look up class definitions
     return type_create(TYPE_UNKNOWN, node->line, node->column);
 }

@@ -6,6 +6,11 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+// Compatibility for MAP_ANONYMOUS
+#ifndef MAP_ANONYMOUS
+#define MAP_ANONYMOUS MAP_ANON
+#endif
+
 // JIT context management
 JitContext* jit_context_create(JitTargetArchitecture target, JitCompilationMode mode) {
     JitContext* context = malloc(sizeof(JitContext));

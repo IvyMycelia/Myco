@@ -2943,9 +2943,9 @@ class MixedClass:
     let age: Int
     let active = true
 end
-let mixed: MixedClass = MixedClass("Alice", 25);
+let mixed_class: MixedClass = MixedClass("Alice", 25);
 # Test that mixed field types work
-if mixed.type() == "MixedClass" and mixed.name == "Alice" and mixed.age == 25 and mixed.active == true:
+if mixed_class.type() == "MixedClass" and mixed_class.name == "Alice" and mixed_class.age == 25 and mixed_class.active == true:
     print("✓ Class with mixed field types");
     tests_passed = tests_passed + 1;
 else:
@@ -3338,8 +3338,8 @@ end
 
 # Test regex.match() - basic matching
 total_tests = total_tests + 1;
-let match_result = regex.match("hello", "hello world");
-if match_result.type() == "Object" and match_result != Null:
+let regex_match_result = regex.match("hello", "hello world");
+if regex_match_result.type() == "Object" and regex_match_result != Null:
     print("✓ regex.match() returns match object");
     tests_passed = tests_passed + 1;
 else:
@@ -3635,8 +3635,8 @@ end
 
 # Test json.stringify() - arrays
 total_tests = total_tests + 1;
-let arr = [1, 2, 3, "hello", true];
-let arr_result = json.stringify(arr);
+let json_arr = [1, 2, 3, "hello", true];
+let arr_result = json.stringify(json_arr);
 if arr_result.type() == "String" and arr_result != "":
     print("✓ json.stringify() works for arrays");
     tests_passed = tests_passed + 1;
@@ -3671,8 +3671,8 @@ end
 
 # Test json.size() - arrays
 total_tests = total_tests + 1;
-let test_array = [1, 2, 3, 4, 5];
-let array_size = json.size(test_array);
+let json_test_array = [1, 2, 3, 4, 5];
+let array_size = json.size(json_test_array);
 if array_size == 5:
     print("✓ json.size() works for arrays");
     tests_passed = tests_passed + 1;

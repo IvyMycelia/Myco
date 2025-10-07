@@ -599,7 +599,7 @@ void error_colors_enable(int enable) {
 
 // Auto-disable colors when not writing to a TTY
 static int error_colors_should_enable(void) {
-    #ifdef __unix__
+    #if defined(__unix__) || defined(__linux__) || defined(__APPLE__)
     extern int isatty(int);
     extern int fileno(FILE *);
     if (!isatty(fileno(stderr)) && !isatty(fileno(stdout))) {

@@ -173,6 +173,18 @@ char* shared_strdup(const char* str) {
     return copy;
 }
 
+// Compatibility for strnlen - not available on all systems
+#ifndef HAVE_STRNLEN
+static size_t myco_strnlen(const char* str, size_t maxlen) {
+    size_t len = 0;
+    while (len < maxlen && str[len] != '\0') {
+        len++;
+    }
+    return len;
+}
+#define strnlen myco_strnlen
+#endif
+
 char* shared_strndup(const char* str, size_t n) {
     if (!str) return NULL;
     size_t len = strnlen(str, n);

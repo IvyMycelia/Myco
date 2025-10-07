@@ -476,7 +476,29 @@ int compiler_compile_to_binary(CompilerConfig* config, const char* c_file, const
     char* compiler = "gcc";
     char* flags = "";
     char* includes = "-Iinclude";
-    char* libraries = "-lm -lcurl -lz -lreadline -L/opt/homebrew/opt/libmicrohttpd/lib -lmicrohttpd";
+    // Cross-platform library linking
+    char* libraries = "-lm -lcurl -lz -lreadline";
+    
+    // Add microhttpd library path based on platform
+    #ifdef __APPLE__
+        // macOS with Homebrew
+        char* microhttpd_lib = " -L/opt/homebrew/opt/libmicrohttpd/lib -lmicrohttpd";
+    #elif defined(__linux__)
+        // Linux systems - try common locations
+        char* microhttpd_lib = " -lmicrohttpd";
+    #else
+        // Other Unix-like systems
+        char* microhttpd_lib = " -lmicrohttpd";
+    #endif
+    
+    // Concatenate libraries
+    size_t total_len = strlen(libraries) + strlen(microhttpd_lib) + 1;
+    char* full_libraries = malloc(total_len);
+    if (full_libraries) {
+        strcpy(full_libraries, libraries);
+        strcat(full_libraries, microhttpd_lib);
+        libraries = full_libraries;
+    }
     
     // Set optimization flags based on configuration
     switch (config->optimization) {
@@ -532,10 +554,18 @@ int compiler_compile_to_binary(CompilerConfig* config, const char* c_file, const
     int result = system(command);
     if (result != 0) {
         fprintf(stderr, "Error: Failed to compile C code to binary (exit code: %d)\n", result);
+        // Clean up allocated memory
+        if (full_libraries) {
+            free(full_libraries);
+        }
         return 0;
     }
     
     printf("Successfully compiled to binary: %s\n", binary_file);
+    // Clean up allocated memory
+    if (full_libraries) {
+        free(full_libraries);
+    }
     return 1;
 }
 

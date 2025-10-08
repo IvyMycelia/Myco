@@ -15,6 +15,7 @@ bin/
 *.vcxproj
 *.vcxproj.user
 *.vcxproj.filters
+*.ino
 
 # OS files
 .DS_Store

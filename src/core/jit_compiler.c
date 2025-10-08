@@ -8,7 +8,17 @@
 
 // Compatibility for MAP_ANONYMOUS
 #ifndef MAP_ANONYMOUS
+#ifdef MAP_ANON
 #define MAP_ANONYMOUS MAP_ANON
+#else
+// Fallback for systems that don't have either
+#define MAP_ANONYMOUS 0x20
+#endif
+#endif
+
+// Compatibility for MAP_FAILED
+#ifndef MAP_FAILED
+#define MAP_FAILED ((void *) -1)
 #endif
 
 // JIT context management

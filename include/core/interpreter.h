@@ -20,6 +20,8 @@ typedef enum {
     VALUE_HASH_MAP,
     VALUE_SET,
     VALUE_FUNCTION,
+    VALUE_ASYNC_FUNCTION,
+    VALUE_PROMISE,
     VALUE_CLASS,
     VALUE_MODULE,
     VALUE_ERROR
@@ -65,6 +67,19 @@ typedef union {
         char* return_type;
         Environment* captured_environment;  // For closures
     } function_value;
+    struct {
+        ASTNode* body;
+        ASTNode** parameters;
+        size_t parameter_count;
+        char* return_type;
+        Environment* captured_environment;  // For closures
+    } async_function_value;
+    struct {
+        int is_resolved;
+        int is_rejected;
+        char* error_message;
+        char* resolved_data;  // Simple string representation for now
+    } promise_value;
     struct {
         char* class_name;
         char* parent_class_name;  // Name of parent class for inheritance
@@ -164,6 +179,8 @@ Value value_create_array(size_t initial_capacity);
 Value value_create_object(size_t initial_capacity);
 void value_object_set_member(Value* object, const char* member_name, Value member_value);
 Value value_create_function(ASTNode* body, ASTNode** params, size_t param_count, const char* return_type, Environment* captured_env);
+Value value_create_async_function(const char* name, ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, Environment* captured_env);
+Value value_create_promise(Value resolved_value, int is_resolved, Value error_value);
 Value value_create_class(const char* name, const char* parent_name, ASTNode* class_body, Environment* class_env);
 Value value_create_module(const char* name, void* exports);
 Value value_create_error(const char* message, int code);

@@ -178,8 +178,8 @@ ErrorInfo* error_create(ErrorCode code, ErrorSeverity severity, ErrorCategory ca
     error->column_number = column;
     
     // Copy strings
-    error->message = message ? strdup(message) : NULL;
-    error->file_name = file_name ? strdup(file_name) : NULL;
+    error->message = message ? (message ? strdup(message) : NULL) : NULL;
+    error->file_name = file_name ? (file_name ? strdup(file_name) : NULL) : NULL;
     error->suggestion = NULL;
     error->source_line = NULL;
     error->context = NULL;
@@ -218,14 +218,14 @@ void error_add_context(ErrorInfo* error, const char* context) {
     if (!error || !context) return;
     
     free(error->context);
-    error->context = strdup(context);
+    error->context = (context ? strdup(context) : NULL);
 }
 
 void error_add_suggestion(ErrorInfo* error, const char* suggestion) {
     if (!error || !suggestion) return;
     
     free(error->suggestion);
-    error->suggestion = strdup(suggestion);
+    error->suggestion = (suggestion ? strdup(suggestion) : NULL);
 }
 
 void error_add_stack_frame(ErrorInfo* error, const char* function_name, const char* file_name, 
@@ -241,11 +241,11 @@ void error_add_stack_frame(ErrorInfo* error, const char* function_name, const ch
     }
     
     StackFrame* frame = &error->stack_trace[error->stack_trace_size - 1];
-    frame->function_name = function_name ? strdup(function_name) : NULL;
-    frame->file_name = file_name ? strdup(file_name) : NULL;
+    frame->function_name = function_name ? (function_name ? strdup(function_name) : NULL) : NULL;
+    frame->file_name = file_name ? (file_name ? strdup(file_name) : NULL) : NULL;
     frame->line_number = line;
     frame->column_number = column;
-    frame->source_line = source_line ? strdup(source_line) : NULL;
+    frame->source_line = source_line ? (source_line ? strdup(source_line) : NULL) : NULL;
 }
 
 // Error reporting
@@ -487,7 +487,7 @@ void exception_enter_catch(ExceptionContext* context, const char* variable_name)
     if (!context) return;
     context->in_catch_block = true;
     free(context->catch_variable);
-    context->catch_variable = variable_name ? strdup(variable_name) : NULL;
+    context->catch_variable = variable_name ? (variable_name ? strdup(variable_name) : NULL) : NULL;
 }
 
 void exception_exit_catch(ExceptionContext* context) {
@@ -632,7 +632,7 @@ void error_set_log_file(ErrorSystem* system, const char* log_file) {
     if (!system) return;
     
     free(system->log_file);
-    system->log_file = log_file ? strdup(log_file) : NULL;
+    system->log_file = log_file ? (log_file ? strdup(log_file) : NULL) : NULL;
 }
 
 // Assertion system

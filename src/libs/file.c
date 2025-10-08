@@ -29,8 +29,8 @@ static FileHandle* file_handle_create(FILE* file, const char* filename, const ch
     if (!handle) return NULL;
     
     handle->file = file;
-    handle->filename = filename ? strdup(filename) : NULL;
-    handle->mode = mode ? strdup(mode) : NULL;
+    handle->filename = filename ? (filename ? strdup(filename) : NULL) : NULL;
+    handle->mode = mode ? (mode ? strdup(mode) : NULL) : NULL;
     handle->is_open = 1;
     handle->position = 0;
     
@@ -123,8 +123,8 @@ Value builtin_file_open(Interpreter* interpreter, Value* args, size_t arg_count,
     
     FileHandle handle;
     handle.file = file;
-    handle.filename = strdup(filename);
-    handle.mode = strdup(mode);
+    handle.filename = (filename ? strdup(filename) : NULL);
+    handle.mode = (mode ? strdup(mode) : NULL);
     handle.is_open = 1;
     handle.position = 0;
     

@@ -367,10 +367,10 @@ Value value_create_string(const char* value) {
             v.data.string_value = processed_value;
         } else {
             // Fallback to original value if processing fails
-            v.data.string_value = strdup(value);
+            v.data.string_value = (value ? strdup(value) : NULL);
         }
     } else {
-        v.data.string_value = strdup("");  // Use empty string instead of NULL
+        v.data.string_value = ("" ? strdup("") : NULL);  // Use empty string instead of NULL
     }
     
     return v; 
@@ -461,7 +461,7 @@ void value_object_set_member(Value* object, const char* member_name, Value membe
     }
     
     // Add new member
-    char* key_copy = strdup(member_name);
+    char* key_copy = member_name ? (member_name ? strdup(member_name) : NULL) : NULL;
     Value* new_value = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 361);
     if (key_copy && new_value) {
         *new_value = value_clone(&member_value);
@@ -479,7 +479,7 @@ Value value_create_function(ASTNode* body, ASTNode** params, size_t param_count,
     v.type = VALUE_FUNCTION;
     v.data.function_value.body = body;
     v.data.function_value.parameter_count = param_count;
-    v.data.function_value.return_type = return_type ? strdup(return_type) : NULL;
+    v.data.function_value.return_type = return_type ? (return_type ? strdup(return_type) : NULL) : NULL;
     v.data.function_value.captured_environment = captured_env;
     
     // Copy parameter nodes with proper error handling
@@ -511,7 +511,7 @@ Value value_create_async_function(const char* name, ASTNode** params, size_t par
     v.type = VALUE_ASYNC_FUNCTION;
     v.data.async_function_value.body = body;
     v.data.async_function_value.parameter_count = param_count;
-    v.data.async_function_value.return_type = return_type ? strdup(return_type) : NULL;
+    v.data.async_function_value.return_type = return_type ? (return_type ? strdup(return_type) : NULL) : NULL;
     v.data.async_function_value.captured_environment = captured_env;
     
     // Copy parameter nodes with proper error handling
@@ -551,11 +551,11 @@ Value value_create_promise(Value resolved_value, int is_resolved, Value error_va
         // Convert resolved value to string representation
         Value str_value = value_to_string(&resolved_value);
         if (str_value.type == VALUE_STRING) {
-            v.data.promise_value.resolved_data = strdup(str_value.data.string_value);
+            v.data.promise_value.resolved_data = (str_value.data.string_value ? strdup(str_value.data.string_value) : NULL);
         }
         value_free(&str_value);
     } else if (error_value.type == VALUE_STRING) {
-        v.data.promise_value.error_message = strdup(error_value.data.string_value);
+        v.data.promise_value.error_message = (error_value.data.string_value ? strdup(error_value.data.string_value) : NULL);
     }
     
     return v;
@@ -576,8 +576,8 @@ Value value_create_builtin_function(Value (*func)(Interpreter*, Value*, size_t, 
 Value value_create_class(const char* name, const char* parent_name, ASTNode* class_body, Environment* class_env) {
     Value v = {0};
     v.type = VALUE_CLASS;
-    v.data.class_value.class_name = name ? strdup(name) : NULL;
-    v.data.class_value.parent_class_name = parent_name ? strdup(parent_name) : NULL;
+    v.data.class_value.class_name = name ? (name ? strdup(name) : NULL) : NULL;
+    v.data.class_value.parent_class_name = parent_name ? (parent_name ? strdup(parent_name) : NULL) : NULL;
     v.data.class_value.class_body = class_body;
     v.data.class_value.class_environment = class_env;
     return v;
@@ -2325,7 +2325,7 @@ Value create_class_instance(Interpreter* interpreter, Value* class_value, ASTNod
 Value value_create_module(const char* name, void* exports) {
     Value v = {0};
     v.type = VALUE_MODULE;
-    v.data.module_value.module_name = name ? strdup(name) : NULL;
+    v.data.module_value.module_name = name ? (name ? strdup(name) : NULL) : NULL;
     v.data.module_value.exports = exports;
     return v;
 }
@@ -3126,7 +3126,7 @@ void value_object_set(Value* obj, const char* key, Value value) {
     
     // For now, just a simple implementation - don't expand, just add if there's space
     if (obj->data.object_value.count < obj->data.object_value.capacity) {
-        obj->data.object_value.keys[obj->data.object_value.count] = strdup(key);
+        obj->data.object_value.keys[obj->data.object_value.count] = key ? (key ? strdup(key) : NULL) : NULL;
         obj->data.object_value.values[obj->data.object_value.count] = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 2912);
         if (obj->data.object_value.values[obj->data.object_value.count]) {
             *((Value*)obj->data.object_value.values[obj->data.object_value.count]) = value_clone(&value);
@@ -3215,7 +3215,7 @@ char** value_object_keys(Value* obj, size_t* count) {
     
     for (size_t i = 0; i < *count; i++) {
         if (obj->data.object_value.keys[i]) {
-            keys[i] = strdup(obj->data.object_value.keys[i]);
+            keys[i] = obj->data.object_value.keys[i] ? (obj->data.object_value.keys[i] ? strdup(obj->data.object_value.keys[i]) : NULL) : NULL;
             if (!keys[i]) {
                 // Clean up on failure
                 for (size_t j = 0; j < i; j++) {
@@ -5572,9 +5572,9 @@ void interpreter_set_error(Interpreter* interpreter, const char* message, int li
     
     // Create new error message
     if (message) {
-        interpreter->error_message = strdup(message);
+        interpreter->error_message = (message ? strdup(message) : NULL);
     } else {
-        interpreter->error_message = strdup("Unknown runtime error");
+        interpreter->error_message = ("Unknown runtime error" ? strdup("Unknown runtime error") : NULL);
     }
     
     // Error is now stored in interpreter for caller to handle
@@ -5840,8 +5840,8 @@ void interpreter_push_call_frame(Interpreter* interpreter, const char* function_
         return;
     }
     
-    frame->function_name = function_name ? strdup(function_name) : strdup("<unknown>");
-    frame->file_name = file_name ? strdup(file_name) : strdup("<unknown>");
+    frame->function_name = function_name ? (function_name ? strdup(function_name) : NULL) : ("<unknown>" ? strdup("<unknown>") : NULL);
+    frame->file_name = file_name ? (file_name ? strdup(file_name) : NULL) : ("<unknown>" ? strdup("<unknown>") : NULL);
     frame->line = line;
     frame->column = column;
     

@@ -22,7 +22,7 @@ Value builtin_heap_create(Interpreter* interpreter, Value* args, size_t arg_coun
     
     // Create a new heap object
     Value heap = value_create_object(16);
-    value_object_set_member(&heap, "__class_name__", value_create_string(strdup("Heap")));
+    value_object_set_member(&heap, "__class_name__", value_create_string(("Heap" ? strdup("Heap") : NULL)));
     value_object_set_member(&heap, "elements", value_create_array(0));
     value_object_set_member(&heap, "is_max_heap", value_clone(&max_heap_arg));
     value_object_set_member(&heap, "size", value_create_number(0.0));
@@ -107,7 +107,7 @@ Value builtin_heap_insert(Interpreter* interpreter, Value* args, size_t arg_coun
     }
     
     // Set the new heap components
-    value_object_set_member(&new_heap, "__class_name__", value_create_string(strdup("Heap")));
+    value_object_set_member(&new_heap, "__class_name__", value_create_string(("Heap" ? strdup("Heap") : NULL)));
     value_object_set_member(&new_heap, "elements", new_elements);
     value_object_set_member(&new_heap, "is_max_heap", value_clone(&is_max_heap));
     value_object_set_member(&new_heap, "size", new_size);
@@ -156,7 +156,7 @@ Value builtin_heap_extract(Interpreter* interpreter, Value* args, size_t arg_cou
     if (elements.data.array_value.count == 1) {
         // Return empty heap
         Value empty_heap = value_create_object(16);
-        value_object_set_member(&empty_heap, "__class_name__", value_create_string(strdup("Heap")));
+        value_object_set_member(&empty_heap, "__class_name__", value_create_string(("Heap" ? strdup("Heap") : NULL)));
         value_object_set_member(&empty_heap, "elements", value_create_array(0));
         value_object_set_member(&empty_heap, "is_max_heap", value_clone(&is_max_heap));
         value_object_set_member(&empty_heap, "size", value_create_number(0.0));
@@ -245,7 +245,7 @@ Value builtin_heap_extract(Interpreter* interpreter, Value* args, size_t arg_cou
     }
     
     // Set the new heap components
-    value_object_set_member(&new_heap, "__class_name__", value_create_string(strdup("Heap")));
+    value_object_set_member(&new_heap, "__class_name__", value_create_string(("Heap" ? strdup("Heap") : NULL)));
     value_object_set_member(&new_heap, "elements", new_elements);
     value_object_set_member(&new_heap, "is_max_heap", value_clone(&is_max_heap));
     value_object_set_member(&new_heap, "size", new_size);
@@ -355,7 +355,7 @@ Value builtin_heap_clear(Interpreter* interpreter, Value* args, size_t arg_count
     
     // Return empty heap with same type
     Value empty_heap = value_create_object(16);
-    value_object_set_member(&empty_heap, "__class_name__", value_create_string(strdup("Heap")));
+    value_object_set_member(&empty_heap, "__class_name__", value_create_string(("Heap" ? strdup("Heap") : NULL)));
     value_object_set_member(&empty_heap, "elements", value_create_array(0));
     value_object_set_member(&empty_heap, "is_max_heap", value_clone(&is_max_heap));
     value_object_set_member(&empty_heap, "size", value_create_number(0.0));

@@ -15,7 +15,7 @@ Value builtin_stack_create(Interpreter* interpreter, Value* args, size_t arg_cou
     
     // Create a new stack object
     Value stack = value_create_object(16);
-    value_object_set_member(&stack, "__class_name__", value_create_string(strdup("Stack")));
+    value_object_set_member(&stack, "__class_name__", value_create_string(("Stack" ? strdup("Stack") : NULL)));
     value_object_set_member(&stack, "elements", value_create_array(0));
     value_object_set_member(&stack, "size", value_create_number(0.0));
     
@@ -64,7 +64,7 @@ Value builtin_stack_push(Interpreter* interpreter, Value* args, size_t arg_count
     value_array_push(&new_elements, cloned_value);
     
     // Set the new stack components
-    value_object_set_member(&new_stack, "__class_name__", value_create_string(strdup("Stack")));
+    value_object_set_member(&new_stack, "__class_name__", value_create_string(("Stack" ? strdup("Stack") : NULL)));
     value_object_set_member(&new_stack, "elements", new_elements);
     value_object_set_member(&new_stack, "size", new_size);
     
@@ -132,7 +132,7 @@ Value builtin_stack_pop(Interpreter* interpreter, Value* args, size_t arg_count,
     }
     
     // Set the new stack components
-    value_object_set_member(&new_stack, "__class_name__", value_create_string(strdup("Stack")));
+    value_object_set_member(&new_stack, "__class_name__", value_create_string(("Stack" ? strdup("Stack") : NULL)));
     value_object_set_member(&new_stack, "elements", new_elements);
     value_object_set_member(&new_stack, "size", new_size);
     
@@ -239,7 +239,7 @@ Value builtin_stack_clear(Interpreter* interpreter, Value* args, size_t arg_coun
     
     // Return empty stack
     Value empty_stack = value_create_object(16);
-    value_object_set_member(&empty_stack, "__class_name__", value_create_string(strdup("Stack")));
+    value_object_set_member(&empty_stack, "__class_name__", value_create_string(("Stack" ? strdup("Stack") : NULL)));
     value_object_set_member(&empty_stack, "elements", value_create_array(0));
     value_object_set_member(&empty_stack, "size", value_create_number(0.0));
     

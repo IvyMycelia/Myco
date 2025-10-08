@@ -39,7 +39,7 @@ static void json_set_error(JsonContext* ctx, const char* message) {
     if (ctx->error_message) {
         shared_free_safe(ctx->error_message, "libs", "unknown_function", 40);
     }
-    ctx->error_message = strdup(message);
+    ctx->error_message = (message ? strdup(message) : NULL);
 }
 
 // Helper function to create JSON value
@@ -769,7 +769,7 @@ JsonValue* json_from_myco_value(const Value* value) {
             
         case VALUE_STRING:
             json_value->type = JSON_STRING;
-            json_value->data.string_value = strdup(value->data.string_value);
+            json_value->data.string_value = (value->data.string_value ? strdup(value->data.string_value) : NULL);
             break;
             
         case VALUE_ARRAY: {
@@ -793,7 +793,7 @@ JsonValue* json_from_myco_value(const Value* value) {
             json_value->data.object_value.values = shared_malloc_safe(sizeof(JsonValue*) * value->data.object_value.capacity, "libs", "unknown_function", 791);
             
             for (size_t i = 0; i < value->data.object_value.count; i++) {
-                json_value->data.object_value.keys[i] = strdup(value->data.object_value.keys[i]);
+                json_value->data.object_value.keys[i] = (value->data.object_value.keys[i] ? strdup(value->data.object_value.keys[i]) : NULL);
                 Value* val = (Value*)value->data.object_value.values[i];
                 json_value->data.object_value.values[i] = json_from_myco_value(val);
             }

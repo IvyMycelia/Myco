@@ -109,14 +109,14 @@ JitResult* jit_compile_ast(JitContext* context, ASTNode* ast) {
     // Allocate initial code buffer
     if (!jit_allocate_code_buffer(context, 1024 * 1024)) { // 1MB initial buffer
         jit_set_error(context, "Failed to allocate code buffer");
-        result->error_message = strdup(jit_get_last_error(context));
+        result->error_message = jit_get_last_error(context) ? strdup(jit_get_last_error(context)) : NULL;
         return result;
     }
     
     // Generate prologue
     if (!jit_generate_prologue(context)) {
         jit_set_error(context, "Failed to generate prologue");
-        result->error_message = strdup(jit_get_last_error(context));
+        result->error_message = jit_get_last_error(context) ? strdup(jit_get_last_error(context)) : NULL;
         return result;
     }
     
@@ -129,7 +129,7 @@ JitResult* jit_compile_ast(JitContext* context, ASTNode* ast) {
                 JitResult* func_result = jit_compile_function(context, stmt);
                 if (!func_result || !func_result->success) {
                     if (func_result) {
-                        result->error_message = strdup(func_result->error_message);
+                        result->error_message = (func_result->error_message ? strdup(func_result->error_message) : NULL);
                         free(func_result);
                     }
                     return result;
@@ -142,7 +142,7 @@ JitResult* jit_compile_ast(JitContext* context, ASTNode* ast) {
     // Generate epilogue
     if (!jit_generate_epilogue(context)) {
         jit_set_error(context, "Failed to generate epilogue");
-        result->error_message = strdup(jit_get_last_error(context));
+        result->error_message = jit_get_last_error(context) ? strdup(jit_get_last_error(context)) : NULL;
         return result;
     }
     
@@ -176,18 +176,18 @@ JitResult* jit_compile_function(JitContext* context, ASTNode* function_node) {
     
     // Check if function is compilable
     if (!jit_is_function_compilable(function_node)) {
-        result->error_message = strdup("Function is not suitable for JIT compilation");
+        result->error_message = ("Function is not suitable for JIT compilation" ? strdup("Function is not suitable for JIT compilation") : NULL);
         return result;
     }
     
     // Allocate space for compiled function
     JitFunction* func = malloc(sizeof(JitFunction));
     if (!func) {
-        result->error_message = strdup("Memory allocation failed");
+        result->error_message = ("Memory allocation failed" ? strdup("Memory allocation failed") : NULL);
         return result;
     }
     
-    func->name = strdup(function_node->data.function_definition.function_name);
+    func->name = (function_node->data.function_definition.function_name ? strdup(function_node->data.function_definition.function_name) : NULL);
     func->signature = type_create_function(NULL, 0, NULL, 0, 0);
     func->native_code = NULL;
     func->code_size = 0;
@@ -199,7 +199,7 @@ JitResult* jit_compile_function(JitContext* context, ASTNode* function_node) {
     // Generate function body
     if (function_node->data.function_definition.body) {
         if (!jit_generate_expression(context, function_node->data.function_definition.body)) {
-            result->error_message = strdup("Failed to generate function body");
+            result->error_message = ("Failed to generate function body" ? strdup("Failed to generate function body") : NULL);
             free(func->name);
             type_free(func->signature);
             free(func);
@@ -218,7 +218,7 @@ JitResult* jit_compile_function(JitContext* context, ASTNode* function_node) {
         size_t new_capacity = context->function_capacity == 0 ? 4 : context->function_capacity * 2;
         JitFunction** new_table = realloc(context->compiled_functions, new_capacity * sizeof(JitFunction*));
         if (!new_table) {
-            result->error_message = strdup("Failed to expand function table");
+            result->error_message = ("Failed to expand function table" ? strdup("Failed to expand function table") : NULL);
             free(func->name);
             type_free(func->signature);
             free(func);
@@ -271,12 +271,12 @@ JitResult* jit_compile_expression(JitContext* context, ASTNode* expression) {
             success = jit_generate_variable_assignment(context, expression);
             break;
         default:
-            result->error_message = strdup("Unsupported expression type for JIT compilation");
+            result->error_message = ("Unsupported expression type for JIT compilation" ? strdup("Unsupported expression type for JIT compilation") : NULL);
             return result;
     }
     
     if (!success) {
-        result->error_message = strdup("Failed to generate code for expression");
+        result->error_message = ("Failed to generate code for expression" ? strdup("Failed to generate code for expression") : NULL);
         return result;
     }
     

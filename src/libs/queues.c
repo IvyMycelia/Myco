@@ -15,7 +15,7 @@ Value builtin_queue_create(Interpreter* interpreter, Value* args, size_t arg_cou
     
     // Create a new queue object
     Value queue = value_create_object(16);
-    value_object_set_member(&queue, "__class_name__", value_create_string(strdup("Queue")));
+    value_object_set_member(&queue, "__class_name__", value_create_string(("Queue" ? strdup("Queue") : NULL)));
     value_object_set_member(&queue, "elements", value_create_array(0));
     value_object_set_member(&queue, "size", value_create_number(0.0));
     
@@ -64,7 +64,7 @@ Value builtin_queue_enqueue(Interpreter* interpreter, Value* args, size_t arg_co
     value_array_push(&new_elements, cloned_value);
     
     // Set the new queue components
-    value_object_set_member(&new_queue, "__class_name__", value_create_string(strdup("Queue")));
+    value_object_set_member(&new_queue, "__class_name__", value_create_string(("Queue" ? strdup("Queue") : NULL)));
     value_object_set_member(&new_queue, "elements", new_elements);
     value_object_set_member(&new_queue, "size", new_size);
     
@@ -131,7 +131,7 @@ Value builtin_queue_dequeue(Interpreter* interpreter, Value* args, size_t arg_co
     }
     
     // Set the new queue components
-    value_object_set_member(&new_queue, "__class_name__", value_create_string(strdup("Queue")));
+    value_object_set_member(&new_queue, "__class_name__", value_create_string(("Queue" ? strdup("Queue") : NULL)));
     value_object_set_member(&new_queue, "elements", new_elements);
     value_object_set_member(&new_queue, "size", new_size);
     
@@ -274,7 +274,7 @@ Value builtin_queue_clear(Interpreter* interpreter, Value* args, size_t arg_coun
     
     // Return empty queue
     Value empty_queue = value_create_object(16);
-    value_object_set_member(&empty_queue, "__class_name__", value_create_string(strdup("Queue")));
+    value_object_set_member(&empty_queue, "__class_name__", value_create_string(("Queue" ? strdup("Queue") : NULL)));
     value_object_set_member(&empty_queue, "elements", value_create_array(0));
     value_object_set_member(&empty_queue, "size", value_create_number(0.0));
     

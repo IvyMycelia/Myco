@@ -463,7 +463,7 @@ Value builtin_array_join(Interpreter* interpreter, Value* args, size_t arg_count
     size_t array_len = array_arg.data.array_value.count;
     
     if (array_len == 0) {
-        return value_create_string(strdup(""));
+        return value_create_string(("" ? strdup("") : NULL));
     }
     
     // Calculate total length needed

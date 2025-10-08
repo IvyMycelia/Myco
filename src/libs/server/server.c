@@ -89,8 +89,8 @@ RouteParam* route_param_create(const char* name, const char* value) {
     RouteParam* param = (RouteParam*)shared_malloc_safe(sizeof(RouteParam), "libs", "unknown_function", 89);
     if (!param) return NULL;
     
-    param->name = strdup(name);
-    param->value = strdup(value);
+    param->name = (name ? strdup(name) : NULL);
+    param->value = (value ? strdup(value) : NULL);
     param->next = NULL;
     
     return param;
@@ -131,9 +131,9 @@ Route* route_create(const char* method, const char* path, Value handler) {
     Route* route = (Route*)shared_malloc_safe(sizeof(Route), "libs", "unknown_function", 131);
     if (!route) return NULL;
     
-    route->method = strdup(method);
-    route->path = strdup(path);
-    route->pattern = strdup(path);  // Store the original pattern
+    route->method = (method ? strdup(method) : NULL);
+    route->path = (path ? strdup(path) : NULL);
+    route->pattern = (path ? strdup(path) : NULL);  // Store the original pattern
     route->params = NULL;  // Initialize params to NULL
     route->handler = value_clone(&handler);  // Clone the function value
     route->next = NULL;
@@ -290,7 +290,7 @@ char** split_path(const char* path) {
     if (!segments) return NULL;
     
     // Split the path
-    char* path_copy = strdup(path);
+    char* path_copy = (path ? strdup(path) : NULL);
     if (!path_copy) {
         shared_free_safe(segments, "libs", "unknown_function", 295);
         return NULL;
@@ -299,7 +299,7 @@ char** split_path(const char* path) {
     int i = 0;
     char* token = strtok(path_copy, "/");
     while (token && i < segment_count) {
-        segments[i] = strdup(token);
+        segments[i] = (token ? strdup(token) : NULL);
         token = strtok(NULL, "/");
         i++;
     }
@@ -368,8 +368,8 @@ StaticRoute* static_route_create(const char* url_prefix, const char* file_path) 
     StaticRoute* route = (StaticRoute*)shared_malloc_safe(sizeof(StaticRoute), "libs", "unknown_function", 368);
     if (!route) return NULL;
     
-    route->url_prefix = strdup(url_prefix);
-    route->file_path = strdup(file_path);
+    route->url_prefix = (url_prefix ? strdup(url_prefix) : NULL);
+    route->file_path = (file_path ? strdup(file_path) : NULL);
     route->enable_gzip = false;
     route->enable_cache = false;
     route->cache_duration = 3600; // Default 1 hour
@@ -508,7 +508,7 @@ Value parse_form_body(const char* body) {
     Value obj = value_create_object(4);
     value_object_set(&obj, "__class_name__", value_create_string("FormData"));
     
-    char* body_copy = strdup(body);
+    char* body_copy = (body ? strdup(body) : NULL);
     char* token = strtok(body_copy, "&");
     
     while (token) {
@@ -539,7 +539,7 @@ Value parse_query_string(const char* query_string) {
     Value obj = value_create_object(4);
     value_object_set(&obj, "__class_name__", value_create_string("QueryParams"));
     
-    char* query_copy = strdup(query_string);
+    char* query_copy = (query_string ? strdup(query_string) : NULL);
     char* token = strtok(query_copy, "&");
     
     while (token) {
@@ -1366,7 +1366,7 @@ Value builtin_response_send(Interpreter* interpreter, Value* args, size_t arg_co
         }
         
         // Store the response body globally
-        g_response_body = strdup(data_val.data.string_value);
+        g_response_body = (data_val.data.string_value ? strdup(data_val.data.string_value) : NULL);
         
         // Also set it in the object (for compatibility)
         Value body_value = value_create_string(data_val.data.string_value);
@@ -1383,7 +1383,7 @@ Value builtin_response_send(Interpreter* interpreter, Value* args, size_t arg_co
         }
         
         // Store the response body globally
-        g_response_body = strdup(str_val.data.string_value);
+        g_response_body = (str_val.data.string_value ? strdup(str_val.data.string_value) : NULL);
         
         value_object_set(&response_obj, "body", str_val);
         
@@ -1414,7 +1414,7 @@ Value builtin_response_json(Interpreter* interpreter, Value* args, size_t arg_co
     if (g_response_content_type) {
         shared_free_safe(g_response_content_type, "libs", "unknown_function", 1416);
     }
-    g_response_content_type = strdup("application/json");
+    g_response_content_type = ("application/json" ? strdup("application/json") : NULL);
     
     // Set the response body (for now, just convert to string - TODO: implement JSON serialization)
     Value str_val = value_to_string(&data_val);
@@ -1424,7 +1424,7 @@ Value builtin_response_json(Interpreter* interpreter, Value* args, size_t arg_co
     if (g_response_body) {
         shared_free_safe(g_response_body, "libs", "unknown_function", 1426);
     }
-    g_response_body = strdup(str_val.data.string_value);
+    g_response_body = (str_val.data.string_value ? strdup(str_val.data.string_value) : NULL);
     
     return response_obj; // Return response object for chaining
 }
@@ -1676,8 +1676,8 @@ MycoRequest* parse_http_request(struct MHD_Connection* connection, const char* u
     if (!request) return NULL;
     
     // Initialize request
-    request->method = method ? strdup(method) : NULL;
-    request->url = url ? strdup(url) : NULL;
+    request->method = method ? (method ? strdup(method) : NULL) : NULL;
+    request->url = url ? (url ? strdup(url) : NULL) : NULL;
     
     // Extract path and query string from URL
     if (url) {
@@ -1689,9 +1689,9 @@ MycoRequest* parse_http_request(struct MHD_Connection* connection, const char* u
             strncpy(request->path, url, path_len);
             request->path[path_len] = '\0';
             
-            request->query_string = strdup(query_pos + 1);
+            request->query_string = (query_pos + 1 ? strdup(query_pos + 1) : NULL);
         } else {
-            request->path = strdup(url);
+            request->path = (url ? strdup(url) : NULL);
             request->query_string = NULL;
         }
     } else {
@@ -1699,7 +1699,7 @@ MycoRequest* parse_http_request(struct MHD_Connection* connection, const char* u
         request->query_string = NULL;
     }
     // Set request body from global storage
-    request->body = g_request_body ? strdup(g_request_body) : NULL;
+    request->body = g_request_body ? (g_request_body ? strdup(g_request_body) : NULL) : NULL;
     request->headers = NULL;
     request->header_count = 0;
     request->params = NULL;
@@ -1715,7 +1715,7 @@ MycoResponse* create_http_response(void) {
     
     // Initialize response
     response->status_code = 200;
-    response->content_type = strdup("text/plain");
+    response->content_type = ("text/plain" ? strdup("text/plain") : NULL);
     response->body = NULL;
     response->headers = NULL;
     response->header_count = 0;
@@ -1990,7 +1990,7 @@ Value builtin_server_group(Interpreter* interpreter, Value* args, size_t arg_cou
     if (g_current_route_prefix) {
         shared_free_safe(g_current_route_prefix, "libs", "unknown_function", 1992);
     }
-    g_current_route_prefix = strdup(prefix_val.data.string_value);
+    g_current_route_prefix = (prefix_val.data.string_value ? strdup(prefix_val.data.string_value) : NULL);
     
     // Create route group object with group-specific functions
     Value group_obj = value_create_object(5);
@@ -2059,7 +2059,7 @@ ServerConfig* parse_server_config(Value config_obj) {
     Value static_dir_key = value_create_string("staticDir");
     Value static_dir_val = value_hash_map_get(&config_obj, static_dir_key);
     if (static_dir_val.type == VALUE_STRING) {
-        config->static_dir = strdup(static_dir_val.data.string_value);
+        config->static_dir = (static_dir_val.data.string_value ? strdup(static_dir_val.data.string_value) : NULL);
     }
     value_free(&static_dir_key);
     
@@ -2378,7 +2378,7 @@ FileWatcher* file_watcher_create(const char* path, Value callback) {
     FileWatcher* watcher = (FileWatcher*)shared_malloc_safe(sizeof(FileWatcher), "libs", "unknown_function", 2379);
     if (!watcher) return NULL;
     
-    watcher->watch_path = strdup(path);
+    watcher->watch_path = (path ? strdup(path) : NULL);
     watcher->callback = value_clone(&callback);
     watcher->active = true;
     watcher->last_check = time(NULL);

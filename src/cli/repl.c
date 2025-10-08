@@ -666,7 +666,7 @@ void repl_add_to_history(REPLState* state, const char* input) {
     }
     
     // Add to history
-    state->history[state->history_count] = strdup(input);
+    state->history[state->history_count] = (input ? strdup(input) : NULL);
     state->history_count++;
     state->history_index = state->history_count;
 }

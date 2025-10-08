@@ -165,7 +165,7 @@ Value builtin_graph_create(Interpreter* interpreter, Value* args, size_t arg_cou
     // Store graph pointer in a custom value type
     // For now, return a simple object representation
     Value graph_obj = value_create_object(16);
-    value_object_set(&graph_obj, "__class_name__", value_create_string(strdup("Graph")));
+    value_object_set(&graph_obj, "__class_name__", value_create_string(("Graph" ? strdup("Graph") : NULL)));
     value_object_set(&graph_obj, "size", value_create_number(0));
     value_object_set(&graph_obj, "isDirected", value_create_boolean(is_directed));
     
@@ -189,7 +189,7 @@ Value builtin_graph_add_node(Interpreter* interpreter, Value* args, size_t arg_c
     // For now, just return success
     // TODO: Implement actual node addition
     Value result = value_clone(&graph_obj);
-    value_object_set_member(&result, "__class_name__", value_create_string(strdup("Graph")));
+    value_object_set_member(&result, "__class_name__", value_create_string(("Graph" ? strdup("Graph") : NULL)));
     return result;
 }
 
@@ -211,7 +211,7 @@ Value builtin_graph_add_edge(Interpreter* interpreter, Value* args, size_t arg_c
     // For now, just return success
     // TODO: Implement actual edge addition
     Value result = value_clone(&graph_obj);
-    value_object_set_member(&result, "__class_name__", value_create_string(strdup("Graph")));
+    value_object_set_member(&result, "__class_name__", value_create_string(("Graph" ? strdup("Graph") : NULL)));
     return result;
 }
 

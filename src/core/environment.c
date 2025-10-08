@@ -77,7 +77,7 @@ void environment_define(Environment* env, const char* name, Value value) {
     }
     
     // Add new variable
-    env->names[env->count] = strdup(name);
+    env->names[env->count] = (name ? strdup(name) : NULL);
     env->values[env->count] = value_clone(&value);
     env->count++;
 }

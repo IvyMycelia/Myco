@@ -31,7 +31,7 @@ Lexer* lexer_initialize(const char* source) {
     }
     
     // Initialize lexer state
-    lexer->source = strdup(source);        // Make a copy of the source
+    lexer->source = (source ? strdup(source) : NULL);        // Make a copy of the source
     lexer->start = 0;                      // Start position of current token
     lexer->current = 0;                    // Current position being examined
     lexer->line = 1;                       // Current line number (1-based)
@@ -114,7 +114,7 @@ static int lexer_add_token(Lexer* lexer, TokenType type, const char* text, int l
     
     // Copy the text content
     if (text) {
-        token->text = strdup(text);
+        token->text = (text ? strdup(text) : NULL);
         if (!token->text) {
             return 0;  // Memory allocation failed
         }
@@ -128,7 +128,7 @@ static int lexer_add_token(Lexer* lexer, TokenType type, const char* text, int l
             token->data.number_value = text ? atof(text) : 0.0;
             break;
         case TOKEN_STRING:
-            token->data.string_value = text ? strdup(text) : NULL;
+            token->data.string_value = text ? (text ? strdup(text) : NULL) : NULL;
             break;
         case TOKEN_BOOL:
             if (text && (strcmp(text, "True") == 0 || strcmp(text, "true") == 0)) {

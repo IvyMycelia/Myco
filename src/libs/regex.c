@@ -197,7 +197,7 @@ char* regex_replace(const char* pattern, const char* text, const char* replaceme
     
     matches = regex_find_all(pattern, text, flags, &match_count);
     if (!matches || match_count == 0) {
-        return strdup(text);
+        return (text ? strdup(text) : NULL);
     }
     
     // Calculate new string length
@@ -258,7 +258,7 @@ char** regex_split(const char* pattern, const char* text, int flags, int* count)
     matches = regex_find_all(pattern, text, flags, &match_count);
     if (!matches) {
         // No matches, return original text as single part
-        parts[0] = strdup(text);
+        parts[0] = (text ? strdup(text) : NULL);
         *count = 1;
         return parts;
     }
@@ -283,7 +283,7 @@ char** regex_split(const char* pattern, const char* text, int flags, int* count)
     
     // Add remaining text
     if (text_pos < (int)strlen(text)) {
-        parts[*count] = strdup(text + text_pos);
+        parts[*count] = (text + text_pos ? strdup(text + text_pos) : NULL);
         (*count)++;
     }
     
@@ -331,7 +331,7 @@ char** regex_extract(const char* pattern, const char* text, int flags, int* coun
     
     *count = match_count;
     for (int i = 0; i < match_count; i++) {
-        results[i] = matches[i]->match ? strdup(matches[i]->match) : NULL;
+        results[i] = matches[i]->match ? (matches[i]->match ? strdup(matches[i]->match) : NULL) : NULL;
     }
     
     regex_free_matches(matches, match_count);

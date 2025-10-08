@@ -74,8 +74,8 @@ LSPLanguageServer* lsp_server_create(void) {
     memset(server, 0, sizeof(LSPLanguageServer));
     
     // Initialize server info
-    server->serverInfo.name = strdup("Myco Language Server");
-    server->serverInfo.version = strdup("1.0.0");
+    server->serverInfo.name = ("Myco Language Server" ? strdup("Myco Language Server") : NULL);
+    server->serverInfo.version = ("1.0.0" ? strdup("1.0.0") : NULL);
     
     // Initialize capabilities
     server->capabilities.textDocumentSync = true;
@@ -148,7 +148,7 @@ int lsp_handle_message(LSPLanguageServer* server, const char* message, char** re
     
     // TODO: Parse JSON message and route to appropriate handler
     // For now, return a simple response
-    *response = strdup("{\"jsonrpc\":\"2.0\",\"result\":null,\"id\":1}");
+    *response = ("{\"jsonrpc\":\"2.0\",\"result\":null,\"id\":1}" ? strdup("{\"jsonrpc\":\"2.0\",\"result\":null,\"id\":1}") : NULL);
     return 1;
 }
 
@@ -355,9 +355,9 @@ char* lsp_uri_to_path(const char* uri) {
     
     // Simple implementation - remove file:// prefix
     if (strncmp(uri, "file://", 7) == 0) {
-        return strdup(uri + 7);
+        return (uri + 7 ? strdup(uri + 7) : NULL);
     }
-    return strdup(uri);
+    return (uri ? strdup(uri) : NULL);
 }
 
 char* lsp_path_to_uri(const char* path) {

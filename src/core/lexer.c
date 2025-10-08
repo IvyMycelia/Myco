@@ -294,7 +294,7 @@ static void lexer_parse_number(Lexer* lexer) {
     char* text = lexer_extract_text(lexer);
     if (text) {
         // Remove underscores from the number text before converting to double
-        char* clean_text = shared_malloc_safe(strlen(text) + 1, "core", "unknown_function", 291);
+        char* clean_text = shared_malloc_safe((text ? strlen(text) : 0) + 1, "core", "unknown_function", 291);
         if (clean_text) {
             size_t j = 0;
             for (size_t i = 0; text[i] != '\0'; i++) {
@@ -304,11 +304,11 @@ static void lexer_parse_number(Lexer* lexer) {
             }
             clean_text[j] = '\0';
             
-            lexer_add_token(lexer, TOKEN_NUMBER, clean_text, lexer->line, lexer->column - strlen(text));
+            lexer_add_token(lexer, TOKEN_NUMBER, clean_text, lexer->line, lexer->column - (text ? strlen(text) : 0));
             shared_free_safe(clean_text, "core", "unknown_function", 302);
         } else {
             // Fallback to original text if memory allocation fails
-            lexer_add_token(lexer, TOKEN_NUMBER, text, lexer->line, lexer->column - strlen(text));
+            lexer_add_token(lexer, TOKEN_NUMBER, text, lexer->line, lexer->column - (text ? strlen(text) : 0));
         }
         shared_free_safe(text, "core", "unknown_function", 307);
     }
@@ -441,7 +441,7 @@ static void lexer_parse_identifier(Lexer* lexer) {
         else if (strcmp(text, "as") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "public") == 0) type = TOKEN_KEYWORD;
         
-        lexer_add_token(lexer, type, text, lexer->line, lexer->column - strlen(text));
+        lexer_add_token(lexer, type, text, lexer->line, lexer->column - (text ? strlen(text) : 0));
         shared_free_safe(text, "core", "unknown_function", 439);
     }
 }

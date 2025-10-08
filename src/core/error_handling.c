@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <errno.h>
+#include <math.h>
 
 // Global error system instance
 static ErrorSystem* global_error_system = NULL;
@@ -679,4 +681,331 @@ void interpreter_clear_exception(Interpreter* interpreter) {
     if (system) {
         exception_clear(system);
     }
+}
+
+// Enhanced error reporting with comprehensive error handling
+void interpreter_report_error_comprehensive(Interpreter* interpreter, int error_code, const char* message, 
+                                          const char* file_name, int line, int column, const char* context) {
+    if (!interpreter) return;
+    
+    // Set error state
+    interpreter->has_error = 1;
+    if (interpreter->error_message) {
+        free(interpreter->error_message);
+    }
+    interpreter->error_message = strdup(message);
+    interpreter->error_line = line;
+    interpreter->error_column = column;
+    
+    // Enhanced error reporting with comprehensive information
+    printf("\033[1;31m[ERROR %d]\033[0m %s\n", error_code, message);
+    printf("\033[1;33mLocation\033[0m: %s:%d:%d\n", file_name ? file_name : "<unknown>", line, column);
+    
+    // Add context if provided
+    if (context) {
+        printf("\033[1;35mContext\033[0m: %s\n", context);
+    }
+    
+    // Add specific suggestions based on error code
+    switch (error_code) {
+        case MYCO_ERROR_UNDEFINED_VARIABLE:
+            printf("\033[1;36mSuggestion\033[0m: Declare the variable before use or check spelling\n");
+            break;
+        case MYCO_ERROR_UNDEFINED_FUNCTION:
+            printf("\033[1;36mSuggestion\033[0m: Define the function or check spelling\n");
+            break;
+        case MYCO_ERROR_TYPE_MISMATCH:
+            printf("\033[1;36mSuggestion\033[0m: Use compatible types or add type conversion\n");
+            break;
+        case MYCO_ERROR_DIVISION_BY_ZERO:
+            printf("\033[1;36mSuggestion\033[0m: Check divisor before division\n");
+            break;
+        case MYCO_ERROR_ARRAY_BOUNDS:
+            printf("\033[1;36mSuggestion\033[0m: Validate array bounds before access\n");
+            break;
+        case MYCO_ERROR_OUT_OF_MEMORY:
+            printf("\033[1;36mSuggestion\033[0m: Free unused memory or increase available memory\n");
+            break;
+        case MYCO_ERROR_FILE_NOT_FOUND:
+            printf("\033[1;36mSuggestion\033[0m: Check file path and permissions\n");
+            break;
+        default:
+            printf("\033[1;36mSuggestion\033[0m: Review the error and check your code\n");
+            break;
+    }
+    
+    // Add stack trace if available
+    if (interpreter->call_stack) {
+        printf("\033[1;37mStack Trace\033[0m:\n");
+        CallFrame* frame = interpreter->call_stack;
+        int depth = 0;
+        while (frame && depth < 10) {
+        printf("  %d. %s in %s:%d\n", depth + 1, 
+               frame->function_name ? frame->function_name : "<unknown>",
+               frame->file_name ? frame->file_name : "<unknown>",
+               0);
+            frame = frame->next;
+            depth++;
+        }
+    }
+}
+
+// Safe division with error handling
+double safe_divide(double a, double b, Interpreter* interpreter, int line, int column) {
+    if (b == 0.0) {
+        interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_DIVISION_BY_ZERO, 
+                                            "Division by zero", interpreter->current_filename, line, column, NULL);
+        return 0.0;
+    }
+    return a / b;
+}
+
+// Safe array access with bounds checking
+Value safe_array_access(Value* array, int index, Interpreter* interpreter, int line, int column) {
+    if (array->type != VALUE_ARRAY) {
+        interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_INVALID_OPERATION, 
+                                            "Not an array", interpreter->current_filename, line, column, NULL);
+        return value_create_null();
+    }
+    
+    if (index < 0 || index >= (int)array->data.array_value.count) {
+        char context[256];
+        snprintf(context, sizeof(context), "Index: %d, Array size: %zu", index, array->data.array_value.count);
+        interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_ARRAY_BOUNDS, 
+                                            "Array index out of bounds", interpreter->current_filename, line, column, 
+                                            context);
+        return value_create_null();
+    }
+    
+    return *((Value*)array->data.array_value.elements[index]);
+}
+
+// Safe memory allocation with error handling
+void* safe_malloc(size_t size, Interpreter* interpreter, const char* context, int line, int column) {
+    void* ptr = malloc(size);
+    if (!ptr) {
+        interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_OUT_OF_MEMORY, 
+                                            "Memory allocation failed", interpreter->current_filename, line, column, 
+                                            context);
+        return NULL;
+    }
+    return ptr;
+}
+
+// Safe string operations with bounds checking
+char* safe_strdup(const char* str, Interpreter* interpreter, const char* context, int line, int column) {
+    if (!str) {
+        interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_NULL_POINTER, 
+                                            "Null string pointer", interpreter->current_filename, line, column, 
+                                            context);
+        return NULL;
+    }
+    
+    char* result = strdup(str);
+    if (!result) {
+        interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_OUT_OF_MEMORY, 
+                                            "String duplication failed", interpreter->current_filename, line, column, 
+                                            context);
+        return NULL;
+    }
+    return result;
+}
+
+// Safe file operations with error handling
+FILE* safe_fopen(const char* filename, const char* mode, Interpreter* interpreter, int line, int column) {
+    if (!filename) {
+        interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_NULL_POINTER, 
+                                            "Null filename", interpreter->current_filename, line, column, 
+                                            "File operation");
+        return NULL;
+    }
+    
+    FILE* file = fopen(filename, mode);
+    if (!file) {
+        int error_code = MYCO_ERROR_FILE_NOT_FOUND;
+        const char* error_msg = "File not found";
+        
+        if (errno == EACCES) {
+            error_code = MYCO_ERROR_FILE_PERMISSION;
+            error_msg = "Permission denied";
+        } else if (errno == ENOSPC) {
+            error_code = MYCO_ERROR_SYSTEM_ERROR;
+            error_msg = "No space left on device";
+        }
+        
+        char context[256];
+        snprintf(context, sizeof(context), "File: %s", filename);
+        interpreter_report_error_comprehensive(interpreter, error_code, error_msg, 
+                                            interpreter->current_filename, line, column, 
+                                            context);
+        return NULL;
+    }
+    return file;
+}
+
+// Safe object property access with error handling
+Value safe_object_access(Value* object, const char* property, Interpreter* interpreter, int line, int column) {
+    if (!object) {
+        interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_NULL_POINTER, 
+                                            "Null object", interpreter->current_filename, line, column, 
+                                            "Property access");
+        return value_create_null();
+    }
+    
+    if (object->type != VALUE_OBJECT) {
+        interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_INVALID_OPERATION, 
+                                            "Not an object", interpreter->current_filename, line, column, 
+                                            "Property access");
+        return value_create_null();
+    }
+    
+    if (!property) {
+        interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_NULL_POINTER, 
+                                            "Null property name", interpreter->current_filename, line, column, 
+                                            "Property access");
+        return value_create_null();
+    }
+    
+    // Search for property
+    for (size_t i = 0; i < object->data.object_value.count; i++) {
+        if (object->data.object_value.keys[i] && 
+            strcmp(object->data.object_value.keys[i], property) == 0) {
+            return *((Value*)object->data.object_value.values[i]);
+        }
+    }
+    
+    char context[256];
+    snprintf(context, sizeof(context), "Property: %s", property);
+    interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_INVALID_KEY, 
+                                        "Property not found", interpreter->current_filename, line, column, 
+                                        context);
+    return value_create_null();
+}
+
+// Enhanced error handling for arithmetic operations
+Value safe_arithmetic_operation(Value* left, Value* right, char operation, Interpreter* interpreter, int line, int column) {
+    if (!left || !right) {
+        interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_NULL_POINTER, 
+                                            "Null operand in arithmetic operation", interpreter->current_filename, line, column, 
+                                            "Arithmetic operation");
+        return value_create_null();
+    }
+    
+    // Check if both operands are numbers
+    if (left->type != VALUE_NUMBER || right->type != VALUE_NUMBER) {
+        char context[256];
+        snprintf(context, sizeof(context), "Left: %d, Right: %d", left->type, right->type);
+        interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_TYPE_MISMATCH, 
+                                            "Non-numeric operands in arithmetic operation", interpreter->current_filename, line, column, 
+                                            context);
+        return value_create_null();
+    }
+    
+    double a = left->data.number_value;
+    double b = right->data.number_value;
+    double result = 0.0;
+    
+    switch (operation) {
+        case '+':
+            result = a + b;
+            break;
+        case '-':
+            result = a - b;
+            break;
+        case '*':
+            result = a * b;
+            break;
+        case '/':
+            if (b == 0.0) {
+                interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_DIVISION_BY_ZERO, 
+                                                    "Division by zero", interpreter->current_filename, line, column, 
+                                                    "Arithmetic operation");
+                return value_create_null();
+            }
+            result = a / b;
+            break;
+        case '%':
+            if (b == 0.0) {
+                interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_DIVISION_BY_ZERO, 
+                                                    "Modulo by zero", interpreter->current_filename, line, column, 
+                                                    "Arithmetic operation");
+                return value_create_null();
+            }
+            result = fmod(a, b);
+            break;
+        default:
+            interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_INVALID_OPERATION, 
+                                                "Invalid arithmetic operation", interpreter->current_filename, line, column, 
+                                                "Arithmetic operation");
+            return value_create_null();
+    }
+    
+    return value_create_number(result);
+}
+
+// Enhanced error handling for comparison operations
+Value safe_comparison_operation(Value* left, Value* right, char operation, Interpreter* interpreter, int line, int column) {
+    if (!left || !right) {
+        interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_NULL_POINTER, 
+                                            "Null operand in comparison operation", interpreter->current_filename, line, column, 
+                                            "Comparison operation");
+        return value_create_null();
+    }
+    
+    bool result = false;
+    
+    // Handle different type combinations
+    if (left->type == right->type) {
+        switch (left->type) {
+            case VALUE_NUMBER:
+                switch (operation) {
+                    case '>': result = left->data.number_value > right->data.number_value; break;
+                    case '<': result = left->data.number_value < right->data.number_value; break;
+                    case '=': result = left->data.number_value == right->data.number_value; break;
+                    case '!': result = left->data.number_value != right->data.number_value; break;
+                    case 'g': result = left->data.number_value >= right->data.number_value; break;
+                    case 'l': result = left->data.number_value <= right->data.number_value; break;
+                    default:
+                        interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_INVALID_OPERATION, 
+                                                            "Invalid comparison operation", interpreter->current_filename, line, column, 
+                                                            "Comparison operation");
+                        return value_create_null();
+                }
+                break;
+            case VALUE_STRING:
+                switch (operation) {
+                    case '=': result = strcmp(left->data.string_value, right->data.string_value) == 0; break;
+                    case '!': result = strcmp(left->data.string_value, right->data.string_value) != 0; break;
+                    default:
+                        interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_INVALID_OPERATION, 
+                                                            "Invalid string comparison operation", interpreter->current_filename, line, column, 
+                                                            "Comparison operation");
+                        return value_create_null();
+                }
+                break;
+            case VALUE_BOOLEAN:
+                switch (operation) {
+                    case '=': result = left->data.boolean_value == right->data.boolean_value; break;
+                    case '!': result = left->data.boolean_value != right->data.boolean_value; break;
+                    default:
+                        interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_INVALID_OPERATION, 
+                                                            "Invalid boolean comparison operation", interpreter->current_filename, line, column, 
+                                                            "Comparison operation");
+                        return value_create_null();
+                }
+                break;
+            default:
+                interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_TYPE_MISMATCH, 
+                                                    "Unsupported type for comparison", interpreter->current_filename, line, column, 
+                                                    "Comparison operation");
+                return value_create_null();
+        }
+    } else {
+        interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_TYPE_MISMATCH, 
+                                            "Type mismatch in comparison operation", interpreter->current_filename, line, column, 
+                                            "Comparison operation");
+        return value_create_null();
+    }
+    
+    return value_create_boolean(result);
 }

@@ -1285,3 +1285,4 @@ int ast_validate_tree(ASTNode* root) {
     
     return 1;
 }
+

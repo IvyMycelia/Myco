@@ -115,6 +115,8 @@ const char* value_type_string(ValueType type) {
         case VALUE_ARRAY: return "Array";
         case VALUE_OBJECT: return "Object";
         case VALUE_FUNCTION: return "Function";
+        case VALUE_ASYNC_FUNCTION: return "AsyncFunction";
+        case VALUE_PROMISE: return "Promise";
         case VALUE_RANGE: return "Range";
         case VALUE_CLASS: return "Class";
         case VALUE_MODULE: return "Object";
@@ -394,6 +396,64 @@ Value value_create_function(ASTNode* body, ASTNode** params, size_t param_count,
         }
     } else {
         v.data.function_value.parameters = NULL;
+    }
+    
+    return v;
+}
+
+/**
+ * @brief Create an async function value
+ */
+Value value_create_async_function(const char* name, ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, Environment* captured_env) {
+    Value v = {0};
+    v.type = VALUE_ASYNC_FUNCTION;
+    v.data.async_function_value.body = body;
+    v.data.async_function_value.parameter_count = param_count;
+    v.data.async_function_value.return_type = return_type ? strdup(return_type) : NULL;
+    v.data.async_function_value.captured_environment = captured_env;
+    
+    // Copy parameter nodes with proper error handling
+    if (param_count > 0 && params) {
+        v.data.async_function_value.parameters = (ASTNode**)shared_malloc_safe(param_count * sizeof(ASTNode*), "interpreter", "unknown_function", 420);
+        if (!v.data.async_function_value.parameters) {
+            if (v.data.async_function_value.return_type) {
+                shared_free_safe(v.data.async_function_value.return_type, "interpreter", "unknown_function", 421);
+                v.data.async_function_value.return_type = NULL;
+            }
+            return v;
+        }
+        
+        for (size_t i = 0; i < param_count; i++) {
+            v.data.async_function_value.parameters[i] = params[i];
+        }
+    } else {
+        v.data.async_function_value.parameters = NULL;
+    }
+    
+    return v;
+}
+
+/**
+ * @brief Create a promise value
+ */
+Value value_create_promise(Value resolved_value, int is_resolved, Value error_value) {
+    Value v = {0};
+    v.type = VALUE_PROMISE;
+    
+    v.data.promise_value.is_resolved = is_resolved;
+    v.data.promise_value.is_rejected = !is_resolved;
+    v.data.promise_value.error_message = NULL;
+    v.data.promise_value.resolved_data = NULL;
+    
+    if (is_resolved) {
+        // Convert resolved value to string representation
+        Value str_value = value_to_string(&resolved_value);
+        if (str_value.type == VALUE_STRING) {
+            v.data.promise_value.resolved_data = strdup(str_value.data.string_value);
+        }
+        value_free(&str_value);
+    } else if (error_value.type == VALUE_STRING) {
+        v.data.promise_value.error_message = strdup(error_value.data.string_value);
     }
     
     return v;
@@ -2201,6 +2261,38 @@ void value_free(Value* value) {
 
             break;
             
+        case VALUE_ASYNC_FUNCTION:
+            // Free parameter nodes
+            if (value->data.async_function_value.parameters) {
+                for (size_t i = 0; i < value->data.async_function_value.parameter_count; i++) {
+                    if (value->data.async_function_value.parameters[i]) {
+                        ast_free(value->data.async_function_value.parameters[i]);
+                    }
+                }
+                shared_free_safe(value->data.async_function_value.parameters, "interpreter", "unknown_function", 2250);
+                value->data.async_function_value.parameters = NULL;
+            }
+            // Free return type
+            if (value->data.async_function_value.return_type) {
+                shared_free_safe(value->data.async_function_value.return_type, "interpreter", "unknown_function", 2255);
+                value->data.async_function_value.return_type = NULL;
+            }
+            // Note: Don't free captured_environment here as it may be shared
+            break;
+            
+        case VALUE_PROMISE:
+            // Free resolved data
+            if (value->data.promise_value.resolved_data) {
+                shared_free_safe(value->data.promise_value.resolved_data, "interpreter", "unknown_function", 2280);
+                value->data.promise_value.resolved_data = NULL;
+            }
+            // Free error message
+            if (value->data.promise_value.error_message) {
+                shared_free_safe(value->data.promise_value.error_message, "interpreter", "unknown_function", 2285);
+                value->data.promise_value.error_message = NULL;
+            }
+            break;
+            
         case VALUE_ARRAY:
             if (value->data.array_value.elements) {
                 // Free array elements
@@ -2377,6 +2469,26 @@ Value value_clone(Value* value) {
                 value->data.function_value.captured_environment
             );
         } 
+        case VALUE_ASYNC_FUNCTION: {
+            // Clone the async function value
+            return value_create_async_function(
+                NULL, // name not stored in value
+                value->data.async_function_value.parameters,
+                value->data.async_function_value.parameter_count,
+                value->data.async_function_value.return_type,
+                value->data.async_function_value.body,
+                value->data.async_function_value.captured_environment
+            );
+        }
+        case VALUE_PROMISE: {
+            // Clone the promise value
+            Value resolved_value = value_create_string(value->data.promise_value.resolved_data ? value->data.promise_value.resolved_data : "");
+            Value error_value = value_create_string(value->data.promise_value.error_message ? value->data.promise_value.error_message : "");
+            Value promise = value_create_promise(resolved_value, value->data.promise_value.is_resolved, error_value);
+            value_free(&resolved_value);
+            value_free(&error_value);
+            return promise;
+        }
         case VALUE_CLASS: {
             // Clone the class value
             return value_create_class(
@@ -4912,6 +5024,62 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 environment_define(interpreter->global_environment, class_name, class_value);
             }
             return value_create_null();
+        }
+        
+        case AST_NODE_ASYNC_FUNCTION: {
+            // Define an async function in the current environment
+            const char* func_name = node->data.async_function_definition.function_name;
+            if (func_name) {
+                // Create an async function value
+                Value async_func = value_create_async_function(
+                    func_name,
+                    node->data.async_function_definition.parameters,
+                    node->data.async_function_definition.parameter_count,
+                    node->data.async_function_definition.return_type,
+                    node->data.async_function_definition.body,
+                    interpreter->current_environment
+                );
+                
+                // Define the async function in the current environment
+                environment_define(interpreter->current_environment, func_name, async_func);
+            }
+            return value_create_null();
+        }
+        
+        case AST_NODE_AWAIT: {
+            // Evaluate the expression to get a promise
+            Value promise = eval_node(interpreter, node->data.await_expression.expression);
+            
+            // For now, we'll implement a simple synchronous await
+            // In a full implementation, this would handle actual async execution
+            if (promise.type == VALUE_PROMISE) {
+                // If it's a promise, wait for it to resolve
+                if (promise.data.promise_value.is_resolved && promise.data.promise_value.resolved_data) {
+                    // Return the resolved data as a string
+                    Value result = value_create_string(promise.data.promise_value.resolved_data);
+                    value_free(&promise);
+                    return result;
+                } else {
+                    // Promise not resolved yet - in a real implementation,
+                    // this would suspend execution and resume later
+                    value_free(&promise);
+                    return value_create_null();
+                }
+            } else {
+                // If it's not a promise, return the value directly
+                return promise;
+            }
+        }
+        
+        case AST_NODE_PROMISE: {
+            // Create a promise from the expression
+            Value expression_value = eval_node(interpreter, node->data.promise_creation.expression);
+            
+            // Create a resolved promise
+            Value promise = value_create_promise(expression_value, 1, value_create_null());
+            value_free(&expression_value);
+            
+            return promise;
         }
             
         default: return value_create_null();

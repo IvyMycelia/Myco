@@ -133,7 +133,7 @@ Value builtin_set_union(Interpreter* interpreter, Value* args, size_t arg_count,
     Value set2 = args[1];
     
     if (set1.type != VALUE_SET || set2.type != VALUE_SET) {
-        std_error_report(ERROR_INTERNAL_ERROR, "sets", "unknown_function", "set.union() can only be called on a set with another set", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "sets", "builtin_set_union", "set.union() can only be called on a set with another set", line, column);
         return value_create_null();
     }
     
@@ -177,7 +177,7 @@ Value builtin_set_intersection(Interpreter* interpreter, Value* args, size_t arg
     Value set2 = args[1];
     
     if (set1.type != VALUE_SET || set2.type != VALUE_SET) {
-        std_error_report(ERROR_INTERNAL_ERROR, "sets", "unknown_function", "set.intersection() can only be called on a set with another set", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "sets", "builtin_set_intersection", "set.intersection() can only be called on a set with another set", line, column);
         return value_create_null();
     }
     

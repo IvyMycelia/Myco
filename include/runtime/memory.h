@@ -90,6 +90,32 @@ void* memory_allocate_aligned(MemoryTracker* tracker, size_t size, size_t alignm
 void* memory_reallocate(MemoryTracker* tracker, void* ptr, size_t new_size);
 void memory_free(MemoryTracker* tracker, void* ptr);
 
+// Optimized allocation functions
+void* memory_pool_allocate_optimized(MemoryTracker* tracker, size_t size);
+void* memory_arena_allocate_optimized(MemoryTracker* tracker, size_t size);
+void* memory_generational_allocate_optimized(MemoryTracker* tracker, size_t size);
+
+// Arena-based temporary allocation
+void* memory_arena_allocate_temporary(MemoryTracker* tracker, size_t size);
+void memory_arena_reset_temporary(MemoryTracker* tracker);
+void* memory_arena_allocate_bulk(MemoryTracker* tracker, size_t count, size_t element_size);
+
+// Garbage collection functions
+void memory_gc_mark_and_sweep(MemoryTracker* tracker);
+void memory_gc_mark_phase(MemoryTracker* tracker);
+void memory_gc_sweep_phase(MemoryTracker* tracker);
+void memory_gc_generational(MemoryTracker* tracker);
+void memory_gc_young_generation(MemoryTracker* tracker);
+void memory_gc_old_generation(MemoryTracker* tracker);
+
+// Enhanced memory tracking and leak detection
+void memory_tracker_enable_tracking(MemoryTracker* tracker, int enable);
+void memory_tracker_enable_validation(MemoryTracker* tracker, int enable);
+void memory_tracker_enable_leak_detection(MemoryTracker* tracker, int enable);
+void memory_tracker_detect_leaks(MemoryTracker* tracker);
+void memory_tracker_print_stats(MemoryTracker* tracker);
+int memory_tracker_validate(MemoryTracker* tracker);
+
 // Memory pool management
 MemoryPool* memory_pool_create(MemoryTracker* tracker, size_t size, const char* name);
 void memory_pool_free(MemoryTracker* tracker, MemoryPool* pool);

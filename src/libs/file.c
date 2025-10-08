@@ -465,7 +465,7 @@ Value builtin_file_write(Interpreter* interpreter, Value* args, size_t arg_count
     }
     
     if (content_val.type != VALUE_STRING) {
-        std_error_report(ERROR_INVALID_ARGUMENT, "file", "unknown_function", "file.write() second argument must be a string (content)", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "file", "builtin_file_write", "file.write() second argument must be a string (content)", line, column);
         return value_create_null();
     }
     

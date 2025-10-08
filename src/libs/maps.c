@@ -134,7 +134,7 @@ Value builtin_map_update(Interpreter* interpreter, Value* args, size_t arg_count
     Value other_map = args[1];
     
     if (map->type != VALUE_HASH_MAP || other_map.type != VALUE_HASH_MAP) {
-        std_error_report(ERROR_INVALID_ARGUMENT, "maps", "unknown_function", "map.update() argument must be a hash map", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "maps", "builtin_map_update", "map.update() argument must be a hash map", line, column);
         return value_create_null();
     }
     

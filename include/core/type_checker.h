@@ -80,6 +80,32 @@ typedef struct TypeEnvironment {
     size_t variable_capacity;
 } TypeEnvironment;
 
+// Enhanced type inference structures
+typedef struct TypeConstraint {
+    char* constraint_name;
+    MycoType* constraint_type;
+    int is_required;
+} TypeConstraint;
+
+typedef struct TypeInference {
+    MycoType* type;
+    int confidence;           // 0-100 confidence level
+    int is_ambiguous;         // Multiple possible types
+    TypeConstraint* constraints;
+    size_t constraint_count;
+    int is_inferred;         // Whether this type was inferred vs declared
+} TypeInference;
+
+// Type inference engine
+typedef struct TypeInferenceEngine {
+    TypeInference** inferences;
+    size_t inference_count;
+    size_t inference_capacity;
+    int enable_confidence_scoring;
+    int enable_constraint_solving;
+    int enable_ambiguity_detection;
+} TypeInferenceEngine;
+
 // Type checker context
 typedef struct TypeCheckerContext {
     TypeEnvironment* current_environment;
@@ -90,6 +116,7 @@ typedef struct TypeCheckerContext {
     int error_count;
     char** error_messages;
     size_t error_capacity;
+    TypeInferenceEngine* inference_engine;
 } TypeCheckerContext;
 
 // Type checker functions
@@ -120,6 +147,26 @@ int type_check_assignment(TypeCheckerContext* context, ASTNode* node);
 int type_check_function(TypeCheckerContext* context, ASTNode* node);
 int type_check_class(TypeCheckerContext* context, ASTNode* node);
 int type_check_block(TypeCheckerContext* context, ASTNode* node);
+
+// Enhanced type inference engine
+TypeInferenceEngine* type_inference_engine_create(void);
+void type_inference_engine_free(TypeInferenceEngine* engine);
+TypeInference* type_inference_create(MycoType* type, int confidence, int is_ambiguous);
+void type_inference_free(TypeInference* inference);
+
+// Enhanced type inference functions
+TypeInference* type_infer_expression_enhanced(TypeCheckerContext* context, ASTNode* node);
+int type_infer_with_confidence(TypeCheckerContext* context, ASTNode* node, int* confidence);
+int type_infer_with_constraints(TypeCheckerContext* context, ASTNode* node, TypeConstraint* constraints, size_t constraint_count);
+int type_infer_ambiguous_types(TypeCheckerContext* context, ASTNode* node, MycoType** possible_types, size_t* type_count);
+
+// Generic type system functions
+MycoType* generic_instantiate(MycoType* generic_type, MycoType** type_args, size_t arg_count);
+int generic_constraint_check(MycoType* type, TypeConstraint* constraint);
+MycoType* generic_create_parameter(const char* name, MycoType* constraint);
+MycoType* generic_create_instance(const char* name, MycoType** parameters, size_t param_count);
+int generic_is_assignable(MycoType* generic_type, MycoType* concrete_type);
+int generic_constraint_satisfies(MycoType* type, MycoType* constraint);
 
 // Type inference
 MycoType* type_infer_expression(TypeCheckerContext* context, ASTNode* node);

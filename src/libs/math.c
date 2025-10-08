@@ -206,24 +206,30 @@ Value builtin_math_tan(Interpreter* interpreter, Value* args, size_t arg_count, 
 void math_library_register(Interpreter* interpreter) {
     if (!interpreter || !interpreter->global_environment) return;
     
-    // Register constants
-    environment_define(interpreter->global_environment, "Pi", value_create_number(MATH_PI));
-    environment_define(interpreter->global_environment, "E", value_create_number(MATH_E));
-    environment_define(interpreter->global_environment, "Tau", value_create_number(MATH_TAU));
-    environment_define(interpreter->global_environment, "Sqrt2", value_create_number(MATH_SQRT2));
-    environment_define(interpreter->global_environment, "Sqrt3", value_create_number(MATH_SQRT3));
-    environment_define(interpreter->global_environment, "Phi", value_create_number(MATH_PHI));
+    // Create math object with constants and functions
+    Value math_obj = value_create_object(32);
     
-    // Register functions
-    environment_define(interpreter->global_environment, "abs", value_create_builtin_function(builtin_math_abs));
-    environment_define(interpreter->global_environment, "min", value_create_builtin_function(builtin_math_min));
-    environment_define(interpreter->global_environment, "max", value_create_builtin_function(builtin_math_max));
-    environment_define(interpreter->global_environment, "sqrt", value_create_builtin_function(builtin_math_sqrt));
-    environment_define(interpreter->global_environment, "pow", value_create_builtin_function(builtin_math_pow));
-    environment_define(interpreter->global_environment, "round", value_create_builtin_function(builtin_math_round));
-    environment_define(interpreter->global_environment, "floor", value_create_builtin_function(builtin_math_floor));
-    environment_define(interpreter->global_environment, "ceil", value_create_builtin_function(builtin_math_ceil));
-    environment_define(interpreter->global_environment, "sin", value_create_builtin_function(builtin_math_sin));
-    environment_define(interpreter->global_environment, "cos", value_create_builtin_function(builtin_math_cos));
-    environment_define(interpreter->global_environment, "tan", value_create_builtin_function(builtin_math_tan));
+    // Add constants
+    value_object_set(&math_obj, "Pi", value_create_number(MATH_PI));
+    value_object_set(&math_obj, "E", value_create_number(MATH_E));
+    value_object_set(&math_obj, "Tau", value_create_number(MATH_TAU));
+    value_object_set(&math_obj, "Sqrt2", value_create_number(MATH_SQRT2));
+    value_object_set(&math_obj, "Sqrt3", value_create_number(MATH_SQRT3));
+    value_object_set(&math_obj, "Phi", value_create_number(MATH_PHI));
+    
+    // Add functions
+    value_object_set(&math_obj, "abs", value_create_builtin_function(builtin_math_abs));
+    value_object_set(&math_obj, "min", value_create_builtin_function(builtin_math_min));
+    value_object_set(&math_obj, "max", value_create_builtin_function(builtin_math_max));
+    value_object_set(&math_obj, "sqrt", value_create_builtin_function(builtin_math_sqrt));
+    value_object_set(&math_obj, "pow", value_create_builtin_function(builtin_math_pow));
+    value_object_set(&math_obj, "round", value_create_builtin_function(builtin_math_round));
+    value_object_set(&math_obj, "floor", value_create_builtin_function(builtin_math_floor));
+    value_object_set(&math_obj, "ceil", value_create_builtin_function(builtin_math_ceil));
+    value_object_set(&math_obj, "sin", value_create_builtin_function(builtin_math_sin));
+    value_object_set(&math_obj, "cos", value_create_builtin_function(builtin_math_cos));
+    value_object_set(&math_obj, "tan", value_create_builtin_function(builtin_math_tan));
+    
+    // Register the math object
+    environment_define(interpreter->global_environment, "math", math_obj);
 }

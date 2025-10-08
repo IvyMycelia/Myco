@@ -3522,7 +3522,9 @@ void parser_synchronize(Parser* parser) {
                 strcmp(token->text, "while") == 0 ||
                 strcmp(token->text, "for") == 0 ||
                 strcmp(token->text, "function") == 0 ||
-                strcmp(token->text, "return") == 0) {
+                strcmp(token->text, "return") == 0 ||
+                strcmp(token->text, "else") == 0 ||
+                strcmp(token->text, "end") == 0) {
                 break;
             }
         }

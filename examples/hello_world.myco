@@ -6,7 +6,7 @@ print(message);
 let x = 10;
 let y = 5;
 let sum = x + y;
-print("Sum of " + toString(x) + " and " + toString(y) + " is " + toString(sum));
+print("Sum of " + x.toString + " and " + y.toString + " is " + sum.toString);
 
 if x > y:
     print("x is greater than y");

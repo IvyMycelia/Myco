@@ -62,12 +62,12 @@ char* variable_scope_get_c_name(VariableScopeStack* scope, const char* original_
     // Look for the variable in the current scope and all parent scopes
     for (int i = scope->count - 1; i >= 0; i--) {
         if (strcmp(scope->entries[i].original_name, original_name) == 0) {
-            return strdup(scope->entries[i].c_name);
+            return (scope->entries[i].c_name ? strdup(scope->entries[i].c_name) : NULL);
         }
     }
     
     // Variable not found, return the original name
-    return strdup(original_name);
+    return (original_name ? strdup(original_name) : NULL);
 }
 
 char* variable_scope_declare_variable(VariableScopeStack* scope, const char* original_name) {
@@ -81,7 +81,7 @@ char* variable_scope_declare_variable(VariableScopeStack* scope, const char* ori
     }
     
     VariableScopeEntry* entry = &scope->entries[scope->count];
-    entry->original_name = strdup(original_name);
+    entry->original_name = (original_name ? strdup(original_name) : NULL);
     entry->scope_level = scope->current_scope_level;
     entry->is_declared = 1;
     
@@ -105,10 +105,10 @@ char* variable_scope_declare_variable(VariableScopeStack* scope, const char* ori
         snprintf(c_name, sizeof(c_name), "%s_%d", original_name, scope->current_scope_level);
     }
     
-    entry->c_name = strdup(c_name);
+    entry->c_name = (c_name ? strdup(c_name) : NULL);
     scope->count++;
     
-    return strdup(entry->c_name);
+    return (entry->c_name ? strdup(entry->c_name) : NULL);
 }
 
 int variable_scope_is_declared(VariableScopeStack* scope, const char* original_name) {

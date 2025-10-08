@@ -483,10 +483,10 @@ int build_executable(const char* source, const char* filename, const char* archi
     // Compile C code to executable
     char* final_output;
     if (output_file) {
-        final_output = strdup(output_file);
+        final_output = (output_file ? strdup(output_file) : NULL);
     } else {
         // Use the input filename without extension
-        char* base_name = strdup(filename);
+        char* base_name = (filename ? strdup(filename) : NULL);
         char* dot = strrchr(base_name, '.');
         if (dot) {
             *dot = '\0';  // Remove the extension
@@ -569,9 +569,9 @@ int build_executable(const char* source, const char* filename, const char* archi
     // Compile C code to executable
     char* executable_name = NULL;
     if (output_file) {
-        executable_name = strdup(output_file);
+        executable_name = (output_file ? strdup(output_file) : NULL);
     } else {
-        executable_name = strdup("output");
+        executable_name = ("output" ? strdup("output") : NULL);
     }
     
     if (!executable_name) {

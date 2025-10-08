@@ -103,12 +103,12 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
             if (strcmp(func_name, "Dog") == 0 || strcmp(func_name, "Puppy") == 0 || 
                 strcmp(func_name, "Cat") == 0 || strcmp(func_name, "Lion") == 0 || 
                 strcmp(func_name, "Animal") == 0) {
-                c_type = strdup(func_name);
+                c_type = (func_name ? strdup(func_name) : NULL);
             } else if (strcmp(func_name, "post") == 0 || strcmp(func_name, "get") == 0 || 
                        strcmp(func_name, "put") == 0 || strcmp(func_name, "delete") == 0) {
-                c_type = strdup("HttpResponse");
+                c_type = ("HttpResponse" ? strdup("HttpResponse") : NULL);
             } else {
-                c_type = strdup("void*");
+                c_type = ("void*" ? strdup("void*") : NULL);
             }
         } else if (initializer->type == AST_NODE_MEMBER_ACCESS) {
             const char* member_name = initializer->data.member_access.member_name;
@@ -116,17 +116,17 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                 strcmp(member_name, "day") == 0 || strcmp(member_name, "hour") == 0 || 
                 strcmp(member_name, "minute") == 0 || strcmp(member_name, "second") == 0 ||
                 strcmp(member_name, "unix_timestamp") == 0 || strcmp(member_name, "difference") == 0) {
-                c_type = strdup("double");
+                c_type = ("double" ? strdup("double") : NULL);
             } else if (strcmp(member_name, "add") == 0 || strcmp(member_name, "subtract") == 0 ||
                        strcmp(member_name, "now") == 0 || strcmp(member_name, "create") == 0) {
-                c_type = strdup("void*");
+                c_type = ("void*" ? strdup("void*") : NULL);
             } else if (strcmp(member_name, "speak") == 0 || strcmp(member_name, "match") == 0 || 
                        strcmp(member_name, "stringify") == 0) {
-                c_type = strdup("char*");
+                c_type = ("char*" ? strdup("char*") : NULL);
             } else if (strcmp(member_name, "size") == 0) {
-                c_type = strdup("double");
+                c_type = ("double" ? strdup("double") : NULL);
             } else {
-                c_type = strdup("void*");
+                c_type = ("void*" ? strdup("void*") : NULL);
             }
         } else if (initializer->type == AST_NODE_FUNCTION_CALL_EXPR) {
             printf("DEBUG: AST_NODE_FUNCTION_CALL_EXPR detected\n");
@@ -137,29 +137,29 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                 printf("DEBUG: Member access function call: %s\n", member_name);
                 if (strcmp(member_name, "increment") == 0 || strcmp(member_name, "getValue") == 0 || 
                     strcmp(member_name, "process") == 0 || strcmp(member_name, "calculate") == 0) {
-                    c_type = strdup("double");
+                    c_type = ("double" ? strdup("double") : NULL);
                 } else if (strcmp(member_name, "add") == 0 || strcmp(member_name, "subtract") == 0 ||
                            strcmp(member_name, "now") == 0 || strcmp(member_name, "create") == 0) {
-                    c_type = strdup("void*");
+                    c_type = ("void*" ? strdup("void*") : NULL);
                     printf("DEBUG: Type inference for %s: void*\n", member_name);
                 } else if (strcmp(member_name, "speak") == 0 || strcmp(member_name, "match") == 0 || 
                            strcmp(member_name, "stringify") == 0 || strcmp(member_name, "join") == 0 ||
                            strcmp(member_name, "toString") == 0) {
-                    c_type = strdup("char*");
+                    c_type = ("char*" ? strdup("char*") : NULL);
                 } else {
-                    c_type = strdup("void*");
+                    c_type = ("void*" ? strdup("void*") : NULL);
                 }
             } else {
                 printf("DEBUG: Not a member access function call, using void*\n");
-                c_type = strdup("void*");
+                c_type = ("void*" ? strdup("void*") : NULL);
             }
         } else if (initializer->type == AST_NODE_ARRAY_LITERAL) {
-            c_type = strdup("char**");
+            c_type = ("char**" ? strdup("char**") : NULL);
         } else {
-            c_type = strdup("void*");
+            c_type = ("void*" ? strdup("void*") : NULL);
         }
     } else {
-        c_type = strdup("void*");
+        c_type = ("void*" ? strdup("void*") : NULL);
     }
     
     // Generate variable declaration

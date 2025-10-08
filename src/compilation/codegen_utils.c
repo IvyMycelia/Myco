@@ -60,24 +60,24 @@ char* myco_type_to_c_type(const char* myco_type) {
     if (!myco_type) return NULL;
     
     if (strcmp(myco_type, "Int") == 0) {
-        return strdup("int");
+        return ("int" ? strdup("int") : NULL);
     } else if (strcmp(myco_type, "Float") == 0) {
-        return strdup("double");
+        return ("double" ? strdup("double") : NULL);
     } else if (strcmp(myco_type, "String") == 0) {
-        return strdup("char*");
+        return ("char*" ? strdup("char*") : NULL);
     } else if (strcmp(myco_type, "Bool") == 0) {
-        return strdup("int");
+        return ("int" ? strdup("int") : NULL);
     } else if (strcmp(myco_type, "Array") == 0) {
-        return strdup("char**");
+        return ("char**" ? strdup("char**") : NULL);
     } else if (strcmp(myco_type, "Object") == 0) {
-        return strdup("void*");
+        return ("void*" ? strdup("void*") : NULL);
     } else if (strcmp(myco_type, "Null") == 0) {
-        return strdup("void*");
+        return ("void*" ? strdup("void*") : NULL);
     } else if (strcmp(myco_type, "HttpResponse") == 0) {
-        return strdup("HttpResponse");
+        return ("HttpResponse" ? strdup("HttpResponse") : NULL);
     } else {
         // Default to void* for unknown types
-        return strdup("void*");
+        return ("void*" ? strdup("void*") : NULL);
     }
 }
 

@@ -17,7 +17,7 @@ MycoValue myco_value_number(double value) {
 MycoValue myco_value_string(const char* value) {
     MycoValue v;
     v.type = MYCO_TYPE_STRING;
-    v.data.string_value = strdup(value);
+    v.data.string_value = (value ? strdup(value) : NULL);
     return v;
 }
 
@@ -47,13 +47,13 @@ char* myco_value_to_string(MycoValue value) {
         case MYCO_TYPE_NUMBER:
             return myco_string_from_number(value.data.number_value);
         case MYCO_TYPE_STRING:
-            return strdup(value.data.string_value);
+            return (value.data.string_value ? strdup(value.data.string_value) : NULL);
         case MYCO_TYPE_BOOL:
             return myco_string_from_bool(value.data.bool_value);
         case MYCO_TYPE_NULL:
-            return strdup("null");
+            return ("null" ? strdup("null") : NULL);
         default:
-            return strdup("unknown");
+            return ("unknown" ? strdup("unknown") : NULL);
     }
 }
 
@@ -83,7 +83,7 @@ char* myco_string_from_number(double number) {
 }
 
 char* myco_string_from_bool(int bool_value) {
-    return strdup(bool_value ? "True" : "False");
+    return (bool_value ? "True" : "False" ? strdup(bool_value ? "True" : "False") : NULL);
 }
 
 char* myco_number_to_string(double number) {
@@ -101,12 +101,12 @@ char* myco_number_to_string(double number) {
 
 char* myco_to_string(void* value) {
     if (!value) {
-        return strdup("null");
+        return ("null" ? strdup("null") : NULL);
     }
     // This is a placeholder - in a real implementation, we would need to
     // determine the type of the value and convert accordingly
     // For now, assume it's a string and return it
-    return strdup((const char*)value);
+    return ((const char*)value) ? strdup((const char*)value) : NULL;
 }
 
 // Built-in functions
@@ -204,17 +204,17 @@ int isNumber(void* value) {
 // Get type name as string
 char* myco_get_type_name(void* value) {
     if (value == NULL) {
-        return strdup("Null");
+        return ("Null" ? strdup("Null") : NULL);
     } else if (isString(value)) {
-        return strdup("String");
+        return ("String" ? strdup("String") : NULL);
     } else if (isNumber(value)) {
-        return strdup("Int"); // For simplicity, treat all numbers as Int
+        return ("Int" ? strdup("Int") : NULL); // For simplicity, treat all numbers as Int
     } else if (isBool(value)) {
-        return strdup("Boolean");
+        return ("Boolean" ? strdup("Boolean") : NULL);
     } else if (isArray(value)) {
-        return strdup("Array");
+        return ("Array" ? strdup("Array") : NULL);
     } else {
-        return strdup("Unknown");
+        return ("Unknown" ? strdup("Unknown") : NULL);
     }
 }
 

@@ -257,7 +257,7 @@ static void parser_error(Parser* parser, const char* message) {
                  message,
                  token_text);
         
-        parser->error_message = strdup(buf);
+        parser->error_message = (buf ? strdup(buf) : NULL);
         
         // Record the location of the error
         parser->error_line = parser->current_token->line;
@@ -265,7 +265,7 @@ static void parser_error(Parser* parser, const char* message) {
     } else {
         // No current token, create a basic error message
         snprintf(buf, sizeof(buf), "Parse Error: %s", message);
-        parser->error_message = strdup(buf);
+        parser->error_message = (buf ? strdup(buf) : NULL);
     }
     
     // Error message is stored in parser->error_message for the caller to handle
@@ -580,7 +580,7 @@ ASTNode* parser_parse_assignment(Parser* parser) {
     }
     
     Token* var_token = parser_peek(parser);
-    char* var_name = strdup(var_token->text);
+    char* var_name = (var_token->text ? strdup(var_token->text) : NULL);
     parser_advance(parser);  // Consume the identifier
     
     // Expect an equals sign
@@ -1639,7 +1639,7 @@ char* parser_parse_type_annotation(Parser* parser) {
     // Advance past the type token
     parser_advance(parser);
     
-    char* result = strdup(parser->previous_token->text);
+    char* result = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
     
     // Check for union type (pipe operator)
     while (parser_check(parser, TOKEN_PIPE)) {
@@ -1710,7 +1710,7 @@ ASTNode* parser_parse_variable_declaration(Parser* parser) {
         return NULL;
     }
     
-    char* variable_name = strdup(parser->previous_token->text);
+    char* variable_name = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
     // Capture line/column info for the variable name
     int var_line = parser->previous_token->line;
     int var_column = parser->previous_token->column;
@@ -1733,7 +1733,7 @@ ASTNode* parser_parse_variable_declaration(Parser* parser) {
             // Advance past the type token
             parser_advance(parser);
             
-            char* element_type = strdup(parser->previous_token->text);
+            char* element_type = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
             
             if (!parser_match(parser, TOKEN_RIGHT_BRACKET)) {
                 parser_error(parser, "Array type must end with ']'");
@@ -2068,7 +2068,7 @@ ASTNode* parser_parse_for_loop(Parser* parser) {
         parser_synchronize(parser);
         return NULL;
     }
-    char* iterator_name = strdup(parser->previous_token->text);
+    char* iterator_name = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
 
     // Expect 'in'
     if (!(parser_check(parser, TOKEN_KEYWORD) && parser->current_token && parser->current_token->text && strcmp(parser->current_token->text, "in") == 0)) {
@@ -2541,7 +2541,7 @@ ASTNode* parser_parse_function_declaration(Parser* parser) {
         parser_synchronize(parser);
         return NULL;
     }
-    char* func_name = strdup(parser->previous_token->text);
+    char* func_name = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
 
     // Parameters
     if (!parser_match(parser, TOKEN_LEFT_PAREN)) {
@@ -2566,7 +2566,7 @@ ASTNode* parser_parse_function_declaration(Parser* parser) {
                     params = new_params; param_cap = new_cap;
                 }
                 
-                char* param_name = strdup(parser->previous_token->text); // Store the parameter name
+                char* param_name = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL); // Store the parameter name
                 
                 // Check for type annotation
                 if (parser_check(parser, TOKEN_COLON)) {
@@ -2665,7 +2665,7 @@ ASTNode* parser_parse_async_function_declaration(Parser* parser) {
         parser_synchronize(parser);
         return NULL;
     }
-    char* func_name = strdup(parser->previous_token->text);
+    char* func_name = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
 
     // Parameters
     if (!parser_match(parser, TOKEN_LEFT_PAREN)) {
@@ -2690,7 +2690,7 @@ ASTNode* parser_parse_async_function_declaration(Parser* parser) {
                     params = new_params; param_cap = new_cap;
                 }
                 
-                char* param_name = strdup(parser->previous_token->text); // Store the parameter name
+                char* param_name = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL); // Store the parameter name
                 
                 // Check for type annotation
                 if (parser_check(parser, TOKEN_COLON)) {
@@ -2891,7 +2891,7 @@ ASTNode* parser_parse_class_declaration(Parser* parser) {
         return NULL;
     }
     
-    char* class_name = strdup(parser->previous_token->text);
+    char* class_name = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
     char* parent_class = NULL;
     
     // Check for inheritance (extends keyword)
@@ -2907,7 +2907,7 @@ ASTNode* parser_parse_class_declaration(Parser* parser) {
             shared_free_safe(class_name, "parser", "unknown_function", 2906);
             return NULL;
         }
-        parent_class = strdup(parser->previous_token->text);
+        parent_class = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
     }
     
     // Parse ':'
@@ -3039,7 +3039,7 @@ ASTNode* parser_parse_class_field(Parser* parser) {
         return NULL;
     }
     
-    char* field_name = strdup(parser->previous_token->text);
+    char* field_name = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
     
     // Check if this is a type declaration or assignment
     if (parser_check(parser, TOKEN_COLON)) {
@@ -3053,7 +3053,7 @@ ASTNode* parser_parse_class_field(Parser* parser) {
             return NULL;
         }
         
-        char* type_name = strdup(parser->previous_token->text);
+        char* type_name = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
         
         // Create a variable declaration with type but no initial value
         int line = parser->previous_token ? parser->previous_token->line : 0;
@@ -3225,7 +3225,7 @@ ASTNode* parser_parse_use_statement(Parser* parser) {
                     return NULL;
                 }
                 specific_items = new_items;
-                specific_items[item_count++] = strdup(parser->current_token->text);
+                specific_items[item_count++] = (parser->current_token->text ? strdup(parser->current_token->text) : NULL);
                 
                 parser_advance(parser); // consume identifier
                 
@@ -3253,10 +3253,10 @@ ASTNode* parser_parse_use_statement(Parser* parser) {
     // Parse library name (identifier or string)
     char* library_name = NULL;
     if (parser_check(parser, TOKEN_IDENTIFIER)) {
-        library_name = strdup(parser->current_token->text);
+        library_name = (parser->current_token->text ? strdup(parser->current_token->text) : NULL);
         parser_advance(parser);
     } else if (parser_check(parser, TOKEN_STRING)) {
-        library_name = strdup(parser->current_token->data.string_value);
+        library_name = (parser->current_token->data.string_value ? strdup(parser->current_token->data.string_value) : NULL);
         parser_advance(parser);
     } else {
         parser_error(parser, "Expected library name or file path in use statement");
@@ -3290,7 +3290,7 @@ ASTNode* parser_parse_use_statement(Parser* parser) {
                     shared_free_safe(library_name, "parser", "unknown_function", 3289);
                     return NULL;
                 }
-                specific_aliases[i] = strdup(parser->previous_token->text);
+                specific_aliases[i] = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
                 
                 if (i < item_count - 1) {
                     if (!parser_check(parser, TOKEN_COMMA)) {
@@ -3313,7 +3313,7 @@ ASTNode* parser_parse_use_statement(Parser* parser) {
                 shared_free_safe(library_name, "parser", "unknown_function", 3312);
                 return NULL;
             }
-            alias = strdup(parser->previous_token->text);
+            alias = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
         }
     }
     
@@ -4274,7 +4274,7 @@ static ASTNode* parser_parse_hash_map_key(Parser* parser) {
     // If it's an identifier, convert it to a string literal
     if (current->type == TOKEN_IDENTIFIER) {
         parser_advance(parser); // consume the identifier
-        return ast_create_string(strdup(current->text), current->line, current->column);
+        return ast_create_string((current->text ? strdup(current->text) : NULL), current->line, current->column);
     }
     
     // For all other cases, parse as a regular expression
@@ -4582,7 +4582,7 @@ static ASTNode* parser_parse_try_catch_statement(Parser* parser) {
     // Parse catch variable name
     char* catch_variable = NULL;
     if (parser_match(parser, TOKEN_IDENTIFIER)) {
-        catch_variable = strdup(parser->previous_token->text);
+        catch_variable = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
     } else {
         parser_error(parser, "Expected catch variable name");
         ast_free(try_block);
@@ -4968,7 +4968,7 @@ static ASTNode* parser_parse_pattern_primary(Parser* parser) {
     if (token->type == TOKEN_SLASH) {
         parser_advance(parser); // consume '/'
         if (parser->current_token && parser->current_token->type == TOKEN_STRING) {
-            char* regex_pattern = strdup(parser->current_token->text);
+            char* regex_pattern = (parser->current_token->text ? strdup(parser->current_token->text) : NULL);
             parser_advance(parser);
             if (!parser_check(parser, TOKEN_SLASH)) {
                 shared_free_safe(regex_pattern, "parser", "unknown_function", 0);
@@ -5081,7 +5081,7 @@ static ASTNode* parser_parse_object_destructure(Parser* parser) {
             break;
         }
         
-        char* field_name = strdup(parser->current_token->text);
+        char* field_name = (parser->current_token->text ? strdup(parser->current_token->text) : NULL);
         parser_advance(parser);
         
         ASTNode* pattern;

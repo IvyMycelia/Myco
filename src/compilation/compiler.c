@@ -29,7 +29,7 @@ static int is_library_imported(CodeGenContext* context, const char* alias) {
 static void add_imported_library(CodeGenContext* context, const char* alias) {
     if (!context || !alias || context->imported_library_count >= 100) return;
     
-    context->imported_libraries[context->imported_library_count] = strdup(alias);
+    context->imported_libraries[context->imported_library_count] = (alias ? strdup(alias) : NULL);
     context->imported_library_count++;
 }
 
@@ -93,12 +93,12 @@ char* variable_scope_get_c_name(VariableScopeStack* scope, const char* original_
     // Look for the variable in the current scope and all parent scopes
     for (int i = scope->count - 1; i >= 0; i--) {
         if (strcmp(scope->entries[i].original_name, original_name) == 0) {
-            return strdup(scope->entries[i].c_name);
+            return (scope->entries[i].c_name ? strdup(scope->entries[i].c_name) : NULL);
         }
     }
     
     // Variable not found, return the original name
-    return strdup(original_name);
+    return (original_name ? strdup(original_name) : NULL);
 }
 
 char* variable_scope_declare_variable(VariableScopeStack* scope, const char* original_name) {
@@ -112,7 +112,7 @@ char* variable_scope_declare_variable(VariableScopeStack* scope, const char* ori
     }
     
     VariableScopeEntry* entry = &scope->entries[scope->count];
-    entry->original_name = strdup(original_name);
+    entry->original_name = (original_name ? strdup(original_name) : NULL);
     entry->scope_level = scope->current_scope_level;
     entry->is_declared = 1;
     
@@ -147,7 +147,7 @@ char* variable_scope_declare_variable(VariableScopeStack* scope, const char* ori
     entry->c_name = c_name;
     scope->count++;
     
-    return strdup(c_name);
+    return (c_name ? strdup(c_name) : NULL);
 }
 
 int variable_scope_is_declared(VariableScopeStack* scope, const char* original_name) {
@@ -165,7 +165,7 @@ int variable_scope_is_declared(VariableScopeStack* scope, const char* original_n
 
 // Convert Myco type to C type
 char* myco_type_to_c_type(const char* myco_type) {
-    if (!myco_type) return strdup("void");
+    if (!myco_type) return ("void" ? strdup("void") : NULL);
 
     // printf("DEBUG: myco_type_to_c_type called with: '%s'\n", myco_type);
 
@@ -174,36 +174,36 @@ char* myco_type_to_c_type(const char* myco_type) {
     if (len > 0 && myco_type[len - 1] == '?') {
         // Optional types are represented as void* in C
         // printf("DEBUG: Detected optional type, returning void*\n");
-        return strdup("void*");
+        return ("void*" ? strdup("void*") : NULL);
     }
     
     // Handle union types (e.g., "String | Int" -> "void*" for mixed types)
     if (strstr(myco_type, " | ")) {
         // For any union type, use void* to handle mixed types safely
-        return strdup("void*");
+        return ("void*" ? strdup("void*") : NULL);
     }
     
     // Handle basic types
     if (strcmp(myco_type, "Int") == 0) {
-        return strdup("int");
+        return ("int" ? strdup("int") : NULL);
     } else if (strcmp(myco_type, "Float") == 0) {
-        return strdup("double");
+        return ("double" ? strdup("double") : NULL);
     } else if (strcmp(myco_type, "String") == 0) {
-        return strdup("char*");
+        return ("char*" ? strdup("char*") : NULL);
     } else if (strcmp(myco_type, "Number") == 0) {
-        return strdup("double");
+        return ("double" ? strdup("double") : NULL);
     } else if (strcmp(myco_type, "Bool") == 0) {
-        return strdup("int");
+        return ("int" ? strdup("int") : NULL);
     } else if (strcmp(myco_type, "Null") == 0) {
-        return strdup("char*");
+        return ("char*" ? strdup("char*") : NULL);
     } else if (strcmp(myco_type, "Array") == 0) {
-        return strdup("void*");
+        return ("void*" ? strdup("void*") : NULL);
     } else if (strcmp(myco_type, "Map") == 0) {
-        return strdup("void*");
+        return ("void*" ? strdup("void*") : NULL);
     } else if (strcmp(myco_type, "Set") == 0) {
-        return strdup("void*");
+        return ("void*" ? strdup("void*") : NULL);
     } else if (strcmp(myco_type, "Any") == 0) {
-        return strdup("void*");
+        return ("void*" ? strdup("void*") : NULL);
     } else {
         // Check if this is a class type (e.g., SimpleClass, DefaultClass, etc.)
         // Class types should be used as-is in C (they become struct types)
@@ -216,10 +216,10 @@ char* myco_type_to_c_type(const char* myco_type) {
             strstr(myco_type, "SelfClass") != NULL ||
             strstr(myco_type, "MixedClass") != NULL) {
             // This is a class type, return it as-is
-            return strdup(myco_type);
+            return (myco_type ? strdup(myco_type) : NULL);
         }
         // Default to void* for unknown types
-        return strdup("void*");
+        return ("void*" ? strdup("void*") : NULL);
     }
 }
 
@@ -266,7 +266,7 @@ void compiler_config_set_output(CompilerConfig* config, const char* output_file)
         if (config->output_file) {
             shared_free_safe(config->output_file, "unknown", "unknown_function", 267);
         }
-        config->output_file = strdup(output_file);
+        config->output_file = (output_file ? strdup(output_file) : NULL);
     }
 }
 
@@ -276,19 +276,19 @@ void compiler_config_set_type_checking(CompilerConfig* config, int enable) {
 
 void compiler_config_add_include_path(CompilerConfig* config, const char* path) {
     if (config && config->include_path_count < 100) {
-        config->include_paths[config->include_path_count++] = strdup(path);
+        config->include_paths[config->include_path_count++] = (path ? strdup(path) : NULL);
     }
 }
 
 void compiler_config_add_library_path(CompilerConfig* config, const char* path) {
     if (config && config->library_path_count < 100) {
-        config->library_paths[config->library_path_count++] = strdup(path);
+        config->library_paths[config->library_path_count++] = (path ? strdup(path) : NULL);
     }
 }
 
 void compiler_config_add_define(CompilerConfig* config, const char* define) {
     if (config && config->define_count < 100) {
-        config->defines[config->define_count++] = strdup(define);
+        config->defines[config->define_count++] = (define ? strdup(define) : NULL);
     }
 }
 

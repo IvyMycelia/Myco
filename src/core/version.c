@@ -9,7 +9,7 @@ static MycoVersionInfo version_info = {
     .minor = MYCO_VERSION_MINOR,
     .patch = MYCO_VERSION_PATCH,
     .release_name = MYCO_RELEASE_NAME,
-    .codename = MYCO_RELEASE_CODENAME,
+    .codename = NULL,
     .build_date = MYCO_BUILD_DATE,
     .build_time = MYCO_BUILD_TIME
 };
@@ -74,7 +74,7 @@ int myco_version_compare(int major, int minor, int patch) {
  */
 void myco_print_version_info(void) {
     printf("Myco Language Interpreter %s\n", myco_get_version_full());
-    printf("Release: %s (%s)\n", myco_get_release_name(), myco_get_codename());
+    printf("Release: %s\n", myco_get_release_name());
     printf("Built on %s at %s\n", version_info.build_date, version_info.build_time);
     printf("API Version: %d\n", MYCO_API_VERSION);
     
@@ -83,7 +83,7 @@ void myco_print_version_info(void) {
     if (MYCO_FEATURE_ASYNC_AWAIT) printf("  ✓ Async/Await Programming\n");
     if (MYCO_FEATURE_GENERICS) printf("  ✓ Generic Type System\n");
     if (MYCO_FEATURE_ENHANCED_REPL) printf("  ✓ Enhanced REPL with Debugging\n");
-    if (MYCO_FEATURE_PYTHON_ERRORS) printf("  ✓ Python-like Error Handling\n");
+    if (MYCO_FEATURE_ENHANCED_ERRORS) printf("  ✓ Enhanced Error Handling\n");
     if (MYCO_FEATURE_MEMORY_TRACKING) printf("  ✓ Memory Management Tracking\n");
     
     printf("\nCopyright (c) 2025 Myco Language Project\n");
@@ -96,7 +96,7 @@ int myco_has_feature(const char* feature_name) {
     if (strcmp(feature_name, "async_await") == 0) return MYCO_FEATURE_ASYNC_AWAIT;
     if (strcmp(feature_name, "generics") == 0) return MYCO_FEATURE_GENERICS;
     if (strcmp(feature_name, "enhanced_repl") == 0) return MYCO_FEATURE_ENHANCED_REPL;
-    if (strcmp(feature_name, "python_errors") == 0) return MYCO_FEATURE_PYTHON_ERRORS;
+    if (strcmp(feature_name, "enhanced_errors") == 0) return MYCO_FEATURE_ENHANCED_ERRORS;
     if (strcmp(feature_name, "memory_tracking") == 0) return MYCO_FEATURE_MEMORY_TRACKING;
     return 0;
 }

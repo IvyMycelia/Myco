@@ -482,12 +482,6 @@ void time_library_register(Interpreter* interpreter) {
     // Create time object with methods
     Value time_obj = value_create_object(16);
     
-    // Check if object creation was successful
-    if (time_obj.type != VALUE_OBJECT) {
-        // If object creation failed, return early to avoid segmentation fault
-        return;
-    }
-    
     // Add methods to time object
     value_object_set_member(&time_obj, "now", value_create_builtin_function(builtin_time_now));
     value_object_set_member(&time_obj, "create", value_create_builtin_function(builtin_time_create));

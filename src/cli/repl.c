@@ -44,6 +44,10 @@ REPLState* repl_create(void) {
         return NULL;
     }
     
+    // Register built-in libraries
+    extern void register_all_builtin_libraries(Interpreter* interpreter);
+    register_all_builtin_libraries(state->interpreter);
+    
     // Initialize state variables
     state->line_number = 1;
     state->debug_mode = 0;

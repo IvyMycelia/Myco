@@ -4,9 +4,16 @@
 #include "ast.h"
 #include "jit_compiler.h"
 #include <stddef.h>
+#include <stdint.h>
 
 // Forward declarations
 typedef struct Environment Environment;
+
+// Value optimization flags
+#define VALUE_FLAG_CACHED     0x01    // Value has cached data
+#define VALUE_FLAG_IMMUTABLE  0x02    // Value cannot be modified
+#define VALUE_FLAG_REFCOUNTED   0x04    // Value uses reference counting
+#define VALUE_FLAG_POOLED     0x08    // Value allocated from pool
 
 // Value types
 typedef enum {
@@ -96,10 +103,18 @@ typedef union {
     } error_value;
 } ValueData;
 
-// Value structure
+// Optimized Value structure with better memory layout
 typedef struct {
     ValueType type;
+    uint8_t flags;          // Flags for optimization (cached, immutable, etc.)
+    uint16_t ref_count;       // Reference count for garbage collection
     ValueData data;
+    // Cache for frequently accessed data
+    union {
+        size_t cached_length;    // For strings, arrays
+        double cached_numeric;   // For numbers
+        void* cached_ptr;        // For objects, functions
+    } cache;
 } Value;
 
 // Environment for variable storage
@@ -174,6 +189,17 @@ Value value_create_boolean(int value);
 Value value_create_number(double value);
 Value value_create_builtin_function(Value (*func)(Interpreter*, Value*, size_t, int, int));
 Value value_create_string(const char* value);
+
+// Optimized Value creation functions
+Value value_create_optimized(ValueType type, uint8_t flags);
+Value value_create_cached_string(const char* value);
+Value value_create_immutable_number(double value);
+Value value_create_pooled_array(size_t initial_capacity);
+void value_increment_ref(Value* value);
+void value_decrement_ref(Value* value);
+int value_is_cached(Value* value);
+int value_is_immutable(Value* value);
+int value_is_pooled(Value* value);
 Value value_create_range(double start, double end, double step, int inclusive);
 Value value_create_array(size_t initial_capacity);
 Value value_create_object(size_t initial_capacity);

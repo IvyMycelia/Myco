@@ -17,6 +17,7 @@ TypeCheckerContext* type_checker_create_context(void) {
     context->error_count = 0;
     context->error_messages = NULL;
     context->error_capacity = 0;
+    context->inference_engine = type_inference_engine_create();
     
     return context;
 }
@@ -39,6 +40,9 @@ void type_checker_free_context(TypeCheckerContext* context) {
         shared_free_safe(context->error_messages[i], "core", "unknown_function", 39);
     }
     shared_free_safe(context->error_messages, "core", "unknown_function", 41);
+    
+    // Free inference engine
+    type_inference_engine_free(context->inference_engine);
     
     shared_free_safe(context, "core", "unknown_function", 43);
 }
@@ -1412,4 +1416,271 @@ MycoType* type_find_common_type(MycoType* type1, MycoType* type2) {
     
     // If no common type found, return TYPE_ANY
     return type_create(TYPE_ANY, type1->line, type1->column);
+}
+
+// Enhanced Type Inference Engine Implementation
+
+TypeInferenceEngine* type_inference_engine_create(void) {
+    TypeInferenceEngine* engine = shared_malloc_safe(sizeof(TypeInferenceEngine), "type_checker", "unknown_function", 1416);
+    if (!engine) return NULL;
+    
+    engine->inferences = NULL;
+    engine->inference_count = 0;
+    engine->inference_capacity = 0;
+    engine->enable_confidence_scoring = 1;
+    engine->enable_constraint_solving = 1;
+    engine->enable_ambiguity_detection = 1;
+    
+    return engine;
+}
+
+void type_inference_engine_free(TypeInferenceEngine* engine) {
+    if (!engine) return;
+    
+    for (size_t i = 0; i < engine->inference_count; i++) {
+        type_inference_free(engine->inferences[i]);
+    }
+    shared_free_safe(engine->inferences, "type_checker", "unknown_function", 1430);
+    shared_free_safe(engine, "type_checker", "unknown_function", 1431);
+}
+
+TypeInference* type_inference_create(MycoType* type, int confidence, int is_ambiguous) {
+    TypeInference* inference = shared_malloc_safe(sizeof(TypeInference), "type_checker", "unknown_function", 1435);
+    if (!inference) return NULL;
+    
+    inference->type = type;
+    inference->confidence = confidence;
+    inference->is_ambiguous = is_ambiguous;
+    inference->constraints = NULL;
+    inference->constraint_count = 0;
+    inference->is_inferred = 1;
+    
+    return inference;
+}
+
+void type_inference_free(TypeInference* inference) {
+    if (!inference) return;
+    
+    // Free constraints
+    for (size_t i = 0; i < inference->constraint_count; i++) {
+        shared_free_safe(inference->constraints[i].constraint_name, "type_checker", "unknown_function", 1450);
+        type_free(inference->constraints[i].constraint_type);
+    }
+    shared_free_safe(inference->constraints, "type_checker", "unknown_function", 1453);
+    
+    // Free the type (but don't free if it's a reference)
+    if (inference->is_inferred) {
+        type_free(inference->type);
+    }
+    
+    shared_free_safe(inference, "type_checker", "unknown_function", 1458);
+}
+
+TypeInference* type_infer_expression_enhanced(TypeCheckerContext* context, ASTNode* node) {
+    if (!context || !node) return NULL;
+    
+    // Get basic type inference
+    MycoType* basic_type = type_infer_expression(context, node);
+    if (!basic_type) return NULL;
+    
+    // Calculate confidence based on context
+    int confidence = 100; // Start with high confidence
+    
+    // Reduce confidence for ambiguous cases
+    if (node->type == AST_NODE_BINARY_OP) {
+        // Binary operations might be ambiguous
+        if (node->data.binary.op == OP_ADD) {
+            confidence = 85; // String concatenation vs arithmetic
+        } else if (node->data.binary.op == OP_EQUAL) {
+            confidence = 95; // Equality is usually clear
+        }
+    } else if (node->type == AST_NODE_FUNCTION_CALL) {
+        confidence = 90; // Function calls have some uncertainty
+    } else if (node->type == AST_NODE_NUMBER || node->type == AST_NODE_STRING || 
+               node->type == AST_NODE_BOOL || node->type == AST_NODE_NULL) {
+        confidence = 100; // Literals are always certain
+    }
+    
+    // Check for ambiguity
+    int is_ambiguous = 0;
+    if (node->type == AST_NODE_BINARY_OP && node->data.binary.op == OP_ADD) {
+        // Check if both operands could be strings or numbers
+        MycoType* left_type = type_infer_expression(context, node->data.binary.left);
+        MycoType* right_type = type_infer_expression(context, node->data.binary.right);
+        
+        if ((left_type && (left_type->kind == TYPE_STRING || left_type->kind == TYPE_ANY)) &&
+            (right_type && (right_type->kind == TYPE_STRING || right_type->kind == TYPE_ANY))) {
+            is_ambiguous = 1;
+            confidence = 70; // Lower confidence for ambiguous cases
+        }
+    }
+    
+    return type_inference_create(basic_type, confidence, is_ambiguous);
+}
+
+int type_infer_with_confidence(TypeCheckerContext* context, ASTNode* node, int* confidence) {
+    if (!context || !node || !confidence) return 0;
+    
+    TypeInference* inference = type_infer_expression_enhanced(context, node);
+    if (!inference) return 0;
+    
+    *confidence = inference->confidence;
+    type_inference_free(inference);
+    return 1;
+}
+
+int type_infer_with_constraints(TypeCheckerContext* context, ASTNode* node, TypeConstraint* constraints, size_t constraint_count) {
+    if (!context || !node) return 0;
+    
+    // For now, basic implementation - just check if the inferred type matches constraints
+    MycoType* inferred_type = type_infer_expression(context, node);
+    if (!inferred_type) return 0;
+    
+    // Check constraints
+    for (size_t i = 0; i < constraint_count; i++) {
+        if (constraints[i].is_required && !type_is_compatible(constraints[i].constraint_type, inferred_type)) {
+            type_free(inferred_type);
+            return 0;
+        }
+    }
+    
+    type_free(inferred_type);
+    return 1;
+}
+
+int type_infer_ambiguous_types(TypeCheckerContext* context, ASTNode* node, MycoType** possible_types, size_t* type_count) {
+    if (!context || !node || !possible_types || !type_count) return 0;
+    
+    *type_count = 0;
+    
+    // For binary operations, check both possible interpretations
+    if (node->type == AST_NODE_BINARY_OP && node->data.binary.op == OP_ADD) {
+        MycoType* left_type = type_infer_expression(context, node->data.binary.left);
+        MycoType* right_type = type_infer_expression(context, node->data.binary.right);
+        
+        if (left_type && right_type) {
+            // String concatenation
+            if (left_type->kind == TYPE_STRING || right_type->kind == TYPE_STRING) {
+                possible_types[0] = type_create(TYPE_STRING, node->line, node->column);
+                *type_count = 1;
+            }
+            
+            // Arithmetic addition
+            if ((left_type->kind == TYPE_INT || left_type->kind == TYPE_FLOAT) &&
+                (right_type->kind == TYPE_INT || right_type->kind == TYPE_FLOAT)) {
+                MycoType* arithmetic_type = type_find_common_type(left_type, right_type);
+                if (arithmetic_type) {
+                    if (*type_count == 0) {
+                        possible_types[0] = arithmetic_type;
+                        *type_count = 1;
+                    } else {
+                        possible_types[1] = arithmetic_type;
+                        *type_count = 2;
+                    }
+                }
+            }
+        }
+        
+        type_free(left_type);
+        type_free(right_type);
+    }
+    
+    return *type_count > 0;
+}
+
+// Generic Type System Implementation
+
+MycoType* generic_instantiate(MycoType* generic_type, MycoType** type_args, size_t arg_count) {
+    if (!generic_type || generic_type->kind != TYPE_GENERIC) return NULL;
+    
+    // Create a new type instance by substituting type parameters
+    MycoType* instance = type_clone(generic_type->data.generic_type.base_type);
+    if (!instance) return NULL;
+    
+    // For now, basic implementation - in a full implementation, we would
+    // recursively substitute type parameters throughout the type structure
+    return instance;
+}
+
+int generic_constraint_check(MycoType* type, TypeConstraint* constraint) {
+    if (!type || !constraint) return 0;
+    
+    // Check if the type satisfies the constraint
+    if (constraint->constraint_type) {
+        return type_is_compatible(constraint->constraint_type, type);
+    }
+    
+    // If no specific constraint type, check by name
+    if (constraint->constraint_name) {
+        // For now, basic name matching - in a full implementation,
+        // we would check against a constraint registry
+        return 1; // Placeholder
+    }
+    
+    return 1;
+}
+
+MycoType* generic_create_parameter(const char* name, MycoType* constraint) {
+    if (!name) return NULL;
+    
+    MycoType* param = type_create(TYPE_GENERIC_PARAMETER, 0, 0);
+    if (!param) return NULL;
+    
+    param->data.generic_parameter.parameter_name = strdup(name);
+    param->data.generic_parameter.constraint = constraint;
+    
+    return param;
+}
+
+MycoType* generic_create_instance(const char* name, MycoType** parameters, size_t param_count) {
+    if (!name) return NULL;
+    
+    MycoType* instance = type_create(TYPE_GENERIC, 0, 0);
+    if (!instance) return NULL;
+    
+    // Store the generic instance information
+    instance->data.generic_type.base_type = type_create(TYPE_ANY, 0, 0);
+    instance->data.generic_type.parameter_count = param_count;
+    instance->data.generic_type.parameter_names = NULL;
+    instance->data.generic_type.constraints = NULL;
+    
+    if (param_count > 0 && parameters) {
+        instance->data.generic_type.parameter_names = shared_malloc_safe(sizeof(char*) * param_count, "type_checker", "unknown_function", 1600);
+        instance->data.generic_type.constraints = shared_malloc_safe(sizeof(MycoType*) * param_count, "type_checker", "unknown_function", 1601);
+        
+        if (instance->data.generic_type.parameter_names && instance->data.generic_type.constraints) {
+            for (size_t i = 0; i < param_count; i++) {
+                instance->data.generic_type.parameter_names[i] = strdup("T"); // Placeholder
+                instance->data.generic_type.constraints[i] = parameters[i];
+            }
+        }
+    }
+    
+    return instance;
+}
+
+int generic_is_assignable(MycoType* generic_type, MycoType* concrete_type) {
+    if (!generic_type || !concrete_type) return 0;
+    
+    // Check if the concrete type can be assigned to the generic type
+    if (generic_type->kind == TYPE_GENERIC) {
+        // For now, basic compatibility check
+        return type_is_compatible(generic_type->data.generic_type.base_type, concrete_type);
+    }
+    
+    return type_is_compatible(generic_type, concrete_type);
+}
+
+int generic_constraint_satisfies(MycoType* type, MycoType* constraint) {
+    if (!type || !constraint) return 0;
+    
+    // Check if the type satisfies the constraint
+    if (constraint->kind == TYPE_GENERIC_PARAMETER) {
+        // Check against parameter constraints
+        if (constraint->data.generic_parameter.constraint) {
+            return type_is_compatible(constraint->data.generic_parameter.constraint, type);
+        }
+    }
+    
+    return type_is_compatible(constraint, type);
 }

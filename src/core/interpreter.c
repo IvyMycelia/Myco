@@ -211,9 +211,96 @@ int value_matches_type(Value* value, const char* type_name, Interpreter* interpr
 }
 
 
-Value value_create_null(void) { Value v = {0}; v.type = VALUE_NULL; return v; }
-Value value_create_boolean(int value) { Value v; v.type = VALUE_BOOLEAN; v.data.boolean_value = value ? 1 : 0; return v; }
-Value value_create_number(double value) { Value v; v.type = VALUE_NUMBER; v.data.number_value = value; return v; }
+Value value_create_null(void) { 
+    Value v = {0}; 
+    v.type = VALUE_NULL; 
+    v.flags = VALUE_FLAG_IMMUTABLE;
+    v.ref_count = 1;
+    v.cache.cached_ptr = NULL;
+    return v; 
+}
+Value value_create_boolean(int value) { 
+    Value v = {0};  // Initialize entire struct to zero
+    v.type = VALUE_BOOLEAN; 
+    v.flags = VALUE_FLAG_IMMUTABLE;
+    v.ref_count = 1;
+    v.data.boolean_value = value ? 1 : 0; 
+    v.cache.cached_numeric = value ? 1.0 : 0.0;
+    return v; 
+}
+
+Value value_create_number(double value) { 
+    Value v = {0};  // Initialize entire struct to zero
+    v.type = VALUE_NUMBER; 
+    v.flags = VALUE_FLAG_IMMUTABLE | VALUE_FLAG_CACHED;
+    v.ref_count = 1;
+    v.data.number_value = value; 
+    v.cache.cached_numeric = value;
+    return v; 
+}
+
+// Optimized Value creation functions
+Value value_create_optimized(ValueType type, uint8_t flags) {
+    Value value;
+    value.type = type;
+    value.flags = flags;
+    value.ref_count = 1;
+    value.cache.cached_ptr = NULL;
+    return value;
+}
+
+Value value_create_cached_string(const char* value) {
+    Value val = value_create_optimized(VALUE_STRING, VALUE_FLAG_CACHED | VALUE_FLAG_REFCOUNTED);
+    val.data.string_value = shared_malloc_safe(strlen(value) + 1, "interpreter", "value_create_cached_string", 0);
+    if (val.data.string_value) {
+        strcpy(val.data.string_value, value);
+        val.cache.cached_length = strlen(value);
+    }
+    return val;
+}
+
+Value value_create_immutable_number(double value) {
+    Value val = value_create_optimized(VALUE_NUMBER, VALUE_FLAG_IMMUTABLE | VALUE_FLAG_CACHED);
+    val.data.number_value = value;
+    val.cache.cached_numeric = value;
+    return val;
+}
+
+Value value_create_pooled_array(size_t initial_capacity) {
+    Value val = value_create_optimized(VALUE_ARRAY, VALUE_FLAG_POOLED | VALUE_FLAG_REFCOUNTED);
+    val.data.array_value.elements = shared_malloc_safe(sizeof(Value) * initial_capacity, "interpreter", "value_create_pooled_array", 0);
+    val.data.array_value.count = 0;
+    val.data.array_value.capacity = initial_capacity;
+    val.cache.cached_length = 0;
+    return val;
+}
+
+void value_increment_ref(Value* value) {
+    if (value && (value->flags & VALUE_FLAG_REFCOUNTED)) {
+        value->ref_count++;
+    }
+}
+
+void value_decrement_ref(Value* value) {
+    if (value && (value->flags & VALUE_FLAG_REFCOUNTED)) {
+        value->ref_count--;
+        if (value->ref_count == 0) {
+            value_free(value);
+        }
+    }
+}
+
+int value_is_cached(Value* value) {
+    return value && (value->flags & VALUE_FLAG_CACHED);
+}
+
+int value_is_immutable(Value* value) {
+    return value && (value->flags & VALUE_FLAG_IMMUTABLE);
+}
+
+int value_is_pooled(Value* value) {
+    return value && (value->flags & VALUE_FLAG_POOLED);
+}
 /**
  * @brief Process escape sequences in a string
  * 
@@ -310,22 +397,24 @@ Value value_create_object(size_t initial_capacity) {
     v.data.object_value.count = 0;
     v.data.object_value.capacity = initial_capacity > 0 ? initial_capacity : 4;
     
-    // Allocate memory with proper error handling
-    v.data.object_value.keys = calloc(v.data.object_value.capacity, sizeof(char*));
-    v.data.object_value.values = calloc(v.data.object_value.capacity, sizeof(void*));
+    // Allocate memory with proper error handling using shared_malloc_safe for consistency
+    v.data.object_value.keys = shared_malloc_safe(v.data.object_value.capacity * sizeof(char*), "interpreter", "value_create_object", 401);
+    v.data.object_value.values = shared_malloc_safe(v.data.object_value.capacity * sizeof(void*), "interpreter", "value_create_object", 402);
     
-    // If allocation fails, return a null object
+    // If allocation fails, return a NULL value instead of a broken object
     if (!v.data.object_value.keys || !v.data.object_value.values) {
         if (v.data.object_value.keys) {
-            shared_free_safe(v.data.object_value.keys, "interpreter", "unknown_function", 307);
-            v.data.object_value.keys = NULL;
+            shared_free_safe(v.data.object_value.keys, "interpreter", "value_create_object", 407);
         }
         if (v.data.object_value.values) {
-            shared_free_safe(v.data.object_value.values, "interpreter", "unknown_function", 311);
-            v.data.object_value.values = NULL;
+            shared_free_safe(v.data.object_value.values, "interpreter", "value_create_object", 410);
         }
-        v.data.object_value.capacity = 0;
+        return value_create_null();  // Return NULL value instead of broken object
     }
+    
+    // Initialize allocated memory to zero
+    memset(v.data.object_value.keys, 0, v.data.object_value.capacity * sizeof(char*));
+    memset(v.data.object_value.values, 0, v.data.object_value.capacity * sizeof(void*));
     
     return v;
 }
@@ -2403,8 +2492,10 @@ void value_free(Value* value) {
             break;
     }
     
-    // Zero out the value to prevent use-after-free
-    memset(value, 0, sizeof(Value));
+    // Note: We don't zero out the value here because it causes issues with
+    // value assignment in the environment. The caller is responsible for
+    // properly handling the freed value.
+    // memset(value, 0, sizeof(Value));
 }
 Value value_clone(Value* value) { 
     if (!value) { Value v = {0}; return v; } 
@@ -4028,10 +4119,10 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             // Regular variable assignment
             if (node->data.assignment.variable_name) {
                 environment_assign(interpreter->current_environment, node->data.assignment.variable_name, value);
+                // Note: environment_assign clones the value, so we can safely free it here
+                value_free(&value);
             }
             
-            // Free the value after assignment
-            value_free(&value);
             return value_create_null();
         }
         case AST_NODE_FUNCTION: {

@@ -443,7 +443,7 @@ Value builtin_array_slice(Interpreter* interpreter, Value* args, size_t arg_coun
 
 Value builtin_array_join(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
-        std_error_report(ERROR_ARGUMENT_COUNT, "array", "unknown_function", "join() requires exactly 2 arguments: array and separator", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "array", "builtin_array_join", "join() requires exactly 2 arguments: array and separator", line, column);
         return value_create_null();
     }
     
@@ -451,12 +451,12 @@ Value builtin_array_join(Interpreter* interpreter, Value* args, size_t arg_count
     Value separator_arg = args[1];
     
     if (array_arg.type != VALUE_ARRAY) {
-        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "join() first argument must be an array", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "builtin_array_join", "join() first argument must be an array", line, column);
         return value_create_null();
     }
     
     if (separator_arg.type != VALUE_STRING) {
-        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "join() second argument must be a string", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "builtin_array_join", "join() second argument must be a string", line, column);
         return value_create_null();
     }
     
@@ -482,9 +482,9 @@ Value builtin_array_join(Interpreter* interpreter, Value* args, size_t arg_count
     total_length += (array_len - 1) * strlen(separator_arg.data.string_value);
     total_length += 1; // Null terminator
     
-    char* result_str = shared_malloc_safe(total_length, "array", "unknown_function", 485);
+    char* result_str = shared_malloc_safe(total_length, "array", "builtin_array_join", 485);
     if (!result_str) {
-        std_error_report(ERROR_OUT_OF_MEMORY, "array", "unknown_function", "Out of memory in join()", line, column);
+        std_error_report(ERROR_OUT_OF_MEMORY, "array", "builtin_array_join", "Out of memory in join()", line, column);
         return value_create_null();
     }
     
@@ -494,12 +494,12 @@ Value builtin_array_join(Interpreter* interpreter, Value* args, size_t arg_count
     for (size_t i = 0; i < array_len; i++) {
         Value* element = (Value*)array_arg.data.array_value.elements[i];
         if (element) {
-            if (element->type == VALUE_STRING) {
+            if (element->type == VALUE_STRING && element->data.string_value) {
                 strcat(result_str, element->data.string_value);
             } else {
                 // Convert to string representation
                 Value element_str_value = value_to_string(element);
-                if (element_str_value.type == VALUE_STRING) {
+                if (element_str_value.type == VALUE_STRING && element_str_value.data.string_value) {
                     strcat(result_str, element_str_value.data.string_value);
                 }
                 value_free(&element_str_value);
@@ -507,7 +507,7 @@ Value builtin_array_join(Interpreter* interpreter, Value* args, size_t arg_count
         }
         
         // Add separator (except for last element)
-        if (i < array_len - 1) {
+        if (i < array_len - 1 && separator_arg.data.string_value) {
             strcat(result_str, separator_arg.data.string_value);
         }
     }

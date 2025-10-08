@@ -105,8 +105,16 @@ MAIN_EXECUTABLE = $(BIN_DIR)/myco
 TEST_EXECUTABLE = $(BIN_DIR)/myco_test
 LSP_EXECUTABLE = $(BIN_DIR)/myco-lsp
 
-# Libraries
-LIBS = -lm -lcurl -lz -lreadline -L/opt/homebrew/opt/libmicrohttpd/lib -lmicrohttpd
+# Libraries - Platform-specific library paths
+ifeq ($(PLATFORM),macos)
+    LIBS = -lm -lcurl -lz -lreadline -L/opt/homebrew/opt/libmicrohttpd/lib -lmicrohttpd
+else ifeq ($(PLATFORM),linux)
+    LIBS = -lm -lcurl -lz -lreadline -lmicrohttpd
+else ifeq ($(PLATFORM),windows)
+    LIBS = -lm -lcurl -lz -lreadline -lmicrohttpd
+else
+    LIBS = -lm -lcurl -lz -lreadline -lmicrohttpd
+endif
 
 # Default target
 .PHONY: all
@@ -294,6 +302,25 @@ dev-setup:
 	else \
 		echo "Package manager not found. Please install development tools manually."; \
 	fi
+
+# Debian-specific setup
+.PHONY: debian-setup
+debian-setup:
+	@echo "Setting up Myco dependencies for Debian..."
+	@echo "Installing required libraries..."
+	sudo apt-get update
+	sudo apt-get install -y build-essential libcurl4-openssl-dev libmicrohttpd-dev libreadline-dev zlib1g-dev
+	@echo "Dependencies installed. Run 'make clean && make' to rebuild."
+
+# Check dependencies
+.PHONY: check-deps
+check-deps:
+	@echo "Checking Myco dependencies..."
+	@echo "Required libraries:"
+	@echo -n "libcurl: "; pkg-config --exists libcurl && echo "✓ Found" || echo "✗ Missing"
+	@echo -n "libmicrohttpd: "; pkg-config --exists libmicrohttpd && echo "✓ Found" || echo "✗ Missing"
+	@echo -n "libreadline: "; pkg-config --exists readline && echo "✓ Found" || echo "✗ Missing"
+	@echo -n "zlib: "; pkg-config --exists zlib && echo "✓ Found" || echo "✗ Missing"
 
 # Show build information
 .PHONY: info

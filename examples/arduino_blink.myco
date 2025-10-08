@@ -1,0 +1,33 @@
+#!/usr/bin/env myco
+# Arduino LED Blink Demo for Myco
+# This demonstrates basic Arduino functionality in Myco
+
+use arduino as arduino;
+
+# LED Blink Demo
+let setup = func ():
+    print("Setting up Arduino...");
+    arduino.pinMode(13, arduino.OUTPUT);  # Built-in LED
+    arduino.pinMode(2, arduino.INPUT);   # Button input
+    print("Setup complete!");
+end;
+
+let loop = func ():
+    # Read button state
+    let buttonState = arduino.digitalRead(2);
+    
+    if buttonState == arduino.HIGH:
+        print("Button pressed - LED ON");
+        arduino.digitalWrite(13, arduino.HIGH);
+        arduino.delay(500);
+    else:
+        print("Button released - LED OFF");
+        arduino.digitalWrite(13, arduino.LOW);
+        arduino.delay(100);
+    end;
+end;
+
+# Run the Arduino program
+print("Starting Arduino simulation...");
+arduino.run(setup, loop);
+print("Arduino simulation complete!");

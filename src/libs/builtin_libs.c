@@ -54,4 +54,7 @@ void register_all_builtin_libraries(Interpreter* interpreter) {
     
     // Register server library
     server_library_register(interpreter);
+
+    // Register arduino library (host-simulated, cross-platform)
+    arduino_library_register(interpreter);
 }

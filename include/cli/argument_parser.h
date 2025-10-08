@@ -8,6 +8,7 @@ typedef struct {
     int interpret;
     int compile;
     int build;
+    int emit_arduino;
     int debug;
     int target;
     int optimization_level;

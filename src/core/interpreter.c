@@ -355,8 +355,10 @@ static char* process_escape_sequences(const char* input) {
 }
 
 Value value_create_string(const char* value) { 
-    Value v; 
+    Value v = {0}; 
     v.type = VALUE_STRING; 
+    v.flags = VALUE_FLAG_IMMUTABLE | VALUE_FLAG_CACHED;
+    v.ref_count = 1;
     
     if (value) {
         // Process escape sequences when creating the string
@@ -368,7 +370,7 @@ Value value_create_string(const char* value) {
             v.data.string_value = strdup(value);
         }
     } else {
-        v.data.string_value = NULL;
+        v.data.string_value = strdup("");  // Use empty string instead of NULL
     }
     
     return v; 
@@ -2503,7 +2505,13 @@ Value value_clone(Value* value) {
         case VALUE_NULL: return value_create_null();
         case VALUE_NUMBER: return value_create_number(value->data.number_value); 
         case VALUE_BOOLEAN: return value_create_boolean(value->data.boolean_value); 
-        case VALUE_STRING: return value_create_string(value->data.string_value); 
+        case VALUE_STRING: {
+            if (value->data.string_value) {
+                return value_create_string(value->data.string_value);
+            } else {
+                return value_create_string("");
+            }
+        } 
         case VALUE_RANGE: return value_create_range(value->data.range_value.start, value->data.range_value.end, value->data.range_value.step, value->data.range_value.inclusive); 
         case VALUE_ARRAY: {
             // Deep copy array with all elements

@@ -6,8 +6,9 @@ void setup() {
 }
 
 void loop() {
-  digitalWrite(13, HIGH);
-  delay(500);
-  digitalWrite(13, LOW);
-  delay(500);
+  for (int i = 1010; i > 10; i -= 50) {
+    digitalWrite(13, HIGH);
+    delay(i);
+    digitalWrite(13, LOW);
+  }
 }

@@ -2570,14 +2570,30 @@ Value value_clone(Value* value) {
             return v;
         }
         case VALUE_FUNCTION: { 
-            // Use the proper function creation function to ensure proper initialization
-            return value_create_function(
-                value->data.function_value.body,
-                value->data.function_value.parameters,
-                value->data.function_value.parameter_count,
-                value->data.function_value.return_type,
-                value->data.function_value.captured_environment
-            );
+            // Check if this is a builtin function (body is a function pointer)
+            if (value->data.function_value.parameter_count == 0 && 
+                value->data.function_value.parameters == NULL &&
+                value->data.function_value.return_type == NULL &&
+                value->data.function_value.captured_environment == NULL) {
+                // This is a builtin function, just return a copy
+                Value v = {0};
+                v.type = VALUE_FUNCTION;
+                v.data.function_value.body = value->data.function_value.body;
+                v.data.function_value.parameters = NULL;
+                v.data.function_value.parameter_count = 0;
+                v.data.function_value.return_type = NULL;
+                v.data.function_value.captured_environment = NULL;
+                return v;
+            } else {
+                // Regular function, use the proper function creation function
+                return value_create_function(
+                    value->data.function_value.body,
+                    value->data.function_value.parameters,
+                    value->data.function_value.parameter_count,
+                    value->data.function_value.return_type,
+                    value->data.function_value.captured_environment
+                );
+            }
         } 
         case VALUE_ASYNC_FUNCTION: {
             // Clone the async function value

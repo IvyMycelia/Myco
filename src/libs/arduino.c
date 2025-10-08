@@ -1,3 +1,8 @@
+// Define feature test macros for POSIX compliance
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 199309L
+#endif
+
 #include "../../include/libs/arduino.h"
 #include "../../include/core/interpreter.h"
 #include "../../include/core/standardized_errors.h"

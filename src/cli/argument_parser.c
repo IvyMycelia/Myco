@@ -13,6 +13,7 @@ int parse_arguments(int argc, char* argv[], ArgumentConfig* config) {
     config->interpret = 0;
     config->compile = 0;
     config->build = 0;
+    config->emit_arduino = 0;
     config->debug = 0;
     config->target = TARGET_C;
     config->optimization_level = OPTIMIZATION_NONE;
@@ -53,6 +54,8 @@ int parse_arguments(int argc, char* argv[], ArgumentConfig* config) {
             config->compile = 1;
         } else if (strcmp(argv[i], "--build") == 0 || strcmp(argv[i], "-b") == 0) {
             config->build = 1;
+        } else if (strcmp(argv[i], "--emit-arduino") == 0) {
+            config->emit_arduino = 1;
         } else if (strcmp(argv[i], "--debug") == 0 || strcmp(argv[i], "-d") == 0) {
             config->debug = 1;
         } else if (strcmp(argv[i], "--optimize") == 0 || strcmp(argv[i], "-O") == 0) {
@@ -156,6 +159,7 @@ void print_usage(const char* program_name) {
     printf("  -i, --interpret           Interpret the input (default)\n");
     printf("  -c, --compile             Compile the input to intermediate code\n");
     printf("  -b, --build               Build executable from input\n");
+    printf("      --emit-arduino        Emit Arduino .ino sketch from Myco source\n");
     printf("  -d, --debug               Enable debug mode\n");
    printf("   -O, --optimize <level>    Set optimization level (0/none, 1/basic, 2/aggressive, 3/maximum)\n");
    printf("   -j, --jit [mode]          Enable JIT compilation (0/interpreted, 1/hybrid, 2/compiled)\n");

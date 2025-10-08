@@ -1,0 +1,77 @@
+#!/usr/bin/env myco
+# Arduino Pattern Demo for Myco
+# Demonstrates functional programming with Arduino
+
+use arduino as arduino;
+
+# LED Pattern Generator
+let setup = func ():
+    print("🔧 Setting up LED patterns...");
+    arduino.pinMode(13, arduino.OUTPUT);  # Red LED
+    arduino.pinMode(12, arduino.OUTPUT);  # Green LED  
+    arduino.pinMode(11, arduino.OUTPUT);  # Blue LED
+    print("✅ Pattern setup complete!");
+end;
+
+# Create a blinking pattern
+let blinkPattern = func (ledPin, times, delayMs):
+    for let i = 0; i < times; i = i + 1:
+        arduino.digitalWrite(ledPin, arduino.HIGH);
+        arduino.delay(delayMs);
+        arduino.digitalWrite(ledPin, arduino.LOW);
+        arduino.delay(delayMs);
+    end;
+end;
+
+# Create a breathing pattern (PWM fade)
+let breathingPattern = func (ledPin, cycles):
+    for let cycle = 0; cycle < cycles; cycle = cycle + 1:
+        # Fade in
+        for let brightness = 0; brightness < 255; brightness = brightness + 5:
+            arduino.analogWrite(ledPin, brightness);
+            arduino.delay(20);
+        end;
+        # Fade out
+        for let brightness = 255; brightness > 0; brightness = brightness - 5:
+            arduino.analogWrite(ledPin, brightness);
+            arduino.delay(20);
+        end;
+    end;
+end;
+
+let loop = func ():
+    print("🌈 Running LED patterns...");
+    
+    # Red LED blink pattern
+    print("🔴 Red LED blink pattern");
+    blinkPattern(13, 3, 200);
+    arduino.delay(500);
+    
+    # Green LED breathing pattern
+    print("🟢 Green LED breathing pattern");
+    breathingPattern(12, 2);
+    arduino.delay(500);
+    
+    # Blue LED fast blink
+    print("🔵 Blue LED fast blink");
+    blinkPattern(11, 5, 100);
+    arduino.delay(500);
+    
+    # All LEDs on briefly
+    print("⚪ All LEDs on");
+    arduino.digitalWrite(13, arduino.HIGH);
+    arduino.digitalWrite(12, arduino.HIGH);
+    arduino.digitalWrite(11, arduino.HIGH);
+    arduino.delay(1000);
+    
+    # All LEDs off
+    arduino.digitalWrite(13, arduino.LOW);
+    arduino.digitalWrite(12, arduino.LOW);
+    arduino.digitalWrite(11, arduino.LOW);
+    arduino.delay(1000);
+end;
+
+# Run the pattern demo
+print("🚀 Starting LED pattern simulation...");
+arduino.run(setup, loop);
+print("🏁 Pattern simulation complete!");

@@ -3,6 +3,7 @@
 #include "file_processor.h"
 #include "repl.h"
 #include "version.h"
+#include "arduino_emitter.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,7 +38,17 @@ int main(int argc, char* argv[]) {
         return MYCO_SUCCESS;
     }
     
-    if (config.input_source) {
+    if (config.emit_arduino && config.input_source) {
+        const char* out = config.output_file ? config.output_file : "out.ino";
+        int erc = emit_arduino_sketch_from_file(config.input_source, out);
+        if (erc != 0) {
+            fprintf(stderr, "Error: Failed to emit Arduino sketch (code %d)\n", erc);
+            result = MYCO_ERROR_CLI;
+        } else {
+            printf("Emitted Arduino sketch: %s\n", out);
+            result = MYCO_SUCCESS;
+        }
+    } else if (config.input_source) {
         // Check if it's a file or a string
         if (strlen(config.input_source) > 0 && 
             (config.input_source[0] == '`' && config.input_source[strlen(config.input_source) - 1] == '`')) {

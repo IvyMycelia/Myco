@@ -1,0 +1,41 @@
+#!/usr/bin/env myco
+# Arduino Sensor Demo for Myco
+# Demonstrates analog sensors and PWM control
+
+use arduino as arduino;
+
+# Sensor Demo
+let setup = func ():
+    print("🔧 Setting up sensors...");
+    arduino.pinMode(9, arduino.OUTPUT);   # PWM LED
+    arduino.pinMode(3, arduino.OUTPUT);  # Buzzer
+    print("✅ Sensor setup complete!");
+end;
+
+let loop = func ():
+    # Simulate reading from analog sensor (A0)
+    let sensorValue = arduino.analogRead(0);
+    print("📊 Sensor reading: " + sensorValue.toString());
+    
+    # Convert analog reading (0-1023) to PWM value (0-255)
+    let brightness = (sensorValue / 1023.0) * 255.0;
+    arduino.analogWrite(9, brightness);
+    
+    # Buzzer pattern based on sensor value
+    if sensorValue > 800:
+        print("🔊 High reading - Buzzer ON");
+        arduino.digitalWrite(3, arduino.HIGH);
+        arduino.delay(200);
+        arduino.digitalWrite(3, arduino.LOW);
+    else:
+        print("🔇 Low reading - Buzzer OFF");
+        arduino.digitalWrite(3, arduino.LOW);
+    end;
+    
+    arduino.delay(1000);
+end;
+
+# Run the sensor demo
+print("🚀 Starting sensor simulation...");
+arduino.run(setup, loop);
+print("🏁 Sensor simulation complete!");

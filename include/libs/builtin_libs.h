@@ -21,6 +21,7 @@
 #include "json.h"
 #include "http.h"
 #include "server/server.h"
+#include "arduino.h"
 
 // Register all built-in libraries
 void register_all_builtin_libraries(Interpreter* interpreter);

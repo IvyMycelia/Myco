@@ -341,6 +341,140 @@ ASTNode* ast_create_spore_case(ASTNode* pattern, ASTNode* body, int is_lambda, i
     return node;
 }
 
+ASTNode* ast_create_pattern_type(const char* type_name, int line, int column) {
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 342);
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_PATTERN_TYPE;
+    node->data.pattern_type.type_name = shared_malloc_safe(strlen(type_name) + 1, "ast", "unknown_function", 346);
+    if (!node->data.pattern_type.type_name) {
+        shared_free_safe(node, "ast", "unknown_function", 348);
+        return NULL;
+    }
+    strcpy(node->data.pattern_type.type_name, type_name);
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
+ASTNode* ast_create_pattern_destructure(ASTNode** patterns, size_t pattern_count, int is_array, int line, int column) {
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 355);
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_PATTERN_DESTRUCTURE;
+    node->data.pattern_destructure.patterns = patterns;
+    node->data.pattern_destructure.pattern_count = pattern_count;
+    node->data.pattern_destructure.is_array = is_array;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
+ASTNode* ast_create_pattern_guard(ASTNode* pattern, ASTNode* condition, int line, int column) {
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 368);
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_PATTERN_GUARD;
+    node->data.pattern_guard.pattern = pattern;
+    node->data.pattern_guard.condition = condition;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
+ASTNode* ast_create_pattern_or(ASTNode* left, ASTNode* right, int line, int column) {
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 380);
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_PATTERN_OR;
+    node->data.pattern_or.left = left;
+    node->data.pattern_or.right = right;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
+ASTNode* ast_create_pattern_and(ASTNode* left, ASTNode* right, int line, int column) {
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 392);
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_PATTERN_AND;
+    node->data.pattern_and.left = left;
+    node->data.pattern_and.right = right;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
+ASTNode* ast_create_pattern_not(ASTNode* pattern, int line, int column) {
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 404);
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_PATTERN_NOT;
+    node->data.pattern_not.pattern = pattern;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
+ASTNode* ast_create_pattern_wildcard(int line, int column) {
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 416);
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_PATTERN_WILDCARD;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
+ASTNode* ast_create_pattern_range(ASTNode* start, ASTNode* end, int inclusive, int line, int column) {
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 428);
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_PATTERN_RANGE;
+    node->data.pattern_range.start = start;
+    node->data.pattern_range.end = end;
+    node->data.pattern_range.inclusive = inclusive;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
+ASTNode* ast_create_pattern_regex(const char* regex_pattern, int flags, int line, int column) {
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 440);
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_PATTERN_REGEX;
+    node->data.pattern_regex.regex_pattern = shared_malloc_safe(strlen(regex_pattern) + 1, "ast", "unknown_function", 444);
+    if (!node->data.pattern_regex.regex_pattern) {
+        shared_free_safe(node, "ast", "unknown_function", 446);
+        return NULL;
+    }
+    strcpy(node->data.pattern_regex.regex_pattern, regex_pattern);
+    node->data.pattern_regex.flags = flags;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
 ASTNode* ast_create_class(const char* name, const char* parent, ASTNode* body, int line, int column) {
     ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 345);
     if (!node) return NULL;

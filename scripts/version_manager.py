@@ -49,7 +49,7 @@ class MycoVersionManager:
         # Update changelog
         self._update_changelog(major, minor, patch, version_type)
         
-        print(f"✅ Version updated to v{major}.{minor}.{patch}")
+        print(f"Version updated to v{major}.{minor}.{patch}")
         return (major, minor, patch)
     
     def _update_version_file(self, major, minor, patch, release_name):
@@ -110,7 +110,7 @@ class MycoVersionManager:
                                  capture_output=True, text=True, cwd=self.project_root)
             
             if result.returncode != 0:
-                print("⚠️  Could not determine git history, defaulting to patch version")
+                print("Could not determine git history, defaulting to patch version")
                 return self.update_version("patch")
             
             commits = result.stdout.strip().split('\n') if result.stdout.strip() else []
@@ -129,24 +129,24 @@ class MycoVersionManager:
                 elif any(keyword in commit_lower for keyword in minor_keywords):
                     version_type = "minor"
             
-            print(f"🔍 Detected {len(commits)} commits, suggesting {version_type} version bump")
+            print(f"Detected {len(commits)} commits, suggesting {version_type} version bump")
             return self.update_version(version_type)
             
         except Exception as e:
-            print(f"⚠️  Auto-version failed: {e}, defaulting to patch")
+            print(f"Auto-version failed: {e}, defaulting to patch")
             return self.update_version("patch")
     
     def show_status(self):
         """Show current version and recent changes"""
         major, minor, patch = self.get_current_version()
-        print(f"📊 Current Version: v{major}.{minor}.{patch}")
+        print(f"Current Version: v{major}.{minor}.{patch}")
         
         # Show recent commits
         try:
             result = subprocess.run(['git', 'log', '--oneline', '-5'], 
                                  capture_output=True, text=True, cwd=self.project_root)
             if result.returncode == 0 and result.stdout.strip():
-                print("\n📝 Recent Commits:")
+                print("\nRecent Commits:")
                 for line in result.stdout.strip().split('\n'):
                     print(f"  {line}")
         except:
@@ -182,7 +182,7 @@ def main():
                 release_name = sys.argv[name_index + 1]
         manager.update_version(command, release_name)
     else:
-        print(f"❌ Unknown command: {command}")
+        print(f"Unknown command: {command}")
         sys.exit(1)
 
 if __name__ == "__main__":

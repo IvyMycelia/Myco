@@ -431,6 +431,23 @@ ASTNode* parser_parse_return_statement(Parser* parser);
 ASTNode* parser_parse_spore_statement(Parser* parser);
 
 /**
+ * @brief Parse a pattern (enhanced pattern matching)
+ * 
+ * Patterns support type matching, destructuring, guards, and combinators:
+ * Int, String, {name: n, age: a}, [x, y, z], pattern when condition, pattern1 | pattern2
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the pattern
+ */
+ASTNode* parser_parse_pattern(Parser* parser);
+static ASTNode* parser_parse_pattern_or(Parser* parser);
+static ASTNode* parser_parse_pattern_and(Parser* parser);
+static ASTNode* parser_parse_pattern_not(Parser* parser);
+static ASTNode* parser_parse_pattern_primary(Parser* parser);
+static ASTNode* parser_parse_array_destructure(Parser* parser);
+static ASTNode* parser_parse_object_destructure(Parser* parser);
+
+/**
  * @brief Parse a spore statement (pattern matching)
  * 
  * Spore statements provide pattern matching:

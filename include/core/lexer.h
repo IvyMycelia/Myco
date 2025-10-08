@@ -89,6 +89,10 @@ typedef enum {
     TOKEN_RETURN_ARROW, // Return type arrow (->)
     TOKEN_PIPE,        // Union type operator (|)
     TOKEN_QUESTION,    // Optional type operator (?)
+    TOKEN_AMPERSAND,   // AND operator (&)
+    TOKEN_EXCLAMATION, // NOT operator (!)
+    TOKEN_UNDERSCORE,  // Wildcard pattern (_)
+    TOKEN_SLASH,       // Division or regex delimiter (/)
     
     // Special tokens
     TOKEN_ERROR,       // Indicates a lexical error occurred

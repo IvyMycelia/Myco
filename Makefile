@@ -108,12 +108,16 @@ LSP_EXECUTABLE = $(BIN_DIR)/myco-lsp
 # Libraries - Platform-specific library paths
 ifeq ($(PLATFORM),macos)
     LIBS = -lm -lcurl -lz -lreadline -L/opt/homebrew/opt/libmicrohttpd/lib -lmicrohttpd
+    INCLUDE_FLAGS = -I/opt/homebrew/opt/libmicrohttpd/include
 else ifeq ($(PLATFORM),linux)
     LIBS = -lm -lcurl -lz -lreadline -lmicrohttpd
+    INCLUDE_FLAGS = 
 else ifeq ($(PLATFORM),windows)
     LIBS = -lm -lcurl -lz -lreadline -lmicrohttpd
+    INCLUDE_FLAGS = 
 else
     LIBS = -lm -lcurl -lz -lreadline -lmicrohttpd
+    INCLUDE_FLAGS = 
 endif
 
 # Default target
@@ -157,7 +161,7 @@ $(LSP_EXECUTABLE): $(LSP_OBJ_FILES) $(BUILD_DIR)/core/interpreter.o $(BUILD_DIR)
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c $(HEADER_FILES) | $(BUILD_DIR)
 	@echo "Compiling $<..."
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -I$(INCLUDE_DIR) -I$(INCLUDE_DIR)/core -I$(INCLUDE_DIR)/compilation -I$(INCLUDE_DIR)/runtime -I$(INCLUDE_DIR)/cli -I$(INCLUDE_DIR)/utils -I$(INCLUDE_DIR)/lsp -I/opt/homebrew/opt/libmicrohttpd/include -c $< -o $@
+	$(CC) $(CFLAGS) -I$(INCLUDE_DIR) -I$(INCLUDE_DIR)/core -I$(INCLUDE_DIR)/compilation -I$(INCLUDE_DIR)/runtime -I$(INCLUDE_DIR)/cli -I$(INCLUDE_DIR)/utils -I$(INCLUDE_DIR)/lsp $(INCLUDE_FLAGS) -c $< -o $@
 
 # Test executable
 .PHONY: test

@@ -81,15 +81,15 @@ void parser_free(Parser* parser) {
     }
     
     // Free any error message that was stored
-    if (parser->error_message) {
+        if (parser->error_message) {
         shared_free_safe(parser->error_message, "parser", "unknown_function", 84);
         parser->error_message = NULL;
-    }
+        }
     
     // Free the parser structure itself
     // Note: We don't free the lexer as it's owned by the caller
     shared_free_safe(parser, "parser", "unknown_function", 90);
-}
+    }
 
 /**
  * @brief Advance to the next token in the stream
@@ -472,11 +472,11 @@ ASTNode* parser_parse_statement(Parser* parser) {
                 } else if (!parser->current_token || parser->current_token->type == TOKEN_EOF) {
                     // At end of input, no semicolon required
                     return assignment;
-                } else {
-                    parser_error(parser, "Missing semicolon (;) at end of statement");
-                    parser_synchronize(parser);
-                    return assignment;
-                }
+    } else {
+                parser_error(parser, "Missing semicolon (;) at end of statement");
+                parser_synchronize(parser);
+                return assignment;
+            }
             }
             return NULL;
         } else {
@@ -3704,11 +3704,11 @@ ASTNode* parser_parse_spore_statement(Parser* parser) {
                     parser_advance(parser); // consume "=>"
                     
                     ASTNode* result = parser_parse_expression(parser);
-                    if (!result) {
+                            if (!result) {
                         parser_error(parser, "Expected expression after '=>' in lambda case");
-                        ast_free(pattern);
-                        parser_synchronize(parser);
-                        continue;
+                                ast_free(pattern);
+                                parser_synchronize(parser);
+                                continue;
                     }
                     
                     // Create lambda case node

@@ -153,6 +153,9 @@ static int lexer_add_token(Lexer* lexer, TokenType type, const char* text, int l
  * @return 1 if at end, 0 otherwise
  */
 static int lexer_is_at_end(Lexer* lexer) {
+    if (!lexer || !lexer->source) {
+        return 1;  // Consider at end if no source
+    }
     return (size_t)lexer->current >= strlen(lexer->source);
 }
 
@@ -163,7 +166,7 @@ static int lexer_is_at_end(Lexer* lexer) {
  * @return The current character, or '\0' if at end
  */
 static char lexer_current_char(Lexer* lexer) {
-    if (lexer_is_at_end(lexer)) {
+    if (!lexer || !lexer->source || lexer_is_at_end(lexer)) {
         return '\0';
     }
     return lexer->source[lexer->current];
@@ -176,7 +179,7 @@ static char lexer_current_char(Lexer* lexer) {
  * @return The next character, or '\0' if at end
  */
 static char lexer_next_char(Lexer* lexer) {
-    if ((size_t)(lexer->current + 1) >= strlen(lexer->source)) {
+    if (!lexer || !lexer->source || (size_t)(lexer->current + 1) >= strlen(lexer->source)) {
         return '\0';
     }
     return lexer->source[lexer->current + 1];
@@ -253,6 +256,9 @@ static void lexer_skip_comments(Lexer* lexer) {
  * @return A newly allocated string containing the extracted text
  */
 static char* lexer_extract_text(Lexer* lexer) {
+    if (!lexer || !lexer->source) {
+        return NULL;
+    }
     int length = lexer->current - lexer->start;
     char* text = shared_malloc_safe(length + 1, "core", "unknown_function", 257);
     if (text) {

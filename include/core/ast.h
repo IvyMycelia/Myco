@@ -29,6 +29,15 @@ typedef enum {
     AST_NODE_MATCH,
     AST_NODE_SPORE,
     AST_NODE_SPORE_CASE,
+    AST_NODE_PATTERN_TYPE,
+    AST_NODE_PATTERN_DESTRUCTURE,
+    AST_NODE_PATTERN_GUARD,
+    AST_NODE_PATTERN_OR,
+    AST_NODE_PATTERN_AND,
+    AST_NODE_PATTERN_NOT,
+    AST_NODE_PATTERN_WILDCARD,
+    AST_NODE_PATTERN_RANGE,
+    AST_NODE_PATTERN_REGEX,
     AST_NODE_CLASS,
     AST_NODE_FUNCTION,
     AST_NODE_LAMBDA,
@@ -208,6 +217,54 @@ typedef struct ASTNode {
             int is_lambda;                        // 1 if lambda style (=>), 0 if block style (:)
         } spore_case;
         
+        // Pattern type (match by type)
+        struct {
+            char* type_name;                      // Type to match against
+        } pattern_type;
+        
+        // Pattern destructuring (extract values from structures)
+        struct {
+            struct ASTNode** patterns;           // Array of sub-patterns
+            size_t pattern_count;                 // Number of sub-patterns
+            int is_array;                         // 1 for array destructuring, 0 for object
+        } pattern_destructure;
+        
+        // Pattern guard (conditional pattern matching)
+        struct {
+            struct ASTNode* pattern;              // Base pattern
+            struct ASTNode* condition;             // Guard condition
+        } pattern_guard;
+        
+        // Pattern OR (alternative patterns)
+        struct {
+            struct ASTNode* left;                 // Left pattern
+            struct ASTNode* right;                // Right pattern
+        } pattern_or;
+        
+        // Pattern AND (conjunctive patterns)
+        struct {
+            struct ASTNode* left;                 // Left pattern
+            struct ASTNode* right;                // Right pattern
+        } pattern_and;
+        
+        // Pattern NOT (negation)
+        struct {
+            struct ASTNode* pattern;              // Pattern to negate
+        } pattern_not;
+        
+        // Pattern range (numeric ranges)
+        struct {
+            struct ASTNode* start;                // Start value
+            struct ASTNode* end;                  // End value
+            int inclusive;                         // 1 for inclusive, 0 for exclusive
+        } pattern_range;
+        
+        // Pattern regex (regular expression matching)
+        struct {
+            char* regex_pattern;                  // Regex pattern string
+            int flags;                            // Regex flags
+        } pattern_regex;
+        
         // Class definition
         struct {
             char* class_name;
@@ -357,6 +414,15 @@ ASTNode* ast_create_switch(ASTNode* expression, ASTNode** cases, size_t case_cou
 ASTNode* ast_create_match(ASTNode* expression, ASTNode** patterns, size_t pattern_count, int line, int column);
 ASTNode* ast_create_spore(ASTNode* expression, ASTNode** cases, size_t case_count, ASTNode* root_case, int line, int column);
 ASTNode* ast_create_spore_case(ASTNode* pattern, ASTNode* body, int is_lambda, int line, int column);
+ASTNode* ast_create_pattern_type(const char* type_name, int line, int column);
+ASTNode* ast_create_pattern_destructure(ASTNode** patterns, size_t pattern_count, int is_array, int line, int column);
+ASTNode* ast_create_pattern_guard(ASTNode* pattern, ASTNode* condition, int line, int column);
+ASTNode* ast_create_pattern_or(ASTNode* left, ASTNode* right, int line, int column);
+ASTNode* ast_create_pattern_and(ASTNode* left, ASTNode* right, int line, int column);
+ASTNode* ast_create_pattern_not(ASTNode* pattern, int line, int column);
+ASTNode* ast_create_pattern_wildcard(int line, int column);
+ASTNode* ast_create_pattern_range(ASTNode* start, ASTNode* end, int inclusive, int line, int column);
+ASTNode* ast_create_pattern_regex(const char* regex_pattern, int flags, int line, int column);
 ASTNode* ast_create_class(const char* name, const char* parent, ASTNode* body, int line, int column);
 ASTNode* ast_create_function(const char* name, ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column);
 ASTNode* ast_create_lambda(ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column);

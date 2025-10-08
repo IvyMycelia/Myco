@@ -51,9 +51,9 @@ char* myco_value_to_string(MycoValue value) {
         case MYCO_TYPE_BOOL:
             return myco_string_from_bool(value.data.bool_value);
         case MYCO_TYPE_NULL:
-            return ("null" ? strdup("null") : NULL);
+            return strdup("null");
         default:
-            return ("unknown" ? strdup("unknown") : NULL);
+            return strdup("unknown");
     }
 }
 
@@ -83,7 +83,7 @@ char* myco_string_from_number(double number) {
 }
 
 char* myco_string_from_bool(int bool_value) {
-    return (bool_value ? "True" : "False" ? strdup(bool_value ? "True" : "False") : NULL);
+    return strdup(bool_value ? "True" : "False");
 }
 
 char* myco_number_to_string(double number) {
@@ -101,7 +101,7 @@ char* myco_number_to_string(double number) {
 
 char* myco_to_string(void* value) {
     if (!value) {
-        return ("null" ? strdup("null") : NULL);
+        return strdup("null");
     }
     // This is a placeholder - in a real implementation, we would need to
     // determine the type of the value and convert accordingly
@@ -204,17 +204,17 @@ int isNumber(void* value) {
 // Get type name as string
 char* myco_get_type_name(void* value) {
     if (value == NULL) {
-        return ("Null" ? strdup("Null") : NULL);
+        return strdup("Null");
     } else if (isString(value)) {
-        return ("String" ? strdup("String") : NULL);
+        return strdup("String");
     } else if (isNumber(value)) {
-        return ("Int" ? strdup("Int") : NULL); // For simplicity, treat all numbers as Int
+        return strdup("Int"); // For simplicity, treat all numbers as Int
     } else if (isBool(value)) {
-        return ("Boolean" ? strdup("Boolean") : NULL);
+        return strdup("Boolean");
     } else if (isArray(value)) {
-        return ("Array" ? strdup("Array") : NULL);
+        return strdup("Array");
     } else {
-        return ("Unknown" ? strdup("Unknown") : NULL);
+        return strdup("Unknown");
     }
 }
 

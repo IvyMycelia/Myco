@@ -77,7 +77,7 @@ HttpRequest* http_create_request(HttpMethod method, const char* url) {
     request->body = NULL;
     request->timeout_seconds = 30;
     request->follow_redirects = true;
-    request->user_agent = ("Myco-HTTP/1.0" ? strdup("Myco-HTTP/1.0") : NULL);
+    request->user_agent = strdup("Myco-HTTP/1.0");
     
     return request;
 }
@@ -104,7 +104,7 @@ void http_set_body(HttpRequest* request, const char* body) {
         shared_free_safe(request->body, "libs", "unknown_function", 104);
     }
     
-    request->body = body ? (body ? strdup(body) : NULL) : NULL;
+    request->body = body ? strdup(body) : NULL;
 }
 
 // Set request timeout
@@ -118,14 +118,14 @@ HttpResponse* http_request(HttpRequest* request) {
     if (!request || !http_init_curl()) {
         HttpResponse* error_response = shared_malloc_safe(sizeof(HttpResponse), "libs", "unknown_function", 119);
         error_response->status_code = 0;
-        error_response->status_text = ("CURL initialization failed" ? strdup("CURL initialization failed") : NULL);
+        error_response->status_text = strdup("CURL initialization failed");
         error_response->body = NULL;
         error_response->headers = NULL;
         error_response->header_count = 0;
         error_response->content_type = NULL;
         error_response->content_length = 0;
         error_response->success = false;
-        error_response->error_message = ("Failed to initialize CURL" ? strdup("Failed to initialize CURL") : NULL);
+        error_response->error_message = strdup("Failed to initialize CURL");
         return error_response;
     }
     
@@ -133,14 +133,14 @@ HttpResponse* http_request(HttpRequest* request) {
     if (!curl) {
         HttpResponse* error_response = shared_malloc_safe(sizeof(HttpResponse), "libs", "unknown_function", 134);
         error_response->status_code = 0;
-        error_response->status_text = ("CURL initialization failed" ? strdup("CURL initialization failed") : NULL);
+        error_response->status_text = strdup("CURL initialization failed");
         error_response->body = NULL;
         error_response->headers = NULL;
         error_response->header_count = 0;
         error_response->content_type = NULL;
         error_response->content_length = 0;
         error_response->success = false;
-        error_response->error_message = ("Failed to initialize CURL handle" ? strdup("Failed to initialize CURL handle") : NULL);
+        error_response->error_message = strdup("Failed to initialize CURL handle");
         return error_response;
     }
     
@@ -226,19 +226,19 @@ HttpResponse* http_request(HttpRequest* request) {
         
         // Set status text based on status code
         if (status_code >= 200 && status_code < 300) {
-            response->status_text = ("OK" ? strdup("OK") : NULL);
+            response->status_text = strdup("OK");
         } else if (status_code >= 300 && status_code < 400) {
-            response->status_text = ("Redirect" ? strdup("Redirect") : NULL);
+            response->status_text = strdup("Redirect");
         } else if (status_code >= 400 && status_code < 500) {
-            response->status_text = ("Client Error" ? strdup("Client Error") : NULL);
+            response->status_text = strdup("Client Error");
         } else if (status_code >= 500 && status_code < 600) {
-            response->status_text = ("Server Error" ? strdup("Server Error") : NULL);
+            response->status_text = strdup("Server Error");
         } else {
-            response->status_text = ("Unknown" ? strdup("Unknown") : NULL);
+            response->status_text = strdup("Unknown");
         }
     } else {
         response->status_code = 0;
-        response->status_text = ("Error" ? strdup("Error") : NULL);
+        response->status_text = strdup("Error");
         response->error_message = curl_easy_strerror(res) ? strdup(curl_easy_strerror(res)) : NULL;
     }
     

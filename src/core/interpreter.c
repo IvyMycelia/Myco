@@ -3126,7 +3126,7 @@ void value_object_set(Value* obj, const char* key, Value value) {
     
     // For now, just a simple implementation - don't expand, just add if there's space
     if (obj->data.object_value.count < obj->data.object_value.capacity) {
-        obj->data.object_value.keys[obj->data.object_value.count] = key ? (key ? strdup(key) : NULL) : NULL;
+        obj->data.object_value.keys[obj->data.object_value.count] = key ? strdup(key) : NULL;
         obj->data.object_value.values[obj->data.object_value.count] = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 2912);
         if (obj->data.object_value.values[obj->data.object_value.count]) {
             *((Value*)obj->data.object_value.values[obj->data.object_value.count]) = value_clone(&value);
@@ -3215,7 +3215,7 @@ char** value_object_keys(Value* obj, size_t* count) {
     
     for (size_t i = 0; i < *count; i++) {
         if (obj->data.object_value.keys[i]) {
-            keys[i] = obj->data.object_value.keys[i] ? (obj->data.object_value.keys[i] ? strdup(obj->data.object_value.keys[i]) : NULL) : NULL;
+            keys[i] = obj->data.object_value.keys[i] ? strdup(obj->data.object_value.keys[i]) : NULL;
             if (!keys[i]) {
                 // Clean up on failure
                 for (size_t j = 0; j < i; j++) {
@@ -5574,7 +5574,7 @@ void interpreter_set_error(Interpreter* interpreter, const char* message, int li
     if (message) {
         interpreter->error_message = (message ? strdup(message) : NULL);
     } else {
-        interpreter->error_message = ("Unknown runtime error" ? strdup("Unknown runtime error") : NULL);
+        interpreter->error_message = strdup("Unknown runtime error");
     }
     
     // Error is now stored in interpreter for caller to handle
@@ -5840,8 +5840,8 @@ void interpreter_push_call_frame(Interpreter* interpreter, const char* function_
         return;
     }
     
-    frame->function_name = function_name ? (function_name ? strdup(function_name) : NULL) : ("<unknown>" ? strdup("<unknown>") : NULL);
-    frame->file_name = file_name ? (file_name ? strdup(file_name) : NULL) : ("<unknown>" ? strdup("<unknown>") : NULL);
+    frame->function_name = function_name ? strdup(function_name) : strdup("<unknown>");
+    frame->file_name = file_name ? strdup(file_name) : strdup("<unknown>");
     frame->line = line;
     frame->column = column;
     

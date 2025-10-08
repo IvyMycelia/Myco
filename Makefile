@@ -309,6 +309,31 @@ info:
 	@echo "Build directory: $(BUILD_DIR)"
 	@echo "Binary directory: $(BIN_DIR)"
 
+# Version management
+.PHONY: version version-patch version-minor version-major version-auto version-status
+version:
+	@echo "Current Myco Version:"
+	@./bin/myco --version
+
+version-patch:
+	@python3 scripts/version_manager.py patch
+	@echo "✅ Patch version bumped"
+
+version-minor:
+	@python3 scripts/version_manager.py minor
+	@echo "✅ Minor version bumped"
+
+version-major:
+	@python3 scripts/version_manager.py major
+	@echo "✅ Major version bumped"
+
+version-auto:
+	@python3 scripts/version_manager.py auto
+	@echo "✅ Version auto-bumped"
+
+version-status:
+	@python3 scripts/version_manager.py status
+
 # Help
 .PHONY: help
 help:
@@ -334,6 +359,12 @@ help:
 	@echo "  package      - Create distribution package"
 	@echo "  dev-setup    - Install development tools"
 	@echo "  info         - Show build information"
+	@echo "  version      - Show current version"
+	@echo "  version-patch - Bump patch version (bug fixes)"
+	@echo "  version-minor - Bump minor version (new features)"
+	@echo "  version-major - Bump major version (breaking changes)"
+	@echo "  version-auto - Auto-detect and bump version"
+	@echo "  version-status - Show version and recent changes"
 	@echo "  help         - Show this help message"
 
 # Dependencies

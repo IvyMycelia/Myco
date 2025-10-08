@@ -6,6 +6,13 @@
 #include <string.h>
 #include <time.h>
 
+// Platform-specific includes for delay function
+#if MYCO_PLATFORM_WINDOWS
+#include <windows.h>
+#else
+#include <time.h>
+#endif
+
 // Cross-platform host-simulated Arduino constants
 #define ARDUINO_INPUT 0
 #define ARDUINO_OUTPUT 1

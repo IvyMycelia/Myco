@@ -2,9 +2,20 @@
 #include "environment.h"
 #include "standardized_errors.h"
 #include "shared_utilities.h"
+#include "libs/array.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+
+// Forward declarations for pattern matching functions
+static int pattern_matches(Interpreter* interpreter, Value* value, ASTNode* pattern);
+static int pattern_matches_type(Value* value, const char* type_name);
+static int pattern_matches_destructure(Interpreter* interpreter, Value* value, ASTNode* pattern);
+static int pattern_matches_guard(Interpreter* interpreter, Value* value, ASTNode* pattern);
+static int pattern_matches_or(Interpreter* interpreter, Value* value, ASTNode* pattern);
+static int pattern_matches_and(Interpreter* interpreter, Value* value, ASTNode* pattern);
+static int pattern_matches_range(Interpreter* interpreter, Value* value, ASTNode* pattern);
+static int pattern_matches_regex(Interpreter* interpreter, Value* value, ASTNode* pattern);
 
 // ANSI color codes for terminal output
 #define ANSI_COLOR_RED     "\x1b[31m"
@@ -1334,10 +1345,10 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                                 break;
                             case VALUE_NULL:
                                 element_type = "Null";
-                                break;
-                            case VALUE_ARRAY:
+                break;
+            case VALUE_ARRAY:
                                 element_type = "Array";
-                                break;
+                break;
                             case VALUE_OBJECT:
                                 element_type = "Object";
                                 break;
@@ -2488,7 +2499,7 @@ Value value_clone(Value* value) {
             value_free(&resolved_value);
             value_free(&error_value);
             return promise;
-        }
+        } 
         case VALUE_CLASS: {
             // Clone the class value
             return value_create_class(
@@ -4740,11 +4751,8 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             for (size_t i = 0; i < node->data.spore.case_count; i++) {
                 ASTNode* case_node = node->data.spore.cases[i];
                 if (case_node->type == AST_NODE_SPORE_CASE) {
-                    // Evaluate the case pattern
-                    Value pattern_value = eval_node(interpreter, case_node->data.spore_case.pattern);
-                    
-                    // Check if pattern matches (simple equality for now)
-                    if (value_equals(&match_value, &pattern_value)) {
+                    // Check if pattern matches using enhanced pattern matching
+                    if (pattern_matches(interpreter, &match_value, case_node->data.spore_case.pattern)) {
                         // Execute the case body
                         Value result;
                         if (case_node->data.spore_case.is_lambda) {
@@ -4757,10 +4765,8 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                         }
                         
                         value_free(&match_value);
-                        value_free(&pattern_value);
                         return result;
                     }
-                    value_free(&pattern_value);
                 }
             }
             
@@ -5935,4 +5941,186 @@ Value interpreter_execute_compiled_function(Interpreter* interpreter, const char
         // Fall back to interpreted execution
         return interpreter_execute_function_call(interpreter, NULL);
     }
+}
+
+/**
+ * @brief Check if a value matches a pattern (enhanced pattern matching)
+ * 
+ * @param interpreter The interpreter context
+ * @param value The value to match against
+ * @param pattern The pattern AST node
+ * @return 1 if pattern matches, 0 otherwise
+ */
+static int pattern_matches(Interpreter* interpreter, Value* value, ASTNode* pattern) {
+    if (!interpreter || !value || !pattern) {
+        return 0;
+    }
+    
+    switch (pattern->type) {
+        case AST_NODE_PATTERN_TYPE:
+            return pattern_matches_type(value, pattern->data.pattern_type.type_name);
+            
+        case AST_NODE_PATTERN_WILDCARD:
+            return 1; // Wildcard matches anything
+            
+        case AST_NODE_PATTERN_DESTRUCTURE:
+            return pattern_matches_destructure(interpreter, value, pattern);
+            
+        case AST_NODE_PATTERN_GUARD:
+            return pattern_matches_guard(interpreter, value, pattern);
+            
+        case AST_NODE_PATTERN_OR:
+            return pattern_matches_or(interpreter, value, pattern);
+            
+        case AST_NODE_PATTERN_AND:
+            return pattern_matches_and(interpreter, value, pattern);
+            
+        case AST_NODE_PATTERN_NOT:
+            return !pattern_matches(interpreter, value, pattern->data.pattern_not.pattern);
+            
+        case AST_NODE_PATTERN_RANGE:
+            return pattern_matches_range(interpreter, value, pattern);
+            
+        case AST_NODE_PATTERN_REGEX:
+            return pattern_matches_regex(interpreter, value, pattern);
+            
+        default:
+            // Fall back to simple equality for basic patterns
+            Value pattern_value = eval_node(interpreter, pattern);
+            int matches = value_equals(value, &pattern_value);
+            value_free(&pattern_value);
+            return matches;
+    }
+}
+
+/**
+ * @brief Check if value matches a type pattern
+ */
+static int pattern_matches_type(Value* value, const char* type_name) {
+    if (!value || !type_name) return 0;
+    
+    // Handle common type names
+    if (strcmp(type_name, "Int") == 0) {
+        return value->type == VALUE_NUMBER && value->data.number_value == (int)value->data.number_value;
+    }
+    if (strcmp(type_name, "Float") == 0) {
+        return value->type == VALUE_NUMBER;
+    }
+    if (strcmp(type_name, "String") == 0) {
+        return value->type == VALUE_STRING;
+    }
+    if (strcmp(type_name, "Bool") == 0) {
+        return value->type == VALUE_BOOLEAN;
+    }
+    if (strcmp(type_name, "Array") == 0) {
+        return value->type == VALUE_ARRAY;
+    }
+    if (strcmp(type_name, "Object") == 0) {
+        return value->type == VALUE_OBJECT;
+    }
+    if (strcmp(type_name, "Null") == 0) {
+        return value->type == VALUE_NULL;
+    }
+    
+    return 0;
+}
+
+/**
+ * @brief Check if value matches a destructuring pattern
+ */
+static int pattern_matches_destructure(Interpreter* interpreter, Value* value, ASTNode* pattern) {
+    if (!value || !pattern) return 0;
+    
+    if (pattern->data.pattern_destructure.is_array) {
+        // Array destructuring: [a, b, c]
+        if (value->type != VALUE_ARRAY) return 0;
+        
+        // For now, simplified array destructuring - just check if it's an array
+        // TODO: Implement proper array element matching
+        return 1;
+    } else {
+        // Object destructuring: {name: n, age: a}
+        if (value->type != VALUE_OBJECT) return 0;
+        
+        // For now, just check if it's an object (simplified)
+        return 1;
+    }
+}
+
+/**
+ * @brief Check if value matches a guard pattern
+ */
+static int pattern_matches_guard(Interpreter* interpreter, Value* value, ASTNode* pattern) {
+    if (!value || !pattern) return 0;
+    
+    // First check if the base pattern matches
+    if (!pattern_matches(interpreter, value, pattern->data.pattern_guard.pattern)) {
+        return 0;
+    }
+    
+    // Then check the guard condition
+    Value condition_result = eval_node(interpreter, pattern->data.pattern_guard.condition);
+    int matches = condition_result.type == VALUE_BOOLEAN && condition_result.data.boolean_value;
+    value_free(&condition_result);
+    return matches;
+}
+
+/**
+ * @brief Check if value matches an OR pattern
+ */
+static int pattern_matches_or(Interpreter* interpreter, Value* value, ASTNode* pattern) {
+    if (!value || !pattern) return 0;
+    
+    return pattern_matches(interpreter, value, pattern->data.pattern_or.left) ||
+           pattern_matches(interpreter, value, pattern->data.pattern_or.right);
+}
+
+/**
+ * @brief Check if value matches an AND pattern
+ */
+static int pattern_matches_and(Interpreter* interpreter, Value* value, ASTNode* pattern) {
+    if (!value || !pattern) return 0;
+    
+    return pattern_matches(interpreter, value, pattern->data.pattern_and.left) &&
+           pattern_matches(interpreter, value, pattern->data.pattern_and.right);
+}
+
+/**
+ * @brief Check if value matches a range pattern
+ */
+static int pattern_matches_range(Interpreter* interpreter, Value* value, ASTNode* pattern) {
+    if (!value || !pattern || value->type != VALUE_NUMBER) return 0;
+    
+    Value start_val = eval_node(interpreter, pattern->data.pattern_range.start);
+    Value end_val = eval_node(interpreter, pattern->data.pattern_range.end);
+    
+    if (start_val.type != VALUE_NUMBER || end_val.type != VALUE_NUMBER) {
+        value_free(&start_val);
+        value_free(&end_val);
+        return 0;
+    }
+    
+    double val = value->data.number_value;
+    double start = start_val.data.number_value;
+    double end = end_val.data.number_value;
+    
+    value_free(&start_val);
+    value_free(&end_val);
+    
+    if (pattern->data.pattern_range.inclusive) {
+        return val >= start && val <= end;
+    } else {
+        return val >= start && val < end;
+    }
+}
+
+/**
+ * @brief Check if value matches a regex pattern
+ */
+static int pattern_matches_regex(Interpreter* interpreter, Value* value, ASTNode* pattern) {
+    if (!value || !pattern || value->type != VALUE_STRING) return 0;
+    
+    // For now, just check if it's a string (simplified regex matching)
+    // TODO: Implement actual regex matching
+    return 1;
 }

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 #include "../../include/utils/shared_utilities.h"
 
 // Forward declarations for helper functions
@@ -4830,4 +4831,304 @@ static const char* get_error_suggestion(const char* message, Token* token) {
     }
     
     return "Review the syntax around this location. Myco uses semicolons to separate statements and colons to start blocks.";
+}
+
+/**
+ * @brief Parse a pattern (enhanced pattern matching)
+ * 
+ * Patterns support type matching, destructuring, guards, and combinators:
+ * Int, String, {name: n, age: a}, [x, y, z], pattern when condition, pattern1 | pattern2
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the pattern
+ */
+ASTNode* parser_parse_pattern(Parser* parser) {
+    if (!parser) {
+        return NULL;
+    }
+    
+    // Parse pattern with OR precedence (lowest precedence)
+    return parser_parse_pattern_or(parser);
+}
+
+/**
+ * @brief Parse pattern OR (alternative patterns)
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the pattern
+ */
+static ASTNode* parser_parse_pattern_or(Parser* parser) {
+    ASTNode* left = parser_parse_pattern_and(parser);
+    
+    while (parser_check(parser, TOKEN_PIPE)) {
+        parser_advance(parser); // consume '|'
+        ASTNode* right = parser_parse_pattern_and(parser);
+        if (!right) {
+            ast_free(left);
+            return NULL;
+        }
+        left = ast_create_pattern_or(left, right, 0, 0);
+    }
+    
+    return left;
+}
+
+/**
+ * @brief Parse pattern AND (conjunctive patterns)
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the pattern
+ */
+static ASTNode* parser_parse_pattern_and(Parser* parser) {
+    ASTNode* left = parser_parse_pattern_not(parser);
+    
+    while (parser_check(parser, TOKEN_AMPERSAND)) {
+        parser_advance(parser); // consume '&'
+        ASTNode* right = parser_parse_pattern_not(parser);
+        if (!right) {
+            ast_free(left);
+            return NULL;
+        }
+        left = ast_create_pattern_and(left, right, 0, 0);
+    }
+    
+    return left;
+}
+
+/**
+ * @brief Parse pattern NOT (negation)
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the pattern
+ */
+static ASTNode* parser_parse_pattern_not(Parser* parser) {
+    if (parser_check(parser, TOKEN_EXCLAMATION)) {
+        parser_advance(parser); // consume '!'
+        ASTNode* pattern = parser_parse_pattern_primary(parser);
+        if (!pattern) {
+            return NULL;
+        }
+        return ast_create_pattern_not(pattern, 0, 0);
+    }
+    
+    return parser_parse_pattern_primary(parser);
+}
+
+/**
+ * @brief Parse primary pattern (base patterns)
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the pattern
+ */
+static ASTNode* parser_parse_pattern_primary(Parser* parser) {
+    if (!parser || !parser->current_token) {
+        return NULL;
+    }
+    
+    Token* token = parser->current_token;
+    
+    // Type pattern: Int, String, Array, etc.
+    if (token->type == TOKEN_IDENTIFIER && token->text) {
+        // Check if it's a type name (capitalized)
+        if (isupper(token->text[0])) {
+            parser_advance(parser);
+            return ast_create_pattern_type(token->text, 0, 0);
+        }
+    }
+    
+    // Wildcard pattern: _
+    if (token->type == TOKEN_UNDERSCORE) {
+        parser_advance(parser);
+        return ast_create_pattern_wildcard(0, 0);
+    }
+    
+    // Range pattern: start..end or start...end
+    if (token->type == TOKEN_NUMBER) {
+        ASTNode* start = parser_parse_expression(parser);
+        if (parser_check(parser, TOKEN_DOT_DOT)) {
+            parser_advance(parser); // consume '..'
+            int inclusive = 1;
+            if (parser_check(parser, TOKEN_DOT)) {
+                parser_advance(parser); // consume '.'
+                inclusive = 0; // exclusive range
+            }
+            ASTNode* end = parser_parse_expression(parser);
+            if (!end) {
+                ast_free(start);
+                return NULL;
+            }
+            return ast_create_pattern_range(start, end, inclusive, 0, 0);
+        }
+        return start; // Not a range, just a number
+    }
+    
+    // Regex pattern: /pattern/
+    if (token->type == TOKEN_SLASH) {
+        parser_advance(parser); // consume '/'
+        if (parser->current_token && parser->current_token->type == TOKEN_STRING) {
+            char* regex_pattern = strdup(parser->current_token->text);
+            parser_advance(parser);
+            if (!parser_check(parser, TOKEN_SLASH)) {
+                shared_free_safe(regex_pattern, "parser", "unknown_function", 0);
+                parser_error(parser, "Expected closing '/' for regex pattern");
+                return NULL;
+            }
+            parser_advance(parser); // consume closing '/'
+            return ast_create_pattern_regex(regex_pattern, 0, 0, 0);
+        }
+    }
+    
+    // Destructuring patterns: [a, b, c] or {name: n, age: a}
+    if (token->type == TOKEN_LEFT_BRACKET) {
+        return parser_parse_array_destructure(parser);
+    }
+    
+    if (token->type == TOKEN_LEFT_BRACE) {
+        return parser_parse_object_destructure(parser);
+    }
+    
+    // Guard pattern: pattern when condition
+    ASTNode* base_pattern = parser_parse_expression(parser);
+    if (base_pattern && parser_check(parser, TOKEN_KEYWORD) && 
+        parser->current_token->text && strcmp(parser->current_token->text, "when") == 0) {
+        parser_advance(parser); // consume 'when'
+        ASTNode* condition = parser_parse_expression(parser);
+        if (!condition) {
+            ast_free(base_pattern);
+            return NULL;
+        }
+        return ast_create_pattern_guard(base_pattern, condition, 0, 0);
+    }
+    
+    return base_pattern;
+}
+
+/**
+ * @brief Parse array destructuring pattern [a, b, c] or [head, ...tail]
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the pattern
+ */
+static ASTNode* parser_parse_array_destructure(Parser* parser) {
+    parser_advance(parser); // consume '['
+    
+    ASTNode** patterns = NULL;
+    size_t pattern_count = 0;
+    size_t pattern_capacity = 0;
+    
+    while (parser->current_token && parser->current_token->type != TOKEN_RIGHT_BRACKET) {
+        // Parse pattern element
+        ASTNode* pattern = parser_parse_pattern(parser);
+        if (!pattern) {
+            // Cleanup on error
+            for (size_t i = 0; i < pattern_count; i++) {
+                ast_free(patterns[i]);
+            }
+            shared_free_safe(patterns, "parser", "unknown_function", 0);
+            return NULL;
+        }
+        
+        // Resize array if needed
+        if (pattern_count >= pattern_capacity) {
+            pattern_capacity = pattern_capacity ? pattern_capacity * 2 : 4;
+            patterns = shared_realloc_safe(patterns, pattern_capacity * sizeof(ASTNode*), "parser", "unknown_function", 0);
+        }
+        
+        patterns[pattern_count++] = pattern;
+        
+        // Check for comma or end
+        if (parser_check(parser, TOKEN_COMMA)) {
+            parser_advance(parser); // consume ','
+        } else if (parser->current_token->type != TOKEN_RIGHT_BRACKET) {
+            parser_error(parser, "Expected ',' or ']' in array destructuring");
+            break;
+        }
+    }
+    
+    if (!parser_check(parser, TOKEN_RIGHT_BRACKET)) {
+        parser_error(parser, "Expected ']' to close array destructuring");
+        // Cleanup
+        for (size_t i = 0; i < pattern_count; i++) {
+            ast_free(patterns[i]);
+        }
+        shared_free_safe(patterns, "parser", "unknown_function", 0);
+        return NULL;
+    }
+    
+    parser_advance(parser); // consume ']'
+    return ast_create_pattern_destructure(patterns, pattern_count, 1, 0, 0);
+}
+
+/**
+ * @brief Parse object destructuring pattern {name: n, age: a}
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the pattern
+ */
+static ASTNode* parser_parse_object_destructure(Parser* parser) {
+    parser_advance(parser); // consume '{'
+    
+    ASTNode** patterns = NULL;
+    size_t pattern_count = 0;
+    size_t pattern_capacity = 0;
+    
+    while (parser->current_token && parser->current_token->type != TOKEN_RIGHT_BRACE) {
+        // Parse field pattern: name: pattern or name
+        if (parser->current_token->type != TOKEN_IDENTIFIER) {
+            parser_error(parser, "Expected field name in object destructuring");
+            break;
+        }
+        
+        char* field_name = strdup(parser->current_token->text);
+        parser_advance(parser);
+        
+        ASTNode* pattern;
+        if (parser_check(parser, TOKEN_COLON)) {
+            parser_advance(parser); // consume ':'
+            pattern = parser_parse_pattern(parser);
+        } else {
+            // Shorthand: {name} is equivalent to {name: name}
+            pattern = ast_create_identifier(field_name, 0, 0);
+        }
+        
+        if (!pattern) {
+            shared_free_safe(field_name, "parser", "unknown_function", 0);
+            // Cleanup on error
+            for (size_t i = 0; i < pattern_count; i++) {
+                ast_free(patterns[i]);
+            }
+            shared_free_safe(patterns, "parser", "unknown_function", 0);
+            return NULL;
+        }
+        
+        // Resize array if needed
+        if (pattern_count >= pattern_capacity) {
+            pattern_capacity = pattern_capacity ? pattern_capacity * 2 : 4;
+            patterns = shared_realloc_safe(patterns, pattern_capacity * sizeof(ASTNode*), "parser", "unknown_function", 0);
+        }
+        
+        patterns[pattern_count++] = pattern;
+        shared_free_safe(field_name, "parser", "unknown_function", 0);
+        
+        // Check for comma or end
+        if (parser_check(parser, TOKEN_COMMA)) {
+            parser_advance(parser); // consume ','
+        } else if (parser->current_token->type != TOKEN_RIGHT_BRACE) {
+            parser_error(parser, "Expected ',' or '}' in object destructuring");
+            break;
+        }
+    }
+    
+    if (!parser_check(parser, TOKEN_RIGHT_BRACE)) {
+        parser_error(parser, "Expected '}' to close object destructuring");
+        // Cleanup
+        for (size_t i = 0; i < pattern_count; i++) {
+            ast_free(patterns[i]);
+        }
+        shared_free_safe(patterns, "parser", "unknown_function", 0);
+        return NULL;
+    }
+    
+    parser_advance(parser); // consume '}'
+    return ast_create_pattern_destructure(patterns, pattern_count, 0, 0, 0);
 }

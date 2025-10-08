@@ -28,13 +28,13 @@
 
 // Release information
 #define MYCO_RELEASE_NAME "Async Await"
-#define MYCO_RELEASE_CODENAME "Fungus"
+#define MYCO_RELEASE_CODENAME NULL
 
 // Feature flags for version-specific capabilities
 #define MYCO_FEATURE_ASYNC_AWAIT 1
 #define MYCO_FEATURE_GENERICS 1
 #define MYCO_FEATURE_ENHANCED_REPL 1
-#define MYCO_FEATURE_PYTHON_ERRORS 1
+#define MYCO_FEATURE_ENHANCED_ERRORS 1
 #define MYCO_FEATURE_MEMORY_TRACKING 1
 
 // API version for compatibility checking

@@ -209,6 +209,12 @@ void math_library_register(Interpreter* interpreter) {
     // Create math object with constants and functions
     Value math_obj = value_create_object(32);
     
+    // Check if object creation was successful
+    if (math_obj.type != VALUE_OBJECT) {
+        // If object creation failed, return early to avoid segmentation fault
+        return;
+    }
+    
     // Add constants
     value_object_set(&math_obj, "Pi", value_create_number(MATH_PI));
     value_object_set(&math_obj, "E", value_create_number(MATH_E));

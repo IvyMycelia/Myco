@@ -38,4 +38,16 @@ int interpreter_has_exception(Interpreter* interpreter);
 ErrorInfo* interpreter_catch_exception(Interpreter* interpreter);
 void interpreter_clear_exception(Interpreter* interpreter);
 
+// Enhanced error handling functions
+void interpreter_report_error_comprehensive(Interpreter* interpreter, int error_code, const char* message, 
+                                          const char* file_name, int line, int column, const char* context);
+double safe_divide(double a, double b, Interpreter* interpreter, int line, int column);
+Value safe_array_access(Value* array, int index, Interpreter* interpreter, int line, int column);
+void* safe_malloc(size_t size, Interpreter* interpreter, const char* context, int line, int column);
+char* safe_strdup(const char* str, Interpreter* interpreter, const char* context, int line, int column);
+FILE* safe_fopen(const char* filename, const char* mode, Interpreter* interpreter, int line, int column);
+Value safe_object_access(Value* object, const char* property, Interpreter* interpreter, int line, int column);
+Value safe_arithmetic_operation(Value* left, Value* right, char operation, Interpreter* interpreter, int line, int column);
+Value safe_comparison_operation(Value* left, Value* right, char operation, Interpreter* interpreter, int line, int column);
+
 #endif // ERROR_HANDLING_H

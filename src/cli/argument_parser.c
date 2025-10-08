@@ -1,5 +1,6 @@
 #include "argument_parser.h"
 #include "../myco.h"
+#include "version.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -173,7 +174,7 @@ void print_usage(const char* program_name) {
 
 // Print version information
 void print_version(void) {
-    printf("Myco Language Interpreter v2.0\n");
+    myco_print_version_info();
     printf("Built on %s at %s\n", __DATE__, __TIME__);
     printf("Copyright (c) 2025 Myco Language Project\n");
 }

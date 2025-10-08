@@ -2,6 +2,7 @@
 #include "argument_parser.h"
 #include "file_processor.h"
 #include "repl.h"
+#include "version.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -78,7 +79,7 @@ int main(int argc, char* argv[]) {
 }
 
 static void print_banner(void) {
-    printf("Myco Language Interpreter v2.0\n");
+    myco_print_version_info();
     printf("================================\n");
     printf("A functional programming language inspired by fungi\n");
     printf("Built on %s at %s\n", __DATE__, __TIME__);

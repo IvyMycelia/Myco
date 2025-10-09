@@ -4,6 +4,7 @@
 #include "debug_system.h"
 #include "repl_debug.h"
 #include "macros.h"
+// #include "compile_time.h" // Temporarily disabled due to type system issues
 #include "shared_utilities.h"
 #include "libs/array.h"
 #include <stdlib.h>
@@ -86,6 +87,9 @@ Interpreter* interpreter_create(void) {
     // Macro system initialization
     interpreter->macro_expander = macro_expander_create();
     
+    // Compile-time evaluation initialization
+    // interpreter->compile_time_evaluator = compile_time_evaluator_create(); // Temporarily disabled
+    
     // Setup global env
     interpreter->global_environment = environment_create(NULL);
     interpreter->current_environment = interpreter->global_environment;
@@ -122,6 +126,11 @@ void interpreter_free(Interpreter* interpreter) {
         if (interpreter->macro_expander) {
             macro_expander_free(interpreter->macro_expander);
         }
+        
+        // Clean up compile-time evaluator
+        // if (interpreter->compile_time_evaluator) {
+        //     compile_time_evaluator_free(interpreter->compile_time_evaluator);
+        // }
         
         if (interpreter->global_environment) {
             environment_free(interpreter->global_environment);
@@ -3938,6 +3947,25 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 value_free(&v);
                 return result;
             }
+            
+            // Check if this is a macro call first
+            if (interpreter->macro_expander && macro_is_defined(interpreter->macro_expander, func_name)) {
+                // This is a macro call - expand it
+                ASTNode* expanded = macro_expand(interpreter->macro_expander,
+                    func_name,
+                    node->data.function_call.arguments,
+                    node->data.function_call.argument_count);
+                
+                if (expanded) {
+                    // Evaluate the expanded macro
+                    Value result = eval_node(interpreter, expanded);
+                    return result;
+                } else {
+                    interpreter_set_error(interpreter, "Failed to expand macro", node->line, node->column);
+                    return value_create_null();
+                }
+            }
+            
             // Look up function in environment
             Value fn = environment_get(interpreter->current_environment, func_name);
             
@@ -5735,7 +5763,8 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
         }
         
         case AST_NODE_COMPTIME_EVAL: {
-            // Evaluate the expression at compile time
+            // For now, just evaluate at runtime
+            // TODO: Implement proper compile-time evaluation once type issues are resolved
             Value result = eval_node(interpreter, node->data.comptime_eval.expression);
             
             // Mark as evaluated

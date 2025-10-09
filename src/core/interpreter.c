@@ -5450,30 +5450,6 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 }
                 
                 return value_create_null();
-            } else if (strcmp(library_name, "string") == 0) {
-                // String library is no longer imported - methods are called directly on strings
-                interpreter_set_error(interpreter, "String library import is no longer supported. Use string.method() syntax instead.", node->line, node->column);
-                return value_create_null();
-            } else if (strcmp(library_name, "array") == 0) {
-                // Array library is no longer imported - methods are called directly on arrays
-                interpreter_set_error(interpreter, "Array library import is no longer supported. Use array.method() syntax instead.", node->line, node->column);
-                return value_create_null();
-            } else if (strcmp(library_name, "sets") == 0) {
-                // Sets library is no longer imported - methods are called directly on sets
-                interpreter_set_error(interpreter, "Sets library import is no longer supported. Use set.method() syntax instead.", node->line, node->column);
-                return value_create_null();
-            } else if (strcmp(library_name, "graphs") == 0) {
-                // Graphs library is no longer imported - methods are called directly on graphs
-                interpreter_set_error(interpreter, "Graphs library import is no longer supported. Use graph.method() syntax instead.", node->line, node->column);
-                return value_create_null();
-            } else if (strcmp(library_name, "heaps") == 0) {
-                // Heaps library is no longer imported - methods are called directly on heaps
-                interpreter_set_error(interpreter, "Heaps library import is no longer supported. Use heap.method() syntax instead.", node->line, node->column);
-                return value_create_null();
-            } else if (strcmp(library_name, "queues") == 0) {
-                // Queues library is no longer imported - methods are called directly on queues
-                interpreter_set_error(interpreter, "Queues library import is no longer supported. Use queue.method() syntax instead.", node->line, node->column);
-                return value_create_null();
             } else if (strcmp(library_name, "file") == 0) {
                 // Handle file library
                 if (specific_items && item_count > 0) {

@@ -286,6 +286,10 @@ void graphs_library_register(Interpreter* interpreter) {
     Value graphs_obj = value_create_object(16);
     value_object_set(&graphs_obj, "create", value_create_builtin_function(builtin_graph_create));
     value_object_set(&graphs_obj, "isEmpty", value_create_builtin_function(builtin_graph_is_empty));
+    value_object_set(&graphs_obj, "size", value_create_builtin_function(builtin_graph_size));
+    value_object_set(&graphs_obj, "add_node", value_create_builtin_function(builtin_graph_add_node));
+    value_object_set(&graphs_obj, "add_edge", value_create_builtin_function(builtin_graph_add_edge));
+    value_object_set(&graphs_obj, "clear", value_create_builtin_function(builtin_graph_clear));
     
     // Register the graphs object
     environment_define(interpreter->global_environment, "graphs", graphs_obj);

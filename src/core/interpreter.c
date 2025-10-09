@@ -5408,9 +5408,6 @@ void interpreter_set_error(Interpreter* interpreter, const char* message, int li
     
     // Display the error immediately
     printf("Error: %s at line %d, column %d\n", message, line, column);
-    
-    // Set a flag to stop execution
-    interpreter->should_stop = 1;
 }
 
 void interpreter_clear_error(Interpreter* interpreter) {

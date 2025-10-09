@@ -863,7 +863,7 @@ Value handle_graph_method_call(Interpreter* interpreter, ASTNode* call_node, con
         result = builtin_graph_add_edge(interpreter, args, arg_count + 1, call_node->line, call_node->column);
     } else if (strcmp(method_name, "size") == 0) {
         result = builtin_graph_size(interpreter, args, arg_count + 1, call_node->line, call_node->column);
-    } else if (strcmp(method_name, "is_empty") == 0) {
+    } else if (strcmp(method_name, "is_empty") == 0 || strcmp(method_name, "isEmpty") == 0) {
         result = builtin_graph_is_empty(interpreter, args, arg_count + 1, call_node->line, call_node->column);
     } else if (strcmp(method_name, "clear") == 0) {
         result = builtin_graph_clear(interpreter, args, arg_count + 1, call_node->line, call_node->column);
@@ -4779,6 +4779,93 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 }
                 value_free(&object);
                 return result;
+            }
+            
+            // Handle graph object property access
+            if (object.type == VALUE_OBJECT) {
+                // Check if this is a Graph object by looking for the __class_name__ field
+                Value class_name_val = value_object_get(&object, "__class_name__");
+                bool is_graph = (class_name_val.type == VALUE_STRING && 
+                               class_name_val.data.string_value && 
+                               strcmp(class_name_val.data.string_value, "Graph") == 0);
+                value_free(&class_name_val);
+                
+                if (is_graph) {
+                    if (strcmp(member_name, "isEmpty") == 0) {
+                        // Call graphs.isEmpty with this graph object
+                        Value graphs_lib = environment_get(interpreter->global_environment, "graphs");
+                        if (graphs_lib.type == VALUE_OBJECT) {
+                            Value is_empty_func = value_object_get(&graphs_lib, "isEmpty");
+                            if (is_empty_func.type == VALUE_FUNCTION) {
+                                Value args[1] = {object};
+                                Value result = value_function_call(&is_empty_func, args, 1, interpreter, node->line, node->column);
+                                value_free(&is_empty_func);
+                                value_free(&graphs_lib);
+                                return result;
+                            }
+                            value_free(&is_empty_func);
+                        }
+                        value_free(&graphs_lib);
+                    }
+                    if (strcmp(member_name, "size") == 0) {
+                        // Call graphs.size with this graph object
+                        Value graphs_lib = environment_get(interpreter->global_environment, "graphs");
+                        if (graphs_lib.type == VALUE_OBJECT) {
+                            Value size_func = value_object_get(&graphs_lib, "size");
+                            if (size_func.type == VALUE_FUNCTION) {
+                                Value args[1] = {object};
+                                Value result = value_function_call(&size_func, args, 1, interpreter, node->line, node->column);
+                                value_free(&size_func);
+                                value_free(&graphs_lib);
+                                return result;
+                            }
+                            value_free(&size_func);
+                        }
+                        value_free(&graphs_lib);
+                    }
+                    if (strcmp(member_name, "add_node") == 0) {
+                        // Return a function that calls graphs.add_node with this graph object
+                        Value graphs_lib = environment_get(interpreter->global_environment, "graphs");
+                        if (graphs_lib.type == VALUE_OBJECT) {
+                            Value add_node_func = value_object_get(&graphs_lib, "add_node");
+                            if (add_node_func.type == VALUE_FUNCTION) {
+                                // For now, just return the function - the caller will need to pass the graph object
+                                value_free(&graphs_lib);
+                                return add_node_func;
+                            }
+                            value_free(&add_node_func);
+                        }
+                        value_free(&graphs_lib);
+                    }
+                    if (strcmp(member_name, "add_edge") == 0) {
+                        // Return a function that calls graphs.add_edge with this graph object
+                        Value graphs_lib = environment_get(interpreter->global_environment, "graphs");
+                        if (graphs_lib.type == VALUE_OBJECT) {
+                            Value add_edge_func = value_object_get(&graphs_lib, "add_edge");
+                            if (add_edge_func.type == VALUE_FUNCTION) {
+                                // For now, just return the function - the caller will need to pass the graph object
+                                value_free(&graphs_lib);
+                                return add_edge_func;
+                            }
+                            value_free(&add_edge_func);
+                        }
+                        value_free(&graphs_lib);
+                    }
+                    if (strcmp(member_name, "clear") == 0) {
+                        // Return a function that calls graphs.clear with this graph object
+                        Value graphs_lib = environment_get(interpreter->global_environment, "graphs");
+                        if (graphs_lib.type == VALUE_OBJECT) {
+                            Value clear_func = value_object_get(&graphs_lib, "clear");
+                            if (clear_func.type == VALUE_FUNCTION) {
+                                // For now, just return the function - the caller will need to pass the graph object
+                                value_free(&graphs_lib);
+                                return clear_func;
+                            }
+                            value_free(&clear_func);
+                        }
+                        value_free(&graphs_lib);
+                    }
+                }
             }
             
             // Handle different object types

@@ -3,6 +3,7 @@
 
 #include "ast.h"
 #include "jit_compiler.h"
+// #include "compile_time.h" // Temporarily disabled due to type system issues
 #include <stddef.h>
 #include <stdint.h>
 
@@ -170,6 +171,9 @@ typedef struct {
     
     // Macro system support
     struct MacroExpander* macro_expander;
+    
+    // Compile-time evaluation support
+    struct CompileTimeEvaluator* compile_time_evaluator;
 } Interpreter;
 
 // Interpreter initialization and cleanup

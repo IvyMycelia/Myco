@@ -29,6 +29,14 @@
 // Forward declarations
 struct Interpreter;
 
+// Variable mapping for hygenic expansion
+typedef struct VariableMapping {
+    char** original_names;
+    char** new_names;
+    size_t count;
+    size_t capacity;
+} VariableMapping;
+
 // Macro definition structure
 typedef struct MacroDefinition {
     char* name;                    // Macro name
@@ -195,5 +203,57 @@ void macro_definition_free(MacroDefinition* macro);
  * @param rule Expansion rule to free
  */
 void expansion_rule_free(ExpansionRule* rule);
+
+// ============================================================================
+// HYGENIC EXPANSION FUNCTIONS
+// ============================================================================
+
+/**
+ * @brief Create a variable mapping for hygenic expansion
+ * 
+ * @return A pointer to the variable mapping, or NULL if allocation failed
+ */
+VariableMapping* variable_mapping_create(void);
+
+/**
+ * @brief Free a variable mapping
+ * 
+ * @param mapping The variable mapping to free
+ */
+void variable_mapping_free(VariableMapping* mapping);
+
+/**
+ * @brief Get or create a mapping for a variable
+ * 
+ * @param mapping The variable mapping
+ * @param original_name The original variable name
+ * @param prefix The prefix for the new name
+ * @return The new variable name, or NULL if allocation failed
+ */
+char* variable_mapping_get_or_create(VariableMapping* mapping, const char* original_name, const char* prefix);
+
+/**
+ * @brief Recursively perform hygenic expansion
+ * 
+ * @param node The AST node to expand
+ * @param mapping The variable mapping
+ * @param prefix The prefix for new variable names
+ * @return The expanded AST node
+ */
+ASTNode* macro_hygenic_expand_recursive(ASTNode* node, VariableMapping* mapping, const char* prefix);
+
+/**
+ * @brief Recursively substitute parameters in AST nodes
+ * 
+ * @param node The AST node to process
+ * @param parameters Parameter names
+ * @param param_count Number of parameters
+ * @param arguments Argument ASTs
+ * @param arg_count Number of arguments
+ * @return The processed AST node
+ */
+ASTNode* macro_substitute_parameters_recursive(ASTNode* node, char** parameters, 
+                                              size_t param_count, ASTNode** arguments, 
+                                              size_t arg_count);
 
 #endif // MYCO_MACROS_H

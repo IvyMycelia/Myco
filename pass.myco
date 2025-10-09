@@ -2967,7 +2967,7 @@ let typed: TypedMethodClass = TypedMethodClass(5);
 # Test that typed methods work
 let incremented = typed.increment();
 let class_name = typed.getName();
-if typed.type() == "TypedMethodClass" and incremented == 6 and class_name == "TypedMethodClass":
+if typed.type == "TypedMethodClass" and incremented == 6 and class_name == "TypedMethodClass":
     print("✓ Class with typed methods");
     tests_passed = tests_passed + 1;
 else:

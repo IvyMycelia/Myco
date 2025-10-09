@@ -5365,7 +5365,7 @@ ASTNode* parser_parse_macro_definition(Parser* parser) {
         parser_error(parser, "Expected 'end' to close macro definition");
     }
     
-    return ast_create_macro_definition(macro_name, parameters, param_count, body, 1, 0, 0);
+    return ast_create_macro_definition(macro_name, parameters, param_count, body, 0, 0, 0);
 }
 
 /**

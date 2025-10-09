@@ -285,6 +285,7 @@ void graphs_library_register(Interpreter* interpreter) {
     // Create graphs object with factory functions
     Value graphs_obj = value_create_object(16);
     value_object_set(&graphs_obj, "create", value_create_builtin_function(builtin_graph_create));
+    value_object_set(&graphs_obj, "isEmpty", value_create_builtin_function(builtin_graph_is_empty));
     
     // Register the graphs object
     environment_define(interpreter->global_environment, "graphs", graphs_obj);

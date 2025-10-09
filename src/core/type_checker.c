@@ -980,9 +980,6 @@ int type_check_ast(TypeCheckerContext* context, ASTNode* node) {
 int type_check_statement(TypeCheckerContext* context, ASTNode* node) {
     if (!context || !node) return 0;
     
-    // Debug: Print the statement type
-    printf("DEBUG: Type checking statement type: %d\n", node->type);
-    
     switch (node->type) {
         case AST_NODE_VARIABLE_DECLARATION:
             return type_check_variable_declaration(context, node);
@@ -995,7 +992,6 @@ int type_check_statement(TypeCheckerContext* context, ASTNode* node) {
         case AST_NODE_BLOCK:
             return type_check_block(context, node);
         default:
-            printf("DEBUG: Unsupported statement type: %d\n", node->type);
             return 1; // Skip unsupported statement types for now
     }
 }
@@ -1487,39 +1483,23 @@ TypeInference* type_infer_expression_enhanced(TypeCheckerContext* context, ASTNo
     MycoType* basic_type = type_infer_expression(context, node);
     if (!basic_type) return NULL;
     
-    // Calculate confidence based on context
-    int confidence = 100; // Start with high confidence
+    // Enhanced confidence calculation
+    int confidence = type_calculate_confidence(context, node, basic_type);
     
-    // Reduce confidence for ambiguous cases
-    if (node->type == AST_NODE_BINARY_OP) {
-        // Binary operations might be ambiguous
-        if (node->data.binary.op == OP_ADD) {
-            confidence = 85; // String concatenation vs arithmetic
-        } else if (node->data.binary.op == OP_EQUAL) {
-            confidence = 95; // Equality is usually clear
-        }
-    } else if (node->type == AST_NODE_FUNCTION_CALL) {
-        confidence = 90; // Function calls have some uncertainty
-    } else if (node->type == AST_NODE_NUMBER || node->type == AST_NODE_STRING || 
-               node->type == AST_NODE_BOOL || node->type == AST_NODE_NULL) {
-        confidence = 100; // Literals are always certain
+    // Enhanced ambiguity detection
+    int is_ambiguous = type_detect_ambiguity(context, node, basic_type);
+    
+    // Create enhanced inference with constraints
+    TypeInference* inference = type_inference_create(basic_type, confidence, is_ambiguous);
+    if (!inference) {
+        type_free(basic_type);
+        return NULL;
     }
     
-    // Check for ambiguity
-    int is_ambiguous = 0;
-    if (node->type == AST_NODE_BINARY_OP && node->data.binary.op == OP_ADD) {
-        // Check if both operands could be strings or numbers
-        MycoType* left_type = type_infer_expression(context, node->data.binary.left);
-        MycoType* right_type = type_infer_expression(context, node->data.binary.right);
-        
-        if ((left_type && (left_type->kind == TYPE_STRING || left_type->kind == TYPE_ANY)) &&
-            (right_type && (right_type->kind == TYPE_STRING || right_type->kind == TYPE_ANY))) {
-            is_ambiguous = 1;
-            confidence = 70; // Lower confidence for ambiguous cases
-        }
-    }
+    // Add contextual constraints
+    type_add_contextual_constraints(inference, context, node);
     
-    return type_inference_create(basic_type, confidence, is_ambiguous);
+    return inference;
 }
 
 int type_infer_with_confidence(TypeCheckerContext* context, ASTNode* node, int* confidence) {
@@ -1687,4 +1667,266 @@ int generic_constraint_satisfies(MycoType* type, MycoType* constraint) {
     }
     
     return type_is_compatible(constraint, type);
+}
+
+// Enhanced Type Inference Engine Helper Functions
+
+int type_calculate_confidence(TypeCheckerContext* context, ASTNode* node, MycoType* inferred_type) {
+    if (!context || !node || !inferred_type) return 0;
+    
+    int confidence = 100; // Start with maximum confidence
+    
+    // Literal types are always certain
+    if (node->type == AST_NODE_NUMBER || node->type == AST_NODE_STRING || 
+        node->type == AST_NODE_BOOL || node->type == AST_NODE_NULL) {
+        return 100;
+    }
+    
+    // Identifier confidence depends on context
+    if (node->type == AST_NODE_IDENTIFIER) {
+        // Check if variable is explicitly typed
+        MycoType* declared_type = type_environment_lookup_variable(context->current_environment, 
+                                                                  node->data.identifier_value);
+        if (declared_type && declared_type->kind != TYPE_ANY) {
+            confidence = 95; // High confidence for explicitly typed variables
+        } else {
+            confidence = 80; // Lower confidence for inferred types
+        }
+        type_free(declared_type);
+    }
+    
+    // Binary operations have varying confidence
+    if (node->type == AST_NODE_BINARY_OP) {
+        switch (node->data.binary.op) {
+            case OP_ADD:
+                // Addition can be string concatenation or arithmetic
+                confidence = type_calculate_add_confidence(context, node);
+                break;
+            case OP_SUBTRACT:
+            case OP_MULTIPLY:
+            case OP_DIVIDE:
+                // Arithmetic operations are usually clear
+                confidence = 90;
+                break;
+            case OP_EQUAL:
+            case OP_NOT_EQUAL:
+                // Equality operations are usually clear
+                confidence = 95;
+                break;
+            case OP_LESS_THAN:
+            case OP_GREATER_THAN:
+            case OP_LESS_EQUAL:
+            case OP_GREATER_EQUAL:
+                // Comparison operations are usually clear
+                confidence = 90;
+                break;
+            default:
+                confidence = 85;
+                break;
+        }
+    }
+    
+    // Function calls have moderate confidence
+    if (node->type == AST_NODE_FUNCTION_CALL || node->type == AST_NODE_FUNCTION_CALL_EXPR) {
+        confidence = 85; // Function return types can be uncertain
+    }
+    
+    // Array operations
+    if (node->type == AST_NODE_ARRAY_LITERAL) {
+        confidence = 90; // Array literals are usually clear
+    }
+    
+    // Member access
+    if (node->type == AST_NODE_MEMBER_ACCESS) {
+        confidence = 80; // Property access can be uncertain
+    }
+    
+    // Reduce confidence for TYPE_ANY
+    if (inferred_type->kind == TYPE_ANY) {
+        confidence = (int)(confidence * 0.7); // Reduce by 30%
+    }
+    
+    return confidence;
+}
+
+int type_calculate_add_confidence(TypeCheckerContext* context, ASTNode* node) {
+    if (!context || !node || node->type != AST_NODE_BINARY_OP) return 50;
+    
+    MycoType* left_type = type_infer_expression(context, node->data.binary.left);
+    MycoType* right_type = type_infer_expression(context, node->data.binary.right);
+    
+    if (!left_type || !right_type) {
+        type_free(left_type);
+        type_free(right_type);
+        return 50;
+    }
+    
+    int confidence = 50; // Start with low confidence for ambiguous cases
+    
+    // Both operands are clearly numeric
+    if ((left_type->kind == TYPE_INT || left_type->kind == TYPE_FLOAT) &&
+        (right_type->kind == TYPE_INT || right_type->kind == TYPE_FLOAT)) {
+        confidence = 95;
+    }
+    // Both operands are clearly strings
+    else if (left_type->kind == TYPE_STRING && right_type->kind == TYPE_STRING) {
+        confidence = 95;
+    }
+    // One is string, one is number - likely string concatenation
+    else if ((left_type->kind == TYPE_STRING && (right_type->kind == TYPE_INT || right_type->kind == TYPE_FLOAT)) ||
+             (right_type->kind == TYPE_STRING && (left_type->kind == TYPE_INT || left_type->kind == TYPE_FLOAT))) {
+        confidence = 90;
+    }
+    // One or both are TYPE_ANY - ambiguous
+    else if (left_type->kind == TYPE_ANY || right_type->kind == TYPE_ANY) {
+        confidence = 60;
+    }
+    
+    type_free(left_type);
+    type_free(right_type);
+    return confidence;
+}
+
+int type_detect_ambiguity(TypeCheckerContext* context, ASTNode* node, MycoType* inferred_type) {
+    if (!context || !node || !inferred_type) return 0;
+    
+    // Binary operations can be ambiguous
+    if (node->type == AST_NODE_BINARY_OP) {
+        if (node->data.binary.op == OP_ADD) {
+            return type_detect_add_ambiguity(context, node);
+        }
+    }
+    
+    // Function calls can be ambiguous if overloaded
+    if (node->type == AST_NODE_FUNCTION_CALL || node->type == AST_NODE_FUNCTION_CALL_EXPR) {
+        return type_detect_function_ambiguity(context, node);
+    }
+    
+    // TYPE_ANY is inherently ambiguous
+    if (inferred_type->kind == TYPE_ANY) {
+        return 1;
+    }
+    
+    return 0;
+}
+
+int type_detect_add_ambiguity(TypeCheckerContext* context, ASTNode* node) {
+    if (!context || !node || node->type != AST_NODE_BINARY_OP) return 0;
+    
+    MycoType* left_type = type_infer_expression(context, node->data.binary.left);
+    MycoType* right_type = type_infer_expression(context, node->data.binary.right);
+    
+    if (!left_type || !right_type) {
+        type_free(left_type);
+        type_free(right_type);
+        return 0;
+    }
+    
+    // Ambiguous if both operands could be strings or numbers
+    int left_ambiguous = (left_type->kind == TYPE_ANY || 
+                         (left_type->kind == TYPE_STRING || left_type->kind == TYPE_INT || left_type->kind == TYPE_FLOAT));
+    int right_ambiguous = (right_type->kind == TYPE_ANY || 
+                          (right_type->kind == TYPE_STRING || right_type->kind == TYPE_INT || right_type->kind == TYPE_FLOAT));
+    
+    type_free(left_type);
+    type_free(right_type);
+    
+    return left_ambiguous && right_ambiguous;
+}
+
+int type_detect_function_ambiguity(TypeCheckerContext* context, ASTNode* node) {
+    if (!context || !node) return 0;
+    
+    // For now, assume function calls are not ambiguous
+    // In a more sophisticated system, this would check for function overloads
+    return 0;
+}
+
+void type_add_contextual_constraints(TypeInference* inference, TypeCheckerContext* context, ASTNode* node) {
+    if (!inference || !context || !node) return;
+    
+    // Add constraints based on context
+    if (node->type == AST_NODE_BINARY_OP) {
+        type_add_binary_op_constraints(inference, context, node);
+    } else if (node->type == AST_NODE_FUNCTION_CALL || node->type == AST_NODE_FUNCTION_CALL_EXPR) {
+        type_add_function_call_constraints(inference, context, node);
+    } else if (node->type == AST_NODE_ARRAY_LITERAL) {
+        type_add_array_constraints(inference, context, node);
+    }
+}
+
+void type_add_binary_op_constraints(TypeInference* inference, TypeCheckerContext* context, ASTNode* node) {
+    if (!inference || !context || !node || node->type != AST_NODE_BINARY_OP) return;
+    
+    // Add constraints based on operator type
+    switch (node->data.binary.op) {
+        case OP_ADD:
+            // Addition result type depends on operand types
+            type_add_constraint(inference, "result_type", inference->type, 1);
+            break;
+        case OP_EQUAL:
+        case OP_NOT_EQUAL:
+            // Equality operations always return boolean
+            type_add_constraint(inference, "result_type", type_create(TYPE_BOOL, node->line, node->column), 1);
+            break;
+        case OP_LESS_THAN:
+        case OP_GREATER_THAN:
+        case OP_LESS_EQUAL:
+        case OP_GREATER_EQUAL:
+            // Comparison operations always return boolean
+            type_add_constraint(inference, "result_type", type_create(TYPE_BOOL, node->line, node->column), 1);
+            break;
+        default:
+            break;
+    }
+}
+
+void type_add_function_call_constraints(TypeInference* inference, TypeCheckerContext* context, ASTNode* node) {
+    if (!inference || !context || !node) return;
+    
+    // Add constraints based on function name and arguments
+    const char* func_name = node->data.function_call.function_name;
+    if (func_name) {
+        // Add function-specific constraints
+        if (strcmp(func_name, "print") == 0) {
+            type_add_constraint(inference, "return_type", type_create(TYPE_NULL, node->line, node->column), 1);
+        } else if (strcmp(func_name, "length") == 0 || strcmp(func_name, "size") == 0) {
+            type_add_constraint(inference, "return_type", type_create(TYPE_INT, node->line, node->column), 1);
+        }
+    }
+}
+
+void type_add_array_constraints(TypeInference* inference, TypeCheckerContext* context, ASTNode* node) {
+    if (!inference || !context || !node || node->type != AST_NODE_ARRAY_LITERAL) return;
+    
+    // Add constraints for array element types
+    if (node->data.array_literal.element_count > 0) {
+        // Find common element type
+        MycoType* common_type = NULL;
+        for (size_t i = 0; i < node->data.array_literal.element_count; i++) {
+            MycoType* element_type = type_infer_expression(context, node->data.array_literal.elements[i]);
+            if (element_type) {
+                if (!common_type) {
+                    common_type = type_clone(element_type);
+                } else {
+                    MycoType* new_common = type_find_common_type(common_type, element_type);
+                    type_free(common_type);
+                    common_type = new_common;
+                }
+                type_free(element_type);
+            }
+        }
+        
+        if (common_type) {
+            type_add_constraint(inference, "element_type", common_type, 1);
+        }
+    }
+}
+
+void type_add_constraint(TypeInference* inference, const char* name, MycoType* type, int is_required) {
+    if (!inference || !name || !type) return;
+    
+    // For now, we'll skip adding constraints since TypeInference doesn't have constraint_capacity
+    // In a full implementation, we would expand the constraints array here
+    // This is a placeholder for the constraint system
 }

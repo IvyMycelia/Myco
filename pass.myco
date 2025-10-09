@@ -1265,13 +1265,13 @@ else:
 end
 
 total_tests = total_tests + 1;
-let graph_is_empty = test_graph.is_empty();
+let graph_is_empty = test_graph.isEmpty();
 if graph_is_empty == True:
-    print("✓ graphs.is_empty() returns correct initial state");
+    print("✓ graphs.isEmpty() returns correct initial state");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ graphs.is_empty() failed");
-    tests_failed = tests_failed + ["graphs.is_empty()"];
+    print("✗ graphs.isEmpty() failed");
+    tests_failed = tests_failed + ["graphs.isEmpty()"];
 end
 
 total_tests = total_tests + 1;
@@ -3380,70 +3380,70 @@ else:
     tests_failed = tests_failed + ["regex.test() non-existing"];
 end
 
-# Test regex.is_email() - valid email
+# Test regex.isEmail() - valid email
 total_tests = total_tests + 1;
-let valid_email = regex.is_email("test@example.com");
+let valid_email = regex.isEmail("test@example.com");
 if valid_email == True:
-    print("✓ regex.is_email() works for valid email");
+    print("✓ regex.isEmail() works for valid email");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ regex.is_email() failed for valid email");
-    tests_failed = tests_failed + ["regex.is_email() valid"];
+    print("✗ regex.isEmail() failed for valid email");
+    tests_failed = tests_failed + ["regex.isEmail() valid"];
 end
 
-# Test regex.is_email() - invalid email
+# Test regex.isEmail() - invalid email
 total_tests = total_tests + 1;
-let invalid_email = regex.is_email("not-an-email");
+let invalid_email = regex.isEmail("not-an-email");
 if invalid_email == False:
-    print("✓ regex.is_email() works for invalid email");
+    print("✓ regex.isEmail() works for invalid email");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ regex.is_email() failed for invalid email");
-    tests_failed = tests_failed + ["regex.is_email() invalid"];
+    print("✗ regex.isEmail() failed for invalid email");
+    tests_failed = tests_failed + ["regex.isEmail() invalid"];
 end
 
-# Test regex.is_url() - valid URL
+# Test regex.isUrl() - valid URL
 total_tests = total_tests + 1;
-let valid_url = regex.is_url("https://example.com");
+let valid_url = regex.isUrl("https://example.com");
 if valid_url == True:
-    print("✓ regex.is_url() works for valid URL");
+    print("✓ regex.isUrl() works for valid URL");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ regex.is_url() failed for valid URL");
-    tests_failed = tests_failed + ["regex.is_url() valid"];
+    print("✗ regex.isUrl() failed for valid URL");
+    tests_failed = tests_failed + ["regex.isUrl() valid"];
 end
 
-# Test regex.is_url() - invalid URL
+# Test regex.isUrl() - invalid URL
 total_tests = total_tests + 1;
-let invalid_url = regex.is_url("not-a-url");
+let invalid_url = regex.isUrl("not-a-url");
 if invalid_url == False:
-    print("✓ regex.is_url() works for invalid URL");
+    print("✓ regex.isUrl() works for invalid URL");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ regex.is_url() failed for invalid URL");
-    tests_failed = tests_failed + ["regex.is_url() invalid"];
+    print("✗ regex.isUrl() failed for invalid URL");
+    tests_failed = tests_failed + ["regex.isUrl() invalid"];
 end
 
-# Test regex.is_ip() - valid IP
+# Test regex.isIp() - valid IP
 total_tests = total_tests + 1;
-let valid_ip = regex.is_ip("192.168.1.1");
+let valid_ip = regex.isIp("192.168.1.1");
 if valid_ip == True:
-    print("✓ regex.is_ip() works for valid IP");
+    print("✓ regex.isIp() works for valid IP");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ regex.is_ip() failed for valid IP");
-    tests_failed = tests_failed + ["regex.is_ip() valid"];
+    print("✗ regex.isIp() failed for valid IP");
+    tests_failed = tests_failed + ["regex.isIp() valid"];
 end
 
-# Test regex.is_ip() - invalid IP
+# Test regex.isIp() - invalid IP
 total_tests = total_tests + 1;
-let invalid_ip = regex.is_ip("not-an-ip");
+let invalid_ip = regex.isIp("not-an-ip");
 if invalid_ip == False:
-    print("✓ regex.is_ip() works for invalid IP");
+    print("✓ regex.isIp() works for invalid IP");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ regex.is_ip() failed for invalid IP");
-    tests_failed = tests_failed + ["regex.is_ip() invalid"];
+    print("✗ regex.isIp() failed for invalid IP");
+    tests_failed = tests_failed + ["regex.isIp() invalid"];
 end
 
 # Test regex flags - CASE_INSENSITIVE
@@ -3514,10 +3514,10 @@ end
 
 # Test multiple email formats
 total_tests = total_tests + 1;
-let email1 = regex.is_email("user@domain.com");
-let email2 = regex.is_email("test.email+tag@example.co.uk");
-let email3 = regex.is_email("invalid@");
-let email4 = regex.is_email("@domain.com");
+let email1 = regex.isEmail("user@domain.com");
+let email2 = regex.isEmail("test.email+tag@example.co.uk");
+let email3 = regex.isEmail("invalid@");
+let email4 = regex.isEmail("@domain.com");
 if email1 == True and email2 == True and email3 == False and email4 == False:
     print("✓ Multiple email format validation works");
     tests_passed = tests_passed + 1;
@@ -3528,10 +3528,10 @@ end
 
 # Test multiple URL formats
 total_tests = total_tests + 1;
-let url1 = regex.is_url("http://example.com");
-let url2 = regex.is_url("https://www.example.com/path");
-let url3 = regex.is_url("ftp://files.example.com");
-let url4 = regex.is_url("not-a-url");
+let url1 = regex.isUrl("http://example.com");
+let url2 = regex.isUrl("https://www.example.com/path");
+let url3 = regex.isUrl("ftp://files.example.com");
+let url4 = regex.isUrl("not-a-url");
 if url1 == True and url2 == True and url3 == True and url4 == False:
     print("✓ Multiple URL format validation works");
     tests_passed = tests_passed + 1;
@@ -3542,10 +3542,10 @@ end
 
 # Test multiple IP formats
 total_tests = total_tests + 1;
-let ip1 = regex.is_ip("192.168.1.1");
-let ip2 = regex.is_ip("10.0.0.1");
-let ip3 = regex.is_ip("255.255.255.255");
-let ip4 = regex.is_ip("999.999.999.999");
+let ip1 = regex.isIp("192.168.1.1");
+let ip2 = regex.isIp("10.0.0.1");
+let ip3 = regex.isIp("255.255.255.255");
+let ip4 = regex.isIp("999.999.999.999");
 if ip1 == True and ip2 == True and ip3 == True and ip4 == False:
     print("✓ Multiple IP format validation works");
     tests_passed = tests_passed + 1;
@@ -3681,18 +3681,18 @@ else:
     tests_failed = tests_failed + ["json.size() arrays"];
 end
 
-# Test json.is_empty() - arrays
+# Test json.isEmpty() - arrays
 total_tests = total_tests + 1;
 let empty_array = [];
 let non_empty_array = [1, 2, 3];
-let empty_check = json.is_empty(empty_array);
-let non_empty_check = json.is_empty(non_empty_array);
+let empty_check = json.isEmpty(empty_array);
+let non_empty_check = json.isEmpty(non_empty_array);
 if empty_check == True and non_empty_check == False:
-    print("✓ json.is_empty() works for arrays");
+    print("✓ json.isEmpty() works for arrays");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ json.is_empty() failed for arrays");
-    tests_failed = tests_failed + ["json.is_empty() arrays"];
+    print("✗ json.isEmpty() failed for arrays");
+    tests_failed = tests_failed + ["json.isEmpty() arrays"];
 end
 
 # Test json.parse() - basic functionality
@@ -3787,37 +3787,37 @@ else:
     tests_failed = tests_failed + ["HTTP response properties"];
 end
 
-# Test http.status_ok() - check if status is successful
+# Test http.statusOk() - check if status is successful
 total_tests = total_tests + 1;
-let status_ok = http.status_ok(get_response);
+let status_ok = http.statusOk(get_response);
 if status_ok.type() == "Boolean":
-    print("✓ http.status_ok() works");
+    print("✓ http.statusOk() works");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ http.status_ok() failed");
-    tests_failed = tests_failed + ["http.status_ok()"];
+    print("✗ http.statusOk() failed");
+    tests_failed = tests_failed + ["http.statusOk()"];
 end
 
-# Test http.get_header() - get response header
+# Test http.getHeader() - get response header
 total_tests = total_tests + 1;
-let content_type = http.get_header(get_response, "content-type");
+let content_type = http.getHeader(get_response, "content-type");
 if content_type.type() == "String" or content_type == Null:
-    print("✓ http.get_header() works");
+    print("✓ http.getHeader() works");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ http.get_header() failed");
-    tests_failed = tests_failed + ["http.get_header()"];
+    print("✗ http.getHeader() failed");
+    tests_failed = tests_failed + ["http.getHeader()"];
 end
 
-# Test http.get_json() - get JSON response
+# Test http.getJson() - get JSON response
 total_tests = total_tests + 1;
-let json_response = http.get_json(get_response);
+let json_response = http.getJson(get_response);
 if json_response.type() == "String" or json_response == Null:
-    print("✓ http.get_json() works");
+    print("✓ http.getJson() works");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ http.get_json() failed");
-    tests_failed = tests_failed + ["http.get_json()"];
+    print("✗ http.getJson() failed");
+    tests_failed = tests_failed + ["http.getJson()"];
 end
 
 # Test error handling with invalid URL

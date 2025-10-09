@@ -4577,11 +4577,11 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             
             // Library method dual-pattern support
             // These allow value.method to work the same as library.method(value)
-            if (strcmp(member_name, "is_email") == 0) {
-                // Create a function that calls regex.is_email with this value
+            if (strcmp(member_name, "isEmail") == 0) {
+                // Create a function that calls regex.isEmail with this value
                 Value regex_lib = environment_get(interpreter->global_environment, "regex");
                 if (regex_lib.type == VALUE_OBJECT) {
-                    Value is_email_func = value_object_get(&regex_lib, "is_email");
+                    Value is_email_func = value_object_get(&regex_lib, "isEmail");
                     if (is_email_func.type == VALUE_FUNCTION) {
                         // Call the function with this object as argument
                         Value args[1] = {object};
@@ -4594,10 +4594,10 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 }
                 value_free(&regex_lib);
             }
-            if (strcmp(member_name, "is_url") == 0) {
+            if (strcmp(member_name, "isUrl") == 0) {
                 Value regex_lib = environment_get(interpreter->global_environment, "regex");
                 if (regex_lib.type == VALUE_OBJECT) {
-                    Value is_url_func = value_object_get(&regex_lib, "is_url");
+                    Value is_url_func = value_object_get(&regex_lib, "isUrl");
                     if (is_url_func.type == VALUE_FUNCTION) {
                         Value args[1] = {object};
                         Value result = value_function_call(&is_url_func, args, 1, interpreter, node->line, node->column);
@@ -4609,10 +4609,10 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 }
                 value_free(&regex_lib);
             }
-            if (strcmp(member_name, "is_ip") == 0) {
+            if (strcmp(member_name, "isIp") == 0) {
                 Value regex_lib = environment_get(interpreter->global_environment, "regex");
                 if (regex_lib.type == VALUE_OBJECT) {
-                    Value is_ip_func = value_object_get(&regex_lib, "is_ip");
+                    Value is_ip_func = value_object_get(&regex_lib, "isIp");
                     if (is_ip_func.type == VALUE_FUNCTION) {
                         Value args[1] = {object};
                         Value result = value_function_call(&is_ip_func, args, 1, interpreter, node->line, node->column);
@@ -4624,10 +4624,10 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 }
                 value_free(&regex_lib);
             }
-            if (strcmp(member_name, "status_ok") == 0) {
+            if (strcmp(member_name, "statusOk") == 0) {
                 Value http_lib = environment_get(interpreter->global_environment, "http");
                 if (http_lib.type == VALUE_OBJECT) {
-                    Value status_ok_func = value_object_get(&http_lib, "status_ok");
+                    Value status_ok_func = value_object_get(&http_lib, "statusOk");
                     if (status_ok_func.type == VALUE_FUNCTION) {
                         Value args[1] = {object};
                         Value result = value_function_call(&status_ok_func, args, 1, interpreter, node->line, node->column);

@@ -546,12 +546,12 @@ Value builtin_http_status_ok(Interpreter* interpreter, Value* args, size_t arg_c
     
     Value response = args[0];
     if (response.type != VALUE_OBJECT) {
-        std_error_report(ERROR_INVALID_ARGUMENT, "http", "unknown_function", "http.status_ok() argument must be a response object", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "http", "unknown_function", "http.statusOk() argument must be a response object", line, column);
         return value_create_null();
     }
     
     // Get the status_code from the response object
-    Value status_code_val = value_object_get(&response, "status_code");
+    Value status_code_val = value_object_get(&response, "statusCode");
     if (status_code_val.type != VALUE_NUMBER) {
         value_free(&status_code_val);
         return value_create_boolean(false);
@@ -768,9 +768,9 @@ void http_library_register(Interpreter* interpreter) {
     value_object_set(&http_lib, "patch", value_create_builtin_function(builtin_http_patch));
     value_object_set(&http_lib, "options", value_create_builtin_function(builtin_http_options));
     value_object_set(&http_lib, "request", value_create_builtin_function(builtin_http_request));
-    value_object_set(&http_lib, "status_ok", value_create_builtin_function(builtin_http_status_ok));
-    value_object_set(&http_lib, "get_header", value_create_builtin_function(builtin_http_get_header));
-    value_object_set(&http_lib, "get_json", value_create_builtin_function(builtin_http_get_json));
+    value_object_set(&http_lib, "statusOk", value_create_builtin_function(builtin_http_status_ok));
+    value_object_set(&http_lib, "getHeader", value_create_builtin_function(builtin_http_get_header));
+    value_object_set(&http_lib, "getJson", value_create_builtin_function(builtin_http_get_json));
 
     // Register the library in global environment
     environment_define(interpreter->global_environment, "http", http_lib);

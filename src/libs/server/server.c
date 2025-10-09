@@ -748,9 +748,9 @@ enum MHD_Result server_handle_request(void* cls, struct MHD_Connection* connecti
         value_free(&handler_result);
         
         // After route handler execution, sync any changes from global response data back to the local response object
-        value_object_set(&res_obj, "status_code", value_create_number(g_response_status_code));
+        value_object_set(&res_obj, "statusCode", value_create_number(g_response_status_code));
         if (g_response_content_type) {
-            value_object_set(&res_obj, "content_type", value_create_string(g_response_content_type));
+            value_object_set(&res_obj, "contentType", value_create_string(g_response_content_type));
         }
     } else {
         // Default response if no handler
@@ -1323,7 +1323,7 @@ Value builtin_request_query(Interpreter* interpreter, Value* args, size_t arg_co
     }
     
     // Get the query string from the request object
-    Value query_val = value_object_get(&request_obj, "query_string");
+    Value query_val = value_object_get(&request_obj, "queryString");
     if (query_val.type == VALUE_STRING) {
         Value query_params = parse_query_string(query_val.data.string_value);
         
@@ -1408,7 +1408,7 @@ Value builtin_response_json(Interpreter* interpreter, Value* args, size_t arg_co
     }
     
     // Set content type to JSON
-    value_object_set(&response_obj, "content_type", value_create_string("application/json"));
+    value_object_set(&response_obj, "contentType", value_create_string("application/json"));
     
     // Update global response content type
     if (g_response_content_type) {
@@ -1449,7 +1449,7 @@ Value builtin_response_status(Interpreter* interpreter, Value* args, size_t arg_
     }
     
     // Set the status code on the local response object
-    value_object_set(&response_obj, "status_code", value_clone(&code_val));
+    value_object_set(&response_obj, "statusCode", value_clone(&code_val));
     
     // Update global response status code
     g_response_status_code = (int)code_val.data.number_value;
@@ -1615,9 +1615,9 @@ Value create_request_object(MycoRequest* request) {
     }
     
     if (request->query_string) {
-        value_object_set(&req_obj, "query_string", value_create_string(request->query_string));
+        value_object_set(&req_obj, "queryString", value_create_string(request->query_string));
     } else {
-        value_object_set(&req_obj, "query_string", value_create_string(""));
+        value_object_set(&req_obj, "queryString", value_create_string(""));
     }
     
     if (request->body) {
@@ -1645,12 +1645,12 @@ Value create_response_object(MycoResponse* response) {
     value_object_set(&res_obj, "__class_name__", value_create_string("Response"));
     
     // Set response properties
-    value_object_set(&res_obj, "status_code", value_create_number(response->status_code));
+    value_object_set(&res_obj, "statusCode", value_create_number(response->status_code));
     
     if (response->content_type) {
-        value_object_set(&res_obj, "content_type", value_create_string(response->content_type));
+        value_object_set(&res_obj, "contentType", value_create_string(response->content_type));
     } else {
-        value_object_set(&res_obj, "content_type", value_create_string("text/plain"));
+        value_object_set(&res_obj, "contentType", value_create_string("text/plain"));
     }
     
     if (response->body) {

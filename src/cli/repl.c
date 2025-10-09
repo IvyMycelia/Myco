@@ -321,6 +321,15 @@ static int repl_execute_input(REPLState* state, const char* input) {
     if (program) {
         Value result = interpreter_execute_program(state->interpreter, program);
         
+        // Check for interpreter errors
+        if (interpreter_has_error(state->interpreter)) {
+            // Error was already reported by the interpreter, just clean up
+            ast_free_tree(program);
+            parser_free(parser);
+            lexer_free(lexer);
+            return -1;
+        }
+        
         // Show result
         repl_print_result(state, &result);
         

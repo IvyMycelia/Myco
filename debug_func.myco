@@ -1,0 +1,1 @@
+func add(a, b): a + b end; print("Function defined"); let result = add(5, 3); print("Result:", result)

@@ -199,4 +199,22 @@ const char* type_kind_to_string(MycoTypeKind kind);
 const char* type_to_string(MycoType* type);
 MycoType* type_parse_string(const char* type_string, int line, int column);
 
+// Enhanced Type Inference Engine Functions
+TypeInference* type_infer_expression_enhanced(TypeCheckerContext* context, ASTNode* node);
+int type_infer_with_confidence(TypeCheckerContext* context, ASTNode* node, int* confidence);
+int type_infer_with_constraints(TypeCheckerContext* context, ASTNode* node, TypeConstraint* constraints, size_t constraint_count);
+int type_infer_ambiguous_types(TypeCheckerContext* context, ASTNode* node, MycoType** possible_types, size_t* type_count);
+
+// Enhanced Type Inference Helper Functions
+int type_calculate_confidence(TypeCheckerContext* context, ASTNode* node, MycoType* inferred_type);
+int type_calculate_add_confidence(TypeCheckerContext* context, ASTNode* node);
+int type_detect_ambiguity(TypeCheckerContext* context, ASTNode* node, MycoType* inferred_type);
+int type_detect_add_ambiguity(TypeCheckerContext* context, ASTNode* node);
+int type_detect_function_ambiguity(TypeCheckerContext* context, ASTNode* node);
+void type_add_contextual_constraints(TypeInference* inference, TypeCheckerContext* context, ASTNode* node);
+void type_add_binary_op_constraints(TypeInference* inference, TypeCheckerContext* context, ASTNode* node);
+void type_add_function_call_constraints(TypeInference* inference, TypeCheckerContext* context, ASTNode* node);
+void type_add_array_constraints(TypeInference* inference, TypeCheckerContext* context, ASTNode* node);
+void type_add_constraint(TypeInference* inference, const char* name, MycoType* type, int is_required);
+
 #endif // TYPE_CHECKER_H

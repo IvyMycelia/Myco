@@ -2244,14 +2244,11 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
 }
 
 // Helper function to create a class instance
-Value create_class_instance(Interpreter* interpreter, Value* class_value, ASTNode* call_node) {
+// Helper function to create a class instance using pre-evaluated constructor args
+static Value create_class_instance_from_args(Interpreter* interpreter, Value* class_value, Value* args, size_t arg_count) {
     if (!class_value || class_value->type != VALUE_CLASS) {
-        interpreter_set_error(interpreter, "Invalid class value", call_node->line, call_node->column);
         return value_create_null();
     }
-    
-    // Create an instance environment
-    Environment* instance_env = environment_create(class_value->data.class_value.class_environment);
     
     // Create an instance object to store instance variables
     Value instance = value_create_object(16);
@@ -2264,17 +2261,6 @@ Value create_class_instance(Interpreter* interpreter, Value* class_value, ASTNod
     // Process constructor arguments and initialize fields
     ASTNode* class_body = class_value->data.class_value.class_body;
     if (class_body && class_body->type == AST_NODE_BLOCK) {
-        // Get constructor arguments
-        size_t arg_count = call_node->data.function_call.argument_count;
-        Value* args = arg_count > 0 ? (Value*)calloc(arg_count, sizeof(Value)) : NULL;
-        if (arg_count > 0 && !args) {
-            return value_create_null();
-        }
-        
-        for (size_t i = 0; i < arg_count; i++) {
-            args[i] = interpreter_execute(interpreter, call_node->data.function_call.arguments[i]);
-        }
-        
         // Collect all fields from inheritance chain
         ASTNode** all_fields = NULL;
         size_t field_count = 0;
@@ -2309,16 +2295,33 @@ Value create_class_instance(Interpreter* interpreter, Value* class_value, ASTNod
         if (all_fields) {
             shared_free_safe(all_fields, "interpreter", "unknown_function", 2152);
         }
-        
-        // Free constructor arguments
-        if (args) {
-            for (size_t i = 0; i < arg_count; i++) {
-                value_free(&args[i]);
-            }
-            shared_free_safe(args, "interpreter", "unknown_function", 2160);
-        }
     }
     
+    return instance;
+}
+
+Value create_class_instance(Interpreter* interpreter, Value* class_value, ASTNode* call_node) {
+    if (!class_value || class_value->type != VALUE_CLASS) {
+        interpreter_set_error(interpreter, "Invalid class value", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Evaluate constructor arguments here to ensure correctness
+    size_t arg_count = call_node->data.function_call.argument_count;
+    Value* args = arg_count > 0 ? (Value*)calloc(arg_count, sizeof(Value)) : NULL;
+    if (arg_count > 0 && !args) {
+        return value_create_null();
+    }
+    for (size_t i = 0; i < arg_count; i++) {
+        args[i] = eval_node(interpreter, call_node->data.function_call.arguments[i]);
+    }
+    Value instance = create_class_instance_from_args(interpreter, class_value, args, arg_count);
+    if (args) {
+        for (size_t i = 0; i < arg_count; i++) {
+            value_free(&args[i]);
+        }
+        shared_free_safe(args, "interpreter", "unknown_function", 2160);
+    }
     return instance;
 }
 
@@ -4380,6 +4383,21 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             
             // Get the member name
             const char* member_name = node->data.member_access.member_name;
+            
+            // If this is a class instance (custom object), prefer instance fields over built-ins
+            if (object.type == VALUE_OBJECT) {
+                Value class_name_probe = value_object_get(&object, "__class_name__");
+                int is_instance = (class_name_probe.type == VALUE_STRING && class_name_probe.data.string_value != NULL);
+                value_free(&class_name_probe);
+                if (is_instance) {
+                    // Try to fetch the field directly
+                    Value field_val = value_object_get(&object, member_name);
+                    if (field_val.type != VALUE_NULL) {
+                        value_free(&object);
+                        return field_val;
+                    }
+                }
+            }
             
             // Handle built-in methods for all value types
             if (strcmp(member_name, "toString") == 0) {

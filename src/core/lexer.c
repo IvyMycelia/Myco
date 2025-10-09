@@ -419,7 +419,11 @@ static void lexer_parse_identifier(Lexer* lexer) {
         else if (strcmp(text, "super") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "return") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "let") == 0) type = TOKEN_KEYWORD;
-        else if (strcmp(text, "const") == 0) type = TOKEN_KEYWORD;
+        else if (strcmp(text, "const") == 0) type = TOKEN_CONST;
+        else if (strcmp(text, "macro") == 0) type = TOKEN_MACRO;
+        else if (strcmp(text, "template") == 0) type = TOKEN_TEMPLATE;
+        else if (strcmp(text, "expand") == 0) type = TOKEN_EXPAND;
+        else if (strcmp(text, "comptime") == 0) type = TOKEN_COMPTIME;
         else if (strcmp(text, "async") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "await") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "True") == 0 || strcmp(text, "true") == 0) type = TOKEN_BOOL;

@@ -96,7 +96,14 @@ typedef enum {
     
     // Special tokens
     TOKEN_ERROR,       // Indicates a lexical error occurred
-    TOKEN_COMMENT      // Comment tokens (for documentation)
+    TOKEN_COMMENT,     // Comment tokens (for documentation)
+    
+    // Macro and metaprogramming tokens
+    TOKEN_MACRO,       // macro keyword
+    TOKEN_CONST,       // const keyword (compile-time constants)
+    TOKEN_TEMPLATE,    // template keyword
+    TOKEN_EXPAND,      // expand keyword (manual macro expansion)
+    TOKEN_COMPTIME     // comptime keyword (compile-time evaluation)
 } TokenType;
 
 // Represents a single token in the source code

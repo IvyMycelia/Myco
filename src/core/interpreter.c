@@ -3,6 +3,7 @@
 #include "enhanced_error_system.h"
 #include "debug_system.h"
 #include "repl_debug.h"
+#include "macros.h"
 #include "shared_utilities.h"
 #include "libs/array.h"
 #include <stdlib.h>
@@ -82,6 +83,9 @@ Interpreter* interpreter_create(void) {
     interpreter->jit_enabled = 0;
     interpreter->jit_mode = 0;
     
+    // Macro system initialization
+    interpreter->macro_expander = macro_expander_create();
+    
     // Setup global env
     interpreter->global_environment = environment_create(NULL);
     interpreter->current_environment = interpreter->global_environment;
@@ -112,6 +116,11 @@ void interpreter_free(Interpreter* interpreter) {
         // Clean up JIT context
         if (interpreter->jit_context) {
             jit_context_free(interpreter->jit_context);
+        }
+        
+        // Clean up macro expander
+        if (interpreter->macro_expander) {
+            macro_expander_free(interpreter->macro_expander);
         }
         
         if (interpreter->global_environment) {
@@ -5656,6 +5665,83 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             value_free(&expression_value);
             
             return promise;
+        }
+        
+        // ============================================================================
+        // MACRO SYSTEM HANDLING
+        // ============================================================================
+        
+        case AST_NODE_MACRO_DEFINITION: {
+            // Register the macro with the macro expander
+            if (interpreter->macro_expander) {
+                int success = macro_define(interpreter->macro_expander,
+                    node->data.macro_definition.macro_name,
+                    node->data.macro_definition.parameters,
+                    node->data.macro_definition.parameter_count,
+                    node->data.macro_definition.body,
+                    node->data.macro_definition.is_hygenic);
+                
+                if (!success) {
+                    interpreter_set_error(interpreter, "Failed to define macro", node->line, node->column);
+                }
+            }
+            return value_create_null();
+        }
+        
+        case AST_NODE_MACRO_EXPANSION: {
+            // Expand the macro call
+            if (interpreter->macro_expander) {
+                ASTNode* expanded = macro_expand(interpreter->macro_expander,
+                    node->data.macro_expansion.macro_name,
+                    node->data.macro_expansion.arguments,
+                    node->data.macro_expansion.argument_count);
+                
+                if (expanded) {
+                    // Evaluate the expanded macro
+                    Value result = eval_node(interpreter, expanded);
+                    ast_free(expanded);
+                    return result;
+                } else {
+                    interpreter_set_error(interpreter, "Failed to expand macro", node->line, node->column);
+                }
+            }
+            return value_create_null();
+        }
+        
+        case AST_NODE_CONST_DECLARATION: {
+            // Evaluate the constant value at compile time
+            Value const_value = eval_node(interpreter, node->data.const_declaration.value);
+            
+            // Store the constant in the global environment
+            environment_define(interpreter->global_environment, 
+                node->data.const_declaration.const_name, const_value);
+            
+            // Mark as evaluated
+            node->data.const_declaration.is_evaluated = 1;
+            
+            return value_create_null();
+        }
+        
+        case AST_NODE_TEMPLATE_DEFINITION: {
+            // TODO: Implement template definition handling
+            // For now, just return null
+            return value_create_null();
+        }
+        
+        case AST_NODE_TEMPLATE_INSTANTIATION: {
+            // TODO: Implement template instantiation handling
+            // For now, just return null
+            return value_create_null();
+        }
+        
+        case AST_NODE_COMPTIME_EVAL: {
+            // Evaluate the expression at compile time
+            Value result = eval_node(interpreter, node->data.comptime_eval.expression);
+            
+            // Mark as evaluated
+            node->data.comptime_eval.is_evaluated = 1;
+            
+            return result;
         }
             
         default: return value_create_null();

@@ -54,7 +54,15 @@ typedef enum {
     AST_NODE_ASYNC_FUNCTION,
     AST_NODE_AWAIT,
     AST_NODE_PROMISE,
-    AST_NODE_ERROR
+    AST_NODE_ERROR,
+    
+    // Macro and metaprogramming nodes
+    AST_NODE_MACRO_DEFINITION,
+    AST_NODE_MACRO_EXPANSION,
+    AST_NODE_CONST_DECLARATION,
+    AST_NODE_TEMPLATE_DEFINITION,
+    AST_NODE_TEMPLATE_INSTANTIATION,
+    AST_NODE_COMPTIME_EVAL
 } ASTNodeType;
 
 // Binary Operators
@@ -381,6 +389,50 @@ typedef struct ASTNode {
         struct {
             struct ASTNode* expression;
         } promise_creation;
+        
+        // Macro definition
+        struct {
+            char* macro_name;
+            char** parameters;
+            size_t parameter_count;
+            struct ASTNode* body;
+            int is_hygenic;  // Prevents variable capture
+        } macro_definition;
+        
+        // Macro expansion
+        struct {
+            char* macro_name;
+            struct ASTNode** arguments;
+            size_t argument_count;
+        } macro_expansion;
+        
+        // Const declaration (compile-time constant)
+        struct {
+            char* const_name;
+            struct ASTNode* value;
+            int is_evaluated;  // Whether it's been evaluated at compile time
+        } const_declaration;
+        
+        // Template definition
+        struct {
+            char* template_name;
+            char** type_parameters;
+            size_t type_param_count;
+            struct ASTNode* body;
+        } template_definition;
+        
+        // Template instantiation
+        struct {
+            char* template_name;
+            char** type_arguments;
+            size_t type_arg_count;
+        } template_instantiation;
+        
+        // Compile-time evaluation
+        struct {
+            struct ASTNode* expression;
+            int is_evaluated;  // Whether it's been evaluated
+        } comptime_eval;
     } data;
     
     // Source location information
@@ -443,6 +495,20 @@ ASTNode* ast_create_generic_async_function(const char* name, char** generic_para
 ASTNode* ast_create_await(ASTNode* expression, int line, int column);
 ASTNode* ast_create_promise(ASTNode* expression, int line, int column);
 ASTNode* ast_create_error_node(const char* error_message, int line, int column);
+
+// Macro AST Creation Functions
+ASTNode* ast_create_macro_definition(char* macro_name, char** parameters, size_t param_count, 
+                                    ASTNode* body, int is_hygenic, int line, int column);
+ASTNode* ast_create_macro_expansion(char* macro_name, ASTNode** arguments, size_t arg_count, 
+                                   int line, int column);
+ASTNode* ast_create_const_declaration(char* const_name, ASTNode* value, int is_evaluated, 
+                                     int line, int column);
+ASTNode* ast_create_template_definition(char* template_name, char** type_parameters, 
+                                       size_t type_param_count, ASTNode* body, 
+                                       int line, int column);
+ASTNode* ast_create_template_instantiation(char* template_name, char** type_arguments, 
+                                          size_t type_arg_count, int line, int column);
+ASTNode* ast_create_comptime_eval(ASTNode* expression, int is_evaluated, int line, int column);
 
 // AST Node Management Functions
 void ast_free(ASTNode* node);

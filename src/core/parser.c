@@ -446,6 +446,21 @@ ASTNode* parser_parse_statement(Parser* parser) {
         }
     }
     
+    // Check for macro-related tokens
+    if (parser_check(parser, TOKEN_MACRO)) {
+        parser_advance(parser);  // Consume the 'macro' keyword
+        return parser_parse_macro_definition(parser);
+    } else if (parser_check(parser, TOKEN_CONST)) {
+        parser_advance(parser);  // Consume the 'const' keyword
+        return parser_parse_const_declaration(parser);
+    } else if (parser_check(parser, TOKEN_TEMPLATE)) {
+        parser_advance(parser);  // Consume the 'template' keyword
+        return parser_parse_template_definition(parser);
+    } else if (parser_check(parser, TOKEN_COMPTIME)) {
+        parser_advance(parser);  // Consume the 'comptime' keyword
+        return parser_parse_comptime_eval(parser);
+    }
+    
     // Skip leading semicolons (empty statements)
     while (parser_check(parser, TOKEN_SEMICOLON)) {
         parser_advance(parser);
@@ -5245,4 +5260,281 @@ static ASTNode* parser_parse_object_destructure(Parser* parser) {
     
     parser_advance(parser); // consume '}'
     return ast_create_pattern_destructure(patterns, pattern_count, 0, 0, 0);
+}
+
+// ============================================================================
+// MACRO PARSING FUNCTIONS
+// ============================================================================
+
+/**
+ * @brief Parse a macro definition
+ * 
+ * Syntax: macro name(param1, param2): body end
+ */
+ASTNode* parser_parse_macro_definition(Parser* parser) {
+    if (!parser) return NULL;
+    
+    // Parse macro name
+    if (!parser_check(parser, TOKEN_IDENTIFIER)) {
+        parser_error(parser, "Expected macro name after 'macro'");
+        return NULL;
+    }
+    
+    char* macro_name = strdup(parser->current_token->text);
+    parser_advance(parser);  // Consume macro name
+    
+    // Parse parameters
+    char** parameters = NULL;
+    size_t param_count = 0;
+    size_t param_capacity = 0;
+    
+    if (parser_check(parser, TOKEN_LEFT_PAREN)) {
+        parser_advance(parser);  // Consume '('
+        
+        while (!parser_check(parser, TOKEN_RIGHT_PAREN) && !parser_check(parser, TOKEN_EOF)) {
+            if (parser_check(parser, TOKEN_IDENTIFIER)) {
+                // Expand parameters array if needed
+                if (param_count >= param_capacity) {
+                    size_t new_capacity = param_capacity == 0 ? 4 : param_capacity * 2;
+                    char** new_params = shared_realloc_safe(parameters, new_capacity * sizeof(char*), "parser", "unknown_function", 0);
+                    if (new_params) {
+                        parameters = new_params;
+                        param_capacity = new_capacity;
+                    }
+                }
+                
+                parameters[param_count++] = strdup(parser->current_token->text);
+                parser_advance(parser);  // Consume parameter name
+                
+                if (parser_check(parser, TOKEN_COMMA)) {
+                    parser_advance(parser);  // Consume ','
+                } else if (!parser_check(parser, TOKEN_RIGHT_PAREN)) {
+                    parser_error(parser, "Expected ',' or ')' in macro parameters");
+                    break;
+                }
+            } else {
+                parser_error(parser, "Expected parameter name in macro definition");
+                break;
+            }
+        }
+        
+        if (!parser_check(parser, TOKEN_RIGHT_PAREN)) {
+            parser_error(parser, "Expected ')' to close macro parameters");
+            // Cleanup
+            for (size_t i = 0; i < param_count; i++) {
+                shared_free_safe(parameters[i], "parser", "unknown_function", 0);
+            }
+            shared_free_safe(parameters, "parser", "unknown_function", 0);
+            shared_free_safe(macro_name, "parser", "unknown_function", 0);
+            return NULL;
+        }
+        parser_advance(parser);  // Consume ')'
+    }
+    
+    // Parse colon
+    if (!parser_check(parser, TOKEN_COLON)) {
+        parser_error(parser, "Expected ':' after macro parameters");
+        // Cleanup
+        for (size_t i = 0; i < param_count; i++) {
+            shared_free_safe(parameters[i], "parser", "unknown_function", 0);
+        }
+        shared_free_safe(parameters, "parser", "unknown_function", 0);
+        shared_free_safe(macro_name, "parser", "unknown_function", 0);
+        return NULL;
+    }
+    parser_advance(parser);  // Consume ':'
+    
+    // Parse macro body
+    ASTNode* body = parser_parse_statement(parser);
+    if (!body) {
+        parser_error(parser, "Expected macro body");
+        // Cleanup
+        for (size_t i = 0; i < param_count; i++) {
+            shared_free_safe(parameters[i], "parser", "unknown_function", 0);
+        }
+        shared_free_safe(parameters, "parser", "unknown_function", 0);
+        shared_free_safe(macro_name, "parser", "unknown_function", 0);
+        return NULL;
+    }
+    
+    // Parse 'end' keyword
+    if (parser_check(parser, TOKEN_KEYWORD) && parser->current_token->text && 
+        strcmp(parser->current_token->text, "end") == 0) {
+        parser_advance(parser);  // Consume 'end'
+    } else {
+        parser_error(parser, "Expected 'end' to close macro definition");
+    }
+    
+    return ast_create_macro_definition(macro_name, parameters, param_count, body, 1, 0, 0);
+}
+
+/**
+ * @brief Parse a const declaration (compile-time constant)
+ * 
+ * Syntax: const name = value;
+ */
+ASTNode* parser_parse_const_declaration(Parser* parser) {
+    if (!parser) return NULL;
+    
+    // Parse const name
+    if (!parser_check(parser, TOKEN_IDENTIFIER)) {
+        parser_error(parser, "Expected constant name after 'const'");
+        return NULL;
+    }
+    
+    char* const_name = strdup(parser->current_token->text);
+    parser_advance(parser);  // Consume const name
+    
+    // Parse assignment operator
+    if (!parser_check(parser, TOKEN_ASSIGN)) {
+        parser_error(parser, "Expected '=' after constant name");
+        shared_free_safe(const_name, "parser", "unknown_function", 0);
+        return NULL;
+    }
+    parser_advance(parser);  // Consume '='
+    
+    // Parse constant value
+    ASTNode* value = parser_parse_expression(parser);
+    if (!value) {
+        parser_error(parser, "Expected constant value");
+        shared_free_safe(const_name, "parser", "unknown_function", 0);
+        return NULL;
+    }
+    
+    return ast_create_const_declaration(const_name, value, 0, 0, 0);
+}
+
+/**
+ * @brief Parse a template definition
+ * 
+ * Syntax: template name<T1, T2>: body end
+ */
+ASTNode* parser_parse_template_definition(Parser* parser) {
+    if (!parser) return NULL;
+    
+    // Parse template name
+    if (!parser_check(parser, TOKEN_IDENTIFIER)) {
+        parser_error(parser, "Expected template name after 'template'");
+        return NULL;
+    }
+    
+    char* template_name = strdup(parser->current_token->text);
+    parser_advance(parser);  // Consume template name
+    
+    // Parse type parameters
+    char** type_parameters = NULL;
+    size_t type_param_count = 0;
+    size_t type_param_capacity = 0;
+    
+    if (parser_check(parser, TOKEN_LESS)) {
+        parser_advance(parser);  // Consume '<'
+        
+        while (!parser_check(parser, TOKEN_GREATER) && !parser_check(parser, TOKEN_EOF)) {
+            if (parser_check(parser, TOKEN_IDENTIFIER)) {
+                // Expand type parameters array if needed
+                if (type_param_count >= type_param_capacity) {
+                    size_t new_capacity = type_param_capacity == 0 ? 4 : type_param_capacity * 2;
+                    char** new_params = shared_realloc_safe(type_parameters, new_capacity * sizeof(char*), "parser", "unknown_function", 0);
+                    if (new_params) {
+                        type_parameters = new_params;
+                        type_param_capacity = new_capacity;
+                    }
+                }
+                
+                type_parameters[type_param_count++] = strdup(parser->current_token->text);
+                parser_advance(parser);  // Consume type parameter name
+                
+                if (parser_check(parser, TOKEN_COMMA)) {
+                    parser_advance(parser);  // Consume ','
+                } else if (!parser_check(parser, TOKEN_GREATER)) {
+                    parser_error(parser, "Expected ',' or '>' in template type parameters");
+                    break;
+                }
+            } else {
+                parser_error(parser, "Expected type parameter name in template definition");
+                break;
+            }
+        }
+        
+        if (!parser_check(parser, TOKEN_GREATER)) {
+            parser_error(parser, "Expected '>' to close template type parameters");
+            // Cleanup
+            for (size_t i = 0; i < type_param_count; i++) {
+                shared_free_safe(type_parameters[i], "parser", "unknown_function", 0);
+            }
+            shared_free_safe(type_parameters, "parser", "unknown_function", 0);
+            shared_free_safe(template_name, "parser", "unknown_function", 0);
+            return NULL;
+        }
+        parser_advance(parser);  // Consume '>'
+    }
+    
+    // Parse colon
+    if (!parser_check(parser, TOKEN_COLON)) {
+        parser_error(parser, "Expected ':' after template type parameters");
+        // Cleanup
+        for (size_t i = 0; i < type_param_count; i++) {
+            shared_free_safe(type_parameters[i], "parser", "unknown_function", 0);
+        }
+        shared_free_safe(type_parameters, "parser", "unknown_function", 0);
+        shared_free_safe(template_name, "parser", "unknown_function", 0);
+        return NULL;
+    }
+    parser_advance(parser);  // Consume ':'
+    
+    // Parse template body
+    ASTNode* body = parser_parse_statement(parser);
+    if (!body) {
+        parser_error(parser, "Expected template body");
+        // Cleanup
+        for (size_t i = 0; i < type_param_count; i++) {
+            shared_free_safe(type_parameters[i], "parser", "unknown_function", 0);
+        }
+        shared_free_safe(type_parameters, "parser", "unknown_function", 0);
+        shared_free_safe(template_name, "parser", "unknown_function", 0);
+        return NULL;
+    }
+    
+    // Parse 'end' keyword
+    if (parser_check(parser, TOKEN_KEYWORD) && parser->current_token->text && 
+        strcmp(parser->current_token->text, "end") == 0) {
+        parser_advance(parser);  // Consume 'end'
+    } else {
+        parser_error(parser, "Expected 'end' to close template definition");
+    }
+    
+    return ast_create_template_definition(template_name, type_parameters, type_param_count, body, 0, 0);
+}
+
+/**
+ * @brief Parse a comptime evaluation block
+ * 
+ * Syntax: comptime { expression }
+ */
+ASTNode* parser_parse_comptime_eval(Parser* parser) {
+    if (!parser) return NULL;
+    
+    // Parse opening brace
+    if (!parser_check(parser, TOKEN_LEFT_BRACE)) {
+        parser_error(parser, "Expected '{' after 'comptime'");
+        return NULL;
+    }
+    parser_advance(parser);  // Consume '{'
+    
+    // Parse expression
+    ASTNode* expression = parser_parse_expression(parser);
+    if (!expression) {
+        parser_error(parser, "Expected expression in comptime block");
+        return NULL;
+    }
+    
+    // Parse closing brace
+    if (!parser_check(parser, TOKEN_RIGHT_BRACE)) {
+        parser_error(parser, "Expected '}' to close comptime block");
+        ast_free(expression);
+        return NULL;
+    }
+    parser_advance(parser);  // Consume '}'
+    
+    return ast_create_comptime_eval(expression, 0, 0, 0);
 }

@@ -945,7 +945,7 @@ void json_library_register(Interpreter* interpreter) {
     value_object_set(&json_lib, "get", value_create_builtin_function(builtin_json_get));
     value_object_set(&json_lib, "set", value_create_builtin_function(builtin_json_set));
     value_object_set(&json_lib, "size", value_create_builtin_function(builtin_json_size));
-    value_object_set(&json_lib, "is_empty", value_create_builtin_function(builtin_json_is_empty));
+    value_object_set(&json_lib, "isEmpty", value_create_builtin_function(builtin_json_is_empty));
 
     // Register the library in global environment
     environment_define(interpreter->global_environment, "json", json_lib);

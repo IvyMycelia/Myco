@@ -493,13 +493,13 @@ Value builtin_regex_test(Interpreter* interpreter, Value* args, size_t arg_count
 
 Value builtin_regex_is_email(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        std_error_report(ERROR_ARGUMENT_COUNT, "regex", "unknown_function", "regex.is_email() requires exactly 1 argument (text)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "regex", "unknown_function", "regex.isEmail() requires exactly 1 argument (text)", line, column);
         return value_create_null();
     }
     
     Value text_val = args[0];
     if (text_val.type != VALUE_STRING) {
-        std_error_report(ERROR_INVALID_ARGUMENT, "regex", "unknown_function", "regex.is_email() argument must be a string", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "regex", "unknown_function", "regex.isEmail() argument must be a string", line, column);
         return value_create_null();
     }
     
@@ -509,13 +509,13 @@ Value builtin_regex_is_email(Interpreter* interpreter, Value* args, size_t arg_c
 
 Value builtin_regex_is_url(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        std_error_report(ERROR_ARGUMENT_COUNT, "regex", "unknown_function", "regex.is_url() requires exactly 1 argument (text)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "regex", "unknown_function", "regex.isUrl() requires exactly 1 argument (text)", line, column);
         return value_create_null();
     }
     
     Value text_val = args[0];
     if (text_val.type != VALUE_STRING) {
-        std_error_report(ERROR_INVALID_ARGUMENT, "regex", "unknown_function", "regex.is_url() argument must be a string", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "regex", "unknown_function", "regex.isUrl() argument must be a string", line, column);
         return value_create_null();
     }
     
@@ -525,13 +525,13 @@ Value builtin_regex_is_url(Interpreter* interpreter, Value* args, size_t arg_cou
 
 Value builtin_regex_is_ip(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        std_error_report(ERROR_ARGUMENT_COUNT, "regex", "unknown_function", "regex.is_ip() requires exactly 1 argument (text)", line, column);
+        std_error_report(ERROR_ARGUMENT_COUNT, "regex", "unknown_function", "regex.isIp() requires exactly 1 argument (text)", line, column);
         return value_create_null();
     }
     
     Value text_val = args[0];
     if (text_val.type != VALUE_STRING) {
-        std_error_report(ERROR_INVALID_ARGUMENT, "regex", "unknown_function", "regex.is_ip() argument must be a string", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "regex", "unknown_function", "regex.isIp() argument must be a string", line, column);
         return value_create_null();
     }
     
@@ -551,9 +551,9 @@ void regex_library_register(Interpreter* interpreter) {
     value_object_set(&regex_lib, "test", value_create_builtin_function(builtin_regex_test));
     
     // Register validation functions
-    value_object_set(&regex_lib, "is_email", value_create_builtin_function(builtin_regex_is_email));
-    value_object_set(&regex_lib, "is_url", value_create_builtin_function(builtin_regex_is_url));
-    value_object_set(&regex_lib, "is_ip", value_create_builtin_function(builtin_regex_is_ip));
+    value_object_set(&regex_lib, "isEmail", value_create_builtin_function(builtin_regex_is_email));
+    value_object_set(&regex_lib, "isUrl", value_create_builtin_function(builtin_regex_is_url));
+    value_object_set(&regex_lib, "isIp", value_create_builtin_function(builtin_regex_is_ip));
     
     // Register flags as constants
     value_object_set(&regex_lib, "CASE_INSENSITIVE", value_create_number(REGEX_FLAG_CASE_INSENSITIVE));

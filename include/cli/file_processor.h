@@ -13,7 +13,7 @@ int process_string(const char* source, int interpret, int compile, int build, in
 int process_source(const char* source, const char* filename, int interpret, int compile, int build, int debug, int target, const char* architecture, const char* output_file, int optimization_level);
 
 // Interpret source code
-int interpret_source(const char* source, int debug);
+int interpret_source(const char* source, const char* filename, int debug);
 
 // Compile source code
 int compile_source(const char* source, int target, int debug);

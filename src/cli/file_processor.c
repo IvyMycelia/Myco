@@ -73,7 +73,7 @@ int process_source(const char* source, const char* filename, int interpret, int 
     }
     
     if (interpret) {
-        return interpret_source(source, debug);
+        return interpret_source(source, filename, debug);
     } else if (compile) {
         return compile_source(source, target, debug);
     } else if (build) {
@@ -84,7 +84,7 @@ int process_source(const char* source, const char* filename, int interpret, int 
 }
 
 // Interpret source code
-int interpret_source(const char* source, int debug) {
+int interpret_source(const char* source, const char* filename, int debug) {
     if (!source) return MYCO_ERROR_CLI;
     
     if (debug) {
@@ -184,7 +184,7 @@ int interpret_source(const char* source, int debug) {
     register_all_builtin_libraries(interpreter);
     
     // Set source for line extraction in error traces
-    interpreter_set_source(interpreter, source, "<string>");
+    interpreter_set_source(interpreter, source, filename);
     
     if (debug) {
         // printf("DEBUG: Executing program...\n");

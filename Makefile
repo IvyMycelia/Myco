@@ -90,7 +90,9 @@ SRC_FILES = $(shell find $(SRC_DIR) -name "*.c" ! -path "*/lsp/*" \
     ! -name "codegen_variables.c" \
     ! -name "codegen_utils.c" \
     ! -name "codegen_headers.c" \
-    ! -name "compiler_new.c")
+    ! -name "compiler_new.c" \
+    ! -name "error_handling.c" \
+    ! -name "error_system.c")
 OBJ_FILES = $(SRC_FILES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
 # LSP source files (separate from main build)

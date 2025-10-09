@@ -1,6 +1,8 @@
 #include "interpreter.h"
 #include "environment.h"
-#include "standardized_errors.h"
+#include "enhanced_error_system.h"
+#include "debug_system.h"
+#include "repl_debug.h"
 #include "shared_utilities.h"
 #include "libs/array.h"
 #include <stdlib.h>
@@ -16,6 +18,11 @@ static int pattern_matches_or(Interpreter* interpreter, Value* value, ASTNode* p
 static int pattern_matches_and(Interpreter* interpreter, Value* value, ASTNode* pattern);
 static int pattern_matches_range(Interpreter* interpreter, Value* value, ASTNode* pattern);
 static int pattern_matches_regex(Interpreter* interpreter, Value* value, ASTNode* pattern);
+
+// Global error and debug systems
+static EnhancedErrorSystem* global_error_system = NULL;
+static DebugSystem* global_debug_system = NULL;
+static ReplDebugSession* global_repl_session = NULL;
 
 // ANSI color codes for terminal output
 #define ANSI_COLOR_RED     "\x1b[31m"
@@ -38,6 +45,17 @@ static int pattern_matches_regex(Interpreter* interpreter, Value* value, ASTNode
 Interpreter* interpreter_create(void) {
     Interpreter* interpreter = shared_malloc_safe(sizeof(Interpreter), "interpreter", "unknown_function", 28);
     if (!interpreter) return NULL;
+    
+    // Initialize global systems if not already done
+    if (!global_error_system) {
+        global_error_system = enhanced_error_system_create();
+    }
+    if (!global_debug_system) {
+        global_debug_system = debug_system_create();
+    }
+    if (!global_repl_session) {
+        global_repl_session = repl_debug_session_create();
+    }
     
     interpreter->global_environment = NULL;
     interpreter->current_environment = NULL;
@@ -76,6 +94,10 @@ void interpreter_free(Interpreter* interpreter) {
         if (interpreter->error_message) {
             shared_free_safe(interpreter->error_message, "interpreter", "unknown_function", 66);
         }
+        
+        // Clean up global systems if this is the last interpreter
+        // Note: In a real implementation, you'd want reference counting
+        // For now, we'll keep the global systems alive
         
         // Clean up call stack
         CallFrame* frame = interpreter->call_stack;
@@ -667,7 +689,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node);
 // Helper function to handle super method calls
 Value handle_super_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name) {
     if (!interpreter->self_context) {
-        std_error_report(ERROR_INVALID_ACCESS, "interpreter", "handle_super_method_call", 
+        shared_error_report("interpreter", "handle_super_method_call", 
                         "super is not available outside of method calls", call_node->line, call_node->column);
         return value_create_null();
     }
@@ -676,7 +698,7 @@ Value handle_super_method_call(Interpreter* interpreter, ASTNode* call_node, con
     Value class_name_val = value_object_get(interpreter->self_context, "__class_name__");
     if (class_name_val.type != VALUE_STRING || !class_name_val.data.string_value) {
         value_free(&class_name_val);
-        std_error_report(ERROR_INVALID_ACCESS, "interpreter", "handle_super_method_call", 
+        shared_error_report("interpreter", "handle_super_method_call", 
                         "Object does not have a valid class name", call_node->line, call_node->column);
         return value_create_null();
     }
@@ -686,7 +708,7 @@ Value handle_super_method_call(Interpreter* interpreter, ASTNode* call_node, con
     if (class_ref.type != VALUE_CLASS) {
         value_free(&class_name_val);
         value_free(&class_ref);
-        std_error_report(ERROR_UNDEFINED_CLASS, "interpreter", "handle_super_method_call", 
+        shared_error_report("interpreter", "handle_super_method_call", 
                         "Class not found", call_node->line, call_node->column);
         return value_create_null();
     }
@@ -696,7 +718,7 @@ Value handle_super_method_call(Interpreter* interpreter, ASTNode* call_node, con
     if (!parent_name) {
         value_free(&class_name_val);
         value_free(&class_ref);
-        std_error_report(ERROR_INVALID_ACCESS, "interpreter", "handle_super_method_call", 
+        shared_error_report("interpreter", "handle_super_method_call", 
                         "Class has no parent class", call_node->line, call_node->column);
         return value_create_null();
     }
@@ -2316,12 +2338,12 @@ Value create_class_instance(Interpreter* interpreter, Value* class_value, ASTNod
         args[i] = eval_node(interpreter, call_node->data.function_call.arguments[i]);
     }
     Value instance = create_class_instance_from_args(interpreter, class_value, args, arg_count);
-    if (args) {
-        for (size_t i = 0; i < arg_count; i++) {
-            value_free(&args[i]);
-        }
+        if (args) {
+            for (size_t i = 0; i < arg_count; i++) {
+                value_free(&args[i]);
+            }
         shared_free_safe(args, "interpreter", "unknown_function", 2160);
-    }
+        }
     return instance;
 }
 
@@ -3688,8 +3710,10 @@ static Value eval_binary(Interpreter* interpreter, ASTNode* node) {
 static Value eval_node(Interpreter* interpreter, ASTNode* node) {
     if (!node) return value_create_null();
     
-    // Continue execution even if there are errors (like Python)
-    // Errors are reported but don't stop execution
+    // Check for existing errors before proceeding
+    if (interpreter_has_error(interpreter)) {
+        return value_create_null();
+    }
     
     switch (node->type) {
         case AST_NODE_NUMBER: return value_create_number(node->data.number_value);
@@ -3731,7 +3755,16 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 result = environment_get(interpreter->global_environment, name);
             } else {
                 char error_msg[256];
-                snprintf(error_msg, sizeof(error_msg), "\"%s\" is Undefined", name);
+                // Check if this looks like a library call (e.g., "debug.help", "graphs.isEmpty")
+                if (strchr(name, '.') != NULL) {
+                    char* library_name = strdup(name);
+                    char* dot_pos = strchr(library_name, '.');
+                    *dot_pos = '\0';
+                    snprintf(error_msg, sizeof(error_msg), "\"%s\" library is not found", library_name);
+                    free(library_name);
+                } else {
+                    snprintf(error_msg, sizeof(error_msg), "\"%s\" is undefined", name);
+                }
                 interpreter_set_error(interpreter, error_msg, node->line, node->column);
                 result = value_create_null();
             }
@@ -4022,6 +4055,20 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
 
                 Value rv = eval_node(interpreter, fn.data.function_value.body);
 
+                // Check for errors in function execution
+                if (interpreter_has_error(interpreter)) {
+                    // Clean up and return immediately
+                    interpreter->current_environment = saved;
+                    interpreter->current_function_return_type = saved_return_type;
+                    environment_free(call_env);
+                    if (args) {
+                        for (size_t i = 0; i < n; i++) value_free(&args[i]);
+                        shared_free_safe(args, "interpreter", "unknown_function", 3806);
+                    }
+                    value_free(&fn);
+                    return value_create_null();
+                }
+
                 // If a return was set, prefer it
                 if (interpreter->has_return) {
                     value_free(&rv);
@@ -4076,25 +4123,50 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
         }
         case AST_NODE_IF_STATEMENT: {
             Value cond = eval_node(interpreter, node->data.if_statement.condition);
+            if (interpreter_has_error(interpreter)) {
+                value_free(&cond);
+                return value_create_null();
+            }
             int truthy = value_is_truthy(&cond);
             value_free(&cond);
             if (truthy && node->data.if_statement.then_block) {
-                return eval_node(interpreter, node->data.if_statement.then_block);
+                Value result = eval_node(interpreter, node->data.if_statement.then_block);
+                if (interpreter_has_error(interpreter)) {
+                    return value_create_null();
+                }
+                return result;
             } else if (!truthy && node->data.if_statement.else_if_chain) {
                 // Handle else if chain
-                return eval_node(interpreter, node->data.if_statement.else_if_chain);
+                Value result = eval_node(interpreter, node->data.if_statement.else_if_chain);
+                if (interpreter_has_error(interpreter)) {
+                    return value_create_null();
+                }
+                return result;
             } else if (!truthy && node->data.if_statement.else_block) {
-                return eval_node(interpreter, node->data.if_statement.else_block);
+                Value result = eval_node(interpreter, node->data.if_statement.else_block);
+                if (interpreter_has_error(interpreter)) {
+                    return value_create_null();
+                }
+                return result;
             }
             return value_create_null();
         }
         case AST_NODE_WHILE_LOOP: {
             while (1) {
                 Value cond = eval_node(interpreter, node->data.while_loop.condition);
+                if (interpreter_has_error(interpreter)) {
+                    value_free(&cond);
+                    return value_create_null();
+                }
                 int truthy = value_is_truthy(&cond);
                 value_free(&cond);
                 if (!truthy) break;
-                if (node->data.while_loop.body) eval_node(interpreter, node->data.while_loop.body);
+                if (node->data.while_loop.body) {
+                    eval_node(interpreter, node->data.while_loop.body);
+                    if (interpreter_has_error(interpreter)) {
+                        return value_create_null();
+                    }
+                }
             }
             return value_create_null();
         }
@@ -5011,7 +5083,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             // Enhanced error reporting for member access issues
             char error_msg[512];
             if (object.type == VALUE_NULL) {
-                snprintf(error_msg, sizeof(error_msg), "Cannot access member '%s' of null object", member_name);
+                snprintf(error_msg, sizeof(error_msg), "Cannot access member '%s' of null object (variable is undefined)", member_name);
             } else if (object.type == VALUE_OBJECT) {
                 snprintf(error_msg, sizeof(error_msg), "Member '%s' not found in object", member_name);
             } else {
@@ -5170,6 +5242,10 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 
                 // Error occurred, execute catch block if it exists
                 if (node->data.try_catch.catch_block) {
+                    // Clear error state BEFORE executing catch block
+                    // This allows eval_node() to execute the catch block statements
+                    interpreter->has_error = 0;
+                    
                     // Create catch environment that can access outer variables
                     Environment* catch_env = environment_create(interpreter->current_environment);
                     Environment* old_env = interpreter->current_environment;
@@ -5189,11 +5265,71 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     interpreter->current_environment = old_env;
                     environment_free(catch_env);
                     
-                    // Clear error state
-                    interpreter->has_error = 0;
+                    // Decrement try depth
                     interpreter->try_depth--;
                     
                     return catch_result;
+                }
+                
+                // No catch block, report error and propagate
+                if (global_error_system) {
+                    // Determine error code from message
+                    MycoErrorCode error_code = MYCO_ERROR_UNDEFINED_VARIABLE;
+                    if (interpreter->error_message) {
+                        if (strstr(interpreter->error_message, "Division by zero")) error_code = MYCO_ERROR_DIVISION_BY_ZERO;
+                        else if (strstr(interpreter->error_message, "Undefined variable")) error_code = MYCO_ERROR_UNDEFINED_VARIABLE;
+                        else if (strstr(interpreter->error_message, "Array index out of bounds")) error_code = MYCO_ERROR_ARRAY_BOUNDS;
+                        else if (strstr(interpreter->error_message, "Out of memory")) error_code = MYCO_ERROR_OUT_OF_MEMORY;
+                        else if (strstr(interpreter->error_message, "Type mismatch")) error_code = MYCO_ERROR_TYPE_MISMATCH;
+                        else if (strstr(interpreter->error_message, "Null pointer")) error_code = MYCO_ERROR_NULL_POINTER;
+                        else if (strstr(interpreter->error_message, "Stack overflow")) error_code = MYCO_ERROR_STACK_OVERFLOW;
+                        else if (strstr(interpreter->error_message, "File not found")) error_code = MYCO_ERROR_FILE_NOT_FOUND;
+                        else if (strstr(interpreter->error_message, "Permission denied")) error_code = MYCO_ERROR_FILE_PERMISSION;
+                        else if (strstr(interpreter->error_message, "Network error")) error_code = MYCO_ERROR_NETWORK_ERROR;
+                        else if (strstr(interpreter->error_message, "Timeout")) error_code = MYCO_ERROR_TIMEOUT;
+                        else if (strstr(interpreter->error_message, "Syntax error")) error_code = MYCO_ERROR_UNEXPECTED_TOKEN;
+                        else if (strstr(interpreter->error_message, "Parse error")) error_code = MYCO_ERROR_INVALID_EXPRESSION;
+                        else if (strstr(interpreter->error_message, "Compilation failed")) error_code = MYCO_ERROR_COMPILATION_FAILED;
+                        else if (strstr(interpreter->error_message, "Not implemented")) error_code = MYCO_ERROR_UNIMPLEMENTED;
+                    }
+                    
+                    // Create enhanced error
+                    EnhancedErrorInfo* error = enhanced_error_create(
+                        error_code,
+                        enhanced_error_get_severity(error_code),
+                        enhanced_error_get_category(error_code),
+                        interpreter->error_message,
+                        interpreter->current_filename,
+                        interpreter->error_line,
+                        interpreter->error_column
+                    );
+                    
+                    if (error) {
+                        // Add context information
+                        if (interpreter->call_stack) {
+                            CallFrame* frame = interpreter->call_stack;
+                            while (frame) {
+                                enhanced_error_add_stack_frame(error, 
+                                    frame->function_name,
+                                    frame->file_name,
+                                    frame->line,
+                                    frame->column,
+                                    NULL, // source_line
+                                    NULL  // context_info
+                                );
+                                frame = frame->next;
+                            }
+                        }
+                        
+                        // Add suggestion
+                        const char* suggestion = enhanced_error_get_suggestion(error_code);
+                        if (suggestion) {
+                            enhanced_error_add_suggestion(error, suggestion);
+                        }
+                        
+                        // Report the error
+                        enhanced_error_report(global_error_system, error);
+                    }
                 }
                 
                 interpreter->try_depth--;
@@ -5560,8 +5696,11 @@ Value interpreter_execute_program(Interpreter* interpreter, ASTNode* node) {
     
     if (node->type == AST_NODE_BLOCK) {
         for (size_t i = 0; i < node->data.block.statement_count; i++) {
-            // Continue execution even if there are errors (like Python)
+            // Stop execution if there's an error (like Python)
             eval_node(interpreter, node->data.block.statements[i]);
+            if (interpreter_has_error(interpreter)) {
+                return value_create_null();
+            }
         }
         return value_create_null();
     }
@@ -5592,140 +5731,73 @@ Value interpreter_execute_module(Interpreter* interpreter, ASTNode* node) { Valu
 Value interpreter_execute_package(Interpreter* interpreter, ASTNode* node) { Value v = {0}; return v; }
 
 void interpreter_set_return(Interpreter* interpreter, Value value) {}
-// Comprehensive error code definitions with categories
-typedef enum {
-    // Runtime Errors (1000-1999)
-    MYCO_ERROR_DIVISION_BY_ZERO = 1001,        // SPORE_SPLIT - Division by zero
-    MYCO_ERROR_UNDEFINED_VARIABLE = 1002,      // LOST_IN_THE_MYCELIUM - Undefined variable
-    MYCO_ERROR_ARRAY_INDEX_OUT_OF_BOUNDS = 1003, // MUSHROOM_TOO_BIG - Array index out of bounds
-    MYCO_ERROR_ARRAY_INDEX_NON_ARRAY = 1004,   // NOT_A_MUSHROOM - Array index on non-array
-    MYCO_ERROR_ARRAY_INDEX_NON_NUMBER = 1005,  // SPORE_TYPE_MISMATCH - Array index with non-number
-    MYCO_ERROR_STRING_INDEX_OUT_OF_BOUNDS = 1006, // HYPHAE_OVERFLOW - String index out of bounds
-    MYCO_ERROR_STRING_INDEX_NON_STRING = 1007, // NOT_A_STEM - String index on non-string
-    MYCO_ERROR_STRING_INDEX_NON_NUMBER = 1008, // HYPHAE_TYPE_MISMATCH - String index with non-number
-    MYCO_ERROR_MEMBER_ACCESS_NON_OBJECT = 1009, // CAP_ACCESS_DENIED - Member access on non-object
-    MYCO_ERROR_FUNCTION_CALL_NON_FUNCTION = 1010, // SPORE_CALL_FAILED - Function call on non-function
-    MYCO_ERROR_UNDEFINED_FUNCTION = 1011,      // FUNGUS_NOT_FOUND - Undefined function
-    MYCO_ERROR_WRONG_ARGUMENT_COUNT = 1012,    // SPORE_COUNT_MISMATCH - Wrong argument count
-    MYCO_ERROR_WRONG_ARGUMENT_TYPE = 1013,     // SPORE_TYPE_MISMATCH - Wrong argument type
-    MYCO_ERROR_MODULO_BY_ZERO = 1014,          // SPORE_MODULO_FAILED - Modulo by zero
-    MYCO_ERROR_POWER_INVALID_BASE = 1015,      // CAP_POWER_FAILED - Power with invalid base
-    
-    // Memory Errors (2000-2999)
-    MYCO_ERROR_OUT_OF_MEMORY = 2001,           // MYCELIUM_EXHAUSTED - Out of memory
-    MYCO_ERROR_NULL_POINTER = 2002,            // DEAD_SPORE - Null pointer access
-    MYCO_ERROR_DOUBLE_FREE = 2003,             // SPORE_ALREADY_RELEASED - Double free
-    MYCO_ERROR_MEMORY_CORRUPTION = 2004,       // CONTAMINATED_MYCELIUM - Memory corruption
-    
-    // Type System Errors (3000-3999)
-    MYCO_ERROR_TYPE_MISMATCH = 3001,           // SPORE_TYPE_CONFLICT - Type mismatch
-    MYCO_ERROR_INVALID_CAST = 3002,            // SPORE_TRANSFORMATION_FAILED - Invalid type cast
-    MYCO_ERROR_UNSUPPORTED_OPERATION = 3003,   // UNSUPPORTED_SPORE_OPERATION - Unsupported operation
-    MYCO_ERROR_INVALID_RETURN_TYPE = 3004,     // SPORE_RETURN_TYPE_MISMATCH - Invalid return type
-    
-    // Class and Object Errors (4000-4999)
-    MYCO_ERROR_CLASS_NOT_FOUND = 4001,         // FUNGUS_SPECIES_UNKNOWN - Class not found
-    MYCO_ERROR_METHOD_NOT_FOUND = 4002,        // SPORE_METHOD_MISSING - Method not found
-    MYCO_ERROR_INSTANTIATION_FAILED = 4003,    // SPORE_GERMINATION_FAILED - Object instantiation failed
-    MYCO_ERROR_INHERITANCE_ERROR = 4004,       // SPORE_LINEAGE_BROKEN - Inheritance error
-    MYCO_ERROR_ACCESS_VIOLATION = 4005,        // CAP_ACCESS_DENIED - Access violation
-    
-    // Exception System Errors (5000-5999)
-    MYCO_ERROR_EXCEPTION_THROWN = 5001,        // SPORE_EXPLOSION - Exception thrown
-    MYCO_ERROR_UNHANDLED_EXCEPTION = 5002,     // UNCONTROLLED_SPORE_RELEASE - Unhandled exception
-    MYCO_ERROR_EXCEPTION_IN_CATCH = 5003,      // SPORE_CHAIN_REACTION - Exception in catch block
-    MYCO_ERROR_FINALLY_ERROR = 5004,           // SPORE_CLEANUP_FAILED - Error in finally block
-    
-    // I/O and System Errors (6000-6999)
-    MYCO_ERROR_FILE_NOT_FOUND = 6001,          // SPORE_FILE_MISSING - File not found
-    MYCO_ERROR_PERMISSION_DENIED = 6002,       // CAP_ACCESS_DENIED - Permission denied
-    MYCO_ERROR_IO_ERROR = 6003,                // SPORE_IO_FAILED - I/O error
-    MYCO_ERROR_NETWORK_ERROR = 6004,           // SPORE_NETWORK_FAILED - Network error
-    
-    // Syntax and Parse Errors (7000-7999)
-    MYCO_ERROR_SYNTAX_ERROR = 7001,            // SPORE_SYNTAX_CORRUPTED - Syntax error
-    MYCO_ERROR_UNEXPECTED_TOKEN = 7002,        // UNEXPECTED_SPORE - Unexpected token
-    MYCO_ERROR_MISSING_TOKEN = 7003,           // MISSING_SPORE - Missing token
-    MYCO_ERROR_INVALID_EXPRESSION = 7004,      // CORRUPTED_SPORE_EXPRESSION - Invalid expression
-    
-    // System and Environment Errors (8000-8999)
-    MYCO_ERROR_STACK_OVERFLOW = 8001,          // MYCELIUM_STACK_OVERFLOW - Stack overflow
-    MYCO_ERROR_RECURSION_LIMIT = 8002,         // SPORE_RECURSION_LIMIT - Recursion limit exceeded
-    MYCO_ERROR_TIMEOUT = 8003,                 // SPORE_TIMEOUT - Operation timeout
-    MYCO_ERROR_SYSTEM_ERROR = 8004,            // SYSTEM_SPORE_FAILURE - System error
-    
-    // Unknown and Generic Errors (9000-9999)
-    MYCO_ERROR_UNKNOWN = 9999,                 // UNKNOWN_FUNGUS - Unknown error
-    MYCO_ERROR_INTERNAL = 9998,                // INTERNAL_SPORE_FAILURE - Internal error
-    MYCO_ERROR_NOT_IMPLEMENTED = 9997          // SPORE_NOT_DEVELOPED - Not implemented
-} MycoErrorCode;
 
 // Get error code from message with comprehensive pattern matching
 static MycoErrorCode get_error_code(const char* message) {
-    if (!message) return MYCO_ERROR_UNKNOWN;
+    if (!message) return MYCO_ERROR_INTERNAL_ERROR;
     
     // Runtime Errors (1000-1999)
     if (strstr(message, "Division by zero")) return MYCO_ERROR_DIVISION_BY_ZERO;
     if (strstr(message, "Undefined variable")) return MYCO_ERROR_UNDEFINED_VARIABLE;
-    if (strstr(message, "Array index out of bounds")) return MYCO_ERROR_ARRAY_INDEX_OUT_OF_BOUNDS;
-    if (strstr(message, "Cannot index non-array value")) return MYCO_ERROR_ARRAY_INDEX_NON_ARRAY;
-    if (strstr(message, "Array index must be a number")) return MYCO_ERROR_ARRAY_INDEX_NON_NUMBER;
-    if (strstr(message, "String index out of bounds")) return MYCO_ERROR_STRING_INDEX_OUT_OF_BOUNDS;
-    if (strstr(message, "Cannot index non-string value")) return MYCO_ERROR_STRING_INDEX_NON_STRING;
-    if (strstr(message, "String index must be a number")) return MYCO_ERROR_STRING_INDEX_NON_NUMBER;
-    if (strstr(message, "Member access") && strstr(message, "non-object")) return MYCO_ERROR_MEMBER_ACCESS_NON_OBJECT;
-    if (strstr(message, "Cannot call non-function")) return MYCO_ERROR_FUNCTION_CALL_NON_FUNCTION;
+    if (strstr(message, "Array index out of bounds")) return MYCO_ERROR_ARRAY_BOUNDS;
+    if (strstr(message, "Cannot index non-array value")) return MYCO_ERROR_INVALID_OPERATION;
+    if (strstr(message, "Array index must be a number")) return MYCO_ERROR_TYPE_MISMATCH;
+    if (strstr(message, "String index out of bounds")) return MYCO_ERROR_ARRAY_BOUNDS;
+    if (strstr(message, "Cannot index non-string value")) return MYCO_ERROR_INVALID_OPERATION;
+    if (strstr(message, "String index must be a number")) return MYCO_ERROR_TYPE_MISMATCH;
+    if (strstr(message, "Member access") && strstr(message, "non-object")) return MYCO_ERROR_INVALID_OPERATION;
+    if (strstr(message, "Cannot call non-function")) return MYCO_ERROR_INVALID_FUNCTION;
     if (strstr(message, "Undefined function")) return MYCO_ERROR_UNDEFINED_FUNCTION;
-    if (strstr(message, "requires exactly") || strstr(message, "too many arguments")) return MYCO_ERROR_WRONG_ARGUMENT_COUNT;
-    if (strstr(message, "argument must be")) return MYCO_ERROR_WRONG_ARGUMENT_TYPE;
-    if (strstr(message, "Modulo by zero")) return MYCO_ERROR_MODULO_BY_ZERO;
-    if (strstr(message, "Power with invalid base")) return MYCO_ERROR_POWER_INVALID_BASE;
+    if (strstr(message, "requires exactly") || strstr(message, "too many arguments")) return MYCO_ERROR_ARGUMENT_COUNT;
+    if (strstr(message, "argument must be")) return MYCO_ERROR_TYPE_MISMATCH;
+    if (strstr(message, "Modulo by zero")) return MYCO_ERROR_DIVISION_BY_ZERO;
+    if (strstr(message, "Power with invalid base")) return MYCO_ERROR_INVALID_CAST;
     
     // Memory Errors (2000-2999)
     if (strstr(message, "Out of memory") || strstr(message, "malloc failed")) return MYCO_ERROR_OUT_OF_MEMORY;
     if (strstr(message, "Null pointer") || strstr(message, "NULL pointer")) return MYCO_ERROR_NULL_POINTER;
-    if (strstr(message, "Double free") || strstr(message, "pointer being freed was not allocated")) return MYCO_ERROR_DOUBLE_FREE;
+    if (strstr(message, "Double free") || strstr(message, "pointer being freed was not allocated")) return MYCO_ERROR_MEMORY_CORRUPTION;
     if (strstr(message, "Memory corruption") || strstr(message, "corrupted")) return MYCO_ERROR_MEMORY_CORRUPTION;
     
     // Type System Errors (3000-3999)
     if (strstr(message, "Type mismatch") || strstr(message, "type mismatch")) return MYCO_ERROR_TYPE_MISMATCH;
     if (strstr(message, "Invalid cast") || strstr(message, "Cannot cast")) return MYCO_ERROR_INVALID_CAST;
-    if (strstr(message, "Unsupported operation")) return MYCO_ERROR_UNSUPPORTED_OPERATION;
-    if (strstr(message, "Invalid return type")) return MYCO_ERROR_INVALID_RETURN_TYPE;
+    if (strstr(message, "Unsupported operation")) return MYCO_ERROR_INVALID_OPERATION;
+    if (strstr(message, "Invalid return type")) return MYCO_ERROR_TYPE_MISMATCH;
     
     // Class and Object Errors (4000-4999)
-    if (strstr(message, "Class not found")) return MYCO_ERROR_CLASS_NOT_FOUND;
-    if (strstr(message, "Method not found")) return MYCO_ERROR_METHOD_NOT_FOUND;
-    if (strstr(message, "Instantiation failed") || strstr(message, "Cannot instantiate")) return MYCO_ERROR_INSTANTIATION_FAILED;
-    if (strstr(message, "Inheritance error") || strstr(message, "Parent class")) return MYCO_ERROR_INHERITANCE_ERROR;
-    if (strstr(message, "Access violation") || strstr(message, "Access denied")) return MYCO_ERROR_ACCESS_VIOLATION;
+    if (strstr(message, "Class not found")) return MYCO_ERROR_INTERNAL_ERROR;
+    if (strstr(message, "Method not found")) return MYCO_ERROR_INTERNAL_ERROR;
+    if (strstr(message, "Instantiation failed") || strstr(message, "Cannot instantiate")) return MYCO_ERROR_INTERNAL_ERROR;
+    if (strstr(message, "Inheritance error") || strstr(message, "Parent class")) return MYCO_ERROR_INTERNAL_ERROR;
+    if (strstr(message, "Access violation") || strstr(message, "Access denied")) return MYCO_ERROR_INTERNAL_ERROR;
     
     // Exception System Errors (5000-5999)
-    if (strstr(message, "Exception thrown") || strstr(message, "throw")) return MYCO_ERROR_EXCEPTION_THROWN;
-    if (strstr(message, "Unhandled exception")) return MYCO_ERROR_UNHANDLED_EXCEPTION;
-    if (strstr(message, "Exception in catch")) return MYCO_ERROR_EXCEPTION_IN_CATCH;
-    if (strstr(message, "Error in finally")) return MYCO_ERROR_FINALLY_ERROR;
+    if (strstr(message, "Exception thrown") || strstr(message, "throw")) return MYCO_ERROR_INTERNAL_ERROR;
+    if (strstr(message, "Unhandled exception")) return MYCO_ERROR_INTERNAL_ERROR;
+    if (strstr(message, "Exception in catch")) return MYCO_ERROR_INTERNAL_ERROR;
+    if (strstr(message, "Error in finally")) return MYCO_ERROR_INTERNAL_ERROR;
     
     // I/O and System Errors (6000-6999)
     if (strstr(message, "File not found") || strstr(message, "No such file")) return MYCO_ERROR_FILE_NOT_FOUND;
-    if (strstr(message, "Permission denied")) return MYCO_ERROR_PERMISSION_DENIED;
-    if (strstr(message, "I/O error") || strstr(message, "Input/output error")) return MYCO_ERROR_IO_ERROR;
+    if (strstr(message, "Permission denied")) return MYCO_ERROR_FILE_PERMISSION;
+    if (strstr(message, "I/O error") || strstr(message, "Input/output error")) return MYCO_ERROR_FILE_NOT_FOUND;
     if (strstr(message, "Network error") || strstr(message, "Connection failed")) return MYCO_ERROR_NETWORK_ERROR;
     
     // Syntax and Parse Errors (7000-7999)
-    if (strstr(message, "Syntax error") || strstr(message, "Parse error")) return MYCO_ERROR_SYNTAX_ERROR;
+    if (strstr(message, "Syntax error") || strstr(message, "Parse error")) return MYCO_ERROR_UNEXPECTED_TOKEN;
     if (strstr(message, "Unexpected token") || strstr(message, "Unexpected")) return MYCO_ERROR_UNEXPECTED_TOKEN;
-    if (strstr(message, "Missing token") || strstr(message, "Expected")) return MYCO_ERROR_MISSING_TOKEN;
+    if (strstr(message, "Missing token") || strstr(message, "Expected")) return MYCO_ERROR_UNEXPECTED_TOKEN;
     if (strstr(message, "Invalid expression")) return MYCO_ERROR_INVALID_EXPRESSION;
     
     // System and Environment Errors (8000-8999)
     if (strstr(message, "Stack overflow")) return MYCO_ERROR_STACK_OVERFLOW;
-    if (strstr(message, "Recursion limit") || strstr(message, "too deep")) return MYCO_ERROR_RECURSION_LIMIT;
+    if (strstr(message, "Recursion limit") || strstr(message, "too deep")) return MYCO_ERROR_STACK_OVERFLOW;
     if (strstr(message, "Timeout") || strstr(message, "timed out")) return MYCO_ERROR_TIMEOUT;
     if (strstr(message, "System error")) return MYCO_ERROR_SYSTEM_ERROR;
     
     // Generic fallback
-    return MYCO_ERROR_UNKNOWN;
+    return MYCO_ERROR_INTERNAL_ERROR;
 }
 
 // This function is now defined in error_handling.c
@@ -5733,6 +5805,12 @@ static MycoErrorCode get_error_code(const char* message) {
 void interpreter_set_error(Interpreter* interpreter, const char* message, int line, int column) {
     if (!interpreter) return;
     
+    // Initialize global error system if not already done
+    if (!global_error_system) {
+        global_error_system = enhanced_error_system_create();
+    }
+    
+    // Set basic error state
     interpreter->has_error = 1;
     interpreter->error_line = line;
     interpreter->error_column = column;
@@ -5749,8 +5827,69 @@ void interpreter_set_error(Interpreter* interpreter, const char* message, int li
         interpreter->error_message = strdup("Unknown runtime error");
     }
     
-    // Display the error immediately
-    printf("Error: %s at line %d, column %d\n", message, line, column);
+    // Use enhanced error reporting
+    if (global_error_system) {
+        // Determine error code from message
+        MycoErrorCode error_code = MYCO_ERROR_INTERNAL_ERROR;
+        if (strstr(message, "Division by zero")) error_code = MYCO_ERROR_DIVISION_BY_ZERO;
+        else if (strstr(message, "Undefined variable")) error_code = MYCO_ERROR_UNDEFINED_VARIABLE;
+        else if (strstr(message, "Array index out of bounds")) error_code = MYCO_ERROR_ARRAY_BOUNDS;
+        else if (strstr(message, "Out of memory")) error_code = MYCO_ERROR_OUT_OF_MEMORY;
+        else if (strstr(message, "Type mismatch")) error_code = MYCO_ERROR_TYPE_MISMATCH;
+        else if (strstr(message, "Null pointer")) error_code = MYCO_ERROR_NULL_POINTER;
+        else if (strstr(message, "Stack overflow")) error_code = MYCO_ERROR_STACK_OVERFLOW;
+        else if (strstr(message, "File not found")) error_code = MYCO_ERROR_FILE_NOT_FOUND;
+        else if (strstr(message, "Permission denied")) error_code = MYCO_ERROR_FILE_PERMISSION;
+        else if (strstr(message, "Network error")) error_code = MYCO_ERROR_NETWORK_ERROR;
+        else if (strstr(message, "Timeout")) error_code = MYCO_ERROR_TIMEOUT;
+        else if (strstr(message, "Syntax error")) error_code = MYCO_ERROR_UNEXPECTED_TOKEN;
+        else if (strstr(message, "Parse error")) error_code = MYCO_ERROR_INVALID_EXPRESSION;
+        else if (strstr(message, "Compilation failed")) error_code = MYCO_ERROR_COMPILATION_FAILED;
+        else if (strstr(message, "Not implemented")) error_code = MYCO_ERROR_UNIMPLEMENTED;
+        
+        // Create enhanced error
+        EnhancedErrorInfo* error = enhanced_error_create(
+            error_code,
+            enhanced_error_get_severity(error_code),
+            enhanced_error_get_category(error_code),
+            message,
+            interpreter->current_filename,
+            line,
+            column
+        );
+        
+        if (error) {
+            // Add context information
+            if (interpreter->call_stack) {
+                CallFrame* frame = interpreter->call_stack;
+                while (frame) {
+                    enhanced_error_add_stack_frame(error, 
+                        frame->function_name,
+                        frame->file_name,
+                        frame->line,
+                        frame->column,
+                        NULL, // source_line
+                        NULL  // context_info
+                    );
+                    frame = frame->next;
+                }
+            }
+            
+            // Add suggestion
+            const char* suggestion = enhanced_error_get_suggestion(error_code);
+            if (suggestion) {
+                enhanced_error_add_suggestion(error, suggestion);
+            }
+            
+            // Report the error only if not inside a try block
+            if (interpreter->try_depth == 0) {
+                enhanced_error_report(global_error_system, error);
+            }
+        }
+    } else {
+        // Fallback to simple error display
+        printf("Error: %s at line %d, column %d\n", message, line, column);
+    }
 }
 
 void interpreter_clear_error(Interpreter* interpreter) {
@@ -6002,13 +6141,13 @@ void interpreter_push_call_frame(Interpreter* interpreter, const char* function_
     
     // Check stack depth limit
     if (interpreter->stack_depth >= interpreter->max_stack_depth) {
-        std_error_report(ERROR_INTERNAL_ERROR, "interpreter", "unknown_function", "Stack overflow: maximum call depth exceeded", line, column);
+        shared_error_report("interpreter", "unknown_function", "Stack overflow: maximum call depth exceeded", line, column);
         return;
     }
     
     CallFrame* frame = shared_malloc_safe(sizeof(CallFrame), "interpreter", "unknown_function", 5572);
     if (!frame) {
-        std_error_report(ERROR_OUT_OF_MEMORY, "interpreter", "unknown_function", "Out of memory: cannot create call frame", line, column);
+        shared_error_report("interpreter", "unknown_function", "Out of memory: cannot create call frame", line, column);
         return;
     }
     
@@ -6394,4 +6533,71 @@ static int pattern_matches_regex(Interpreter* interpreter, Value* value, ASTNode
     // For now, just check if it's a string (simplified regex matching)
     // TODO: Implement actual regex matching
     return 1;
+}
+
+// ============================================================================
+// GLOBAL SYSTEM MANAGEMENT
+// ============================================================================
+
+/**
+ * @brief Initialize global error and debug systems
+ */
+void interpreter_initialize_global_systems(void) {
+    if (!global_error_system) {
+        global_error_system = enhanced_error_system_create();
+    }
+    if (!global_debug_system) {
+        global_debug_system = debug_system_create();
+    }
+    if (!global_repl_session) {
+        global_repl_session = repl_debug_session_create();
+    }
+}
+
+/**
+ * @brief Cleanup global error and debug systems
+ */
+void interpreter_cleanup_global_systems(void) {
+    if (global_repl_session) {
+        repl_debug_session_free(global_repl_session);
+        global_repl_session = NULL;
+    }
+    if (global_debug_system) {
+        debug_system_free(global_debug_system);
+        global_debug_system = NULL;
+    }
+    if (global_error_system) {
+        enhanced_error_system_free(global_error_system);
+        global_error_system = NULL;
+    }
+}
+
+/**
+ * @brief Get global error system
+ */
+EnhancedErrorSystem* interpreter_get_global_error_system(void) {
+    if (!global_error_system) {
+        interpreter_initialize_global_systems();
+    }
+    return global_error_system;
+}
+
+/**
+ * @brief Get global debug system
+ */
+DebugSystem* interpreter_get_global_debug_system(void) {
+    if (!global_debug_system) {
+        interpreter_initialize_global_systems();
+    }
+    return global_debug_system;
+}
+
+/**
+ * @brief Get global REPL debug session
+ */
+ReplDebugSession* interpreter_get_global_repl_session(void) {
+    if (!global_repl_session) {
+        interpreter_initialize_global_systems();
+    }
+    return global_repl_session;
 }

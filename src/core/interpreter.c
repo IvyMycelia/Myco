@@ -4439,6 +4439,236 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 value_free(&object);
                 return result;
             }
+            if (strcmp(member_name, "isObject") == 0) {
+                Value result = value_create_boolean(object.type == VALUE_OBJECT);
+                value_free(&object);
+                return result;
+            }
+            if (strcmp(member_name, "isFunction") == 0) {
+                Value result = value_create_boolean(object.type == VALUE_FUNCTION);
+                value_free(&object);
+                return result;
+            }
+            if (strcmp(member_name, "size") == 0) {
+                double out = 0;
+                if (object.type == VALUE_STRING && object.data.string_value) {
+                    out = (double)strlen(object.data.string_value);
+                } else if (object.type == VALUE_RANGE) {
+                    double start = object.data.range_value.start;
+                    double end = object.data.range_value.end;
+                    if (end > start) out = (double)((long long)(end - start));
+                    else out = 0;
+                } else if (object.type == VALUE_ARRAY) {
+                    out = (double)object.data.array_value.count;
+                } else if (object.type == VALUE_HASH_MAP) {
+                    out = (double)object.data.hash_map_value.count;
+                } else if (object.type == VALUE_SET) {
+                    out = (double)object.data.set_value.count;
+                } else {
+                    out = 0;
+                }
+                value_free(&object);
+                return value_create_number(out);
+            }
+            if (strcmp(member_name, "isEmpty") == 0) {
+                int is_empty = 0;
+                if (object.type == VALUE_STRING) {
+                    is_empty = (!object.data.string_value || strlen(object.data.string_value) == 0);
+                } else if (object.type == VALUE_ARRAY) {
+                    is_empty = (object.data.array_value.count == 0);
+                } else if (object.type == VALUE_HASH_MAP) {
+                    is_empty = (object.data.hash_map_value.count == 0);
+                } else if (object.type == VALUE_SET) {
+                    is_empty = (object.data.set_value.count == 0);
+                } else if (object.type == VALUE_OBJECT) {
+                    is_empty = (object.data.object_value.count == 0);
+                } else {
+                    is_empty = 0;
+                }
+                value_free(&object);
+                return value_create_boolean(is_empty);
+            }
+            if (strcmp(member_name, "keys") == 0) {
+                Value result = value_create_null();
+                if (object.type == VALUE_OBJECT) {
+                    // Create array of keys
+                    size_t count = object.data.object_value.count;
+                    result = value_create_array(count);
+                    for (size_t i = 0; i < count; i++) {
+                        if (object.data.object_value.keys[i]) {
+                            Value key_val = value_create_string(object.data.object_value.keys[i]);
+                            value_array_push(&result, key_val);
+                        } else {
+                            Value key_val = value_create_string("");
+                            value_array_push(&result, key_val);
+                        }
+                    }
+                } else if (object.type == VALUE_HASH_MAP) {
+                    // Create array of keys
+                    size_t count = object.data.hash_map_value.count;
+                    result = value_create_array(count);
+                    for (size_t i = 0; i < count; i++) {
+                        if (object.data.hash_map_value.keys[i]) {
+                            Value key_val = value_create_string(object.data.hash_map_value.keys[i]);
+                            value_array_push(&result, key_val);
+                        } else {
+                            Value key_val = value_create_string("");
+                            value_array_push(&result, key_val);
+                        }
+                    }
+                }
+                value_free(&object);
+                return result;
+            }
+            if (strcmp(member_name, "values") == 0) {
+                Value result = value_create_null();
+                if (object.type == VALUE_OBJECT) {
+                    // Create array of values
+                    size_t count = object.data.object_value.count;
+                    result = value_create_array(count);
+                    for (size_t i = 0; i < count; i++) {
+                        if (object.data.object_value.values[i]) {
+                            Value val = value_clone((Value*)object.data.object_value.values[i]);
+                            value_array_push(&result, val);
+                        } else {
+                            Value val = value_create_null();
+                            value_array_push(&result, val);
+                        }
+                    }
+                } else if (object.type == VALUE_HASH_MAP) {
+                    // Create array of values
+                    size_t count = object.data.hash_map_value.count;
+                    result = value_create_array(count);
+                    for (size_t i = 0; i < count; i++) {
+                        if (object.data.hash_map_value.values[i]) {
+                            Value val = value_clone((Value*)object.data.hash_map_value.values[i]);
+                            value_array_push(&result, val);
+                        } else {
+                            Value val = value_create_null();
+                            value_array_push(&result, val);
+                        }
+                    }
+                }
+                value_free(&object);
+                return result;
+            }
+            if (strcmp(member_name, "count") == 0) {
+                // Alias for size/length
+                double out = 0;
+                if (object.type == VALUE_STRING && object.data.string_value) {
+                    out = (double)strlen(object.data.string_value);
+                } else if (object.type == VALUE_RANGE) {
+                    double start = object.data.range_value.start;
+                    double end = object.data.range_value.end;
+                    if (end > start) out = (double)((long long)(end - start));
+                    else out = 0;
+                } else if (object.type == VALUE_ARRAY) {
+                    out = (double)object.data.array_value.count;
+                } else if (object.type == VALUE_HASH_MAP) {
+                    out = (double)object.data.hash_map_value.count;
+                } else if (object.type == VALUE_SET) {
+                    out = (double)object.data.set_value.count;
+                } else {
+                    out = 0;
+                }
+                value_free(&object);
+                return value_create_number(out);
+            }
+            
+            // Library method dual-pattern support
+            // These allow value.method to work the same as library.method(value)
+            if (strcmp(member_name, "is_email") == 0) {
+                // Create a function that calls regex.is_email with this value
+                Value regex_lib = environment_get(interpreter->global_environment, "regex");
+                if (regex_lib.type == VALUE_OBJECT) {
+                    Value is_email_func = value_object_get(&regex_lib, "is_email");
+                    if (is_email_func.type == VALUE_FUNCTION) {
+                        // Call the function with this object as argument
+                        Value args[1] = {object};
+                        Value result = value_function_call(&is_email_func, args, 1, interpreter, node->line, node->column);
+                        value_free(&is_email_func);
+                        value_free(&regex_lib);
+                        return result;
+                    }
+                    value_free(&is_email_func);
+                }
+                value_free(&regex_lib);
+            }
+            if (strcmp(member_name, "is_url") == 0) {
+                Value regex_lib = environment_get(interpreter->global_environment, "regex");
+                if (regex_lib.type == VALUE_OBJECT) {
+                    Value is_url_func = value_object_get(&regex_lib, "is_url");
+                    if (is_url_func.type == VALUE_FUNCTION) {
+                        Value args[1] = {object};
+                        Value result = value_function_call(&is_url_func, args, 1, interpreter, node->line, node->column);
+                        value_free(&is_url_func);
+                        value_free(&regex_lib);
+                        return result;
+                    }
+                    value_free(&is_url_func);
+                }
+                value_free(&regex_lib);
+            }
+            if (strcmp(member_name, "is_ip") == 0) {
+                Value regex_lib = environment_get(interpreter->global_environment, "regex");
+                if (regex_lib.type == VALUE_OBJECT) {
+                    Value is_ip_func = value_object_get(&regex_lib, "is_ip");
+                    if (is_ip_func.type == VALUE_FUNCTION) {
+                        Value args[1] = {object};
+                        Value result = value_function_call(&is_ip_func, args, 1, interpreter, node->line, node->column);
+                        value_free(&is_ip_func);
+                        value_free(&regex_lib);
+                        return result;
+                    }
+                    value_free(&is_ip_func);
+                }
+                value_free(&regex_lib);
+            }
+            if (strcmp(member_name, "status_ok") == 0) {
+                Value http_lib = environment_get(interpreter->global_environment, "http");
+                if (http_lib.type == VALUE_OBJECT) {
+                    Value status_ok_func = value_object_get(&http_lib, "status_ok");
+                    if (status_ok_func.type == VALUE_FUNCTION) {
+                        Value args[1] = {object};
+                        Value result = value_function_call(&status_ok_func, args, 1, interpreter, node->line, node->column);
+                        value_free(&status_ok_func);
+                        value_free(&http_lib);
+                        return result;
+                    }
+                    value_free(&status_ok_func);
+                }
+                value_free(&http_lib);
+            }
+            if (strcmp(member_name, "stringify") == 0) {
+                Value json_lib = environment_get(interpreter->global_environment, "json");
+                if (json_lib.type == VALUE_OBJECT) {
+                    Value stringify_func = value_object_get(&json_lib, "stringify");
+                    if (stringify_func.type == VALUE_FUNCTION) {
+                        Value args[1] = {object};
+                        Value result = value_function_call(&stringify_func, args, 1, interpreter, node->line, node->column);
+                        value_free(&stringify_func);
+                        value_free(&json_lib);
+                        return result;
+                    }
+                    value_free(&stringify_func);
+                }
+                value_free(&json_lib);
+            }
+            if (strcmp(member_name, "parse") == 0) {
+                Value json_lib = environment_get(interpreter->global_environment, "json");
+                if (json_lib.type == VALUE_OBJECT) {
+                    Value parse_func = value_object_get(&json_lib, "parse");
+                    if (parse_func.type == VALUE_FUNCTION) {
+                        Value args[1] = {object};
+                        Value result = value_function_call(&parse_func, args, 1, interpreter, node->line, node->column);
+                        value_free(&parse_func);
+                        value_free(&json_lib);
+                        return result;
+                    }
+                    value_free(&parse_func);
+                }
+                value_free(&json_lib);
+            }
             if (strcmp(member_name, "type") == 0) {
                 // Handle .type property access (without parentheses)
                 Value result = value_create_null();

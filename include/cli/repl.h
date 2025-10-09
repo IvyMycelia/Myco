@@ -5,6 +5,8 @@
 #include "../core/lexer.h"
 #include "../core/parser.h"
 #include "../core/ast.h"
+#include "../core/debug_system.h"
+#include "../core/repl_debug.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,6 +14,8 @@
 // REPL state structure
 typedef struct {
     Interpreter* interpreter;
+    DebugSystem* debug_system;
+    ReplDebugSession* debug_session;
     int line_number;
     int debug_mode;
     int debug_ast;
@@ -32,7 +36,7 @@ void repl_free(REPLState* state);
 int repl_run(REPLState* state);
 int repl_process_input(REPLState* state, const char* input);
 int repl_handle_command(REPLState* state, const char* command);
-void repl_show_help(void);
+void repl_show_help(ReplDebugSession* session);
 void repl_show_variables(REPLState* state);
 void repl_show_variable_types(REPLState* state);
 void repl_show_memory_usage(REPLState* state);
@@ -49,7 +53,6 @@ void repl_reset_state(REPLState* state);
 void repl_load_file(REPLState* state, const char* filename);
 void repl_set_debug_mode(REPLState* state, const char* mode);
 void repl_show_debug_info(REPLState* state, const char* input);
-void repl_add_to_history(REPLState* state, const char* input);
 const char* repl_get_history(REPLState* state, int direction);
 void repl_show_error_suggestion(const char* error, int line);
 
@@ -61,7 +64,6 @@ int repl_is_input_complete(const char* input);
 
 // Output functions
 void repl_print_result(REPLState* state, Value* result);
-void repl_print_error(REPLState* state, const char* error, int line);
 void repl_print_debug_ast(REPLState* state, ASTNode* node);
 void repl_print_debug_lexer(REPLState* state, Lexer* lexer);
 void repl_print_debug_parser(REPLState* state, Parser* parser);

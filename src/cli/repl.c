@@ -1,5 +1,7 @@
 #include "repl.h"
-#include "error_handling.h"
+#include "enhanced_error_system.h"
+#include "debug_system.h"
+#include "repl_debug.h"
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <signal.h>
@@ -48,6 +50,23 @@ REPLState* repl_create(void) {
     extern void register_all_builtin_libraries(Interpreter* interpreter);
     register_all_builtin_libraries(state->interpreter);
     
+    // Initialize debug system
+    state->debug_system = debug_system_create();
+    if (!state->debug_system) {
+        interpreter_free(state->interpreter);
+        shared_free_safe(state, "repl", "unknown_function", 50);
+        return NULL;
+    }
+    
+    // Initialize REPL debug session
+    state->debug_session = repl_debug_session_create();
+    if (!state->debug_session) {
+        debug_system_free(state->debug_system);
+        interpreter_free(state->interpreter);
+        shared_free_safe(state, "repl", "unknown_function", 55);
+        return NULL;
+    }
+    
     // Initialize state variables
     state->line_number = 1;
     state->debug_mode = 0;
@@ -87,6 +106,16 @@ void repl_free(REPLState* state) {
     // Free interpreter
     if (state->interpreter) {
         interpreter_free(state->interpreter);
+    }
+    
+    // Free debug session
+    if (state->debug_session) {
+        repl_debug_session_free(state->debug_session);
+    }
+    
+    // Free debug system
+    if (state->debug_system) {
+        debug_system_free(state->debug_system);
     }
     
     // Free history
@@ -141,8 +170,7 @@ int repl_run(REPLState* state) {
         // Process the input
         repl_process_input(state, input);
         
-        // Add to history
-        repl_add_to_history(state, input);
+        // Add to history (handled by debug system internally)
         
         shared_free_safe(input, "repl", "unknown_function", 142);
     }
@@ -240,7 +268,7 @@ static int repl_execute_input(REPLState* state, const char* input) {
     // Create lexer
     Lexer* lexer = lexer_initialize(input);
     if (!lexer) {
-        repl_print_error(state, "Failed to initialize lexer", state->line_number);
+        printf("\033[31mREPL Error: Failed to initialize lexer\033[0m\n");
         return -1;
     }
     
@@ -252,14 +280,14 @@ static int repl_execute_input(REPLState* state, const char* input) {
     // Scan tokens
     int token_count = lexer_scan_all(lexer);
     if (token_count < 0) {
-        repl_print_error(state, "Failed to scan tokens", state->line_number);
+        printf("\033[31mREPL Error: Failed to scan tokens\033[0m\n");
         lexer_free(lexer);
         return -1;
     }
     
     // Check for lexical errors
     if (lexer_has_errors(lexer)) {
-        repl_print_error(state, "Lexical errors detected", state->line_number);
+        printf("\033[31mREPL Error: Lexical errors detected\033[0m\n");
         lexer_free(lexer);
         return -1;
     }
@@ -267,7 +295,7 @@ static int repl_execute_input(REPLState* state, const char* input) {
     // Create parser
     Parser* parser = parser_initialize(lexer);
     if (!parser) {
-        repl_print_error(state, "Failed to create parser", state->line_number);
+        printf("\033[31mREPL Error: Failed to create parser\033[0m\n");
         lexer_free(lexer);
         return -1;
     }
@@ -306,7 +334,7 @@ static int repl_execute_input(REPLState* state, const char* input) {
     // Check for parse errors
     if (parser->error_count > 0) {
         // Use enhanced error reporter for consistent formatting
-        interpreter_report_error_enhanced(state->interpreter,
+        interpreter_report_error_enhanced((struct Interpreter*)state->interpreter,
                                           parser->error_message ? parser->error_message : "Parse error",
                                           parser->error_line,
                                           parser->error_column);
@@ -361,7 +389,21 @@ int repl_handle_command(REPLState* state, const char* command) {
     const char* cmd = command + 1;
     
     if (strcmp(cmd, "help") == 0) {
-        repl_show_help();
+        printf("Myco REPL Commands:\n");
+        printf("  :help              Show this help message\n");
+        printf("  :clear             Clear all variables\n");
+        printf("  :reset             Reset REPL state\n");
+        printf("  :vars              Show all variables\n");
+        printf("  :types             Show variable types with details\n");
+        printf("  :memory            Show memory usage statistics\n");
+        printf("  :trace             Show call trace information\n");
+        printf("  :inspect <var>     Inspect a specific variable in detail\n");
+        printf("  :load <file>       Load and execute a Myco file\n");
+        printf("  :debug <mode>      Set debug mode (--ast, --lexer, --parser, --all, --off)\n");
+        printf("  :colors on|off     Enable/disable colored error output\n");
+        printf("  :stack on|off      Enable/disable stack traces in errors\n");
+        printf("  :errors            Print last error with full context/stack\n");
+        printf("  exit, quit         Exit the REPL\n");
     } else if (strcmp(cmd, "clear") == 0) {
         repl_clear_variables(state);
         printf("Variables cleared.\n");
@@ -372,6 +414,42 @@ int repl_handle_command(REPLState* state, const char* command) {
         repl_load_file(state, cmd + 5);
     } else if (strncmp(cmd, "debug ", 6) == 0) {
         repl_set_debug_mode(state, cmd + 6);
+    } else if (strcmp(cmd, "debug.help") == 0) {
+        printf("Debug Commands:\n");
+        printf("  debug.help          Show this help\n");
+        printf("  debug.breakpoints   List breakpoints\n");
+        printf("  debug.break <loc>   Set breakpoint\n");
+        printf("  debug.unbreak <loc> Remove breakpoint\n");
+        printf("  debug.step          Step execution\n");
+        printf("  debug.continue      Continue execution\n");
+        printf("  debug.variables     Show variables\n");
+        printf("  debug.inspect <var> Inspect variable\n");
+        printf("  debug.callstack     Show call stack\n");
+        printf("  debug.memory        Show memory usage\n");
+        printf("  debug.performance   Show performance stats\n");
+        printf("  debug.reset         Reset debug state\n");
+    } else if (strcmp(cmd, "debug.breakpoints") == 0) {
+        repl_show_breakpoints(state);
+    } else if (strncmp(cmd, "debug.break ", 12) == 0) {
+        repl_set_breakpoint(state, cmd + 12);
+    } else if (strncmp(cmd, "debug.unbreak ", 14) == 0) {
+        repl_remove_breakpoint(state, cmd + 14);
+    } else if (strcmp(cmd, "debug.step") == 0) {
+        repl_cmd_step(state->debug_session, "");
+    } else if (strcmp(cmd, "debug.continue") == 0) {
+        repl_cmd_continue(state->debug_session, "");
+    } else if (strcmp(cmd, "debug.variables") == 0) {
+        repl_show_variables(state);
+    } else if (strncmp(cmd, "debug.inspect ", 14) == 0) {
+        repl_inspect_variable(state, cmd + 14);
+    } else if (strcmp(cmd, "debug.callstack") == 0) {
+        repl_show_call_trace(state);
+    } else if (strcmp(cmd, "debug.memory") == 0) {
+        repl_show_memory_usage(state);
+    } else if (strcmp(cmd, "debug.performance") == 0) {
+        repl_show_performance_profile(state);
+    } else if (strcmp(cmd, "debug.reset") == 0) {
+        repl_reset_state(state);
     } else if (strncmp(cmd, "colors ", 7) == 0 || strncmp(cmd, "color ", 6) == 0) {
         const char* opt = (cmd[1] == 'c' && cmd[2] == 'o' && cmd[3] == 'l' && cmd[4] == 'o' && cmd[5] == 'r' && cmd[6] == 's' && cmd[7] == ' ')
             ? (cmd + 7)
@@ -386,7 +464,7 @@ int repl_handle_command(REPLState* state, const char* command) {
             printf("Usage: :colors on|off\n");
         }
     } else if (strncmp(cmd, "stack ", 6) == 0) {
-        ErrorSystem* sys = error_system_get_global();
+        EnhancedErrorSystem* sys = enhanced_error_system_get_global();
         const char* opt = cmd + 6;
         if (strcmp(opt, "on") == 0) {
             error_enable_stack_trace(sys, true);
@@ -430,46 +508,6 @@ int repl_handle_command(REPLState* state, const char* command) {
     return 0;
 }
 
-/**
- * @brief Show help information
- */
-void repl_show_help(void) {
-    printf("Myco REPL Commands:\n");
-    printf("  :help              Show this help message\n");
-    printf("  :clear             Clear all variables\n");
-    printf("  :reset             Reset REPL state\n");
-    printf("  :vars              Show all variables\n");
-    printf("  :types             Show variable types with details\n");
-    printf("  :memory            Show memory usage statistics\n");
-    printf("  :trace             Show call trace information\n");
-    printf("  :inspect <var>     Inspect a specific variable in detail\n");
-    printf("  :load <file>       Load and execute a Myco file\n");
-    printf("  :debug <mode>      Set debug mode (--ast, --lexer, --parser, --all, --off)\n");
-    printf("  :colors on|off     Enable/disable colored error output\n");
-    printf("  :stack on|off      Enable/disable stack traces in errors\n");
-    printf("  :errors            Print last error with full context/stack\n");
-    printf("  :breakpoints       Show breakpoints (future)\n");
-    printf("  :break <loc>       Set breakpoint (future)\n");
-    printf("  :unbreak <loc>     Remove breakpoint (future)\n");
-    printf("  :step              Step execution (future)\n");
-    printf("  :continue          Continue execution (future)\n");
-    printf("  :profile           Show performance profile\n");
-    printf("  exit, quit         Exit the REPL\n");
-    printf("\n");
-    printf("Multi-line input:\n");
-    printf("  Use '...' continuation for blocks and functions\n");
-    printf("  End with semicolon to complete input\n");
-    printf("\n");
-    printf("Examples:\n");
-    printf("  let x = 42;\n");
-    printf("  :types             # Show all variable types\n");
-    printf("  :inspect x         # Inspect variable x\n");
-    printf("  :memory            # Show memory usage\n");
-    printf("  func add(a, b):\n");
-    printf("  ...   return a + b;\n");
-    printf("  ... end\n");
-    printf("  print(add(5, 3));\n");
-}
 
 /**
  * @brief Show all variables
@@ -657,28 +695,6 @@ void repl_show_debug_info(REPLState* state, const char* input) {
     // printf("DEBUG: Input: %s\n", input);
 }
 
-/**
- * @brief Add input to history
- * 
- * @param state The REPL state
- * @param input The input string
- */
-void repl_add_to_history(REPLState* state, const char* input) {
-    if (!state || !input) {
-        return;
-    }
-    
-    // Expand history if needed
-    if (state->history_count >= state->history_capacity) {
-        state->history_capacity = state->history_capacity == 0 ? 100 : state->history_capacity * 2;
-        state->history = shared_realloc_safe(state->history, state->history_capacity * sizeof(char*), "repl", "unknown_function", 627);
-    }
-    
-    // Add to history
-    state->history[state->history_count] = (input ? strdup(input) : NULL);
-    state->history_count++;
-    state->history_index = state->history_count;
-}
 
 /**
  * @brief Read a line of input
@@ -829,20 +845,6 @@ void repl_print_result(REPLState* state, Value* result) {
     printf("\n");
 }
 
-/**
- * @brief Print error message
- * 
- * @param state The REPL state
- * @param error The error message
- * @param line The line number
- */
-void repl_print_error(REPLState* state, const char* error, int line) {
-    if (!state || !error) {
-        return;
-    }
-    
-    printf("\033[31mREPL Error at line %d: %s\033[0m\n", line, error);
-}
 
 /**
  * @brief Show error suggestions

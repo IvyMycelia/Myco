@@ -1363,9 +1363,83 @@ MycoType* type_instantiate_generic(MycoType* generic_type, MycoType** type_argum
     if (!instantiated) return NULL;
     
     // Replace generic parameters with concrete types
-    // This is a simplified implementation - in a full implementation,
-    // you would need to traverse the type tree and replace all generic parameters
-    return instantiated;
+    return type_substitute_generic_parameters(instantiated, generic_type, type_arguments, line, column);
+}
+
+MycoType* type_substitute_generic_parameters(MycoType* type, MycoType* generic_type, MycoType** type_arguments, int line, int column) {
+    if (!type || !generic_type) return type;
+    
+    // If this is a generic parameter, substitute it
+    if (type->kind == TYPE_GENERIC_PARAMETER) {
+        const char* param_name = type->data.generic_parameter.parameter_name;
+        if (param_name && generic_type->data.generic_type.parameter_names) {
+            // Find the parameter index
+            for (size_t i = 0; i < generic_type->data.generic_type.parameter_count; i++) {
+                if (generic_type->data.generic_type.parameter_names[i] && 
+                    strcmp(generic_type->data.generic_type.parameter_names[i], param_name) == 0) {
+                    // Substitute with the corresponding type argument
+                    if (type_arguments && i < generic_type->data.generic_type.parameter_count) {
+                        return type_clone(type_arguments[i]);
+                    }
+                }
+            }
+        }
+        return type;
+    }
+    
+    // Recursively substitute in complex types
+    if (type->kind == TYPE_ARRAY && type->data.element_type) {
+        MycoType* new_element_type = type_substitute_generic_parameters(type->data.element_type, generic_type, type_arguments, line, column);
+        if (new_element_type != type->data.element_type) {
+            type_free(type->data.element_type);
+            type->data.element_type = new_element_type;
+        }
+    }
+    
+    if (type->kind == TYPE_FUNCTION) {
+        // Substitute parameter types
+        for (size_t i = 0; i < type->data.function_type.parameter_count; i++) {
+            if (type->data.function_type.parameter_types[i]) {
+                MycoType* new_param_type = type_substitute_generic_parameters(type->data.function_type.parameter_types[i], generic_type, type_arguments, line, column);
+                if (new_param_type != type->data.function_type.parameter_types[i]) {
+                    type_free(type->data.function_type.parameter_types[i]);
+                    type->data.function_type.parameter_types[i] = new_param_type;
+                }
+            }
+        }
+        
+        // Substitute return type
+        if (type->data.function_type.return_type) {
+            MycoType* new_return_type = type_substitute_generic_parameters(type->data.function_type.return_type, generic_type, type_arguments, line, column);
+            if (new_return_type != type->data.function_type.return_type) {
+                type_free(type->data.function_type.return_type);
+                type->data.function_type.return_type = new_return_type;
+            }
+        }
+    }
+    
+    if (type->kind == TYPE_UNION) {
+        // Substitute union member types
+        for (size_t i = 0; i < type->data.union_type.type_count; i++) {
+            if (type->data.union_type.types[i]) {
+                MycoType* new_member_type = type_substitute_generic_parameters(type->data.union_type.types[i], generic_type, type_arguments, line, column);
+                if (new_member_type != type->data.union_type.types[i]) {
+                    type_free(type->data.union_type.types[i]);
+                    type->data.union_type.types[i] = new_member_type;
+                }
+            }
+        }
+    }
+    
+    if (type->kind == TYPE_OPTIONAL && type->data.optional_type) {
+        MycoType* new_optional_type = type_substitute_generic_parameters(type->data.optional_type, generic_type, type_arguments, line, column);
+        if (new_optional_type != type->data.optional_type) {
+            type_free(type->data.optional_type);
+            type->data.optional_type = new_optional_type;
+        }
+    }
+    
+    return type;
 }
 
 /**
@@ -1634,7 +1708,7 @@ MycoType* generic_create_instance(const char* name, MycoType** parameters, size_
         
         if (instance->data.generic_type.parameter_names && instance->data.generic_type.constraints) {
             for (size_t i = 0; i < param_count; i++) {
-                instance->data.generic_type.parameter_names[i] = ("T" ? strdup("T") : NULL); // Placeholder
+                instance->data.generic_type.parameter_names[i] = (name ? strdup(name) : NULL);
                 instance->data.generic_type.constraints[i] = parameters[i];
             }
         }

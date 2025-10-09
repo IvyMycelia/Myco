@@ -491,6 +491,10 @@ ASTNode* ast_create_class(const char* name, const char* parent, ASTNode* body, i
 }
 
 ASTNode* ast_create_function(const char* name, ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column) {
+    return ast_create_generic_function(name, NULL, 0, params, param_count, return_type, body, line, column);
+}
+
+ASTNode* ast_create_generic_function(const char* name, char** generic_params, size_t generic_param_count, ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column) {
     ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 360);
     if (!node) return NULL;
     
@@ -500,6 +504,20 @@ ASTNode* ast_create_function(const char* name, ASTNode** params, size_t param_co
     node->data.function_definition.parameter_count = param_count;
     node->data.function_definition.return_type = return_type ? (return_type ? strdup(return_type) : NULL) : NULL;
     node->data.function_definition.body = body;
+    
+    // Handle generic parameters
+    node->data.function_definition.generic_parameter_count = generic_param_count;
+    if (generic_param_count > 0 && generic_params) {
+        node->data.function_definition.generic_parameters = shared_malloc_safe(generic_param_count * sizeof(char*), "ast", "unknown_function", 370);
+        if (node->data.function_definition.generic_parameters) {
+            for (size_t i = 0; i < generic_param_count; i++) {
+                node->data.function_definition.generic_parameters[i] = (generic_params[i] ? strdup(generic_params[i]) : NULL);
+            }
+        }
+    } else {
+        node->data.function_definition.generic_parameters = NULL;
+    }
+    
     node->line = line;
     node->column = column;
     node->next = NULL;
@@ -1305,6 +1323,10 @@ ASTNode* ast_create_error_node(const char* error_message, int line, int column) 
 
 // Async/Await AST Node Creation Functions
 ASTNode* ast_create_async_function(const char* name, ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column) {
+    return ast_create_generic_async_function(name, NULL, 0, params, param_count, return_type, body, line, column);
+}
+
+ASTNode* ast_create_generic_async_function(const char* name, char** generic_params, size_t generic_param_count, ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column) {
     ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 1174);
     if (!node) return NULL;
     
@@ -1314,6 +1336,20 @@ ASTNode* ast_create_async_function(const char* name, ASTNode** params, size_t pa
     node->data.async_function_definition.parameter_count = param_count;
     node->data.async_function_definition.return_type = return_type ? (return_type ? strdup(return_type) : NULL) : NULL;
     node->data.async_function_definition.body = body;
+    
+    // Handle generic parameters
+    node->data.async_function_definition.generic_parameter_count = generic_param_count;
+    if (generic_param_count > 0 && generic_params) {
+        node->data.async_function_definition.generic_parameters = shared_malloc_safe(generic_param_count * sizeof(char*), "ast", "unknown_function", 1180);
+        if (node->data.async_function_definition.generic_parameters) {
+            for (size_t i = 0; i < generic_param_count; i++) {
+                node->data.async_function_definition.generic_parameters[i] = (generic_params[i] ? strdup(generic_params[i]) : NULL);
+            }
+        }
+    } else {
+        node->data.async_function_definition.generic_parameters = NULL;
+    }
+    
     node->line = line;
     node->column = column;
     node->next = NULL;

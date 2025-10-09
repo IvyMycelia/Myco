@@ -199,6 +199,9 @@ const char* type_kind_to_string(MycoTypeKind kind);
 const char* type_to_string(MycoType* type);
 MycoType* type_parse_string(const char* type_string, int line, int column);
 
+// Generic Type System Functions
+MycoType* type_substitute_generic_parameters(MycoType* type, MycoType* generic_type, MycoType** type_arguments, int line, int column);
+
 // Enhanced Type Inference Engine Functions
 TypeInference* type_infer_expression_enhanced(TypeCheckerContext* context, ASTNode* node);
 int type_infer_with_confidence(TypeCheckerContext* context, ASTNode* node, int* confidence);

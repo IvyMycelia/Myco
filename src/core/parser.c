@@ -2547,6 +2547,52 @@ ASTNode* parser_parse_function_declaration(Parser* parser) {
     }
     char* func_name = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
 
+    // Parse generic type parameters: <T, U, V>
+    char** generic_params = NULL;
+    size_t generic_param_count = 0;
+    size_t generic_param_capacity = 0;
+    
+    if (parser_check(parser, TOKEN_LESS)) {
+        parser_advance(parser); // consume '<'
+        
+        while (!parser_check(parser, TOKEN_GREATER)) {
+            if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+                parser_error(parser, "Expected generic type parameter name");
+                parser_synchronize(parser);
+                break;
+            }
+            
+            // Expand capacity if needed
+            if (generic_param_count >= generic_param_capacity) {
+                size_t new_capacity = generic_param_capacity == 0 ? 4 : generic_param_capacity * 2;
+                char** new_params = (char**)shared_realloc_safe(generic_params, new_capacity * sizeof(char*), "parser", "unknown_function", 2550);
+                if (!new_params) {
+                    parser_error(parser, "Out of memory while parsing generic parameters");
+                    break;
+                }
+                generic_params = new_params;
+                generic_param_capacity = new_capacity;
+            }
+            
+            // Store the generic parameter name
+            generic_params[generic_param_count++] = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
+            
+            // Check for comma
+            if (parser_check(parser, TOKEN_COMMA)) {
+                parser_advance(parser);
+            } else if (!parser_check(parser, TOKEN_GREATER)) {
+                parser_error(parser, "Expected ',' or '>' in generic parameters");
+                parser_synchronize(parser);
+                break;
+            }
+        }
+        
+        if (!parser_match(parser, TOKEN_GREATER)) {
+            parser_error(parser, "Expected '>' after generic parameters");
+            parser_synchronize(parser);
+        }
+    }
+
     // Parameters
     if (!parser_match(parser, TOKEN_LEFT_PAREN)) {
         parser_error(parser, "Expected '(' after function name");
@@ -2628,11 +2674,19 @@ ASTNode* parser_parse_function_declaration(Parser* parser) {
         parser_advance(parser);
     }
     // Build function node (store name and body)
-    ASTNode* func = ast_create_function(func_name, params, param_count, return_type, body, 0, 0);
+    ASTNode* func = ast_create_generic_function(func_name, generic_params, generic_param_count, params, param_count, return_type, body, 0, 0);
     
     // Clean up return type if we allocated it
     if (return_type) {
         shared_free_safe(return_type, "parser", "unknown_function", 2630);
+    }
+    
+    // Clean up generic parameters
+    if (generic_params) {
+        for (size_t i = 0; i < generic_param_count; i++) {
+            shared_free_safe(generic_params[i], "parser", "unknown_function", 2690);
+        }
+        shared_free_safe(generic_params, "parser", "unknown_function", 2691);
     }
     
     return func;
@@ -2670,6 +2724,52 @@ ASTNode* parser_parse_async_function_declaration(Parser* parser) {
         return NULL;
     }
     char* func_name = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
+
+    // Parse generic type parameters: <T, U, V>
+    char** generic_params = NULL;
+    size_t generic_param_count = 0;
+    size_t generic_param_capacity = 0;
+    
+    if (parser_check(parser, TOKEN_LESS)) {
+        parser_advance(parser); // consume '<'
+        
+        while (!parser_check(parser, TOKEN_GREATER)) {
+            if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+                parser_error(parser, "Expected generic type parameter name");
+                parser_synchronize(parser);
+                break;
+            }
+            
+            // Expand capacity if needed
+            if (generic_param_count >= generic_param_capacity) {
+                size_t new_capacity = generic_param_capacity == 0 ? 4 : generic_param_capacity * 2;
+                char** new_params = (char**)shared_realloc_safe(generic_params, new_capacity * sizeof(char*), "parser", "unknown_function", 2700);
+                if (!new_params) {
+                    parser_error(parser, "Out of memory while parsing generic parameters");
+                    break;
+                }
+                generic_params = new_params;
+                generic_param_capacity = new_capacity;
+            }
+            
+            // Store the generic parameter name
+            generic_params[generic_param_count++] = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
+            
+            // Check for comma
+            if (parser_check(parser, TOKEN_COMMA)) {
+                parser_advance(parser);
+            } else if (!parser_check(parser, TOKEN_GREATER)) {
+                parser_error(parser, "Expected ',' or '>' in generic parameters");
+                parser_synchronize(parser);
+                break;
+            }
+        }
+        
+        if (!parser_match(parser, TOKEN_GREATER)) {
+            parser_error(parser, "Expected '>' after generic parameters");
+            parser_synchronize(parser);
+        }
+    }
 
     // Parameters
     if (!parser_match(parser, TOKEN_LEFT_PAREN)) {
@@ -2752,11 +2852,19 @@ ASTNode* parser_parse_async_function_declaration(Parser* parser) {
         parser_advance(parser);
     }
     // Build async function node (store name and body)
-    ASTNode* func = ast_create_async_function(func_name, params, param_count, return_type, body, 0, 0);
+    ASTNode* func = ast_create_generic_async_function(func_name, generic_params, generic_param_count, params, param_count, return_type, body, 0, 0);
     
     // Clean up return type if we allocated it
     if (return_type) {
         shared_free_safe(return_type, "parser", "unknown_function", 2754);
+    }
+    
+    // Clean up generic parameters
+    if (generic_params) {
+        for (size_t i = 0; i < generic_param_count; i++) {
+            shared_free_safe(generic_params[i], "parser", "unknown_function", 2865);
+        }
+        shared_free_safe(generic_params, "parser", "unknown_function", 2866);
     }
     
     return func;

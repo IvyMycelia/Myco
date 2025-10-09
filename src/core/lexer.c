@@ -237,7 +237,19 @@ static void lexer_skip_whitespace(Lexer* lexer) {
  * @param lexer The lexer to skip comments in
  */
 static void lexer_skip_comments(Lexer* lexer) {
+    // Handle # style comments
     if (lexer_current_char(lexer) == '#') {
+        // Skip to end of line
+        while (!lexer_is_at_end(lexer) && lexer_current_char(lexer) != '\n') {
+            lexer_advance(lexer);
+        }
+        // Also skip the newline character that ends the comment
+        if (!lexer_is_at_end(lexer) && lexer_current_char(lexer) == '\n') {
+            lexer_advance(lexer);
+        }
+    }
+    // Handle // style comments
+    else if (lexer_current_char(lexer) == '/' && !lexer_is_at_end(lexer) && lexer_next_char(lexer) == '/') {
         // Skip to end of line
         while (!lexer_is_at_end(lexer) && lexer_current_char(lexer) != '\n') {
             lexer_advance(lexer);

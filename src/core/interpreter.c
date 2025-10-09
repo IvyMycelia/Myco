@@ -3949,23 +3949,23 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 return result;
             }
             
-            // Check if this is a macro call first
-            if (interpreter->macro_expander && macro_is_defined(interpreter->macro_expander, func_name)) {
-                // This is a macro call - expand it
-                ASTNode* expanded = macro_expand(interpreter->macro_expander,
-                    func_name,
-                    node->data.function_call.arguments,
-                    node->data.function_call.argument_count);
-                
-                if (expanded) {
-                    // Evaluate the expanded macro
-                    Value result = eval_node(interpreter, expanded);
-                    return result;
-                } else {
-                    interpreter_set_error(interpreter, "Failed to expand macro", node->line, node->column);
-                    return value_create_null();
-                }
+        // Check if this is a macro call first
+        if (interpreter->macro_expander && macro_is_defined(interpreter->macro_expander, func_name)) {
+            // This is a macro call - expand it
+            ASTNode* expanded = macro_expand(interpreter->macro_expander,
+                func_name,
+                node->data.function_call.arguments,
+                node->data.function_call.argument_count);
+            
+            if (expanded) {
+                // Evaluate the expanded macro
+                Value result = eval_node(interpreter, expanded);
+                return result;
+            } else {
+                interpreter_set_error(interpreter, "Failed to expand macro", node->line, node->column);
+                return value_create_null();
             }
+        }
             
             // Look up function in environment
             Value fn = environment_get(interpreter->current_environment, func_name);
@@ -5700,22 +5700,22 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
         // MACRO SYSTEM HANDLING
         // ============================================================================
         
-        case AST_NODE_MACRO_DEFINITION: {
-            // Register the macro with the macro expander
-            if (interpreter->macro_expander) {
-                int success = macro_define(interpreter->macro_expander,
-                    node->data.macro_definition.macro_name,
-                    node->data.macro_definition.parameters,
-                    node->data.macro_definition.parameter_count,
-                    node->data.macro_definition.body,
-                    node->data.macro_definition.is_hygenic);
-                
-                if (!success) {
-                    interpreter_set_error(interpreter, "Failed to define macro", node->line, node->column);
-                }
+    case AST_NODE_MACRO_DEFINITION: {
+        // Register the macro with the macro expander
+        if (interpreter->macro_expander) {
+            int success = macro_define(interpreter->macro_expander,
+                node->data.macro_definition.macro_name,
+                node->data.macro_definition.parameters,
+                node->data.macro_definition.parameter_count,
+                node->data.macro_definition.body,
+                node->data.macro_definition.is_hygenic);
+            
+            if (!success) {
+                interpreter_set_error(interpreter, "Failed to define macro", node->line, node->column);
             }
-            return value_create_null();
         }
+        return value_create_null();
+    }
         
         case AST_NODE_MACRO_EXPANSION: {
             // Expand the macro call

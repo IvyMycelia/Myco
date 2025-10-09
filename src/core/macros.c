@@ -163,14 +163,11 @@ ASTNode* macro_expand(MacroExpander* expander, const char* macro_name,
     
     // Perform hygenic expansion if needed
     if (macro->is_hygenic) {
-        printf("DEBUG: Performing hygenic expansion for macro %s\n", macro_name);
         ASTNode* hygenic = macro_hygenic_expand(expanded, macro_name);
         if (hygenic) {
             ast_free(expanded);
             expanded = hygenic;
         }
-    } else {
-        printf("DEBUG: Skipping hygenic expansion for macro %s (is_hygenic=%d)\n", macro_name, macro->is_hygenic);
     }
     
     return expanded;

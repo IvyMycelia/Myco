@@ -980,6 +980,9 @@ int type_check_ast(TypeCheckerContext* context, ASTNode* node) {
 int type_check_statement(TypeCheckerContext* context, ASTNode* node) {
     if (!context || !node) return 0;
     
+    // Debug: Print the statement type
+    printf("DEBUG: Type checking statement type: %d\n", node->type);
+    
     switch (node->type) {
         case AST_NODE_VARIABLE_DECLARATION:
             return type_check_variable_declaration(context, node);
@@ -992,6 +995,7 @@ int type_check_statement(TypeCheckerContext* context, ASTNode* node) {
         case AST_NODE_BLOCK:
             return type_check_block(context, node);
         default:
+            printf("DEBUG: Unsupported statement type: %d\n", node->type);
             return 1; // Skip unsupported statement types for now
     }
 }

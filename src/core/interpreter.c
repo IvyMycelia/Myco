@@ -3843,6 +3843,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 return value_create_null();
             }
             
+            
             // Check if this is a class instantiation
             Value class_value = environment_get(interpreter->current_environment, func_name);
             if (class_value.type != VALUE_CLASS) {

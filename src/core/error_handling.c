@@ -693,7 +693,7 @@ void interpreter_report_error_comprehensive(Interpreter* interpreter, int error_
     if (interpreter->error_message) {
         free(interpreter->error_message);
     }
-    interpreter->error_message = strdup(message);
+    interpreter->error_message = (message ? strdup(message) : NULL);
     interpreter->error_line = line;
     interpreter->error_column = column;
     
@@ -801,7 +801,7 @@ char* safe_strdup(const char* str, Interpreter* interpreter, const char* context
         return NULL;
     }
     
-    char* result = strdup(str);
+    char* result = (str ? strdup(str) : NULL);
     if (!result) {
         interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_OUT_OF_MEMORY, 
                                             "String duplication failed", interpreter->current_filename, line, column, 

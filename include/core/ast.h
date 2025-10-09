@@ -275,6 +275,8 @@ typedef struct ASTNode {
         // Function definition
         struct {
             char* function_name;
+            char** generic_parameters;        // Generic type parameter names
+            size_t generic_parameter_count;   // Number of generic parameters
             struct ASTNode** parameters;
             size_t parameter_count;
             char* return_type;
@@ -362,6 +364,8 @@ typedef struct ASTNode {
         // Async function definition
         struct {
             char* function_name;
+            char** generic_parameters;        // Generic type parameter names
+            size_t generic_parameter_count;   // Number of generic parameters
             struct ASTNode** parameters;
             size_t parameter_count;
             char* return_type;
@@ -425,6 +429,7 @@ ASTNode* ast_create_pattern_range(ASTNode* start, ASTNode* end, int inclusive, i
 ASTNode* ast_create_pattern_regex(const char* regex_pattern, int flags, int line, int column);
 ASTNode* ast_create_class(const char* name, const char* parent, ASTNode* body, int line, int column);
 ASTNode* ast_create_function(const char* name, ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column);
+ASTNode* ast_create_generic_function(const char* name, char** generic_params, size_t generic_param_count, ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column);
 ASTNode* ast_create_lambda(ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column);
 ASTNode* ast_create_array_literal(ASTNode** elements, size_t element_count, int line, int column);
 ASTNode* ast_create_hash_map_literal(ASTNode** keys, ASTNode** values, size_t pair_count, int line, int column);
@@ -434,6 +439,7 @@ ASTNode* ast_create_use(const char* library, const char* alias, char** specific_
 ASTNode* ast_create_module(const char* name, ASTNode* body, int line, int column);
 ASTNode* ast_create_package(const char* name, ASTNode* body, int line, int column);
 ASTNode* ast_create_async_function(const char* name, ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column);
+ASTNode* ast_create_generic_async_function(const char* name, char** generic_params, size_t generic_param_count, ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, int line, int column);
 ASTNode* ast_create_await(ASTNode* expression, int line, int column);
 ASTNode* ast_create_promise(ASTNode* expression, int line, int column);
 ASTNode* ast_create_error_node(const char* error_message, int line, int column);

@@ -3517,7 +3517,15 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
         // Set up function parameters
         if (func->data.function_value.parameters && func->data.function_value.parameter_count > 0) {
             for (size_t i = 0; i < func->data.function_value.parameter_count && i < arg_count; i++) {
-                const char* param_name = func->data.function_value.parameters[i]->data.identifier_value;
+                const char* param_name = NULL;
+                ASTNode* param_node = func->data.function_value.parameters[i];
+                
+                if (param_node->type == AST_NODE_TYPED_PARAMETER) {
+                    param_name = param_node->data.typed_parameter.parameter_name;
+                } else if (param_node->type == AST_NODE_IDENTIFIER) {
+                    param_name = param_node->data.identifier_value;
+                }
+                
                 if (param_name) {
                     environment_define(func_env, param_name, value_clone(&args[i]));
                 }

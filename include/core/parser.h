@@ -728,4 +728,48 @@ int parser_sync_to_statement_boundary(Parser* parser);
  */
 int parser_sync_to_expression_boundary(Parser* parser);
 
+// ============================================================================
+// MACRO PARSING FUNCTIONS
+// ============================================================================
+
+/**
+ * @brief Parse a macro definition
+ * 
+ * Syntax: macro name(param1, param2): body end
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the macro definition, or NULL if parsing failed
+ */
+ASTNode* parser_parse_macro_definition(Parser* parser);
+
+/**
+ * @brief Parse a const declaration (compile-time constant)
+ * 
+ * Syntax: const name = value;
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the const declaration, or NULL if parsing failed
+ */
+ASTNode* parser_parse_const_declaration(Parser* parser);
+
+/**
+ * @brief Parse a template definition
+ * 
+ * Syntax: template name<T1, T2>: body end
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the template definition, or NULL if parsing failed
+ */
+ASTNode* parser_parse_template_definition(Parser* parser);
+
+/**
+ * @brief Parse a comptime evaluation block
+ * 
+ * Syntax: comptime { expression }
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the comptime evaluation, or NULL if parsing failed
+ */
+ASTNode* parser_parse_comptime_eval(Parser* parser);
+
 #endif // MYCO_PARSER_H

@@ -167,6 +167,9 @@ typedef struct {
     JitContext* jit_context;
     int jit_enabled;
     int jit_mode;
+    
+    // Macro system support
+    struct MacroExpander* macro_expander;
 } Interpreter;
 
 // Interpreter initialization and cleanup

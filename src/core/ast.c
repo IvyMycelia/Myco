@@ -1456,3 +1456,129 @@ int ast_validate_tree(ASTNode* root) {
     return 1;
 }
 
+// ============================================================================
+// MACRO AST CREATION FUNCTIONS
+// ============================================================================
+
+/**
+ * @brief Create a macro definition AST node
+ */
+ASTNode* ast_create_macro_definition(char* macro_name, char** parameters, size_t param_count, 
+                                    ASTNode* body, int is_hygenic, int line, int column) {
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 1468);
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_MACRO_DEFINITION;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    node->data.macro_definition.macro_name = macro_name;
+    node->data.macro_definition.parameters = parameters;
+    node->data.macro_definition.parameter_count = param_count;
+    node->data.macro_definition.body = body;
+    node->data.macro_definition.is_hygenic = is_hygenic;
+    
+    return node;
+}
+
+/**
+ * @brief Create a macro expansion AST node
+ */
+ASTNode* ast_create_macro_expansion(char* macro_name, ASTNode** arguments, size_t arg_count, 
+                                   int line, int column) {
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 1488);
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_MACRO_EXPANSION;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    node->data.macro_expansion.macro_name = macro_name;
+    node->data.macro_expansion.arguments = arguments;
+    node->data.macro_expansion.argument_count = arg_count;
+    
+    return node;
+}
+
+/**
+ * @brief Create a const declaration AST node
+ */
+ASTNode* ast_create_const_declaration(char* const_name, ASTNode* value, int is_evaluated, 
+                                     int line, int column) {
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 1508);
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_CONST_DECLARATION;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    node->data.const_declaration.const_name = const_name;
+    node->data.const_declaration.value = value;
+    node->data.const_declaration.is_evaluated = is_evaluated;
+    
+    return node;
+}
+
+/**
+ * @brief Create a template definition AST node
+ */
+ASTNode* ast_create_template_definition(char* template_name, char** type_parameters, 
+                                       size_t type_param_count, ASTNode* body, 
+                                       int line, int column) {
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 1528);
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_TEMPLATE_DEFINITION;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    node->data.template_definition.template_name = template_name;
+    node->data.template_definition.type_parameters = type_parameters;
+    node->data.template_definition.type_param_count = type_param_count;
+    node->data.template_definition.body = body;
+    
+    return node;
+}
+
+/**
+ * @brief Create a template instantiation AST node
+ */
+ASTNode* ast_create_template_instantiation(char* template_name, char** type_arguments, 
+                                          size_t type_arg_count, int line, int column) {
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 1550);
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_TEMPLATE_INSTANTIATION;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    node->data.template_instantiation.template_name = template_name;
+    node->data.template_instantiation.type_arguments = type_arguments;
+    node->data.template_instantiation.type_arg_count = type_arg_count;
+    
+    return node;
+}
+
+/**
+ * @brief Create a comptime evaluation AST node
+ */
+ASTNode* ast_create_comptime_eval(ASTNode* expression, int is_evaluated, int line, int column) {
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 1570);
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_COMPTIME_EVAL;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    node->data.comptime_eval.expression = expression;
+    node->data.comptime_eval.is_evaluated = is_evaluated;
+    
+    return node;
+}
+

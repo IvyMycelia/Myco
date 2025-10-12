@@ -134,7 +134,7 @@ Value builtin_tree_create(Interpreter* interpreter, Value* args, size_t arg_coun
     // Store tree pointer in a custom value type
     // For now, return a simple object representation
     Value tree_obj = value_create_object(16);
-    value_object_set(&tree_obj, "__class_name__", value_create_string(("Tree" ? strdup("Tree") : NULL)));
+    value_object_set(&tree_obj, "__class_name__", value_create_string("Tree"));
     value_object_set(&tree_obj, "size", value_create_number(0));
     
     // Set the type field for method call support

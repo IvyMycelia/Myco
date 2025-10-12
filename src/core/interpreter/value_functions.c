@@ -3,6 +3,7 @@
 #include "../../include/utils/shared_utilities.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 
 // ============================================================================
@@ -317,10 +318,11 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
     // Check if this is a built-in function
     // Built-in functions have a function pointer as body, user functions have AST nodes
     // We can distinguish by checking if the body is a valid AST node (has a valid type)
-    if (func->data.function_value.body && func->data.function_value.parameters == NULL && func->data.function_value.parameter_count == 0 && func->data.function_value.return_type == NULL) {
+    if (func->data.function_value.body && func->data.function_value.parameters == NULL && func->data.function_value.parameter_count == 0) {
         // Check if this looks like a function pointer vs AST node by checking if it's a valid AST node
         ASTNode* body_node = (ASTNode*)func->data.function_value.body;
         // Valid AST node types are typically 1-100, function pointers will have invalid types
+        // But we need to be more careful - check if it's actually a function pointer
         if (body_node->type < 1 || body_node->type > 100) { 
             // This is likely a built-in function - the body field contains the function pointer
             Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = (Value (*)(Interpreter*, Value*, size_t, int, int))func->data.function_value.body;
@@ -336,6 +338,15 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
     
     // Regular function call
     if (!func->data.function_value.body) {
+        return value_create_null();
+    }
+    
+    // Debug: Check if this is a user-defined function
+    // User-defined functions should have a valid AST node as body
+    ASTNode* body_node = (ASTNode*)func->data.function_value.body;
+    if (body_node->type < 1 || body_node->type > 100) {
+        // This looks like a function pointer, not an AST node
+        // This shouldn't happen for user-defined functions
         return value_create_null();
     }
     
@@ -371,8 +382,14 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
     Environment* old_env = interpreter->current_environment;
     interpreter->current_environment = func_env;
     
-        // Execute function body
-        Value result = interpreter_execute(interpreter, func->data.function_value.body);
+    // Execute function body
+    Value result = interpreter_execute(interpreter, func->data.function_value.body);
+    
+    // Check if the function returned a value
+    if (interpreter->has_return) {
+        result = interpreter->return_value;
+        interpreter->has_return = 0; // Reset return flag
+    }
     
     // Restore environment
     interpreter->current_environment = old_env;

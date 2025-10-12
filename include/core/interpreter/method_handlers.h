@@ -32,4 +32,22 @@ Value handle_response_method_call(Interpreter* interpreter, ASTNode* call_node, 
 Value handle_route_group_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 Value handle_server_library_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 
+// ============================================================================
+// BUILT-IN FUNCTIONS
+// ============================================================================
+
+// Core built-in functions
+Value builtin_print(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_input(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_len(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_assert(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+
+// Placeholder built-in functions
+Value builtin_int(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_float(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_bool(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+
+// Built-in registration
+void interpreter_register_builtins(Interpreter* interpreter);
+
 #endif // METHOD_HANDLERS_H

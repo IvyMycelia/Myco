@@ -677,7 +677,7 @@ end
 print("\n9. Built-in Libraries...");
 total_tests = total_tests + 1;
 use math as math;
-if math.type == "Object":
+if math.type == "Library":
     print("✓ Math library imported");
     tests_passed = tests_passed + 1;
 else:
@@ -707,7 +707,7 @@ end
 
 total_tests = total_tests + 1;
 use file as file;
-if file.type == "Object":
+if file.type == "Library":
     print("✓ File library imported");
     tests_passed = tests_passed + 1;
 else:
@@ -717,7 +717,7 @@ end
 
 total_tests = total_tests + 1;
 use dir as dir;
-if dir.type == "Object":
+if dir.type == "Library":
     print("✓ Directory library imported");
     tests_passed = tests_passed + 1;
 else:
@@ -1993,16 +1993,16 @@ end
 print("16.5. Array type guards...");
 total_tests = total_tests + 1;
 if ([1, 2, 3]).isArray():
-    print("✓ isArray([1, 2, 3]): True");
+    print("✓ [1, 2, 3].isArray(): True");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ isArray([1, 2, 3]): False");
+    print("✗ [1, 2, 3].isArray(): False");
     tests_failed = tests_failed + ["isArray with array"];
 end
 
 total_tests = total_tests + 1;
 if ("hello").isArray():
-    print("✗ isArray('hello'): True");
+    print("✗ ('hello').isArray(): True");
     tests_failed = tests_failed + ["isArray with string"];
 else:
     print("✓ isArray('hello'): False");
@@ -2012,19 +2012,19 @@ end
 print("16.6. Null type guards...");
 total_tests = total_tests + 1;
 if (Null).isNull():
-    print("✓ isNull(Null): True");
+    print("✓ (Null).isNull(): True");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ isNull(Null): False");
+    print("✗ (Null).isNull(): False");
     tests_failed = tests_failed + ["isNull with null"];
 end
 
 total_tests = total_tests + 1;
 if ("hello").isNull():
-    print("✗ isNull('hello'): True");
+    print("✗ ('hello').isNull(): True");
     tests_failed = tests_failed + ["isNull with string"];
 else:
-    print("✓ isNull('hello'): False");
+    print("✓ ('hello').isNull(): False");
     tests_passed = tests_passed + 1;
 end
 
@@ -2070,10 +2070,10 @@ end
 total_tests = total_tests + 1;
 let optional_null_2: String? = Null;
 if (optional_null_2).isNull():
-    print("✓ isNull(optional_null): True");
+    print("✓ (optional_null).isNull(): True");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ isNull(optional_null): False");
+    print("✗ (optional_null).isNull(): False");
     tests_failed = tests_failed + ["isNull with optional null"];
 end
 
@@ -2941,11 +2941,11 @@ total_tests = total_tests + 1;
 class MixedClass:
     let name: String
     let age: Int
-    let active = true
+    let active = True
 end
 let mixed_class: MixedClass = MixedClass("Alice", 25);
 # Test that mixed field types work
-if mixed_class.type == "MixedClass" and mixed_class.name == "Alice" and mixed_class.age == 25 and mixed_class.active == true:
+if mixed_class.type == "MixedClass" and mixed_class.name == "Alice" and mixed_class.age == 25 and mixed_class.active == True:
     print("✓ Class with mixed field types");
     tests_passed = tests_passed + 1;
 else:
@@ -3139,7 +3139,7 @@ end
 
 # 17.8. Inheritance with default values
 class Bird extends Animal:
-    let can_fly = true
+    let can_fly = True
     let wing_span: Float
 end
 print("✓ Inheritance with default values");
@@ -3171,7 +3171,7 @@ print("\n=== 20. Time Library Functions ===");
 # Test time library import
 # use time as time; # Already imported at top
 total_tests = total_tests + 1;
-if time.type == "Object":
+if time.type == "Library":
     print("✓ Time library import works");
     tests_passed = tests_passed + 1;
 else:
@@ -3328,7 +3328,7 @@ print("\n=== 21. Regex Library Functions ===");
 # Test regex library import
 use regex as regex;
 total_tests = total_tests + 1;
-if regex.type == "Object":
+if regex.type == "Library":
     print("✓ Regex library import works");
     tests_passed = tests_passed + 1;
 else:
@@ -3584,7 +3584,7 @@ print("\n=== 22. JSON Library Functions ===");
 # Test JSON library import
 # use json as json; # Already imported at top
 total_tests = total_tests + 1;
-if json.type == "Object":
+if json.type == "Library":
     print("✓ JSON library import works");
     tests_passed = tests_passed + 1;
 else:
@@ -3635,7 +3635,7 @@ end
 
 # Test json.stringify() - arrays
 total_tests = total_tests + 1;
-let json_arr = [1, 2, 3, "hello", true];
+let json_arr = [1, 2, 3, "hello", True];
 let arr_result = json.stringify(json_arr);
 if arr_result.type == "String" and arr_result != "":
     print("✓ json.stringify() works for arrays");
@@ -3714,7 +3714,7 @@ print("\n=== 23. HTTP Library Functions ===");
 # Test HTTP library import
 # use http as http; # Already imported at top
 total_tests = total_tests + 1;
-if http.type == "Object":
+if http.type == "Library":
     print("✓ HTTP library import works");
     tests_passed = tests_passed + 1;
 else:

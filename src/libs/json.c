@@ -934,6 +934,8 @@ void json_library_register(Interpreter* interpreter) {
 
     // Create JSON library object
     Value json_lib = value_create_object(16);
+    // Mark as Library for .type reporting
+    value_object_set(&json_lib, "__type__", value_create_string("Library"));
 
     // Register core functions
     value_object_set(&json_lib, "parse", value_create_builtin_function(builtin_json_parse));

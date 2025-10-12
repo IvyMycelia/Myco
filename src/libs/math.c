@@ -208,6 +208,8 @@ void math_library_register(Interpreter* interpreter) {
     
     // Create math object with constants and functions
     Value math_obj = value_create_object(32);
+    // Mark as Library for .type reporting
+    value_object_set(&math_obj, "__type__", value_create_string("Library"));
     
     // Add constants
     value_object_set(&math_obj, "Pi", value_create_number(MATH_PI));

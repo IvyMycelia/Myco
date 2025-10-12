@@ -106,6 +106,8 @@ Value value_create_builtin_function(Value (*func)(Interpreter*, Value*, size_t, 
     // Store the builtin function pointer in the body field for now
     // In a real implementation, you'd want a separate field for this
     v.data.function_value.body = (ASTNode*)func;
+    // Mark this as a built-in function by setting a special flag
+    v.flags |= VALUE_FLAG_CACHED; // Use this flag to mark built-in functions
     return v;
 }
 
@@ -313,16 +315,23 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
     }
     
     // Check if this is a built-in function
-    if (func->data.function_value.body && func->data.function_value.parameters == NULL) {
-        // This is a built-in function - the body field contains the function pointer
-        Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = (Value (*)(Interpreter*, Value*, size_t, int, int))func->data.function_value.body;
-        
-        // Push a frame for built-in call (Python-like traceback)
-        interpreter_push_call_frame(interpreter, "<builtin>", interpreter->current_filename ? interpreter->current_filename : "<stdin>", line, column);
-        Value result = builtin_func(interpreter, args, arg_count, line, column);
-        interpreter_pop_call_frame(interpreter);
-        
-        return result;
+    // Built-in functions have a function pointer as body, user functions have AST nodes
+    // We can distinguish by checking if the body is a valid AST node (has a valid type)
+    if (func->data.function_value.body && func->data.function_value.parameters == NULL && func->data.function_value.parameter_count == 0 && func->data.function_value.return_type == NULL) {
+        // Check if this looks like a function pointer vs AST node by checking if it's a valid AST node
+        ASTNode* body_node = (ASTNode*)func->data.function_value.body;
+        // Valid AST node types are typically 1-100, function pointers will have invalid types
+        if (body_node->type < 1 || body_node->type > 100) { 
+            // This is likely a built-in function - the body field contains the function pointer
+            Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = (Value (*)(Interpreter*, Value*, size_t, int, int))func->data.function_value.body;
+            
+            // Push a frame for built-in call (Python-like traceback)
+            interpreter_push_call_frame(interpreter, "<builtin>", interpreter->current_filename ? interpreter->current_filename : "<stdin>", line, column);
+            Value result = builtin_func(interpreter, args, arg_count, line, column);
+            interpreter_pop_call_frame(interpreter);
+            
+            return result;
+        }
     }
     
     // Regular function call
@@ -346,7 +355,12 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
     size_t param_count = func->data.function_value.parameter_count;
     for (size_t i = 0; i < param_count && i < arg_count; i++) {
         if (func->data.function_value.parameters[i]) {
-            const char* param_name = func->data.function_value.parameters[i]->data.variable_declaration.variable_name;
+            const char* param_name = NULL;
+            if (func->data.function_value.parameters[i]->type == AST_NODE_IDENTIFIER) {
+                param_name = func->data.function_value.parameters[i]->data.identifier_value;
+            } else if (func->data.function_value.parameters[i]->type == AST_NODE_TYPED_PARAMETER) {
+                param_name = func->data.function_value.parameters[i]->data.typed_parameter.parameter_name;
+            }
             if (param_name) {
                 environment_define(func_env, param_name, args[i]);
             }

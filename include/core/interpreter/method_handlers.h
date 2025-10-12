@@ -1,7 +1,7 @@
 #ifndef METHOD_HANDLERS_H
 #define METHOD_HANDLERS_H
 
-#include "../interpreter.h"
+#include "interpreter_core.h"
 #include <stddef.h>
 
 // ============================================================================

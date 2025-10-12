@@ -1,5 +1,6 @@
 #include "../../include/libs/builtin_libs.h"
 #include "../../include/core/interpreter.h"
+#include "../../include/core/interpreter/value_operations.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>

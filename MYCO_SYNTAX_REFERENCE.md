@@ -82,7 +82,7 @@ end
 let arr = [1, 2, 3];
 arr.push(4);                                 # Add element: [1, 2, 3, 4]
 let popped = arr.pop();                       # Remove last: 4
-let len = arr.length();                           # Get length: 3
+let len = arr.length;                           # Get length: 3
 let joined = arr.join(", ");                  # Join elements: "1, 2, 3"
 ```
 
@@ -105,6 +105,9 @@ arr.join(separator);                          # CORRECT: var.method()
 
 # NOT: array.push(arr, val) - this is WRONG
 ```
+
+# Use Statements
+ALL use statements must import either a path or built-in library. `as` and `from` are optional.
 
 ## Library Imports
 
@@ -147,8 +150,8 @@ let result = instance.method();
 ```myco
 print(value);                                 # Print to console
 let input = input();                          # Get user input
-let length = collection.length();                 # Get length
-let type_name = value.type();                  # Get type
+let length = collection.length;                 # Get length
+let type_name = value.type;                  # Get type
 let str_val = value.toString();                     # Convert to string
 let num_val = value.toInt();                     # Convert to integer
 let bool_val = value.toBool();                   # Convert to boolean
@@ -158,8 +161,8 @@ let bool_val = value.toBool();                   # Convert to boolean
 
 ```myco
 let str = "Hello World";
-let upper = str.Upper();                # "HELLO WORLD"
-let lower = str.Lower();                # "hello world"
+let upper = str.upper();                # "HELLO WORLD"
+let lower = str.lower();                # "hello world"
 let trimmed = str.trim();                     # Remove whitespace
 let split = str.split(" ");                   # ["Hello", "World"]
 let replaced = str.replace("World", "Myco");  # "Hello Myco"
@@ -202,7 +205,7 @@ if interpreter.hasError():
 end
 
 # Type checking
-if value.type() == "String":
+if value.type == "String":
     # Handle string
 end
 ```
@@ -219,3 +222,9 @@ end
 8. **Booleans**: `True` and `False` (capitalized)
 9. **Null**: `Null` (capitalized)
 10. **Semicolons**: Required at end of statements
+11. **Use Statements**: Use `use library as alias;` or `use library;` or `use method1, method2 from library;` or `use method1, method2 from library as alias1, alias2;`
+12. **Dot Methos vs. Dot Variables**: If a dot operator mutates, manipulates, or changes a variable, then it needs parenthesis. If it has parameters, then it needs paranthesis. If it is just a property (e.g. `arr.length`, `obj.keys`, `heap.size`, `array.type`), then it does not need parenthesis.
+
+
+use library as alias; alias.type = "Library";                        # Import library
+use "./file.myco" as mycoFile; file.type = "Import";                        # Import file

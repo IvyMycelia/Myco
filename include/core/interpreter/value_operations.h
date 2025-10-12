@@ -148,4 +148,25 @@ Value value_bitwise_not(Value* a);
 Value value_left_shift(Value* a, Value* b);
 Value value_right_shift(Value* a, Value* b);
 
+// ============================================================================
+// VALUE CONVERSION FUNCTIONS
+// ============================================================================
+
+// Type conversions
+Value value_to_string(Value* value);
+Value value_to_boolean(Value* value);
+Value value_to_number(Value* value);
+
+// ============================================================================
+// VALUE UTILITY FUNCTIONS
+// ============================================================================
+
+// Type checking and utilities
+const char* value_type_string(ValueType type);
+int value_matches_type(Value* value, const char* type_name, Interpreter* interpreter);
+int value_is_truthy(Value* value);
+int value_equals(Value* a, Value* b);
+Value value_clone(Value* value);
+void value_free(Value* value);
+
 #endif // VALUE_OPERATIONS_H

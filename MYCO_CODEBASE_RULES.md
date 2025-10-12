@@ -29,30 +29,30 @@ This document contains the comprehensive rules and constraints that MUST be foll
 - **Booleans**: `True` and `False` (capitalized), NEVER `true`/`false`
 - **Null**: `Null` (capitalized), NEVER `null`
 
-### 3. Method Invocation Rules
+### 3. Method Invocation Rules For .myco Files
 - **ALWAYS** use `var.method()` syntax for built-in types
 - **NEVER** use `library.method(var, ...)` or `built_in_method(var, ...)`
 - **Examples**:
   - ✅ `arr.push(val)`, `arr.pop()`, `arr.join(sep)`
   - ❌ `array.push(arr, val)`, `push(arr, val)`
 
-### 4. Built-in Function Rules
+### 4. Built-in Function Rules For .myco Files
 - **NO** built-in functions `len(val)` and `toString(val)`
 - **ALWAYS** use `val.length()` and `val.toString()` instead
 - **Treat** `len()` and `toString()` calls as user-defined functions
 
-### 5. Type Checking Rules
+### 5. Type Checking Rules For .myco Files
 - **ALWAYS** use instance methods: `x.type()` or `x.isInt()`
 - **NEVER** use standalone functions: `type(x)` or `isInt(x)`
 
-### 6. Error Message Format Rules
+### 6. Error Message Format Rules For .myco Files
 - **Format**: `Error: "<variable>" is Undefined (Line X, Column Y)`
 - **Include**: Error codes, line and column information
 - **Display**: In red in terminal when available
 - **Timing**: Print live rather than at end
 - **Style**: Concise and easy to read, avoid messy formatting
 
-### 7. Test Suite Rules
+### 7. Test Suite Rules For .myco Files
 - **NEVER** modify `pass.myco` - it must always pass with 100% success
 - **ALWAYS** use `pass.myco` as reference for comprehensive testing
 - **EVERY** test must include an `if` statement to check the test condition

@@ -253,6 +253,7 @@ void trees_library_register(Interpreter* interpreter) {
     
     // Create trees object with factory functions
     Value trees_obj = value_create_object(16);
+    value_object_set(&trees_obj, "__type__", value_create_string("Library"));
     value_object_set(&trees_obj, "create", value_create_builtin_function(builtin_tree_create));
     
     // Register the trees object

@@ -1,4 +1,3 @@
-Warning: Parse errors detected
 === Myco Comprehensive Test Suite ===
 Testing EVERY feature and edge case in Myco
 
@@ -117,12 +116,12 @@ Testing EVERY feature and edge case in Myco
 ✓ Else-if statement works
 
 9. Built-in Libraries...
-✗ Math library import failed
+✓ Math library imported
 ✓ String type available
 ✓ Array type available
-✗ File library import failed
-✗ Directory library import failed
-✗ Maps library not available
+✓ File library imported
+✓ Directory library imported
+✓ Maps library available
 ✓ Sets type available
 ✓ Trees library imported
 ✓ Graphs library imported
@@ -242,7 +241,7 @@ Testing EVERY feature and edge case in Myco
 ✓ 'hello'.type: String
 ✓ True.type: Boolean
 ✓ Null.type: Null
-✓ [1,2,3].type: [Int]
+✓ [1,2,3].type: Array
 
 13.2. Length function...
 ✓ len('hello'): 5
@@ -289,18 +288,32 @@ Testing EVERY feature and edge case in Myco
 
 === 16. TYPE GUARDS ===
 16.1. Basic type guard methods...
+✓ isString('hello'): True
+✓ isString(42): False
 16.2. Integer type guards...
+✓ isInt(42): True
+✓ isInt(3.14): False
 16.3. Float type guards...
+✓ isFloat(3.14): True
+✓ isFloat(42): False
 16.4. Boolean type guards...
+✓ isBool(True): True
+✓ isBool(42): False
 16.5. Array type guards...
-✗ isArray([1, 2, 3]): False
+✓ [1, 2, 3].isArray(): True
+✓ isArray('hello'): False
 16.6. Null type guards...
-✗ isNull(Null): False
+✓ (Null).isNull(): True
+✓ ('hello').isNull(): False
 16.7. Number type guards...
+✓ isNumber(42): True
+✓ isNumber(3.14): True
+✓ isNumber('hello'): False
 16.8. Type guards with optional types...
-✗ isNull(optional_null): False
+✓ isString(optional_string): True
+✓ (optional_null).isNull(): True
 16.9. Type guards in conditional logic...
-✗ Type guard conditional logic: 
+✓ Type guard conditional logic: string
 
 === 17. EDGE CASES ===
 17.1. Zero and negative numbers...
@@ -344,154 +357,3 @@ Testing EVERY feature and edge case in Myco
 ✓ Function definitions with mixed explicit/implicit types
 
 18.5. Function calls (no parameters)...
-✓ Function calls with no parameters
-
-18.6. Function calls (with parameters)...
-
-18.7. Function calls (with type annotations)...
-
-18.8. Recursive functions...
-
-18.9. Function variables and assignments...
-
-18.10. Complex function combinations...
-
-18.11. Function scope and closures...
-
-18.12. Function error handling...
-
-18.13. Lambda functions (anonymous functions)...
-✓ Lambda functions (anonymous functions)
-
-18.14. Function variable assignments...
-✓ Function variable assignments
-
-18.15. Lambda functions with different parameter types...
-✓ Lambda functions with different parameter types
-
-18.16. Explicit function with all types...
-✓ Explicit function with all types
-
-18.17. Implicit function with no types...
-
-18.18. Mixed function - explicit parameter, implicit return...
-
-18.19. Mixed function - implicit parameter, explicit return...
-
-18.20. Function variable with explicit types...
-
-18.21. Function variable with implicit types...
-
-18.22. Function variable with mixed types...
-
-18.23. Function variable with mixed return type...
-
-18.24. Function type interchangeability with different argument types...
-✓ Class with default field values
-✓ Class instantiation
-✓ Class with methods
-✓ Class with self references
-✓ Class with mixed field types
-✓ Class with typed methods
-✓ Class with untyped methods
-✓ Class with complex method bodies
-
-=== 19. INHERITANCE TESTS ===
-✓ Basic inheritance parsing
-✓ Field inheritance
-✓ Method overriding
-✓ Multi-level inheritance parsing
-✓ Inheritance with additional fields
-✓ Inheritance without method override
-✓ Complex inheritance chain
-✓ Inheritance with default values
-✓ Multiple inheritance simulation
-✓ Inheritance with mixed field types
-
-=== 20. Time Library Functions ===
-✓ Time library import works
-✓ time.now() returns time object
-✓ time.create() returns time object
-✓ time.format() works correctly
-✓ time.year() works correctly
-✓ time.month() works correctly
-✓ time.day() works correctly
-✓ time.hour() works correctly
-✓ time.minute() works correctly
-✓ time.second() works correctly
-✓ time.iso_string() works correctly
-✓ time.unix_timestamp() works correctly
-✓ time.add() works correctly
-✓ time.subtract() works correctly
-✓ time.difference() works correctly
-
-=== 21. Regex Library Functions ===
-✓ Regex library import works
-✓ regex.match() returns match object
-✓ regex.match() returns Null for no match
-✓ regex.test() works for existing pattern
-✓ regex.test() works for non-existing pattern
-✓ regex.isEmail() works for valid email
-✓ regex.isEmail() works for invalid email
-✓ regex.isUrl() works for valid URL
-✓ regex.isUrl() works for invalid URL
-✓ regex.isIp() works for valid IP
-✓ regex.isIp() works for invalid IP
-✓ regex.CASE_INSENSITIVE flag works
-✓ regex.GLOBAL flag works
-✓ regex.MULTILINE flag works
-✓ regex.DOTALL flag works
-✓ Complex regex patterns work
-✓ Regex with special characters works
-✓ Multiple email format validation works
-✓ Multiple URL format validation works
-✓ Multiple IP format validation works
-✓ Regex error handling works
-✓ Regex with empty strings works
-
-=== 22. JSON Library Functions ===
-✓ JSON library import works
-✓ json.stringify() works for strings
-✓ json.stringify() works for numbers
-✓ json.stringify() works for booleans
-✓ json.stringify() works for null
-✓ json.stringify() works for arrays
-✓ json.validate() works for valid JSON
-✓ json.validate() works for invalid JSON
-✓ json.size works for arrays
-✓ json.isEmpty() works for arrays
-✓ json.parse() works
-
-=== 23. HTTP Library Functions ===
-✓ HTTP library import works
-✓ http.get() works
-✓ http.post() works
-✓ http.put() works
-✓ http.delete() works
-✓ HTTP response object has all required properties
-✓ http.statusOk() works
-✓ http.getHeader() works
-✓ http.getJson() works
-✓ HTTP error handling works
-
-=== RESULTS ===
-Total: 295
-Passed: 280
-Failed: 15
-Success rate: 94.915254%
-Failed tests:
-	 - Math library import
-	 - File library import
-	 - Directory library import
-	 - Maps library
-	 - isString with number
-	 - isInt with float
-	 - isFloat with integer
-	 - isBool with number
-	 - isArray with array
-	 - isArray with string
-	 - isNull with null
-	 - isNull with string
-	 - isNumber with string
-	 - isNull with optional null
-	 - type guard conditional logic

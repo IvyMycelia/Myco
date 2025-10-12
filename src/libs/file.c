@@ -706,7 +706,31 @@ Value builtin_file_write_lines(Interpreter* interpreter, Value* args, size_t arg
 void file_library_register(Interpreter* interpreter) {
     if (!interpreter || !interpreter->global_environment) return;
     
-    // Register file functions with "file_" prefix for namespace support
+    // Build file library object (keep namespaced symbols for compatibility)
+    Value file_lib = value_create_object(16);
+    value_object_set(&file_lib, "__type__", value_create_string("Library"));
+    value_object_set(&file_lib, "read", value_create_builtin_function(builtin_file_read));
+    value_object_set(&file_lib, "write", value_create_builtin_function(builtin_file_write));
+    value_object_set(&file_lib, "append", value_create_builtin_function(builtin_file_append));
+    value_object_set(&file_lib, "exists", value_create_builtin_function(builtin_file_exists));
+    value_object_set(&file_lib, "size", value_create_builtin_function(builtin_file_size));
+    value_object_set(&file_lib, "delete", value_create_builtin_function(builtin_file_delete));
+    value_object_set(&file_lib, "read_lines", value_create_builtin_function(builtin_file_read_lines));
+    value_object_set(&file_lib, "write_lines", value_create_builtin_function(builtin_file_write_lines));
+    value_object_set(&file_lib, "open", value_create_builtin_function(builtin_file_open));
+    value_object_set(&file_lib, "close", value_create_builtin_function(builtin_file_close));
+    value_object_set(&file_lib, "read_chunk", value_create_builtin_function(builtin_file_read_chunk));
+    value_object_set(&file_lib, "write_chunk", value_create_builtin_function(builtin_file_write_chunk));
+    value_object_set(&file_lib, "seek", value_create_builtin_function(builtin_file_seek));
+    value_object_set(&file_lib, "tell", value_create_builtin_function(builtin_file_tell));
+    value_object_set(&file_lib, "eof", value_create_builtin_function(builtin_file_eof));
+    value_object_set(&file_lib, "size_handle", value_create_builtin_function(builtin_file_size_handle));
+    value_object_set(&file_lib, "flush", value_create_builtin_function(builtin_file_flush));
+    
+    // Expose library object
+    environment_define(interpreter->global_environment, "file", file_lib);
+    
+    // Also keep namespaced symbols
     environment_define(interpreter->global_environment, "file_read", value_create_builtin_function(builtin_file_read));
     environment_define(interpreter->global_environment, "file_write", value_create_builtin_function(builtin_file_write));
     environment_define(interpreter->global_environment, "file_append", value_create_builtin_function(builtin_file_append));
@@ -715,8 +739,6 @@ void file_library_register(Interpreter* interpreter) {
     environment_define(interpreter->global_environment, "file_delete", value_create_builtin_function(builtin_file_delete));
     environment_define(interpreter->global_environment, "file_read_lines", value_create_builtin_function(builtin_file_read_lines));
     environment_define(interpreter->global_environment, "file_write_lines", value_create_builtin_function(builtin_file_write_lines));
-    
-    // File handle operations
     environment_define(interpreter->global_environment, "file_open", value_create_builtin_function(builtin_file_open));
     environment_define(interpreter->global_environment, "file_close", value_create_builtin_function(builtin_file_close));
     environment_define(interpreter->global_environment, "file_read_chunk", value_create_builtin_function(builtin_file_read_chunk));

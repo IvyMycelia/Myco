@@ -1,7 +1,7 @@
 #ifndef VALUE_OPERATIONS_H
 #define VALUE_OPERATIONS_H
 
-#include "../interpreter.h"
+#include "interpreter_core.h"
 #include <stddef.h>
 
 // ============================================================================
@@ -163,6 +163,7 @@ Value value_to_number(Value* value);
 
 // Type checking and utilities
 const char* value_type_string(ValueType type);
+const char* value_type_to_string(ValueType type);
 int value_matches_type(Value* value, const char* type_name, Interpreter* interpreter);
 int value_is_truthy(Value* value);
 int value_equals(Value* a, Value* b);

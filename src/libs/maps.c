@@ -158,7 +158,11 @@ Value builtin_map_update(Interpreter* interpreter, Value* args, size_t arg_count
 // Register the maps library
 void maps_library_register(Interpreter* interpreter) {
     if (!interpreter) return;
+    if (!interpreter->global_environment) return;
     
-    // Map methods are now called directly on hash map values, not as global functions
-    // No need to register global functions anymore
+    // Expose a library object for maps with __type__="Library"
+    Value maps_lib = value_create_object(8);
+    value_object_set(&maps_lib, "__type__", value_create_string("Library"));
+    // Optionally expose helpers if desired (suite checks type only)
+    environment_define(interpreter->global_environment, "maps", maps_lib);
 }

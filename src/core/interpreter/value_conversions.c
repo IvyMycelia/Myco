@@ -281,6 +281,8 @@ const char* value_type_string(ValueType type) {
         case VALUE_BOOLEAN: return "Boolean";
         case VALUE_ARRAY: return "Array";
         case VALUE_OBJECT: return "Object";
+        case VALUE_HASH_MAP: return "Map";
+        case VALUE_SET: return "Set";
         case VALUE_FUNCTION: return "Function";
         case VALUE_ASYNC_FUNCTION: return "AsyncFunction";
         case VALUE_PROMISE: return "Promise";
@@ -670,4 +672,8 @@ void value_free(Value* value) {
     // Reset the value to null
     value->type = VALUE_NULL;
     memset(&value->data, 0, sizeof(value->data));
+}
+
+const char* value_type_to_string(ValueType type) {
+    return value_type_string(type);
 }

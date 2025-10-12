@@ -1552,6 +1552,7 @@ ASTNode* parser_parse_array_access(Parser* parser) {
  * @brief Parse parenthesized expressions
  * 
  * Parentheses can be used to override operator precedence: (a + b) * c
+ * Also supports method calls on parenthesized expressions: ([1, 2, 3]).method()
  * 
  * @param parser The parser to use
  * @return AST node representing the parenthesized expression
@@ -1579,10 +1580,80 @@ ASTNode* parser_parse_grouping(Parser* parser) {
         return NULL;
     }
     
-            // For grouping, we just return the expression (parentheses don't change the AST structure)
-        return expression;
+    // Check for method calls on the parenthesized expression: (expr).method()
+    while (parser_check(parser, TOKEN_DOT)) {
+        parser_advance(parser); // consume '.'
+        
+        if (!parser_check(parser, TOKEN_IDENTIFIER)) {
+            parser_error(parser, "Expected identifier after '.'");
+            ast_free(expression);
+            return NULL;
+        }
+        
+        parser_advance(parser); // consume identifier
+        Token* member_token = parser->previous_token;
+        
+        // Create member access node
+        ASTNode* member_access = ast_create_member_access(expression, member_token->text, member_token->line, member_token->column);
+        if (!member_access) {
+            ast_free(expression);
+            return NULL;
+        }
+        
+        // Check for function calls on the member access: (expr).method(args)
+        if (parser_check(parser, TOKEN_LEFT_PAREN)) {
+            parser_advance(parser); // consume '('
+            
+            ASTNode** args = NULL;
+            size_t arg_count = 0;
+            size_t arg_capacity = 0;
+            
+            // Parse optional arguments
+            if (!parser_check(parser, TOKEN_RIGHT_PAREN)) {
+                while (1) {
+                    ASTNode* arg = parser_parse_expression(parser);
+                    if (!arg) {
+                        parser_error(parser, "Function call arguments must be valid expressions");
+                        break;
+                    }
+                    if (arg_count == arg_capacity) {
+                        size_t new_cap = arg_capacity == 0 ? 4 : arg_capacity * 2;
+                        ASTNode** new_args = (ASTNode**)shared_realloc_safe(args, new_cap * sizeof(ASTNode*), "parser", "unknown_function", 1570);
+                        if (!new_args) {
+                            parser_error(parser, "Out of memory while parsing arguments");
+                            break;
+                        }
+                        args = new_args;
+                        arg_capacity = new_cap;
+                    }
+                    args[arg_count++] = arg;
+                    if (parser_check(parser, TOKEN_COMMA)) {
+                        parser_advance(parser);
+                        continue;
+                    }
+                    break;
+                }
+            }
+            
+            if (!parser_match(parser, TOKEN_RIGHT_PAREN)) {
+                parser_error(parser, "Expected ')' after arguments");
+            }
+            
+            // Create function call expression node
+            ASTNode* call = ast_create_function_call_expr(member_access, args, arg_count, member_token->line, member_token->column);
+            if (call) {
+                expression = call;
+            } else {
+                ast_free(member_access);
+                return NULL;
+            }
+        } else {
+            // Just member access, no function call
+            expression = member_access;
+        }
+    }
     
-    return NULL;
+    return expression;
 }
 
 /**

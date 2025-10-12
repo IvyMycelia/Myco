@@ -230,7 +230,19 @@ Value builtin_dir_info(Interpreter* interpreter, Value* args, size_t arg_count, 
 void dir_library_register(Interpreter* interpreter) {
     if (!interpreter || !interpreter->global_environment) return;
     
-    // Register directory functions with "dir_" prefix for namespace support
+    // Build dir library object (keep namespaced symbols for compatibility)
+    Value dir_lib = value_create_object(12);
+    value_object_set(&dir_lib, "__type__", value_create_string("Library"));
+    value_object_set(&dir_lib, "list", value_create_builtin_function(builtin_dir_list));
+    value_object_set(&dir_lib, "create", value_create_builtin_function(builtin_dir_create));
+    value_object_set(&dir_lib, "remove", value_create_builtin_function(builtin_dir_remove));
+    value_object_set(&dir_lib, "exists", value_create_builtin_function(builtin_dir_exists));
+    value_object_set(&dir_lib, "current", value_create_builtin_function(builtin_dir_current));
+    value_object_set(&dir_lib, "change", value_create_builtin_function(builtin_dir_change));
+    value_object_set(&dir_lib, "info", value_create_builtin_function(builtin_dir_info));
+    environment_define(interpreter->global_environment, "dir", dir_lib);
+    
+    // Also keep namespaced symbols
     environment_define(interpreter->global_environment, "dir_list", value_create_builtin_function(builtin_dir_list));
     environment_define(interpreter->global_environment, "dir_create", value_create_builtin_function(builtin_dir_create));
     environment_define(interpreter->global_environment, "dir_remove", value_create_builtin_function(builtin_dir_remove));

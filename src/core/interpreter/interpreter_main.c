@@ -582,6 +582,16 @@ JitContext* interpreter_get_jit_context(Interpreter* interpreter) {
     return interpreter ? interpreter->jit_context : NULL;
 }
 
+Value* interpreter_get_self_context(Interpreter* interpreter) {
+    return interpreter ? interpreter->self_context : NULL;
+}
+
+void interpreter_set_self_context(Interpreter* interpreter, Value* self) {
+    if (interpreter) {
+        interpreter->self_context = self;
+    }
+}
+
 int interpreter_compile_function(Interpreter* interpreter, const char* function_name) {
     if (!interpreter || !function_name || !interpreter->jit_enabled || !interpreter->jit_context) {
         return 0;

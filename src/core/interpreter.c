@@ -25,7 +25,7 @@ static int pattern_matches_range(Interpreter* interpreter, Value* value, ASTNode
 static int pattern_matches_regex(Interpreter* interpreter, Value* value, ASTNode* pattern);
 
 // Global error and debug systems
-static EnhancedErrorSystem* global_error_system = NULL;
+EnhancedErrorSystem* global_error_system = NULL;
 static DebugSystem* global_debug_system = NULL;
 static ReplDebugSession* global_repl_session = NULL;
 
@@ -598,85 +598,10 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             interpreter_set_error(interpreter, error_msg, node->line, node->column);
             return value_create_null();
         }
-        case AST_NODE_IF_STATEMENT: {
-            Value cond = eval_node(interpreter, node->data.if_statement.condition);
-            if (interpreter_has_error(interpreter)) {
-                value_free(&cond);
-                return value_create_null();
-            }
-            int truthy = value_is_truthy(&cond);
-            value_free(&cond);
-            if (truthy && node->data.if_statement.then_block) {
-                Value result = eval_node(interpreter, node->data.if_statement.then_block);
-                if (interpreter_has_error(interpreter)) {
-                    return value_create_null();
-                }
-                return result;
-            } else if (!truthy && node->data.if_statement.else_if_chain) {
-                // Handle else if chain
-                Value result = eval_node(interpreter, node->data.if_statement.else_if_chain);
-                if (interpreter_has_error(interpreter)) {
-                    return value_create_null();
-                }
-                return result;
-            } else if (!truthy && node->data.if_statement.else_block) {
-                Value result = eval_node(interpreter, node->data.if_statement.else_block);
-                if (interpreter_has_error(interpreter)) {
-                    return value_create_null();
-                }
-                return result;
-            }
-            return value_create_null();
-        }
-        case AST_NODE_WHILE_LOOP: {
-            while (1) {
-                Value cond = eval_node(interpreter, node->data.while_loop.condition);
-                if (interpreter_has_error(interpreter)) {
-                    value_free(&cond);
-                    return value_create_null();
-                }
-                int truthy = value_is_truthy(&cond);
-                value_free(&cond);
-                if (!truthy) break;
-                if (node->data.while_loop.body) {
-                    eval_node(interpreter, node->data.while_loop.body);
-                    if (interpreter_has_error(interpreter)) {
-                        return value_create_null();
-                    }
-                }
-            }
-            return value_create_null();
-        }
-        case AST_NODE_RETURN: {
-            // Minimal handling: evaluate value (if any), store as return_value and flag
-            Value rv = value_create_null();
-            if (node->data.return_statement.value) {
-                rv = eval_node(interpreter, node->data.return_statement.value);
-            }
-            interpreter->return_value = rv;
-            interpreter->has_return = 1;
-            return value_create_null();
-        }
-        case AST_NODE_THROW: {
-            // Evaluate the expression to throw
-            Value throw_value = value_create_null();
-            if (node->data.throw_statement.value) {
-                throw_value = eval_node(interpreter, node->data.throw_statement.value);
-            }
-            
-            // Convert the value to a string for the error message
-            Value error_string = value_to_string(&throw_value);
-            const char* error_message = error_string.type == VALUE_STRING ? error_string.data.string_value : "Unknown exception";
-            
-            // Set error with stack trace
-            interpreter_throw_exception(interpreter, error_message, node->line, node->column);
-            
-            // Clean up
-            value_free(&throw_value);
-            value_free(&error_string);
-            
-            return value_create_null();
-        }
+        case AST_NODE_IF_STATEMENT: return eval_if_statement(interpreter, node);
+        case AST_NODE_WHILE_LOOP: return eval_while_loop(interpreter, node);
+        case AST_NODE_RETURN: return eval_return_statement(interpreter, node);
+        case AST_NODE_THROW: return eval_throw_statement(interpreter, node);
         case AST_NODE_ASSIGNMENT: {
             // Evaluate the value to assign
             Value value = eval_node(interpreter, node->data.assignment.value);
@@ -744,80 +669,8 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             return lambda_value;
         }
         
-        case AST_NODE_FOR_LOOP: {
-            // Evaluate the collection/range
-            Value collection = eval_node(interpreter, node->data.for_loop.collection);
-            
-            // Handle range iteration
-            if (collection.type == VALUE_RANGE) {
-                double start = collection.data.range_value.start;
-                double end = collection.data.range_value.end;
-                double step = collection.data.range_value.step;
-                
-                // Create a new environment for the loop scope
-                Environment* loop_env = environment_create(interpreter->current_environment);
-                Environment* old_env = interpreter->current_environment;
-                interpreter->current_environment = loop_env;
-                
-                // Iterate through the range (exclusive of end) with step
-                for (double i = start; i < end; i += step) {
-                    // Define the iterator variable
-                    Value iterator_value = value_create_number(i);
-                    environment_define(loop_env, node->data.for_loop.iterator_name, iterator_value);
-                    value_free(&iterator_value);
-                    
-                    // Execute the loop body
-                    if (node->data.for_loop.body) {
-                        eval_node(interpreter, node->data.for_loop.body);
-                    }
-                }
-                
-                // Restore previous environment
-                interpreter->current_environment = old_env;
-                environment_free(loop_env);
-            }
-            // Handle array iteration
-            else if (collection.type == VALUE_ARRAY) {
-                // Create a new environment for the loop scope
-                Environment* loop_env = environment_create(interpreter->current_environment);
-                Environment* old_env = interpreter->current_environment;
-                interpreter->current_environment = loop_env;
-                
-                // Iterate through the array
-                for (size_t i = 0; i < collection.data.array_value.count; i++) {
-                    Value* element = (Value*)collection.data.array_value.elements[i];
-                    if (element) {
-                        // Define the iterator variable
-                        Value iterator_value = value_clone(element);
-                        environment_define(loop_env, node->data.for_loop.iterator_name, iterator_value);
-                        value_free(&iterator_value);
-                        
-                        // Execute the loop body
-                        if (node->data.for_loop.body) {
-                            eval_node(interpreter, node->data.for_loop.body);
-                        }
-                    }
-                }
-                
-                // Restore previous environment
-                interpreter->current_environment = old_env;
-                environment_free(loop_env);
-            }
-            
-            value_free(&collection);
-            return value_create_null();
-        }
-        case AST_NODE_BLOCK: {
-            // Execute all statements in the block
-            for (size_t i = 0; i < node->data.block.statement_count; i++) {
-                eval_node(interpreter, node->data.block.statements[i]);
-                // If a return was set, stop executing and preserve it
-                if (interpreter->has_return) {
-                    return value_create_null(); // Block returns null, but return value is preserved in interpreter
-                }
-            }
-            return value_create_null();
-        }
+        case AST_NODE_FOR_LOOP: return eval_for_loop(interpreter, node);
+        case AST_NODE_BLOCK: return eval_block(interpreter, node);
         case AST_NODE_ARRAY_LITERAL: {
             // Create array value
             Value array = value_create_array(node->data.array_literal.element_count);
@@ -1702,118 +1555,7 @@ static Value eval_node(Interpreter* interpreter, ASTNode* node) {
             value_free(&function_value);
             return result;
         }
-        case AST_NODE_TRY_CATCH: {
-            // Simple try/catch implementation
-            // Execute try block
-            if (node->data.try_catch.try_block) {
-                // Set try depth for error handling
-                interpreter->try_depth++;
-                
-                Value result = eval_node(interpreter, node->data.try_catch.try_block);
-                
-                // If no error occurred, restore try depth and return result
-                if (!interpreter->has_error) {
-                    interpreter->try_depth--;
-                    return result;
-                }
-                
-                // Error occurred, execute catch block if it exists
-                if (node->data.try_catch.catch_block) {
-                    // Clear error state BEFORE executing catch block
-                    // This allows eval_node() to execute the catch block statements
-                    interpreter->has_error = 0;
-                    
-                    // Create catch environment that can access outer variables
-                    Environment* catch_env = environment_create(interpreter->current_environment);
-                    Environment* old_env = interpreter->current_environment;
-                    interpreter->current_environment = catch_env;
-                    
-                    // Bind error variable if specified
-                    if (node->data.try_catch.catch_variable) {
-                        Value error_value = value_create_string(interpreter->error_message);
-                        environment_define(catch_env, node->data.try_catch.catch_variable, error_value);
-                        value_free(&error_value);
-                    }
-                    
-                    // Execute catch block
-                    Value catch_result = eval_node(interpreter, node->data.try_catch.catch_block);
-                    
-                    // Restore environment
-                    interpreter->current_environment = old_env;
-                    environment_free(catch_env);
-                    
-                    // Decrement try depth
-                    interpreter->try_depth--;
-                    
-                    return catch_result;
-                }
-                
-                // No catch block, report error and propagate
-                if (global_error_system) {
-                    // Determine error code from message
-                    MycoErrorCode error_code = MYCO_ERROR_UNDEFINED_VARIABLE;
-                    if (interpreter->error_message) {
-                        if (strstr(interpreter->error_message, "Division by zero")) error_code = MYCO_ERROR_DIVISION_BY_ZERO;
-                        else if (strstr(interpreter->error_message, "Undefined variable")) error_code = MYCO_ERROR_UNDEFINED_VARIABLE;
-                        else if (strstr(interpreter->error_message, "Array index out of bounds")) error_code = MYCO_ERROR_ARRAY_BOUNDS;
-                        else if (strstr(interpreter->error_message, "Out of memory")) error_code = MYCO_ERROR_OUT_OF_MEMORY;
-                        else if (strstr(interpreter->error_message, "Type mismatch")) error_code = MYCO_ERROR_TYPE_MISMATCH;
-                        else if (strstr(interpreter->error_message, "Null pointer")) error_code = MYCO_ERROR_NULL_POINTER;
-                        else if (strstr(interpreter->error_message, "Stack overflow")) error_code = MYCO_ERROR_STACK_OVERFLOW;
-                        else if (strstr(interpreter->error_message, "File not found")) error_code = MYCO_ERROR_FILE_NOT_FOUND;
-                        else if (strstr(interpreter->error_message, "Permission denied")) error_code = MYCO_ERROR_FILE_PERMISSION;
-                        else if (strstr(interpreter->error_message, "Network error")) error_code = MYCO_ERROR_NETWORK_ERROR;
-                        else if (strstr(interpreter->error_message, "Timeout")) error_code = MYCO_ERROR_TIMEOUT;
-                        else if (strstr(interpreter->error_message, "Syntax error")) error_code = MYCO_ERROR_UNEXPECTED_TOKEN;
-                        else if (strstr(interpreter->error_message, "Parse error")) error_code = MYCO_ERROR_INVALID_EXPRESSION;
-                        else if (strstr(interpreter->error_message, "Compilation failed")) error_code = MYCO_ERROR_COMPILATION_FAILED;
-                        else if (strstr(interpreter->error_message, "Not implemented")) error_code = MYCO_ERROR_UNIMPLEMENTED;
-                    }
-                    
-                    // Create enhanced error
-                    EnhancedErrorInfo* error = enhanced_error_create(
-                        error_code,
-                        enhanced_error_get_severity(error_code),
-                        enhanced_error_get_category(error_code),
-                        interpreter->error_message,
-                        interpreter->current_filename,
-                        interpreter->error_line,
-                        interpreter->error_column
-                    );
-                    
-                    if (error) {
-                        // Add context information
-                        if (interpreter->call_stack) {
-                            CallFrame* frame = interpreter->call_stack;
-                            while (frame) {
-                                enhanced_error_add_stack_frame(error, 
-                                    frame->function_name,
-                                    frame->file_name,
-                                    frame->line,
-                                    frame->column,
-                                    NULL, // source_line
-                                    NULL  // context_info
-                                );
-                                frame = frame->next;
-                            }
-                        }
-                        
-                        // Add suggestion
-                        const char* suggestion = enhanced_error_get_suggestion(error_code);
-                        if (suggestion) {
-                            enhanced_error_add_suggestion(error, suggestion);
-                        }
-                        
-                        // Report the error
-                        enhanced_error_report(global_error_system, error);
-                    }
-                }
-                
-                interpreter->try_depth--;
-                return result;
-            }
-            return value_create_null();
-        }
+        case AST_NODE_TRY_CATCH: return eval_try_catch(interpreter, node);
         case AST_NODE_SPORE: {
             // Evaluate the expression to match against
             Value match_value = eval_node(interpreter, node->data.spore.expression);

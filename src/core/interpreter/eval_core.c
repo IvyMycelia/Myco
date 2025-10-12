@@ -331,6 +331,7 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
             if (user_function.type == VALUE_FUNCTION) {
                 // Prepare arguments
                 size_t n = node->data.function_call.argument_count;
+                printf("DEBUG: FUNCTION_CALL with %zu arguments\n", n);
                 Value* argv = n > 0 ? (Value*)calloc(n, sizeof(Value)) : NULL;
                 if (n > 0 && !argv) {
                     interpreter_set_error(interpreter, "Out of memory allocating function arguments", node->line, node->column);
@@ -338,6 +339,7 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 }
                 for (size_t i = 0; i < n; i++) {
                     argv[i] = eval_node(interpreter, node->data.function_call.arguments[i]);
+                    printf("DEBUG: Argument %zu: type %d, value %g\n", i, argv[i].type, argv[i].type == VALUE_NUMBER ? argv[i].data.number_value : 0);
                 }
                 
                 // Call the function

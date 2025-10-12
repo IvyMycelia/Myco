@@ -364,6 +364,7 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
     
     // Bind parameters to arguments
     size_t param_count = func->data.function_value.parameter_count;
+    printf("DEBUG: Binding %zu parameters to %zu arguments\n", param_count, arg_count);
     for (size_t i = 0; i < param_count && i < arg_count; i++) {
         if (func->data.function_value.parameters[i]) {
             const char* param_name = NULL;
@@ -374,6 +375,7 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
             }
             if (param_name) {
                 environment_define(func_env, param_name, args[i]);
+                printf("DEBUG: Bound parameter %s to argument %zu\n", param_name, i);
             }
         }
     }

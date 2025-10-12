@@ -102,4 +102,50 @@ Value find_method_in_inheritance_chain(Interpreter* interpreter, Value* class_va
 // Module creation
 Value value_create_module(const char* name, void* exports);
 
+// ============================================================================
+// ARITHMETIC OPERATIONS
+// ============================================================================
+
+// Basic arithmetic
+Value value_add(Value* a, Value* b);
+Value value_subtract(Value* a, Value* b);
+Value value_multiply(Value* a, Value* b);
+Value value_divide(Value* a, Value* b);
+Value value_modulo(Value* a, Value* b);
+Value value_power(Value* a, Value* b);
+
+// ============================================================================
+// COMPARISON OPERATIONS
+// ============================================================================
+
+// Comparison operations
+Value value_equal(Value* a, Value* b);
+Value value_not_equal(Value* a, Value* b);
+Value value_less_than(Value* a, Value* b);
+Value value_greater_than(Value* a, Value* b);
+Value value_less_equal(Value* a, Value* b);
+Value value_greater_equal(Value* a, Value* b);
+
+// ============================================================================
+// LOGICAL OPERATIONS
+// ============================================================================
+
+// Logical operations
+Value value_logical_and(Value* a, Value* b);
+Value value_logical_or(Value* a, Value* b);
+Value value_logical_xor(Value* a, Value* b);
+Value value_logical_not(Value* a);
+
+// ============================================================================
+// BITWISE OPERATIONS
+// ============================================================================
+
+// Bitwise operations
+Value value_bitwise_and(Value* a, Value* b);
+Value value_bitwise_or(Value* a, Value* b);
+Value value_bitwise_xor(Value* a, Value* b);
+Value value_bitwise_not(Value* a);
+Value value_left_shift(Value* a, Value* b);
+Value value_right_shift(Value* a, Value* b);
+
 #endif // VALUE_OPERATIONS_H

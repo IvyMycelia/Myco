@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 
-// External reference to global error system
+// Forward declaration for global error system
 extern EnhancedErrorSystem* global_error_system;
 
 // ============================================================================
@@ -262,18 +262,14 @@ Value eval_try_catch(Interpreter* interpreter, ASTNode* node) {
                     enhanced_error_add_suggestion(error, suggestion);
                 }
                 
-                        // Report the error
-                        enhanced_error_report(global_error_system, error);
-                
-                // Free the error
-                enhanced_error_free(error);
+                // Report the error
+                enhanced_error_report(global_error_system, error);
             }
         }
         
-        // Decrement try depth
         interpreter->try_depth--;
+        return result;
     }
-    
     return value_create_null();
 }
 

@@ -570,6 +570,48 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                 // Handle server library method calls
                 value_free(&class_name);
                 return handle_server_library_method_call(interpreter, call_node, method_name, object);
+            } else {
+                // Handle user-defined class method calls
+                // Look up the class definition
+                Value class_def = environment_get(interpreter->global_environment, class_name.data.string_value);
+                if (class_def.type == VALUE_CLASS) {
+                    // Find the method in the class body
+                    Value method = find_method_in_inheritance_chain(interpreter, &class_def, method_name);
+                    if (method.type == VALUE_FUNCTION) {
+                        // Set self context for the method call
+                        interpreter_set_self_context(interpreter, &object);
+                        
+                        // Evaluate arguments
+                        size_t arg_count = call_node->data.function_call_expr.argument_count;
+                        Value* args = arg_count > 0 ? (Value*)shared_malloc_safe(arg_count * sizeof(Value), "interpreter", "class_method_call", 0) : NULL;
+                        if (arg_count > 0 && !args) {
+                            value_free(&class_name);
+                            value_free(&class_def);
+                            value_free(&method);
+                            return value_create_null();
+                        }
+                        
+                        for (size_t i = 0; i < arg_count; i++) {
+                            args[i] = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[i]);
+                        }
+                        
+                        // Call the method
+                        Value result = value_function_call_with_self(&method, args, arg_count, interpreter, &object, call_node->line, call_node->column);
+                        
+                        // Clean up
+                        for (size_t i = 0; i < arg_count; i++) {
+                            value_free(&args[i]);
+                        }
+                        shared_free_safe(args, "interpreter", "class_method_call", 0);
+                        value_free(&class_name);
+                        value_free(&class_def);
+                        value_free(&method);
+                        
+                        return result;
+                    }
+                    value_free(&class_def);
+                    value_free(&method);
+                }
             }
         }
         value_free(&class_name);

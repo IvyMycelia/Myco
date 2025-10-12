@@ -294,8 +294,24 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
             }
             
             if (function_value.type == VALUE_FUNCTION || function_value.type == VALUE_ASYNC_FUNCTION) {
-                // This is a user-defined function
-                return value_function_call(&function_value, NULL, 0, interpreter, node->line, node->column);
+                // This is a user-defined function - evaluate arguments and call
+                size_t n = node->data.function_call.argument_count;
+                Value* argv = n > 0 ? (Value*)calloc(n, sizeof(Value)) : NULL;
+                if (n > 0 && !argv) {
+                    interpreter_set_error(interpreter, "Out of memory allocating function arguments", node->line, node->column);
+                    return value_create_null();
+                }
+                for (size_t i = 0; i < n; i++) {
+                    argv[i] = eval_node(interpreter, node->data.function_call.arguments[i]);
+                }
+                
+                Value result = value_function_call(&function_value, argv, n, interpreter, node->line, node->column);
+                
+                // Clean up arguments
+                for (size_t i = 0; i < n; i++) value_free(&argv[i]);
+                if (argv) shared_free_safe(argv, "interpreter", "function_call", 0);
+                
+                return result;
             }
             
             // Check for method calls on objects
@@ -331,7 +347,6 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
             if (user_function.type == VALUE_FUNCTION) {
                 // Prepare arguments
                 size_t n = node->data.function_call.argument_count;
-                printf("DEBUG: FUNCTION_CALL with %zu arguments\n", n);
                 Value* argv = n > 0 ? (Value*)calloc(n, sizeof(Value)) : NULL;
                 if (n > 0 && !argv) {
                     interpreter_set_error(interpreter, "Out of memory allocating function arguments", node->line, node->column);
@@ -339,7 +354,6 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 }
                 for (size_t i = 0; i < n; i++) {
                     argv[i] = eval_node(interpreter, node->data.function_call.arguments[i]);
-                    printf("DEBUG: Argument %zu: type %d, value %g\n", i, argv[i].type, argv[i].type == VALUE_NUMBER ? argv[i].data.number_value : 0);
                 }
                 
                 // Call the function

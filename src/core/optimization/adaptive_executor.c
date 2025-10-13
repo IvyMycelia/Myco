@@ -365,8 +365,17 @@ Value adaptive_executor_execute_ast(AdaptiveExecutor* executor,
         return value_create_null();
     }
     
+    // Temporarily disable adaptive executor to prevent infinite recursion
+    void* saved_adaptive_executor = interpreter->adaptive_executor;
+    interpreter->adaptive_executor = NULL;
+    
     // Use the original AST interpreter
-    return eval_node(interpreter, node);
+    Value result = eval_node(interpreter, node);
+    
+    // Restore adaptive executor
+    interpreter->adaptive_executor = saved_adaptive_executor;
+    
+    return result;
 }
 
 Value adaptive_executor_execute_bytecode(AdaptiveExecutor* executor, 
@@ -415,8 +424,10 @@ Value adaptive_executor_execute_jit(AdaptiveExecutor* executor,
     
     if (compiled_func && compiled_func->is_valid) {
         // Execute JIT compiled function
-        // TODO: Implement JIT function execution with proper arguments
-        return value_create_null();
+        // TODO: Get function arguments from the node
+        Value* args = NULL;
+        size_t arg_count = 0;
+        return micro_jit_execute_function(compiled_func, args, arg_count, interpreter);
     }
     
     // Fallback to bytecode

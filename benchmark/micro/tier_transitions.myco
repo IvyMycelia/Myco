@@ -1,0 +1,42 @@
+# Micro-benchmark: Tier Transition Overhead
+# Measures the cost of transitioning between optimization tiers
+
+const WARMUP_ITERATIONS = 1000
+const MEASUREMENT_ITERATIONS = 10000
+
+func simple_arithmetic():
+    a = 42
+    b = 17
+    return a + b
+end
+
+func measure_tier_transition_overhead():
+    print("=== Tier Transition Overhead Benchmark ===")
+    print("Measuring cost of tier transitions in optimization system")
+    print("")
+    
+    # Warmup to ensure tier transitions have occurred
+    for i in range(WARMUP_ITERATIONS):
+        simple_arithmetic()
+    end
+    
+    # Measure execution time
+    start_time = time.now()
+    for i in range(MEASUREMENT_ITERATIONS):
+        simple_arithmetic()
+    end
+    end_time = time.now()
+    
+    duration_ms = (end_time - start_time) / 1000000.0
+    avg_time_ns = (end_time - start_time) / MEASUREMENT_ITERATIONS
+    
+    print("Iterations: " + str(MEASUREMENT_ITERATIONS))
+    print("Total time: " + str(duration_ms) + " ms")
+    print("Average per call: " + str(avg_time_ns) + " ns")
+    print("Calls per second: " + str(1000000000.0 / avg_time_ns))
+    print("")
+    
+    return duration_ms
+end
+
+measure_tier_transition_overhead()

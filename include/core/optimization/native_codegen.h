@@ -11,6 +11,7 @@
 
 #include "trace_optimizer.h"
 #include "register_vm.h"
+#include "cpu_features.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -29,26 +30,7 @@ typedef enum {
     TARGET_ARCH_AUTO = 2           // Auto-detect architecture
 } TargetArchitecture;
 
-/**
- * @brief CPU feature flags
- * 
- * Defines CPU features that can be used for optimization.
- */
-typedef enum {
-    CPU_FEATURE_SSE = (1 << 0),    // SSE instructions
-    CPU_FEATURE_SSE2 = (1 << 1),   // SSE2 instructions
-    CPU_FEATURE_SSE3 = (1 << 2),   // SSE3 instructions
-    CPU_FEATURE_SSE4_1 = (1 << 3), // SSE4.1 instructions
-    CPU_FEATURE_SSE4_2 = (1 << 4), // SSE4.2 instructions
-    CPU_FEATURE_AVX = (1 << 5),    // AVX instructions
-    CPU_FEATURE_AVX2 = (1 << 6),   // AVX2 instructions
-    CPU_FEATURE_AVX512 = (1 << 7), // AVX-512 instructions
-    CPU_FEATURE_NEON = (1 << 8),   // NEON instructions (ARM)
-    CPU_FEATURE_FMA = (1 << 9),    // Fused multiply-add
-    CPU_FEATURE_BMI = (1 << 10),   // Bit manipulation instructions
-    CPU_FEATURE_LZCNT = (1 << 11), // Leading zero count
-    CPU_FEATURE_POPCNT = (1 << 12) // Population count
-} CPUFeatureFlags;
+// CPU feature flags are now defined in cpu_features.h
 
 /**
  * @brief Code generation mode
@@ -148,7 +130,7 @@ typedef struct {
     // Configuration
     TargetArchitecture target_arch; // Target architecture
     CodeGenerationMode mode;       // Code generation mode
-    CPUFeatureFlags cpu_features;  // Available CPU features
+    uint64_t cpu_features;         // Available CPU features (compatible with CPUFeatureX86_64/ARM64)
     uint32_t optimization_level;   // Optimization level
     
     // Code generation state
@@ -187,6 +169,10 @@ typedef struct {
     uint64_t generation_end_time;   // Generation end time
     double total_generation_time_ms; // Total generation time (milliseconds)
     double generation_overhead;     // Generation overhead percentage
+    
+    // Platform-specific optimizations
+    CPUFeatureContext* cpu_context; // CPU feature context
+    int platform_optimizations_enabled; // Platform optimizations enabled
 } NativeCodegenContext;
 
 // ============================================================================
@@ -249,23 +235,7 @@ int native_codegen_finalize_function(NativeCodegenContext* context, NativeFuncti
  * These functions handle platform-specific code generation.
  */
 
-/**
- * @brief Generate x86-64 native code
- * @param context Code generator context
- * @param trace Optimized trace to compile
- * @return Generated native function, or NULL on failure
- * @note This function generates x86-64 specific machine code
- */
-NativeFunction* native_codegen_generate_x86_64(NativeCodegenContext* context, OptimizedTrace* trace);
-
-/**
- * @brief Generate ARM64 native code
- * @param context Code generator context
- * @param trace Optimized trace to compile
- * @return Generated native function, or NULL on failure
- * @note This function generates ARM64 specific machine code
- */
-NativeFunction* native_codegen_generate_arm64(NativeCodegenContext* context, OptimizedTrace* trace);
+// Platform-specific generation functions are now defined in the platform-specific section
 
 /**
  * @brief Auto-detect target architecture
@@ -279,7 +249,7 @@ TargetArchitecture native_codegen_detect_architecture(void);
  * @return Available CPU features
  * @note This function detects CPU features available on the current system
  */
-CPUFeatureFlags native_codegen_detect_cpu_features(void);
+uint64_t native_codegen_detect_cpu_features(void);
 
 /**
  * @brief Instruction generation functions
@@ -323,18 +293,7 @@ NativeInstruction* native_codegen_generate_memory(NativeCodegenContext* context,
 NativeInstruction* native_codegen_generate_control_flow(NativeCodegenContext* context, uint32_t opcode, 
                                                        uint64_t target);
 
-/**
- * @brief Generate SIMD instruction
- * @param context Code generator context
- * @param opcode SIMD opcode
- * @param dst Destination register
- * @param src1 First source register
- * @param src2 Second source register
- * @return Generated instruction, or NULL on failure
- * @note This function generates SIMD vector instructions
- */
-NativeInstruction* native_codegen_generate_simd(NativeCodegenContext* context, uint32_t opcode, 
-                                               uint32_t dst, uint32_t src1, uint32_t src2);
+// Old SIMD function declaration removed - new platform-specific SIMD function is in platform-specific section
 
 /**
  * @brief Optimization functions
@@ -459,7 +418,7 @@ void native_codegen_set_mode(NativeCodegenContext* context, CodeGenerationMode m
  * @param features Available CPU features
  * @note This function sets the available CPU features
  */
-void native_codegen_set_cpu_features(NativeCodegenContext* context, CPUFeatureFlags features);
+void native_codegen_set_cpu_features(NativeCodegenContext* context, uint64_t features);
 
 /**
  * @brief Set optimization level
@@ -535,5 +494,141 @@ uint32_t native_codegen_import_function(NativeCodegenContext* context, const cha
  * @note Returns a disassembly of the native function
  */
 char* native_codegen_disassemble_function(NativeCodegenContext* context, uint32_t function_id);
+
+// ============================================================================
+// PLATFORM-SPECIFIC OPTIMIZATIONS
+// ============================================================================
+
+/**
+ * @brief Initialize platform-specific optimizations
+ * @param context Code generator context
+ * @param cpu_context CPU feature context
+ * @return 1 on success, 0 on failure
+ * @note Initializes platform-specific optimizations based on CPU features
+ */
+int native_codegen_init_platform_optimizations(NativeCodegenContext* context, 
+                                               CPUFeatureContext* cpu_context);
+
+/**
+ * @brief Generate x86_64 optimized code
+ * @param context Code generator context
+ * @param trace Optimized trace
+ * @param code_buffer Output code buffer
+ * @param buffer_size Code buffer size
+ * @return Number of bytes generated
+ * @note Generates x86_64 optimized native code
+ */
+size_t native_codegen_generate_x86_64(NativeCodegenContext* context,
+                                      OptimizedTrace* trace,
+                                      uint8_t* code_buffer,
+                                      size_t buffer_size);
+
+/**
+ * @brief Generate ARM64 optimized code
+ * @param context Code generator context
+ * @param trace Optimized trace
+ * @param code_buffer Output code buffer
+ * @param buffer_size Code buffer size
+ * @return Number of bytes generated
+ * @note Generates ARM64 optimized native code
+ */
+size_t native_codegen_generate_arm64(NativeCodegenContext* context,
+                                     OptimizedTrace* trace,
+                                     uint8_t* code_buffer,
+                                     size_t buffer_size);
+
+/**
+ * @brief Generate SIMD vectorized code
+ * @param context Code generator context
+ * @param trace Optimized trace
+ * @param simd_type SIMD instruction set to use
+ * @param code_buffer Output code buffer
+ * @param buffer_size Code buffer size
+ * @return Number of bytes generated
+ * @note Generates SIMD vectorized native code
+ */
+size_t native_codegen_generate_simd(NativeCodegenContext* context,
+                                    OptimizedTrace* trace,
+                                    SIMDInstructionSet simd_type,
+                                    uint8_t* code_buffer,
+                                    size_t buffer_size);
+
+/**
+ * @brief Apply peephole optimizations
+ * @param context Code generator context
+ * @param code_buffer Code buffer to optimize
+ * @param code_size Size of code buffer
+ * @return Number of bytes after optimization
+ * @note Applies peephole optimizations to generated code
+ */
+size_t native_codegen_apply_peephole_optimizations(NativeCodegenContext* context,
+                                                   uint8_t* code_buffer,
+                                                   size_t code_size);
+
+/**
+ * @brief Add branch prediction hints
+ * @param context Code generator context
+ * @param code_buffer Code buffer
+ * @param code_size Size of code buffer
+ * @return 1 on success, 0 on failure
+ * @note Adds branch prediction hints to improve CPU performance
+ */
+int native_codegen_add_branch_hints(NativeCodegenContext* context,
+                                    uint8_t* code_buffer,
+                                    size_t code_size);
+
+/**
+ * @brief Optimize for specific CPU
+ * @param context Code generator context
+ * @param cpu_context CPU feature context
+ * @param code_buffer Code buffer to optimize
+ * @param code_size Size of code buffer
+ * @return 1 on success, 0 on failure
+ * @note Applies CPU-specific optimizations based on detected features
+ */
+int native_codegen_optimize_for_cpu(NativeCodegenContext* context,
+                                    CPUFeatureContext* cpu_context,
+                                    uint8_t* code_buffer,
+                                    size_t code_size);
+
+/**
+ * @brief Get optimal instruction scheduling
+ * @param context Code generator context
+ * @param cpu_context CPU feature context
+ * @return 1 on success, 0 on failure
+ * @note Determines optimal instruction scheduling for the target CPU
+ */
+int native_codegen_get_optimal_scheduling(NativeCodegenContext* context,
+                                          CPUFeatureContext* cpu_context);
+
+/**
+ * @brief Generate cache-friendly code
+ * @param context Code generator context
+ * @param cpu_context CPU feature context
+ * @param code_buffer Code buffer
+ * @param code_size Size of code buffer
+ * @return 1 on success, 0 on failure
+ * @note Generates code optimized for CPU cache characteristics
+ */
+int native_codegen_optimize_cache_usage(NativeCodegenContext* context,
+                                        CPUFeatureContext* cpu_context,
+                                        uint8_t* code_buffer,
+                                        size_t code_size);
+
+/**
+ * @brief Enable/disable platform optimizations
+ * @param context Code generator context
+ * @param enable 1 to enable, 0 to disable
+ * @note Enables or disables platform-specific optimizations
+ */
+void native_codegen_set_platform_optimizations(NativeCodegenContext* context, int enable);
+
+/**
+ * @brief Get platform optimization status
+ * @param context Code generator context
+ * @return 1 if enabled, 0 if disabled
+ * @note Returns whether platform optimizations are enabled
+ */
+int native_codegen_platform_optimizations_enabled(NativeCodegenContext* context);
 
 #endif // NATIVE_CODEGEN_H

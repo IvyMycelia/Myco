@@ -5,6 +5,7 @@
 #include "../../include/core/optimization/hot_spot_tracker.h"
 #include "../../include/core/optimization/micro_jit.h"
 #include "../../include/core/optimization/value_specializer.h"
+#include "../../include/core/optimization/performance_profiler.h"
 #include "../../include/core/interpreter/value_operations.h"
 #include "../../include/core/interpreter/eval_engine.h"
 #include "../../include/utils/shared_utilities.h"
@@ -29,6 +30,7 @@ AdaptiveExecutor* adaptive_executor_create(Interpreter* interpreter) {
     executor->hot_spot_tracker = (HotSpotTracker*)interpreter->hot_spot_tracker;
     executor->micro_jit_context = (MicroJitContext*)interpreter->micro_jit_context;
     executor->value_specializer = (ValueSpecializer*)interpreter->value_specializer;
+    executor->performance_profiler = performance_profiler_create();
     
     // Initialize execution state
     executor->current_tier = EXECUTION_TIER_AST;
@@ -42,6 +44,9 @@ AdaptiveExecutor* adaptive_executor_create(Interpreter* interpreter) {
     executor->stats.bytecode_speedup = 1.0;
     executor->stats.jit_speedup = 1.0;
     executor->stats.specialized_speedup = 1.0;
+    executor->stats.trace_recording_speedup = 1.0;
+    executor->stats.trace_compiled_speedup = 1.0;
+    executor->stats.vectorized_speedup = 1.0;
     
     // Initialize policy with defaults
     executor->policy = *adaptive_executor_get_default_policy();
@@ -50,6 +55,11 @@ AdaptiveExecutor* adaptive_executor_create(Interpreter* interpreter) {
     executor->last_decision_time_ns = 0;
     executor->last_decision_reason = DECISION_FIRST_EXECUTION;
     executor->last_optimized_node = NULL;
+    
+    // Start performance profiling
+    if (executor->performance_profiler) {
+        performance_profiler_start(executor->performance_profiler);
+    }
     
     // Initialize resource management
     executor->total_code_size = 0;
@@ -72,6 +82,12 @@ AdaptiveExecutor* adaptive_executor_create(Interpreter* interpreter) {
 void adaptive_executor_free(AdaptiveExecutor* executor) {
     if (!executor) return;
     
+    // Stop performance profiling
+    if (executor->performance_profiler) {
+        performance_profiler_stop(executor->performance_profiler);
+        performance_profiler_free(executor->performance_profiler);
+    }
+    
     // Free resources
     adaptive_executor_cleanup_resources(executor);
     
@@ -87,6 +103,9 @@ void adaptive_executor_reset(AdaptiveExecutor* executor) {
     executor->stats.bytecode_speedup = 1.0;
     executor->stats.jit_speedup = 1.0;
     executor->stats.specialized_speedup = 1.0;
+    executor->stats.trace_recording_speedup = 1.0;
+    executor->stats.trace_compiled_speedup = 1.0;
+    executor->stats.vectorized_speedup = 1.0;
     
     // Reset execution state
     executor->current_tier = EXECUTION_TIER_AST;
@@ -203,11 +222,17 @@ Value adaptive_executor_execute(AdaptiveExecutor* executor,
         case EXECUTION_TIER_BYTECODE:
             result = adaptive_executor_execute_bytecode(executor, interpreter, node);
             break;
-        case EXECUTION_TIER_MICRO_JIT:
+        case EXECUTION_TIER_TRACE_RECORDING:
+            result = adaptive_executor_execute_ast(executor, interpreter, node); // Start recording
+            break;
+        case EXECUTION_TIER_TRACE_COMPILED:
             result = adaptive_executor_execute_jit(executor, interpreter, node);
             break;
         case EXECUTION_TIER_SPECIALIZED:
             result = adaptive_executor_execute_specialized(executor, interpreter, node);
+            break;
+        case EXECUTION_TIER_VECTORIZED:
+            result = adaptive_executor_execute_specialized(executor, interpreter, node); // Use specialized for now
             break;
         default:
             result = adaptive_executor_execute_ast(executor, interpreter, node);
@@ -279,11 +304,11 @@ ExecutionTier adaptive_executor_decide_tier(AdaptiveExecutor* executor,
             return EXECUTION_TIER_SPECIALIZED;
         }
         
-        // Check for JIT compilation opportunity
+        // Check for trace compilation opportunity
         if (executor->policy.enable_jit_compilation && 
             adaptive_executor_is_very_hot(executor, node)) {
             *reason = DECISION_HOT_SPOT;
-            return EXECUTION_TIER_MICRO_JIT;
+            return EXECUTION_TIER_TRACE_COMPILED;
         }
         
         // Use bytecode for hot spots
@@ -548,13 +573,24 @@ void adaptive_executor_update_statistics(AdaptiveExecutor* executor,
             executor->stats.bytecode_executions++;
             executor->stats.bytecode_time_ns += execution_time_ns;
             break;
-        case EXECUTION_TIER_MICRO_JIT:
-            executor->stats.jit_executions++;
-            executor->stats.jit_time_ns += execution_time_ns;
+        case EXECUTION_TIER_TRACE_RECORDING:
+            executor->stats.trace_recording_executions++;
+            executor->stats.trace_recording_time_ns += execution_time_ns;
+            break;
+        case EXECUTION_TIER_TRACE_COMPILED:
+            executor->stats.trace_compiled_executions++;
+            executor->stats.trace_compiled_time_ns += execution_time_ns;
             break;
         case EXECUTION_TIER_SPECIALIZED:
             executor->stats.specialized_executions++;
             executor->stats.specialized_time_ns += execution_time_ns;
+            break;
+        case EXECUTION_TIER_VECTORIZED:
+            executor->stats.vectorized_executions++;
+            executor->stats.vectorized_time_ns += execution_time_ns;
+            break;
+        case EXECUTION_TIER_COUNT:
+            // This should never happen, but handle gracefully
             break;
     }
     
@@ -568,8 +604,8 @@ void adaptive_executor_update_statistics(AdaptiveExecutor* executor,
     if (executor->stats.bytecode_executions > 0) {
         executor->stats.avg_bytecode_time_ns = (double)executor->stats.bytecode_time_ns / executor->stats.bytecode_executions;
     }
-    if (executor->stats.jit_executions > 0) {
-        executor->stats.avg_jit_time_ns = (double)executor->stats.jit_time_ns / executor->stats.jit_executions;
+    if (executor->stats.trace_compiled_executions > 0) {
+        executor->stats.avg_jit_time_ns = (double)executor->stats.trace_compiled_time_ns / executor->stats.trace_compiled_executions;
     }
     if (executor->stats.specialized_executions > 0) {
         executor->stats.avg_specialized_time_ns = (double)executor->stats.specialized_time_ns / executor->stats.specialized_executions;
@@ -585,7 +621,7 @@ void adaptive_executor_calculate_speedups(AdaptiveExecutor* executor) {
     }
     
     // Calculate JIT speedup vs bytecode
-    if (executor->stats.bytecode_executions > 0 && executor->stats.jit_executions > 0) {
+    if (executor->stats.bytecode_executions > 0 && executor->stats.trace_compiled_executions > 0) {
         executor->stats.jit_speedup = executor->stats.avg_bytecode_time_ns / executor->stats.avg_jit_time_ns;
     }
     
@@ -637,7 +673,7 @@ int adaptive_executor_should_disable_optimization(AdaptiveExecutor* executor) {
     // Disable if error rate is too high
     uint64_t total_executions = executor->stats.ast_executions + 
                                executor->stats.bytecode_executions + 
-                               executor->stats.jit_executions + 
+                               executor->stats.trace_compiled_executions + 
                                executor->stats.specialized_executions;
     
     if (total_executions > 100) {
@@ -680,7 +716,7 @@ void adaptive_executor_print_statistics(AdaptiveExecutor* executor) {
     printf("Execution Counts:\n");
     printf("  AST executions: %llu\n", (unsigned long long)executor->stats.ast_executions);
     printf("  Bytecode executions: %llu\n", (unsigned long long)executor->stats.bytecode_executions);
-    printf("  JIT executions: %llu\n", (unsigned long long)executor->stats.jit_executions);
+    printf("  Trace compiled executions: %llu\n", (unsigned long long)executor->stats.trace_compiled_executions);
     printf("  Specialized executions: %llu\n", (unsigned long long)executor->stats.specialized_executions);
     printf("\n");
     
@@ -703,7 +739,7 @@ void adaptive_executor_print_tier_distribution(AdaptiveExecutor* executor) {
     
     uint64_t total = executor->stats.ast_executions + 
                     executor->stats.bytecode_executions + 
-                    executor->stats.jit_executions + 
+                    executor->stats.trace_compiled_executions + 
                     executor->stats.specialized_executions;
     
     if (total == 0) {
@@ -719,8 +755,8 @@ void adaptive_executor_print_tier_distribution(AdaptiveExecutor* executor) {
            (double)executor->stats.bytecode_executions / total * 100,
            (unsigned long long)executor->stats.bytecode_executions);
     printf("  JIT: %.1f%% (%llu executions)\n", 
-           (double)executor->stats.jit_executions / total * 100,
-           (unsigned long long)executor->stats.jit_executions);
+           (double)executor->stats.trace_compiled_executions / total * 100,
+           (unsigned long long)executor->stats.trace_compiled_executions);
     printf("  Specialized: %.1f%% (%llu executions)\n", 
            (double)executor->stats.specialized_executions / total * 100,
            (unsigned long long)executor->stats.specialized_executions);
@@ -953,4 +989,172 @@ void adaptive_executor_learn_from_performance(AdaptiveExecutor* executor) {
     // Learn from performance patterns
     // This is a placeholder for more sophisticated learning algorithms
     adaptive_executor_adjust_thresholds(executor);
+}
+
+// ============================================================================
+// 6-TIER SYSTEM SUPPORT
+// ============================================================================
+
+int adaptive_executor_record_tier_execution(AdaptiveExecutor* executor,
+                                            ExecutionTier tier,
+                                            uint64_t execution_time_ns,
+                                            uint64_t instruction_count) {
+    if (!executor || tier >= EXECUTION_TIER_COUNT) {
+        return 0;
+    }
+    
+    // Create performance metrics
+    PerformanceMetrics metrics;
+    metrics.execution_time_ns = execution_time_ns;
+    metrics.instruction_count = instruction_count;
+    metrics.memory_allocations = 0; // Would need to track this
+    metrics.memory_bytes = 0; // Would need to track this
+    metrics.cache_hits = 0; // Would need to track this
+    metrics.cache_misses = 0; // Would need to track this
+    metrics.branch_predictions = 0; // Would need to track this
+    metrics.branch_mispredictions = 0; // Would need to track this
+    
+    // Record in performance profiler
+    if (executor->performance_profiler) {
+        PerformanceTier profiler_tier = (PerformanceTier)tier;
+        performance_profiler_record_tier_execution(executor->performance_profiler,
+                                                   profiler_tier, metrics);
+    }
+    
+    // Update execution statistics
+    switch (tier) {
+        case EXECUTION_TIER_AST:
+            executor->stats.ast_executions++;
+            executor->stats.ast_time_ns += execution_time_ns;
+            break;
+        case EXECUTION_TIER_BYTECODE:
+            executor->stats.bytecode_executions++;
+            executor->stats.bytecode_time_ns += execution_time_ns;
+            break;
+        case EXECUTION_TIER_TRACE_RECORDING:
+            executor->stats.trace_recording_executions++;
+            executor->stats.trace_recording_time_ns += execution_time_ns;
+            break;
+        case EXECUTION_TIER_TRACE_COMPILED:
+            executor->stats.trace_compiled_executions++;
+            executor->stats.trace_compiled_time_ns += execution_time_ns;
+            break;
+        case EXECUTION_TIER_SPECIALIZED:
+            executor->stats.specialized_executions++;
+            executor->stats.specialized_time_ns += execution_time_ns;
+            break;
+        case EXECUTION_TIER_VECTORIZED:
+            executor->stats.vectorized_executions++;
+            executor->stats.vectorized_time_ns += execution_time_ns;
+            break;
+        default:
+            break;
+    }
+    
+    return 1;
+}
+
+ExecutionTier adaptive_executor_get_optimal_tier(AdaptiveExecutor* executor,
+                                                 ASTNode* function_node) {
+    if (!executor || !function_node) {
+        return EXECUTION_TIER_AST;
+    }
+    
+    // Use performance profiler to determine optimal tier
+    if (executor->performance_profiler) {
+        PerformanceTier profiler_tier = performance_profiler_get_optimal_tier(
+            executor->performance_profiler, function_node);
+        return (ExecutionTier)profiler_tier;
+    }
+    
+    // Fallback to simple heuristic
+    return adaptive_executor_decide_tier(executor, function_node, NULL);
+}
+
+int adaptive_executor_should_promote_tier(AdaptiveExecutor* executor,
+                                          ExecutionTier current_tier,
+                                          ASTNode* function_node) {
+    if (!executor || !function_node || current_tier >= EXECUTION_TIER_COUNT - 1) {
+        return 0;
+    }
+    
+    // Check if we should promote to next tier
+    ExecutionTier next_tier = (ExecutionTier)(current_tier + 1);
+    
+    // Use performance profiler for intelligent decisions
+    if (executor->performance_profiler) {
+        TierEffectiveness* current_data = performance_profiler_get_tier_data(
+            executor->performance_profiler, (PerformanceTier)current_tier);
+        TierEffectiveness* next_data = performance_profiler_get_tier_data(
+            executor->performance_profiler, (PerformanceTier)next_tier);
+        
+        if (current_data && next_data) {
+            // Promote if next tier has significantly better efficiency
+            return next_data->efficiency_score > current_data->efficiency_score * 1.2;
+        }
+    }
+    
+    // Fallback to threshold-based promotion
+    switch (current_tier) {
+        case EXECUTION_TIER_AST:
+            return executor->stats.ast_executions >= executor->policy.bytecode_threshold;
+        case EXECUTION_TIER_BYTECODE:
+            return executor->stats.bytecode_executions >= executor->policy.jit_threshold;
+        case EXECUTION_TIER_TRACE_RECORDING:
+            return executor->stats.trace_recording_executions >= 50; // Start trace compilation
+        case EXECUTION_TIER_TRACE_COMPILED:
+            return executor->stats.trace_compiled_executions >= executor->policy.specialization_threshold;
+        case EXECUTION_TIER_SPECIALIZED:
+            return executor->stats.specialized_executions >= 100; // Start vectorization
+        default:
+            return 0;
+    }
+}
+
+void adaptive_executor_update_tier_effectiveness(AdaptiveExecutor* executor) {
+    if (!executor || !executor->performance_profiler) {
+        return;
+    }
+    
+    // Analyze effectiveness and update speedup factors
+    performance_profiler_analyze_effectiveness(executor->performance_profiler);
+    
+    // Update speedup factors based on profiler data
+    for (int i = 0; i < EXECUTION_TIER_COUNT; i++) {
+        TierEffectiveness* tier_data = performance_profiler_get_tier_data(
+            executor->performance_profiler, (PerformanceTier)i);
+        
+        if (tier_data && tier_data->sample_count > 0) {
+            switch (i) {
+                case TIER_BYTECODE:
+                    executor->stats.bytecode_speedup = tier_data->speedup_factor;
+                    break;
+                case TIER_TRACE_RECORDING:
+                    executor->stats.trace_recording_speedup = tier_data->speedup_factor;
+                    break;
+                case TIER_TRACE_COMPILED:
+                    executor->stats.trace_compiled_speedup = tier_data->speedup_factor;
+                    break;
+                case TIER_SPECIALIZED:
+                    executor->stats.specialized_speedup = tier_data->speedup_factor;
+                    break;
+                case TIER_VECTORIZED:
+                    executor->stats.vectorized_speedup = tier_data->speedup_factor;
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+    
+    // Calculate overall speedup
+    double max_speedup = 1.0;
+    for (int i = 0; i < EXECUTION_TIER_COUNT; i++) {
+        TierEffectiveness* tier_data = performance_profiler_get_tier_data(
+            executor->performance_profiler, (PerformanceTier)i);
+        if (tier_data && tier_data->speedup_factor > max_speedup) {
+            max_speedup = tier_data->speedup_factor;
+        }
+    }
+    executor->stats.overall_speedup = max_speedup;
 }

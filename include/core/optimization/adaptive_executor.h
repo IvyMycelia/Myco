@@ -7,6 +7,7 @@
 #include "hot_spot_tracker.h"
 #include "micro_jit.h"
 #include "value_specializer.h"
+#include "performance_profiler.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -14,12 +15,15 @@
 // ADAPTIVE EXECUTOR COORDINATOR
 // ============================================================================
 
-// Execution tiers
+// Execution tiers (6-tier system)
 typedef enum {
-    EXECUTION_TIER_AST = 0,         // AST interpreter (fallback)
-    EXECUTION_TIER_BYTECODE = 1,    // Bytecode interpreter
-    EXECUTION_TIER_MICRO_JIT = 2,   // Micro-JIT compiled
-    EXECUTION_TIER_SPECIALIZED = 3  // Value-specialized bytecode
+    EXECUTION_TIER_AST = 0,         // AST interpreter (baseline)
+    EXECUTION_TIER_BYTECODE = 1,    // Register bytecode (4-6x faster)
+    EXECUTION_TIER_TRACE_RECORDING = 2, // Trace recording (begin recording)
+    EXECUTION_TIER_TRACE_COMPILED = 3,  // Trace compilation (15-25x faster)
+    EXECUTION_TIER_SPECIALIZED = 4, // Predictive specialization (20-30x faster)
+    EXECUTION_TIER_VECTORIZED = 5,  // Vectorized code (30-50x faster)
+    EXECUTION_TIER_COUNT = 6        // Total number of tiers
 } ExecutionTier;
 
 // Optimization levels
@@ -46,13 +50,18 @@ typedef enum {
 typedef struct {
     uint64_t ast_executions;        // Number of AST executions
     uint64_t bytecode_executions;   // Number of bytecode executions
-    uint64_t jit_executions;        // Number of JIT executions
+    uint64_t trace_recording_executions; // Number of trace recording executions
+    uint64_t trace_compiled_executions;  // Number of trace compiled executions
     uint64_t specialized_executions; // Number of specialized executions
+    uint64_t vectorized_executions; // Number of vectorized executions
     
     uint64_t ast_time_ns;           // Total time in AST interpreter
     uint64_t bytecode_time_ns;      // Total time in bytecode interpreter
+    uint64_t trace_recording_time_ns; // Total time in trace recording
+    uint64_t trace_compiled_time_ns;  // Total time in trace compiled
     uint64_t jit_time_ns;           // Total time in JIT code
     uint64_t specialized_time_ns;   // Total time in specialized code
+    uint64_t vectorized_time_ns;    // Total time in vectorized code
     
     uint64_t tier_transitions;      // Number of tier transitions
     uint64_t deoptimizations;       // Number of deoptimizations
@@ -66,8 +75,11 @@ typedef struct {
     
     double overall_speedup;         // Overall speedup factor
     double bytecode_speedup;        // Bytecode vs AST speedup
+    double trace_recording_speedup; // Trace recording vs AST speedup
+    double trace_compiled_speedup;  // Trace compiled vs AST speedup
     double jit_speedup;             // JIT vs bytecode speedup
     double specialized_speedup;     // Specialized vs bytecode speedup
+    double vectorized_speedup;      // Vectorized vs AST speedup
 } ExecutionStatistics;
 
 // Tier transition policy
@@ -104,6 +116,7 @@ typedef struct {
     HotSpotTracker* hot_spot_tracker;
     MicroJitContext* micro_jit_context;
     ValueSpecializer* value_specializer;
+    PerformanceProfiler* performance_profiler;
     
     // Execution state
     ExecutionTier current_tier;
@@ -276,5 +289,17 @@ void adaptive_executor_print_resource_usage(AdaptiveExecutor* executor);
 int adaptive_executor_validate_integration(AdaptiveExecutor* executor);
 int adaptive_executor_test_all_tiers(AdaptiveExecutor* executor);
 void adaptive_executor_benchmark_decision_making(AdaptiveExecutor* executor);
+
+// 6-tier system functions
+int adaptive_executor_record_tier_execution(AdaptiveExecutor* executor,
+                                            ExecutionTier tier,
+                                            uint64_t execution_time_ns,
+                                            uint64_t instruction_count);
+ExecutionTier adaptive_executor_get_optimal_tier(AdaptiveExecutor* executor,
+                                                 ASTNode* function_node);
+int adaptive_executor_should_promote_tier(AdaptiveExecutor* executor,
+                                          ExecutionTier current_tier,
+                                          ASTNode* function_node);
+void adaptive_executor_update_tier_effectiveness(AdaptiveExecutor* executor);
 
 #endif // ADAPTIVE_EXECUTOR_H

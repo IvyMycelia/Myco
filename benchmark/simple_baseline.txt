@@ -1,0 +1,18 @@
+Simple Myco Benchmark Report
+===========================
+Generated: Sun Oct 12 20:52:31 EDT 2025
+Timestamp: 20251012_205231
+
+BENCHMARK RESULTS SUMMARY
+========================
+
+✓ Basic Arithmetic: PASSED
+
+DETAILED BENCHMARK OUTPUTS
+==========================
+
+All benchmark outputs are saved in: /Users/Ivy/Documents/GitHub/Myco Lang/benchmark/results/
+
+Files:
+- basic_arithmetic_20251012_205231.txt
+

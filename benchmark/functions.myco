@@ -1,0 +1,93 @@
+# Function Call Performance Benchmark
+# Tests function call overhead and parameter passing
+
+let iterations = 10000;
+let start_time = time.now().unix_timestamp();
+
+# Test simple function calls
+func simple_add(a, b):
+    return a + b;
+end
+
+let simple_sum = 0;
+for i in range(1, iterations + 1):
+    simple_sum = simple_sum + simple_add(i, i * 2);
+end
+
+# Test recursive function calls
+func factorial(n):
+    if n <= 1:
+        return 1;
+    else:
+        return n * factorial(n - 1);
+    end
+end
+
+let factorial_sum = 0;
+for i in range(1, 20):
+    factorial_sum = factorial_sum + factorial(i);
+end
+
+# Test function with multiple parameters
+func complex_calc(a, b, c, d, e):
+    return (a + b) * (c - d) + e;
+end
+
+let complex_sum = 0;
+for i in range(1, iterations + 1):
+    complex_sum = complex_sum + complex_calc(i, i * 2, i * 3, i * 4, i * 5);
+end
+
+# Test function returning objects
+func create_point(x, y):
+    let point = {};
+    point.x = x;
+    point.y = y;
+    point.distance = (x * x + y * y).sqrt();
+    return point;
+end
+
+let point_sum = 0;
+for i in range(1, 1000):
+    let p = create_point(i, i * 2);
+    point_sum = point_sum + p.distance;
+end
+
+# Test method calls on objects
+class Calculator:
+    func add(a, b):
+        return a + b;
+    end
+    
+    func multiply(a, b):
+        return a * b;
+    end
+    
+    func power(a, b):
+        let result = 1;
+        for i in range(1, b + 1):
+            result = result * a;
+        end
+        return result;
+    end
+end
+
+let calc = Calculator();
+let method_sum = 0;
+for i in range(1, 1000):
+    method_sum = method_sum + calc.add(i, i * 2);
+    method_sum = method_sum + calc.multiply(i, 3);
+    method_sum = method_sum + calc.power(2, 10);
+end
+
+let end_time = time.now().unix_timestamp();
+let duration = end_time - start_time;
+
+print("Function Call Benchmark Results:");
+print("Simple function calls:", simple_sum);
+print("Recursive factorial sum:", factorial_sum);
+print("Complex function calls:", complex_sum);
+print("Object creation sum:", point_sum);
+print("Method call sum:", method_sum);
+print("Duration (seconds):", duration);
+print("Function calls per second:", (iterations + 20 + iterations + 1000 + 3000) / duration);

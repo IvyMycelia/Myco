@@ -1,0 +1,49 @@
+# Basic Arithmetic Performance Benchmark
+# Tests basic math operations
+
+# Test integer arithmetic
+let sum = 0;
+sum = sum + 1;
+sum = sum + 2;
+sum = sum + 3;
+sum = sum + 4;
+sum = sum + 5;
+
+# Test float arithmetic  
+let float_sum = 0.0;
+float_sum = float_sum + 1.5;
+float_sum = float_sum + 2.5;
+float_sum = float_sum + 3.5;
+float_sum = float_sum + 4.5;
+float_sum = float_sum + 5.5;
+
+# Test mixed arithmetic
+let mixed_sum = 0.0;
+mixed_sum = mixed_sum + (1 * 2.5) - (1 / 3.0);
+mixed_sum = mixed_sum + (2 * 2.5) - (2 / 3.0);
+mixed_sum = mixed_sum + (3 * 2.5) - (3 / 3.0);
+mixed_sum = mixed_sum + (4 * 2.5) - (4 / 3.0);
+mixed_sum = mixed_sum + (5 * 2.5) - (5 / 3.0);
+
+# Test multiplication
+let product = 1;
+product = product * 2;
+product = product * 3;
+product = product * 4;
+product = product * 5;
+
+# Test division
+let quotient = 1000000.0;
+quotient = quotient / 2.0;
+quotient = quotient / 2.0;
+quotient = quotient / 2.0;
+quotient = quotient / 2.0;
+quotient = quotient / 2.0;
+
+print("Basic Arithmetic Benchmark Results:");
+print("Integer sum:", sum);
+print("Float sum:", float_sum);
+print("Mixed sum:", mixed_sum);
+print("Product:", product);
+print("Final quotient:", quotient);
+print("Benchmark completed successfully");

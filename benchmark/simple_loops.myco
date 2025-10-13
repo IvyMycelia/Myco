@@ -1,0 +1,63 @@
+# Simple Loop Performance Benchmark
+# Tests nested loops and complex loop structures
+
+let iterations = 1000;
+
+# Test nested loops
+let nested_sum = 0;
+for i in range(1, 100):
+    for j in range(1, 100):
+        nested_sum = nested_sum + (i * j);
+    end
+end
+
+# Test while loops
+let while_sum = 0;
+let counter = 0;
+while counter < iterations:
+    while_sum = while_sum + counter;
+    counter = counter + 1;
+end
+
+# Test complex loop with conditions
+let complex_sum = 0;
+for i in range(1, iterations + 1):
+    if i % 2 == 0:
+        complex_sum = complex_sum + (i * 2);
+    else:
+        complex_sum = complex_sum + (i * 3);
+    end
+end
+
+# Test loop with function calls
+func fibonacci(n):
+    if n <= 1:
+        return n;
+    else:
+        return fibonacci(n - 1) + fibonacci(n - 2);
+    end
+end
+
+let fib_sum = 0;
+for i in range(1, 25):
+    fib_sum = fib_sum + fibonacci(i);
+end
+
+# Test array iteration
+let test_array = [];
+for i in range(1, 1000):
+    test_array.push(i);
+end
+
+let array_sum = 0;
+for i in range(0, test_array.length):
+    array_sum = array_sum + test_array[i];
+end
+
+print("Simple Loop Benchmark Results:");
+print("Nested loops sum:", nested_sum);
+print("While loop sum:", while_sum);
+print("Complex loop sum:", complex_sum);
+print("Fibonacci sum:", fib_sum);
+print("Array iteration sum:", array_sum);
+print("Benchmark completed successfully");

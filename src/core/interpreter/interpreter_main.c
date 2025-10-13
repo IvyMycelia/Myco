@@ -13,6 +13,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <time.h>
+#include <stdint.h>
 
 // Forward declarations for pattern matching functions
 static int pattern_matches(Interpreter* interpreter, Value* value, ASTNode* pattern);
@@ -87,6 +89,11 @@ Interpreter* interpreter_create(void) {
     interpreter->jit_context = NULL;
     interpreter->jit_enabled = 0;
     interpreter->jit_mode = 0;
+    
+    // Benchmark timing initialization
+    interpreter->benchmark_mode = 0;
+    interpreter->execution_time_ns = 0;
+    interpreter->start_time_ns = 0;
     
     // Macro system initialization
     interpreter->macro_expander = macro_expander_create();
@@ -885,4 +892,35 @@ ReplDebugSession* interpreter_get_global_repl_session(void) {
         interpreter_initialize_global_systems();
     }
     return global_repl_session;
+}
+
+// ============================================================================
+// BENCHMARK TIMING FUNCTIONS
+// ============================================================================
+
+void interpreter_set_benchmark_mode(Interpreter* interpreter, int enabled) {
+    if (interpreter) {
+        interpreter->benchmark_mode = enabled;
+    }
+}
+
+uint64_t interpreter_get_execution_time_ns(Interpreter* interpreter) {
+    return interpreter ? interpreter->execution_time_ns : 0;
+}
+
+void interpreter_start_timing(Interpreter* interpreter) {
+    if (interpreter && interpreter->benchmark_mode) {
+        struct timespec ts;
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        interpreter->start_time_ns = (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
+    }
+}
+
+void interpreter_stop_timing(Interpreter* interpreter) {
+    if (interpreter && interpreter->benchmark_mode) {
+        struct timespec ts;
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        uint64_t end_time_ns = (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
+        interpreter->execution_time_ns = end_time_ns - interpreter->start_time_ns;
+    }
 }

@@ -180,6 +180,11 @@ typedef struct Interpreter {
     
     // Compile-time evaluation support
     struct CompileTimeEvaluator* compile_time_evaluator;
+    
+    // Benchmark timing support
+    int benchmark_mode;           // Enable timing instrumentation
+    uint64_t execution_time_ns;   // Total execution time in nanoseconds
+    uint64_t start_time_ns;       // Start time for current execution
 } Interpreter;
 
 // Environment management
@@ -250,5 +255,11 @@ Value interpreter_execute_program(Interpreter* interpreter, ASTNode* node);
 // Value printing
 void value_print(Value* value);
 void value_print_debug(Value* value);
+
+// Benchmark timing functions
+void interpreter_set_benchmark_mode(Interpreter* interpreter, int enabled);
+uint64_t interpreter_get_execution_time_ns(Interpreter* interpreter);
+void interpreter_start_timing(Interpreter* interpreter);
+void interpreter_stop_timing(Interpreter* interpreter);
 
 #endif // INTERPRETER_CORE_H

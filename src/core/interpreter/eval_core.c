@@ -8,6 +8,7 @@
 #include "../../include/core/interpreter/method_handlers.h"
 #include "../../include/core/interpreter/eval_engine.h"
 #include "../../include/core/optimization/bytecode_engine.h"
+#include "../../include/core/optimization/hot_spot_tracker.h"
 #include "../../include/utils/shared_utilities.h"
 #include <stdlib.h>
 #include <string.h>
@@ -306,13 +307,28 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     argv[i] = eval_node(interpreter, node->data.function_call.arguments[i]);
                 }
                 
-                Value result = value_function_call(&function_value, argv, n, interpreter, node->line, node->column);
-                
-                // Clean up arguments
-                for (size_t i = 0; i < n; i++) value_free(&argv[i]);
-                if (argv) shared_free_safe(argv, "interpreter", "function_call", 0);
-                
-                return result;
+                // Record function call in hot spot tracker
+                if (interpreter && interpreter->hot_spot_tracker) {
+                    uint64_t start_time = get_current_time_ns();
+                    Value result = value_function_call(&function_value, argv, n, interpreter, node->line, node->column);
+                    uint64_t end_time = get_current_time_ns();
+                    uint64_t execution_time = end_time - start_time;
+                    hot_spot_tracker_record_function_call((HotSpotTracker*)interpreter->hot_spot_tracker, node, argv, n, execution_time);
+                    
+                    // Clean up arguments
+                    for (size_t i = 0; i < n; i++) value_free(&argv[i]);
+                    if (argv) shared_free_safe(argv, "interpreter", "function_call", 0);
+                    
+                    return result;
+                } else {
+                    Value result = value_function_call(&function_value, argv, n, interpreter, node->line, node->column);
+                    
+                    // Clean up arguments
+                    for (size_t i = 0; i < n; i++) value_free(&argv[i]);
+                    if (argv) shared_free_safe(argv, "interpreter", "function_call", 0);
+                    
+                    return result;
+                }
             }
             
             // Check for method calls on objects
@@ -827,6 +843,16 @@ Value interpreter_execute(Interpreter* interpreter, ASTNode* node) {
         interpreter_start_timing(interpreter);
     }
     
+    // Initialize hot spot tracker if needed
+    if (interpreter && interpreter->jit_enabled && !interpreter->hot_spot_tracker) {
+        interpreter->hot_spot_tracker = hot_spot_tracker_create();
+    }
+    
+    uint64_t start_time = 0;
+    if (interpreter && interpreter->hot_spot_tracker) {
+        start_time = get_current_time_ns();
+    }
+    
     Value result;
     
     // Check if bytecode is available and optimization is enabled
@@ -851,6 +877,13 @@ Value interpreter_execute(Interpreter* interpreter, ASTNode* node) {
                 ast_node_set_bytecode(node, bytecode);
             }
         }
+    }
+    
+    // Record execution in hot spot tracker
+    if (interpreter && interpreter->hot_spot_tracker && node) {
+        uint64_t end_time = get_current_time_ns();
+        uint64_t execution_time = end_time - start_time;
+        hot_spot_tracker_record_execution((HotSpotTracker*)interpreter->hot_spot_tracker, node, execution_time);
     }
     
     // Stop timing if benchmark mode is enabled

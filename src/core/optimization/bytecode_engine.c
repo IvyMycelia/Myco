@@ -192,7 +192,7 @@ BytecodeProgram* bytecode_compile_ast(ASTNode* ast, Interpreter* interpreter) {
         case AST_NODE_RETURN:
             return bytecode_compile_return(ast, program, interpreter);
         case AST_NODE_FUNCTION:
-            return bytecode_compile_function(ast, program, interpreter);
+            return bytecode_compile_function(ast, interpreter);
         case AST_NODE_ARRAY_LITERAL:
             return bytecode_compile_array_literal(ast, program, interpreter);
         case AST_NODE_MEMBER_ACCESS:
@@ -308,11 +308,11 @@ BytecodeProgram* bytecode_compile_binary_op(ASTNode* ast, BytecodeProgram* progr
     if (!ast || !program) return NULL;
     
     // Compile left operand
-    BytecodeProgram* left_program = bytecode_compile_ast(ast->data.binary_op.left, interpreter);
+    BytecodeProgram* left_program = bytecode_compile_ast(ast->data.binary.left, interpreter);
     if (!left_program) return NULL;
     
     // Compile right operand
-    BytecodeProgram* right_program = bytecode_compile_ast(ast->data.binary_op.right, interpreter);
+    BytecodeProgram* right_program = bytecode_compile_ast(ast->data.binary.right, interpreter);
     if (!right_program) return NULL;
     
     // Merge programs
@@ -320,41 +320,41 @@ BytecodeProgram* bytecode_compile_binary_op(ASTNode* ast, BytecodeProgram* progr
     
     // Emit appropriate operation instruction
     BytecodeInstruction instr = {0};
-    switch (ast->data.binary_op.op) {
-        case BINARY_OP_ADD:
+    switch (ast->data.binary.op) {
+        case OP_ADD:
             instr.opcode = BC_ADD_INT;  // TODO: Type specialization
             break;
-        case BINARY_OP_SUBTRACT:
+        case OP_SUBTRACT:
             instr.opcode = BC_SUB_INT;
             break;
-        case BINARY_OP_MULTIPLY:
+        case OP_MULTIPLY:
             instr.opcode = BC_MUL_INT;
             break;
-        case BINARY_OP_DIVIDE:
+        case OP_DIVIDE:
             instr.opcode = BC_DIV_INT;
             break;
-        case BINARY_OP_EQUAL:
+        case OP_EQUAL:
             instr.opcode = BC_EQ_INT;
             break;
-        case BINARY_OP_NOT_EQUAL:
+        case OP_NOT_EQUAL:
             instr.opcode = BC_NE_INT;
             break;
-        case BINARY_OP_LESS_THAN:
+        case OP_LESS_THAN:
             instr.opcode = BC_LT_INT;
             break;
-        case BINARY_OP_GREATER_THAN:
+        case OP_GREATER_THAN:
             instr.opcode = BC_GT_INT;
             break;
-        case BINARY_OP_LESS_EQUAL:
+        case OP_LESS_EQUAL:
             instr.opcode = BC_LE_INT;
             break;
-        case BINARY_OP_GREATER_EQUAL:
+        case OP_GREATER_EQUAL:
             instr.opcode = BC_GE_INT;
             break;
-        case BINARY_OP_AND:
+        case OP_LOGICAL_AND:
             instr.opcode = BC_AND;
             break;
-        case BINARY_OP_OR:
+        case OP_LOGICAL_OR:
             instr.opcode = BC_OR;
             break;
         default:
@@ -374,16 +374,16 @@ BytecodeProgram* bytecode_compile_unary_op(ASTNode* ast, BytecodeProgram* progra
     if (!ast || !program) return NULL;
     
     // Compile operand
-    BytecodeProgram* operand_program = bytecode_compile_ast(ast->data.unary_op.operand, interpreter);
+    BytecodeProgram* operand_program = bytecode_compile_ast(ast->data.unary.operand, interpreter);
     if (!operand_program) return NULL;
     
     // Emit appropriate operation instruction
     BytecodeInstruction instr = {0};
-    switch (ast->data.unary_op.op) {
-        case UNARY_OP_NEGATE:
+    switch (ast->data.unary.op) {
+        case OP_NEGATIVE:
             instr.opcode = BC_NEG_INT;  // TODO: Type specialization
             break;
-        case UNARY_OP_NOT:
+        case OP_LOGICAL_NOT:
             instr.opcode = BC_NOT;
             break;
         default:
@@ -434,8 +434,9 @@ BytecodeProgram* bytecode_compile_return(ASTNode* ast, BytecodeProgram* program,
     return program;
 }
 
-BytecodeProgram* bytecode_compile_function(ASTNode* ast, BytecodeProgram* program, Interpreter* interpreter) {
+BytecodeProgram* bytecode_compile_function(ASTNode* func, Interpreter* interpreter) {
     // TODO: Implement function compilation
+    BytecodeProgram* program = bytecode_program_create();
     return program;
 }
 

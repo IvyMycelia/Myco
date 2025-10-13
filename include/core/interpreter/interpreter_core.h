@@ -185,6 +185,9 @@ typedef struct Interpreter {
     int benchmark_mode;           // Enable timing instrumentation
     uint64_t execution_time_ns;   // Total execution time in nanoseconds
     uint64_t start_time_ns;       // Start time for current execution
+    
+    // Hot spot tracking support
+    void* hot_spot_tracker;       // HotSpotTracker instance
 } Interpreter;
 
 // Environment management

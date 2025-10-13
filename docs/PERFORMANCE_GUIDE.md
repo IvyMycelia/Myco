@@ -2,7 +2,7 @@
 
 ## Overview
 
-Myco's revolutionary optimization system provides significant performance improvements through intelligent multi-tier execution. This guide explains how to get the best performance from your Myco programs.
+Myco's optimization system provides performance improvements through multi-tier execution. This guide explains how to get the best performance from your Myco programs.
 
 ## Quick Start
 

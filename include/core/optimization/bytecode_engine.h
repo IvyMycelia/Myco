@@ -1,6 +1,6 @@
 /**
  * @file bytecode_engine.h
- * @brief Revolutionary bytecode engine for Myco optimization system
+ * @brief Bytecode engine for Myco optimization system
  * 
  * This module implements a high-performance bytecode interpreter that serves as
  * the foundation of Myco's multi-tier optimization system. It provides a fast

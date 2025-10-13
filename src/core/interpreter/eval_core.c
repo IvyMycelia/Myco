@@ -10,6 +10,7 @@
 #include "../../include/core/optimization/bytecode_engine.h"
 #include "../../include/core/optimization/hot_spot_tracker.h"
 #include "../../include/core/optimization/micro_jit.h"
+#include "../../include/core/optimization/value_specializer.h"
 #include "../../include/utils/shared_utilities.h"
 #include <stdlib.h>
 #include <string.h>
@@ -333,6 +334,15 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     uint64_t execution_time = end_time - start_time;
                     hot_spot_tracker_record_function_call((HotSpotTracker*)interpreter->hot_spot_tracker, node, argv, n, execution_time);
                     
+                    // Observe types for value specialization
+                    if (interpreter && interpreter->value_specializer) {
+                        ValueSpecializer* specializer = (ValueSpecializer*)interpreter->value_specializer;
+                        for (size_t i = 0; i < n; i++) {
+                            value_specializer_observe_type(specializer, node, i, argv[i].type);
+                        }
+                        value_specializer_observe_return_type(specializer, node, result.type);
+                    }
+                    
                     // Clean up arguments
                     for (size_t i = 0; i < n; i++) value_free(&argv[i]);
                     if (argv) shared_free_safe(argv, "interpreter", "function_call", 0);
@@ -340,6 +350,15 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     return result;
                 } else {
                     Value result = value_function_call(&function_value, argv, n, interpreter, node->line, node->column);
+                    
+                    // Observe types for value specialization
+                    if (interpreter && interpreter->value_specializer) {
+                        ValueSpecializer* specializer = (ValueSpecializer*)interpreter->value_specializer;
+                        for (size_t i = 0; i < n; i++) {
+                            value_specializer_observe_type(specializer, node, i, argv[i].type);
+                        }
+                        value_specializer_observe_return_type(specializer, node, result.type);
+                    }
                     
                     // Clean up arguments
                     for (size_t i = 0; i < n; i++) value_free(&argv[i]);
@@ -869,6 +888,11 @@ Value interpreter_execute(Interpreter* interpreter, ASTNode* node) {
     // Initialize Micro-JIT compiler if needed
     if (interpreter && interpreter->jit_enabled && !interpreter->micro_jit_context) {
         interpreter->micro_jit_context = micro_jit_create(JIT_TARGET_AUTO, MICRO_JIT_MODE_MICRO);
+    }
+    
+    // Initialize value specializer if needed
+    if (interpreter && interpreter->jit_enabled && !interpreter->value_specializer) {
+        interpreter->value_specializer = value_specializer_create();
     }
     
     uint64_t start_time = 0;

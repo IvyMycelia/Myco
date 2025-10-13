@@ -101,6 +101,9 @@ Interpreter* interpreter_create(void) {
     // Micro-JIT compiler initialization
     interpreter->micro_jit_context = NULL;
     
+    // Value specialization initialization
+    interpreter->value_specializer = NULL;
+    
     // Macro system initialization
     interpreter->macro_expander = macro_expander_create();
     

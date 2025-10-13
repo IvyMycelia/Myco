@@ -191,6 +191,9 @@ typedef struct Interpreter {
     
     // Micro-JIT compiler support
     void* micro_jit_context;      // MicroJitContext instance
+    
+    // Value specialization support
+    void* value_specializer;      // ValueSpecializer instance
 } Interpreter;
 
 // Environment management

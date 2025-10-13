@@ -188,6 +188,9 @@ typedef struct Interpreter {
     
     // Hot spot tracking support
     void* hot_spot_tracker;       // HotSpotTracker instance
+    
+    // Micro-JIT compiler support
+    void* micro_jit_context;      // MicroJitContext instance
 } Interpreter;
 
 // Environment management

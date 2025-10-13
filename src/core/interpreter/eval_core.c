@@ -9,6 +9,7 @@
 #include "../../include/core/interpreter/eval_engine.h"
 #include "../../include/core/optimization/bytecode_engine.h"
 #include "../../include/core/optimization/hot_spot_tracker.h"
+#include "../../include/core/optimization/micro_jit.h"
 #include "../../include/utils/shared_utilities.h"
 #include <stdlib.h>
 #include <string.h>
@@ -305,6 +306,23 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 }
                 for (size_t i = 0; i < n; i++) {
                     argv[i] = eval_node(interpreter, node->data.function_call.arguments[i]);
+                }
+                
+                // Check for Micro-JIT compiled function
+                if (interpreter && interpreter->micro_jit_context) {
+                    MicroJitContext* jit_context = (MicroJitContext*)interpreter->micro_jit_context;
+                    JitCompiledFunction* compiled_func = micro_jit_find_function(jit_context, node);
+                    
+                    if (compiled_func && compiled_func->is_valid) {
+                        // Execute compiled function
+                        Value result = micro_jit_execute_function(compiled_func, argv, n, interpreter);
+                        
+                        // Clean up arguments
+                        for (size_t i = 0; i < n; i++) value_free(&argv[i]);
+                        if (argv) shared_free_safe(argv, "interpreter", "function_call", 0);
+                        
+                        return result;
+                    }
                 }
                 
                 // Record function call in hot spot tracker
@@ -846,6 +864,11 @@ Value interpreter_execute(Interpreter* interpreter, ASTNode* node) {
     // Initialize hot spot tracker if needed
     if (interpreter && interpreter->jit_enabled && !interpreter->hot_spot_tracker) {
         interpreter->hot_spot_tracker = hot_spot_tracker_create();
+    }
+    
+    // Initialize Micro-JIT compiler if needed
+    if (interpreter && interpreter->jit_enabled && !interpreter->micro_jit_context) {
+        interpreter->micro_jit_context = micro_jit_create(JIT_TARGET_AUTO, MICRO_JIT_MODE_MICRO);
     }
     
     uint64_t start_time = 0;

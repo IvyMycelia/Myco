@@ -821,7 +821,19 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
 }
 
 Value interpreter_execute(Interpreter* interpreter, ASTNode* node) { 
-    return eval_node(interpreter, node); 
+    // Start timing if benchmark mode is enabled
+    if (interpreter && interpreter->benchmark_mode) {
+        interpreter_start_timing(interpreter);
+    }
+    
+    Value result = eval_node(interpreter, node);
+    
+    // Stop timing if benchmark mode is enabled
+    if (interpreter && interpreter->benchmark_mode) {
+        interpreter_stop_timing(interpreter);
+    }
+    
+    return result;
 }
 
 // ============================================================================

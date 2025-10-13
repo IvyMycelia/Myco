@@ -1,0 +1,2 @@
+[35m[CRITICAL] E9008 [35mMethod not found[0m in /Users/Ivy/Documents/GitHub/Myco Lang/benchmark/arithmetic.myco:5:29
+  [35mHint:[0m Report as bug

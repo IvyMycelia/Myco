@@ -162,14 +162,12 @@ NativeFunction* native_codegen_generate_function(NativeCodegenContext* context, 
     // Generate code based on target architecture
     switch (context->target_arch) {
         case TARGET_ARCH_X86_64:
-            if (!native_codegen_generate_x86_64(context, trace)) {
-                return NULL;
-            }
+            // Use platform-specific x86_64 generation
+            // TODO: Implement actual x86_64 code generation
             break;
         case TARGET_ARCH_ARM64:
-            if (!native_codegen_generate_arm64(context, trace)) {
-                return NULL;
-            }
+            // Use platform-specific ARM64 generation
+            // TODO: Implement actual ARM64 code generation
             break;
         case TARGET_ARCH_AUTO:
             context->target_arch = native_codegen_detect_architecture();
@@ -209,23 +207,7 @@ int native_codegen_finalize_function(NativeCodegenContext* context, NativeFuncti
     return 1;
 }
 
-NativeFunction* native_codegen_generate_x86_64(NativeCodegenContext* context, OptimizedTrace* trace) {
-    if (!context || !trace) return NULL;
-    
-    // TODO: Implement x86-64 code generation
-    // This would generate x86-64 specific machine code
-    
-    return &context->functions[context->function_count];
-}
-
-NativeFunction* native_codegen_generate_arm64(NativeCodegenContext* context, OptimizedTrace* trace) {
-    if (!context || !trace) return NULL;
-    
-    // TODO: Implement ARM64 code generation
-    // This would generate ARM64 specific machine code
-    
-    return &context->functions[context->function_count];
-}
+// Old platform-specific functions removed - new ones are in platform-specific section
 
 TargetArchitecture native_codegen_detect_architecture(void) {
     // TODO: Implement architecture detection
@@ -235,12 +217,12 @@ TargetArchitecture native_codegen_detect_architecture(void) {
     return TARGET_ARCH_X86_64;
 }
 
-CPUFeatureFlags native_codegen_detect_cpu_features(void) {
+uint64_t native_codegen_detect_cpu_features(void) {
     // TODO: Implement CPU feature detection
     // This would detect available CPU features
     
     // For now, return basic features
-    return CPU_FEATURE_SSE | CPU_FEATURE_SSE2;
+    return 0; // Will be replaced with actual CPU feature detection
 }
 
 NativeInstruction* native_codegen_generate_arithmetic(NativeCodegenContext* context, uint32_t opcode, 
@@ -273,15 +255,7 @@ NativeInstruction* native_codegen_generate_control_flow(NativeCodegenContext* co
     return NULL;
 }
 
-NativeInstruction* native_codegen_generate_simd(NativeCodegenContext* context, uint32_t opcode, 
-                                               uint32_t dst, uint32_t src1, uint32_t src2) {
-    if (!context) return NULL;
-    
-    // TODO: Implement SIMD instruction generation
-    // This would generate SIMD vector instructions
-    
-    return NULL;
-}
+// Old SIMD function removed - new platform-specific SIMD function is in platform-specific section
 
 int native_codegen_peephole_optimize(NativeCodegenContext* context, NativeFunction* function) {
     if (!context || !function) return 0;
@@ -384,7 +358,7 @@ void native_codegen_set_mode(NativeCodegenContext* context, CodeGenerationMode m
     context->mode = mode;
 }
 
-void native_codegen_set_cpu_features(NativeCodegenContext* context, CPUFeatureFlags features) {
+void native_codegen_set_cpu_features(NativeCodegenContext* context, uint64_t features) {
     if (!context) return;
     context->cpu_features = features;
 }
@@ -487,4 +461,230 @@ char* native_codegen_disassemble_function(NativeCodegenContext* context, uint32_
     // This would return a disassembly of the native function
     
     return NULL;
+}
+
+// ============================================================================
+// PLATFORM-SPECIFIC OPTIMIZATIONS
+// ============================================================================
+
+int native_codegen_init_platform_optimizations(NativeCodegenContext* context, 
+                                               CPUFeatureContext* cpu_context) {
+    if (!context || !cpu_context) {
+        return 0;
+    }
+    
+    // Store CPU context for platform-specific optimizations
+    context->cpu_context = cpu_context;
+    
+    // Enable platform optimizations based on CPU features
+    if (cpu_features_simd_available(cpu_context)) {
+        context->platform_optimizations_enabled = 1;
+    } else {
+        context->platform_optimizations_enabled = 0;
+    }
+    
+    return 1;
+}
+
+size_t native_codegen_generate_x86_64(NativeCodegenContext* context,
+                                      OptimizedTrace* trace,
+                                      uint8_t* code_buffer,
+                                      size_t buffer_size) {
+    if (!context || !trace || !code_buffer || buffer_size == 0) {
+        return 0;
+    }
+    
+    size_t bytes_generated = 0;
+    
+    // Generate x86_64 specific code
+    // This is a placeholder implementation
+    // In a real implementation, this would generate actual x86_64 machine code
+    
+    for (size_t i = 0; i < trace->instruction_count && bytes_generated < buffer_size; i++) {
+        // Placeholder: Generate x86_64 instructions
+        // Real implementation would emit actual machine code
+        code_buffer[bytes_generated++] = 0x90; // NOP instruction
+    }
+    
+    return bytes_generated;
+}
+
+size_t native_codegen_generate_arm64(NativeCodegenContext* context,
+                                     OptimizedTrace* trace,
+                                     uint8_t* code_buffer,
+                                     size_t buffer_size) {
+    if (!context || !trace || !code_buffer || buffer_size == 0) {
+        return 0;
+    }
+    
+    size_t bytes_generated = 0;
+    
+    // Generate ARM64 specific code
+    // This is a placeholder implementation
+    // In a real implementation, this would generate actual ARM64 machine code
+    
+    for (size_t i = 0; i < trace->instruction_count && bytes_generated < buffer_size; i++) {
+        // Placeholder: Generate ARM64 instructions
+        // Real implementation would emit actual machine code
+        code_buffer[bytes_generated++] = 0x1F; // NOP instruction
+    }
+    
+    return bytes_generated;
+}
+
+size_t native_codegen_generate_simd(NativeCodegenContext* context,
+                                    OptimizedTrace* trace,
+                                    SIMDInstructionSet simd_type,
+                                    uint8_t* code_buffer,
+                                    size_t buffer_size) {
+    if (!context || !trace || !code_buffer || buffer_size == 0) {
+        return 0;
+    }
+    
+    size_t bytes_generated = 0;
+    
+    // Generate SIMD vectorized code based on instruction set
+    switch (simd_type) {
+        case SIMD_SSE2:
+        case SIMD_SSE4_2:
+            // Generate SSE instructions
+            break;
+        case SIMD_AVX:
+        case SIMD_AVX2:
+            // Generate AVX instructions
+            break;
+        case SIMD_AVX512:
+            // Generate AVX-512 instructions
+            break;
+        case SIMD_NEON:
+            // Generate NEON instructions
+            break;
+        default:
+            return 0;
+    }
+    
+    // Placeholder: Generate SIMD instructions
+    for (size_t i = 0; i < trace->instruction_count && bytes_generated < buffer_size; i++) {
+        code_buffer[bytes_generated++] = 0x90; // NOP instruction
+    }
+    
+    return bytes_generated;
+}
+
+size_t native_codegen_apply_peephole_optimizations(NativeCodegenContext* context,
+                                                   uint8_t* code_buffer,
+                                                   size_t code_size) {
+    if (!context || !code_buffer || code_size == 0) {
+        return code_size;
+    }
+    
+    // Apply peephole optimizations
+    // This is a placeholder implementation
+    // Real implementation would apply actual peephole optimizations
+    
+    size_t optimized_size = code_size;
+    
+    // Example peephole optimizations:
+    // - Remove redundant instructions
+    // - Combine adjacent instructions
+    // - Replace expensive instructions with cheaper ones
+    
+    return optimized_size;
+}
+
+int native_codegen_add_branch_hints(NativeCodegenContext* context,
+                                    uint8_t* code_buffer,
+                                    size_t code_size) {
+    if (!context || !code_buffer || code_size == 0) {
+        return 0;
+    }
+    
+    // Add branch prediction hints
+    // This is a placeholder implementation
+    // Real implementation would add actual branch prediction hints
+    
+    // Example: Add branch prediction prefixes
+    // - 0x3E for likely taken branches
+    // - 0x2E for likely not taken branches
+    
+    return 1;
+}
+
+int native_codegen_optimize_for_cpu(NativeCodegenContext* context,
+                                    CPUFeatureContext* cpu_context,
+                                    uint8_t* code_buffer,
+                                    size_t code_size) {
+    if (!context || !cpu_context || !code_buffer || code_size == 0) {
+        return 0;
+    }
+    
+    // Apply CPU-specific optimizations
+    if (cpu_features_has_feature(cpu_context, CPU_FEATURE_FMA)) {
+        // Use FMA instructions for better performance
+    }
+    
+    if (cpu_features_has_feature(cpu_context, CPU_FEATURE_POPCNT)) {
+        // Use POPCNT instruction for population count
+    }
+    
+    if (cpu_features_has_feature(cpu_context, CPU_FEATURE_BMI1)) {
+        // Use BMI1 instructions for bit manipulation
+    }
+    
+    return 1;
+}
+
+int native_codegen_get_optimal_scheduling(NativeCodegenContext* context,
+                                          CPUFeatureContext* cpu_context) {
+    if (!context || !cpu_context) {
+        return 0;
+    }
+    
+    // Determine optimal instruction scheduling based on CPU characteristics
+    uint32_t cores, threads, max_freq_mhz, cache_line_size;
+    cpu_features_get_performance_info(cpu_context, &cores, &threads, &max_freq_mhz, &cache_line_size);
+    
+    // Adjust scheduling based on CPU characteristics
+    if (cores > 4) {
+        // Use more aggressive scheduling for multi-core CPUs
+    }
+    
+    if (max_freq_mhz > 3000) {
+        // Use different scheduling for high-frequency CPUs
+    }
+    
+    return 1;
+}
+
+int native_codegen_optimize_cache_usage(NativeCodegenContext* context,
+                                        CPUFeatureContext* cpu_context,
+                                        uint8_t* code_buffer,
+                                        size_t code_size) {
+    if (!context || !cpu_context || !code_buffer || code_size == 0) {
+        return 0;
+    }
+    
+    // Optimize code for CPU cache characteristics
+    uint32_t cache_line_size = cpu_features_get_cache_line_size(cpu_context);
+    uint32_t l1d_cache_size = cpu_features_get_l1d_cache_size(cpu_context);
+    
+    // Align code to cache line boundaries
+    // Place frequently accessed code together
+    // Minimize cache misses
+    
+    return 1;
+}
+
+void native_codegen_set_platform_optimizations(NativeCodegenContext* context, int enable) {
+    if (context) {
+        context->platform_optimizations_enabled = enable;
+    }
+}
+
+int native_codegen_platform_optimizations_enabled(NativeCodegenContext* context) {
+    if (!context) {
+        return 0;
+    }
+    
+    return context->platform_optimizations_enabled;
 }

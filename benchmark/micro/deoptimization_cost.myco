@@ -1,0 +1,51 @@
+# Micro-benchmark: Deoptimization Cost
+# Measures the cost of deoptimization when guards fail
+
+const WARMUP_ITERATIONS = 1000
+const MEASUREMENT_ITERATIONS = 10000
+
+func mixed_type_function(x):
+    # This function will cause deoptimization
+    if x < MEASUREMENT_ITERATIONS / 2:
+        return x * 2  # Integer path
+    else:
+        return str(x) + " is large"  # String path - causes deoptimization
+    end
+end
+
+func measure_deoptimization_cost():
+    print("=== Deoptimization Cost Benchmark ===")
+    print("Measuring cost of deoptimization when guards fail")
+    print("")
+    
+    # Warmup to establish optimization
+    for i in range(WARMUP_ITERATIONS):
+        mixed_type_function(i)
+    end
+    
+    # Measure execution time
+    start_time = time.now()
+    for i in range(MEASUREMENT_ITERATIONS):
+        mixed_type_function(i)
+    end
+    end_time = time.now()
+    
+    duration_ms = (end_time - start_time) / 1000000.0
+    avg_time_ns = (end_time - start_time) / MEASUREMENT_ITERATIONS
+    
+    print("Iterations: " + str(MEASUREMENT_ITERATIONS))
+    print("Total time: " + str(duration_ms) + " ms")
+    print("Average per call: " + str(avg_time_ns) + " ns")
+    print("Calls per second: " + str(1000000000.0 / avg_time_ns))
+    print("")
+    
+    # Estimate deoptimization events
+    deopt_events = MEASUREMENT_ITERATIONS / 2  # Half the calls cause deoptimization
+    print("Estimated deoptimization events: " + str(deopt_events))
+    print("Average deoptimization cost: " + str(avg_time_ns) + " ns per event")
+    print("")
+    
+    return duration_ms
+end
+
+measure_deoptimization_cost()

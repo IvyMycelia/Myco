@@ -499,6 +499,9 @@ void time_library_register(Interpreter* interpreter) {
     value_object_set_member(&time_obj, "iso_string", value_create_builtin_function(builtin_time_iso_string));
     value_object_set_member(&time_obj, "unix_timestamp", value_create_builtin_function(builtin_time_unix_timestamp));
     
+    // Mark as Library for .type reporting
+    value_object_set_member(&time_obj, "__type__", value_create_string("Library"));
+    
     // Register time object in global environment
     environment_define(interpreter->global_environment, "time", time_obj);
 }

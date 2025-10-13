@@ -561,6 +561,9 @@ void regex_library_register(Interpreter* interpreter) {
     value_object_set(&regex_lib, "MULTILINE", value_create_number(REGEX_FLAG_MULTILINE));
     value_object_set(&regex_lib, "DOTALL", value_create_number(REGEX_FLAG_DOTALL));
     
+    // Mark as Library for .type reporting
+    value_object_set(&regex_lib, "__type__", value_create_string("Library"));
+    
     // Register the library in global environment
     environment_define(interpreter->global_environment, "regex", regex_lib);
 }

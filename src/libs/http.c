@@ -772,6 +772,9 @@ void http_library_register(Interpreter* interpreter) {
     value_object_set(&http_lib, "getHeader", value_create_builtin_function(builtin_http_get_header));
     value_object_set(&http_lib, "getJson", value_create_builtin_function(builtin_http_get_json));
 
+    // Mark as Library for .type reporting
+    value_object_set(&http_lib, "__type__", value_create_string("Library"));
+
     // Register the library in global environment
     environment_define(interpreter->global_environment, "http", http_lib);
 }

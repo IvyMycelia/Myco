@@ -98,6 +98,9 @@ Interpreter* interpreter_create(void) {
     // Hot spot tracking initialization
     interpreter->hot_spot_tracker = NULL;
     
+    // Micro-JIT compiler initialization
+    interpreter->micro_jit_context = NULL;
+    
     // Macro system initialization
     interpreter->macro_expander = macro_expander_create();
     

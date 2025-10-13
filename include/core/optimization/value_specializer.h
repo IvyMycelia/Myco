@@ -197,6 +197,8 @@ int value_specializer_is_monomorphic(TypeSpecialization* specialization);
 int value_specializer_is_polymorphic(TypeSpecialization* specialization);
 int value_specializer_is_megamorphic(TypeSpecialization* specialization);
 
+// Specialization lookup (already declared above)
+
 // Type ratio calculations
 double value_specializer_calculate_primary_ratio(TypeSpecialization* specialization);
 double value_specializer_calculate_secondary_ratio(TypeSpecialization* specialization);

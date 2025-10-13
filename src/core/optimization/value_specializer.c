@@ -754,3 +754,9 @@ BytecodeProgram* value_specializer_generate_string_specialized_bytecode(
 // ============================================================================
 
 // get_current_time_ns is defined in hot_spot_tracker.c
+
+// ============================================================================
+// SPECIALIZATION LOOKUP
+// ============================================================================
+
+// These functions are already implemented above, removing duplicates

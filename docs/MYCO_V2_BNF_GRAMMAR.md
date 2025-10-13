@@ -1,6 +1,6 @@
 # Myco v2.0 - Complete BNF Grammar Specification
 
-**Version**: v2.0 - Production-Ready High-Performance Language  
+**Version**: v2.0 - Language  
 **Last Updated**: September 2025  
 **Status**: Complete and Current
 
@@ -20,7 +20,7 @@
 10. [Error Handling](#error-handling)
 11. [Modules and Imports](#modules-and-imports)
 12. [Concurrency](#concurrency)
-13. [Advanced Features](#advanced-features)
+13. [Additional Features](#additional-features)
 14. [Built-in Functions](#built-in-functions)
 
 ---
@@ -430,7 +430,7 @@
 
 ---
 
-## **Advanced Features**
+## **Additional Features**
 
 ### **Metaprogramming**
 
@@ -528,7 +528,7 @@
 - **Error Handling**: Try-catch blocks, custom error types, Result type, exception handling
 - **Modules & Imports**: Module system, package management, dependency resolution
 - **Concurrency**: Threads, async/await, channels, thread pools
-- **Advanced Features**: Metaprogramming, reflection, FFI, macros
+- **Additional Features**: Metaprogramming, reflection, FFI, macros
 
 ### **Performance Features**
 
@@ -550,7 +550,7 @@
 
 1. **Whitespace**: Myco v2.0 is whitespace-insensitive except within string literals
 2. **Semicolons**: All statements must end with semicolons (except in blocks)
-3. **Type System**: Comprehensive type system with static checking and type inference
+3. **Type System**: Type system with static checking and type inference
 4. **Backward Compatibility**: Maintains compatibility with Myco v1.x syntax where possible
 5. **Memory Management**: Automatic memory management with zero-cost abstractions
 6. **Performance**: Optimized for high performance with C-level speed targets
@@ -566,15 +566,15 @@
 
 - **Complete Language**: Full feature parity with modern programming languages
 - **High Performance**: 90%+ of C performance across all benchmarks
-- **Enterprise Ready**: Production-grade reliability and comprehensive tooling
+- **Production Ready**: Production-grade reliability and tooling
 - **Cross-Platform**: Universal compatibility across all major platforms
 
 ### **Planned for v2.1+**
 
-- **Advanced Optimizations**: LLVM backend, more aggressive optimizations
+- **Additional Optimizations**: LLVM backend, more aggressive optimizations
 - **Package Ecosystem**: Community package registry and dependency management
 - **IDE Support**: Full language server protocol and IDE integration
-- **Performance Profiling**: Advanced profiling and optimization tools
+- **Performance Profiling**: Profiling and optimization tools
 
 ---
 

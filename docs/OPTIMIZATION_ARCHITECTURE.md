@@ -2,7 +2,7 @@
 
 ## Overview
 
-Myco features a revolutionary **Multi-Tier Adaptive Execution Engine** that provides significant performance improvements while maintaining 100% functional compatibility with the existing AST interpreter. The system uses predictive bytecode optimization, Mycro-JIT compilation, and value specialization to achieve performance within 10% of equivalent C code.
+Myco features a **Multi-Tier Adaptive Execution Engine** that provides performance improvements while maintaining 100% functional compatibility with the existing AST interpreter. The system uses predictive bytecode optimization, Mycro-JIT compilation, and value specialization to achieve performance within 10% of equivalent C code.
 
 ## Architecture Components
 

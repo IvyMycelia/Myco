@@ -154,6 +154,6 @@ end
 4. **Guards**: Conditional pattern matching
 5. **Combinators**: Flexible pattern composition
 6. **Performance**: Optimized pattern matching
-7. **Developer Experience**: Intuitive and powerful syntax
+7. **Developer Experience**: Clear and powerful syntax
 
-This enhancement will make Myco's pattern matching competitive with modern functional languages while maintaining simplicity and performance.
+This enhancement provides pattern matching capabilities comparable to modern functional languages while maintaining simplicity and performance.

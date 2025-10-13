@@ -179,7 +179,7 @@ make test
 3. **Intelligent Detection**: Analyzes commits to suggest appropriate bumps
 4. **Changelog Generation**: Automatically updates CHANGELOG.md
 5. **Build Integration**: Version changes are compiled into binaries
-6. **Git Integration**: Works seamlessly with git workflows
+6. **Git Integration**: Works with git workflows
 
 ## File Structure
 

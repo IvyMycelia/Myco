@@ -155,7 +155,7 @@ make clean && make
 ## **Performance Guidelines**
 
 ### **1. Memory Efficiency**
-- **Use Shared Utilities**: Leverage optimized shared functions
+- **Use Shared Utilities**: Use optimized shared functions
 - **Avoid Memory Leaks**: Use `shared_free()` consistently
 - **Minimize Allocations**: Reuse objects when possible
 
@@ -182,7 +182,7 @@ printf("Debug: Starting to parse statement\n");
 ```
 
 ### **2. Error Investigation**
-- **Use Standardized Errors**: Leverage error codes and suggestions
+- **Use Standardized Errors**: Use error codes and suggestions
 - **Check Component Logs**: Use component-specific debug settings
 - **Profile Performance**: Use timing utilities for performance issues
 

@@ -8,7 +8,7 @@
 
 ## **Overview**
 
-This document explains the comprehensive commenting approach used throughout the Myco v2.0 codebase. Every file, function, and important code section has been documented with professional, detailed comments to make the codebase as navigable and maintainable as possible.
+This document explains the commenting approach used throughout the Myco v2.0 codebase. Every file, function, and important code section has been documented with detailed comments to make the codebase navigable and maintainable.
 
 ---
 
@@ -16,18 +16,18 @@ This document explains the comprehensive commenting approach used throughout the
 
 ### **Goals**
 
-- **Maximum Navigability**: Developers can quickly find what they need
-- **Professional Quality**: Comments read like technical documentation
-- **Comprehensive Coverage**: No important concept goes unexplained
+- **Navigability**: Developers can quickly find what they need
+- **Quality**: Comments read like technical documentation
+- **Coverage**: No important concept goes unexplained
 - **Learning-Friendly**: New developers can understand the system quickly
 - **Maintenance Support**: Future developers can modify code confidently
 
 ### **Principles**
 
 - **Simple and Clear**: Avoid overly complex language
-- **Detailed but Concise**: Provide complete information without verbosity
-- **Professional Tone**: Write as if for a technical audience
-- **Plentiful**: Err on the side of over-documentation rather than under-documentation
+- **Concise**: Provide complete information without verbosity
+- **Technical Tone**: Write as if for a technical audience
+- **Thorough**: Err on the side of over-documentation rather than under-documentation
 
 ---
 
@@ -35,7 +35,7 @@ This document explains the comprehensive commenting approach used throughout the
 
 ### **1. File Header Comments**
 
-Every header file includes a comprehensive file header comment that explains:
+Every header file includes a file header comment that explains:
 
 - What the file does
 - Key responsibilities
@@ -70,7 +70,7 @@ Every header file includes a comprehensive file header comment that explains:
 
 ### **2. Function Documentation Comments**
 
-Every function includes detailed documentation explaining:
+Every function includes documentation explaining:
 
 - What the function does
 - Parameters and their purpose
@@ -209,7 +209,7 @@ Placeholder implementations include TODO comments explaining what needs to be im
 
 ### **Language Style**
 
-- Write in clear, professional English
+- Write in clear, technical English
 - Use active voice when possible
 - Be specific and avoid vague language
 - Include technical details that matter
@@ -229,7 +229,7 @@ Placeholder implementations include TODO comments explaining what needs to be im
 ### **Common Patterns**
 
 - **"When adding new..."**: Look for guidance on extending functionality
-- **"This function..."**: Find detailed explanations of behavior
+- **"This function..."**: Find explanations of behavior
 - **"TODO:"**: Identify incomplete implementations
 - **"Examples:"**: Find usage patterns and examples
 
@@ -358,11 +358,11 @@ typedef struct {
 
 ## **Conclusion**
 
-The comprehensive commenting approach used in Myco v2.0 transforms the codebase from a collection of code files into a self-documenting, navigable system. Every developer who works with this code will find:
+The commenting approach used in Myco v2.0 transforms the codebase from a collection of code files into a self-documenting, navigable system. Every developer who works with this code will find:
 
 - **Clear understanding** of what each component does
 - **Confident navigation** to find specific functionality
 - **Comprehensive guidance** on how to extend the system
-- **Professional documentation** that supports long-term maintenance
+- **Technical documentation** that supports long-term maintenance
 
 This commenting strategy ensures that Myco remains accessible, maintainable, and developer-friendly as it grows and evolves. The investment in thorough documentation pays dividends in development speed, code quality, and team productivity.

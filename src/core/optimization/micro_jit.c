@@ -727,3 +727,9 @@ MicroJitError micro_jit_get_last_error(MicroJitContext* context) {
 // ============================================================================
 
 // get_current_time_ns is defined in hot_spot_tracker.c
+
+// ============================================================================
+// CACHE MANAGEMENT
+// ============================================================================
+
+// These functions are already implemented above, removing duplicates

@@ -194,6 +194,9 @@ typedef struct Interpreter {
     
     // Value specialization support
     void* value_specializer;      // ValueSpecializer instance
+    
+    // Adaptive executor support
+    void* adaptive_executor;      // AdaptiveExecutor instance
 } Interpreter;
 
 // Environment management

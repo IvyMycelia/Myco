@@ -227,4 +227,8 @@ const char* micro_jit_error_string(MicroJitError error);
 void micro_jit_set_error(MicroJitContext* context, MicroJitError error);
 MicroJitError micro_jit_get_last_error(MicroJitContext* context);
 
+// Cache management
+void micro_jit_clear_cache(MicroJitContext* context);
+void micro_jit_evict_cold_functions(MicroJitContext* context);
+
 #endif // MICRO_JIT_H

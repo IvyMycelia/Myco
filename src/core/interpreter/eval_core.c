@@ -11,6 +11,7 @@
 #include "../../include/core/optimization/hot_spot_tracker.h"
 #include "../../include/core/optimization/micro_jit.h"
 #include "../../include/core/optimization/value_specializer.h"
+#include "../../include/core/optimization/adaptive_executor.h"
 #include "../../include/utils/shared_utilities.h"
 #include <stdlib.h>
 #include <string.h>
@@ -880,6 +881,11 @@ Value interpreter_execute(Interpreter* interpreter, ASTNode* node) {
         interpreter_start_timing(interpreter);
     }
     
+    // Initialize adaptive executor if needed
+    if (interpreter && interpreter->jit_enabled && !interpreter->adaptive_executor) {
+        interpreter->adaptive_executor = adaptive_executor_create(interpreter);
+    }
+    
     // Initialize hot spot tracker if needed
     if (interpreter && interpreter->jit_enabled && !interpreter->hot_spot_tracker) {
         interpreter->hot_spot_tracker = hot_spot_tracker_create();
@@ -895,42 +901,14 @@ Value interpreter_execute(Interpreter* interpreter, ASTNode* node) {
         interpreter->value_specializer = value_specializer_create();
     }
     
-    uint64_t start_time = 0;
-    if (interpreter && interpreter->hot_spot_tracker) {
-        start_time = get_current_time_ns();
-    }
-    
     Value result;
     
-    // Check if bytecode is available and optimization is enabled
-    if (interpreter && interpreter->jit_enabled && node && node->cached_bytecode) {
-        // Try bytecode execution first
-        BytecodeProgram* bytecode = (BytecodeProgram*)node->cached_bytecode;
-        result = interpreter_execute_bytecode(interpreter, bytecode);
-        
-        // If bytecode execution failed, fall back to AST interpreter
-        if (interpreter->has_error) {
-            interpreter->has_error = 0;  // Clear error for fallback
-            result = eval_node(interpreter, node);
-        }
+    // Use adaptive executor if available and optimization is enabled
+    if (interpreter && interpreter->jit_enabled && interpreter->adaptive_executor) {
+        result = adaptive_executor_execute((AdaptiveExecutor*)interpreter->adaptive_executor, interpreter, node);
     } else {
-        // Use AST interpreter
+        // Fallback to AST interpreter
         result = eval_node(interpreter, node);
-        
-        // If optimization is enabled, try to compile to bytecode for next time
-        if (interpreter && interpreter->jit_enabled && node && !node->cached_bytecode) {
-            BytecodeProgram* bytecode = bytecode_compile_ast(node, interpreter);
-            if (bytecode) {
-                ast_node_set_bytecode(node, bytecode);
-            }
-        }
-    }
-    
-    // Record execution in hot spot tracker
-    if (interpreter && interpreter->hot_spot_tracker && node) {
-        uint64_t end_time = get_current_time_ns();
-        uint64_t execution_time = end_time - start_time;
-        hot_spot_tracker_record_execution((HotSpotTracker*)interpreter->hot_spot_tracker, node, execution_time);
     }
     
     // Stop timing if benchmark mode is enabled

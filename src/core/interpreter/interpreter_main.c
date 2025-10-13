@@ -104,6 +104,9 @@ Interpreter* interpreter_create(void) {
     // Value specialization initialization
     interpreter->value_specializer = NULL;
     
+    // Adaptive executor initialization
+    interpreter->adaptive_executor = NULL;
+    
     // Macro system initialization
     interpreter->macro_expander = macro_expander_create();
     

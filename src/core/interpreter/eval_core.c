@@ -7,6 +7,7 @@
 #include "../../include/core/ast.h"
 #include "../../include/core/interpreter/method_handlers.h"
 #include "../../include/core/interpreter/eval_engine.h"
+#include "../../include/core/optimization/bytecode_engine.h"
 #include "../../include/utils/shared_utilities.h"
 #include <stdlib.h>
 #include <string.h>
@@ -826,7 +827,31 @@ Value interpreter_execute(Interpreter* interpreter, ASTNode* node) {
         interpreter_start_timing(interpreter);
     }
     
-    Value result = eval_node(interpreter, node);
+    Value result;
+    
+    // Check if bytecode is available and optimization is enabled
+    if (interpreter && interpreter->jit_enabled && node && node->cached_bytecode) {
+        // Try bytecode execution first
+        BytecodeProgram* bytecode = (BytecodeProgram*)node->cached_bytecode;
+        result = interpreter_execute_bytecode(interpreter, bytecode);
+        
+        // If bytecode execution failed, fall back to AST interpreter
+        if (interpreter->has_error) {
+            interpreter->has_error = 0;  // Clear error for fallback
+            result = eval_node(interpreter, node);
+        }
+    } else {
+        // Use AST interpreter
+        result = eval_node(interpreter, node);
+        
+        // If optimization is enabled, try to compile to bytecode for next time
+        if (interpreter && interpreter->jit_enabled && node && !node->cached_bytecode) {
+            BytecodeProgram* bytecode = bytecode_compile_ast(node, interpreter);
+            if (bytecode) {
+                ast_node_set_bytecode(node, bytecode);
+            }
+        }
+    }
     
     // Stop timing if benchmark mode is enabled
     if (interpreter && interpreter->benchmark_mode) {

@@ -38,11 +38,11 @@ This document contains the comprehensive rules and constraints that MUST be foll
 
 ### 4. Built-in Function Rules For .myco Files
 - **NO** built-in functions `len(val)` and `toString(val)`
-- **ALWAYS** use `val.length()` and `val.toString()` instead
+- **ALWAYS** use `val.length` and `val.toString()` instead
 - **Treat** `len()` and `toString()` calls as user-defined functions
 
 ### 5. Type Checking Rules For .myco Files
-- **ALWAYS** use instance methods: `x.type()` or `x.isInt()`
+- **ALWAYS** use instance methods: `x.type` or `x.isInt()`
 - **NEVER** use standalone functions: `type(x)` or `isInt(x)`
 
 ### 6. Error Message Format Rules For .myco Files
@@ -66,6 +66,7 @@ This document contains the comprehensive rules and constraints that MUST be foll
 - **Runtime**: `src/runtime/` and `include/runtime/`
 - **CLI**: `src/cli/` and `include/cli/`
 - **Compilation**: `src/compilation/` and `include/compilation/`
+- **Optimization**: `src/optimization/` and `include/optimization/`
 
 ### 9. Header File Rules
 - **ALWAYS** include proper header guards: `#ifndef NAME_H` / `#define NAME_H` / `#endif`

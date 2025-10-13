@@ -8,8 +8,8 @@ func arithmetic_benchmark():
     a = 42
     b = 17
     c = 0
-    i = 0
     
+    i = 0
     while i < ITERATIONS:
         c = a + b
         c = a - b
@@ -24,9 +24,8 @@ end
 # Array operations benchmark
 func array_benchmark():
     arr = []
-    i = 0
-    j = 0
     
+    i = 0
     while i < 1000:
         arr.push(i)
         i = i + 1
@@ -52,8 +51,8 @@ end
 
 func function_benchmark():
     result = 0
-    i = 0
     
+    i = 0
     while i < ITERATIONS:
         result = simple_function(i)
         i = i + 1

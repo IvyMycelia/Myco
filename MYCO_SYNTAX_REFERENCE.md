@@ -10,20 +10,20 @@
 ## Variable Declarations
 
 ```myco
-let variable_name = value;                    # variable
-let typed_var: Type = value;                  # variable with type annotation
+let variable_name = value;                 # variable
+let typed_var: Type = value;               # variable with type annotation
 ```
 
 ## Data Types
 
 ```myco
 let int: Int = 42;                         # Numbers (int)
-let float: Float = 3.14;                         # Numbers (float)
-let str: String = "hello";                    # Strings
+let float: Float = 3.14;                   # Numbers (float)
+let str: String = "hello";                 # Strings
 let bool: Bool = True;                     # Booleans (True/False)
-let arr: Array = [1, 2, 3];                   # Arrays
-let obj: Object = {key: "value"};             # Objects
-let null_val = Null;                          # Null value
+let arr: Array = [1, 2, 3];                # Arrays
+let obj: Object = {key: "value"};          # Objects
+let null_val = Null;                       # Null value
 ```
 
 ## Function Declarations
@@ -81,9 +81,9 @@ end
 ```myco
 let arr = [1, 2, 3];
 arr.push(4);                                 # Add element: [1, 2, 3, 4]
-let popped = arr.pop();                       # Remove last: 4
-let len = arr.length;                           # Get length: 3
-let joined = arr.join(", ");                  # Join elements: "1, 2, 3"
+let popped = arr.pop();                      # Remove last: 4
+let len = arr.length;                        # Get length: 3
+let joined = arr.join(", ");                 # Join elements: "1, 2, 3"
 ```
 
 ## Object Operations
@@ -92,7 +92,7 @@ let joined = arr.join(", ");                  # Join elements: "1, 2, 3"
 let obj = {name: "Myco", version: 2.0};
 let name = obj.name;                          # Access property
 obj.version = 2.1;                            # Set property
-let has_key = obj.has("name");     # Check property
+let has_key = obj.has("name");                # Check property
 ```
 
 ## Method Calls
@@ -148,24 +148,24 @@ let result = instance.method();
 ## Built-in Functions
 
 ```myco
-print(value);                                 # Print to console
-let input = input();                          # Get user input
-let length = collection.length;                 # Get length
+print(value);                                # Print to console
+let input = input();                         # Get user input
+let length = collection.length;              # Get length
 let type_name = value.type;                  # Get type
-let str_val = value.toString();                     # Convert to string
-let num_val = value.toInt();                     # Convert to integer
-let bool_val = value.toBool();                   # Convert to boolean
+let str_val = value.toString();              # Convert to string
+let num_val = value.toInt();                 # Convert to integer
+let bool_val = value.toBool();               # Convert to boolean
 ```
 
 ## String Operations
 
 ```myco
 let str = "Hello World";
-let upper = str.upper();                # "HELLO WORLD"
-let lower = str.lower();                # "hello world"
-let trimmed = str.trim();                     # Remove whitespace
-let split = str.split(" ");                   # ["Hello", "World"]
-let replaced = str.replace("World", "Myco");  # "Hello Myco"
+let upper = str.upper();                        # "HELLO WORLD"
+let lower = str.lower();                        # "hello world"
+let trimmed = str.trim();                       # Remove whitespace
+let split = str.split(" ");                     # ["Hello", "World"]
+let replaced = str.replace("World", "Myco");    # "Hello Myco"
 ```
 
 ## Common Patterns
@@ -192,8 +192,8 @@ end
 
 # Library usage
 use math as math;
-let Pi = math.Pi;                  # 3.141592653589793
-let max_val = math.Max(10, 20);               # 20
+let Pi = math.Pi;                       # 3.141592653589793
+let max_val = math.Max(10, 20);         # 20
 ```
 
 ## Error Handling
@@ -226,5 +226,5 @@ end
 12. **Dot Methos vs. Dot Variables**: If a dot operator mutates, manipulates, or changes a variable, then it needs parenthesis. If it has parameters, then it needs paranthesis. If it is just a property (e.g. `arr.length`, `obj.keys`, `heap.size`, `array.type`), then it does not need parenthesis.
 
 
-use library as alias; alias.type = "Library";                        # Import library
-use "./file.myco" as mycoFile; file.type = "Import";                        # Import file
+use library as alias; alias.type = "Library";                  # Import library
+use "./file.myco" as mycoFile; file.type = "Import";           # Import file

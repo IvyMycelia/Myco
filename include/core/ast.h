@@ -441,6 +441,9 @@ typedef struct ASTNode {
     
     // Memory management
     struct ASTNode* next;  // For linked list management
+    
+    // Optimization cache
+    void* cached_bytecode;  // Cached bytecode for this node
 } ASTNode;
 
 // AST Node Creation Functions

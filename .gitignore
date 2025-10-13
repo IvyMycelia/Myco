@@ -36,3 +36,7 @@ Thumbs.db
 *.log
 
 *output.c
+store
+REVOLUTIONARY*.md
+MYCO_CODEBASE.md
+MYCO_SYNTAX_REFERENCE.md

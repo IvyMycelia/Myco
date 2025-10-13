@@ -95,6 +95,9 @@ Interpreter* interpreter_create(void) {
     interpreter->execution_time_ns = 0;
     interpreter->start_time_ns = 0;
     
+    // Hot spot tracking initialization
+    interpreter->hot_spot_tracker = NULL;
+    
     // Macro system initialization
     interpreter->macro_expander = macro_expander_create();
     

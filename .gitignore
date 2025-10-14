@@ -39,4 +39,13 @@ Thumbs.db
 store
 REVOLUTIONARY*.md
 MYCO_CODEBASE.md
-MYCO_SYNTAX_REFERENCE.md
+
+# Build and benchmark outputs (expanded)
+benchmark/results/
+benchmark/*.txt
+test_output*.txt
+**/*.dSYM
+
+# Development-only planning (ignored)
+dev-planning/
+benchmark/

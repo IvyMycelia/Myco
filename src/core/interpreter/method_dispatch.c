@@ -505,20 +505,32 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
     if (object.type == VALUE_OBJECT) {
         Value member = value_object_get(&object, method_name);
         if (member.type == VALUE_FUNCTION) {
+            // Set self context for method calls
+            interpreter_set_self_context(interpreter, &object);
+            
             size_t arg_count = call_node->data.function_call_expr.argument_count;
             Value result;
             if (arg_count == 0) {
-                result = value_function_call(&member, NULL, 0, interpreter, call_node->line, call_node->column);
+                result = value_function_call_with_self(&member, NULL, 0, interpreter, &object, call_node->line, call_node->column);
             } else {
                 Value* args = (Value*)shared_malloc_safe(arg_count * sizeof(Value), "interpreter", "handle_method_call", 0);
-                if (!args) { value_free(&member); value_free(&object); return value_create_null(); }
+                if (!args) { 
+                    value_free(&member); 
+                    value_free(&object); 
+                    interpreter_set_self_context(interpreter, NULL);
+                    return value_create_null(); 
+                }
                 for (size_t i = 0; i < arg_count; i++) {
                     args[i] = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[i]);
                 }
-                result = value_function_call(&member, args, arg_count, interpreter, call_node->line, call_node->column);
+                result = value_function_call_with_self(&member, args, arg_count, interpreter, &object, call_node->line, call_node->column);
                 for (size_t i = 0; i < arg_count; i++) value_free(&args[i]);
                 shared_free_safe(args, "interpreter", "handle_method_call", 0);
             }
+            
+            // Clear self context
+            interpreter_set_self_context(interpreter, NULL);
+            
             value_free(&member);
             value_free(&object);
             return result;

@@ -328,7 +328,7 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
             Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = (Value (*)(Interpreter*, Value*, size_t, int, int))func->data.function_value.body;
             
             // Push a frame for built-in call (Python-like traceback)
-            interpreter_push_call_frame(interpreter, "<builtin>", interpreter->current_filename ? interpreter->current_filename : "<stdin>", line, column);
+            interpreter_push_call_frame(interpreter, "<builtin>", interpreter->current_file ? interpreter->current_file : "<stdin>", line, column);
             Value result = builtin_func(interpreter, args, arg_count, line, column);
             interpreter_pop_call_frame(interpreter);
             

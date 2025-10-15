@@ -10,6 +10,29 @@
 extern EnhancedErrorSystem* global_error_system;
 
 // ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+// Sync variables from source environment to target environment
+static void sync_environment_variables(Environment* source, Environment* target) {
+    if (!source || !target) return;
+    
+    // Iterate through all variables in the source environment
+    for (size_t i = 0; i < source->count; i++) {
+        if (source->names[i] && source->values[i].type != VALUE_NULL) {
+            // Check if variable exists in target environment
+            Value existing = environment_get(target, source->names[i]);
+            if (existing.type != VALUE_NULL) {
+                // Variable exists, update it - free the existing value first
+                value_free(&existing);
+            }
+            // Always define the variable (either update or create)
+            environment_define(target, source->names[i], value_clone(&source->values[i]));
+        }
+    }
+}
+
+// ============================================================================
 // CONTROL FLOW EVALUATION FUNCTIONS
 // ============================================================================
 
@@ -92,6 +115,9 @@ Value eval_for_loop(Interpreter* interpreter, ASTNode* node) {
             }
         }
         
+        // Sync variables from loop environment back to parent environment
+        sync_environment_variables(loop_env, old_env);
+        
         // Restore previous environment
         interpreter->current_environment = old_env;
         environment_free(loop_env);
@@ -118,6 +144,9 @@ Value eval_for_loop(Interpreter* interpreter, ASTNode* node) {
                 }
             }
         }
+        
+        // Sync variables from loop environment back to parent environment
+        sync_environment_variables(loop_env, old_env);
         
         // Restore previous environment
         interpreter->current_environment = old_env;
@@ -234,7 +263,7 @@ Value eval_try_catch(Interpreter* interpreter, ASTNode* node) {
                 enhanced_error_get_severity(error_code),
                 enhanced_error_get_category(error_code),
                 interpreter->error_message,
-                interpreter->current_filename,
+                interpreter->current_file,
                 interpreter->error_line,
                 interpreter->error_column
             );

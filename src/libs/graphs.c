@@ -166,6 +166,7 @@ Value builtin_graph_create(Interpreter* interpreter, Value* args, size_t arg_cou
     // For now, return a simple object representation
     Value graph_obj = value_create_object(16);
     value_object_set(&graph_obj, "__class_name__", value_create_string(("Graph" ? strdup("Graph") : NULL)));
+    value_object_set(&graph_obj, "type", value_create_string("Graph"));
     value_object_set(&graph_obj, "size", value_create_number(0));
     value_object_set(&graph_obj, "isDirected", value_create_boolean(is_directed));
     
@@ -284,6 +285,8 @@ void graphs_library_register(Interpreter* interpreter) {
     
     // Create graphs object with factory functions
     Value graphs_obj = value_create_object(16);
+    value_object_set(&graphs_obj, "__type__", value_create_string("Library"));
+    value_object_set(&graphs_obj, "type", value_create_string("Library"));
     value_object_set(&graphs_obj, "create", value_create_builtin_function(builtin_graph_create));
     value_object_set(&graphs_obj, "isEmpty", value_create_builtin_function(builtin_graph_is_empty));
     value_object_set(&graphs_obj, "size", value_create_builtin_function(builtin_graph_size));

@@ -1,0 +1,70 @@
+# Performance Benchmark without heap operations
+print("=== Myco Lang Performance Benchmark (No Heap) ===");
+print("Testing AST Interpretation Performance");
+print("");
+
+# Test 1: Simple Arithmetic Loop (10M iterations)
+print("Test 1: Simple Arithmetic Loop (10M iterations)");
+let sum = 0;
+let i = 0;
+while i < 10000000:
+    sum = sum + i;
+    i = i + 1;
+end
+print("Arithmetic loop completed");
+print("Sum: " + sum.toString());
+print("");
+
+# Test 2: Function Calls (1M iterations)
+print("Test 2: Function Calls (1M iterations)");
+func add_numbers(a: Number, b: Number) -> Number:
+    return a + b;
+end
+
+let func_sum = 0;
+i = 0;
+while i < 1000000:
+    func_sum = func_sum + add_numbers(i, i + 1);
+    i = i + 1;
+end
+print("Function calls completed");
+print("Function sum: " + func_sum.toString());
+print("");
+
+# Test 3: Class Method Calls (100K iterations)
+print("Test 3: Class Method Calls (100K iterations)");
+class TestClass:
+    let value: Number
+    func getValue() -> Number:
+        return self.value;
+    end
+    func setValue(v: Number) -> Void:
+        self.value = v;
+    end
+end
+
+let obj = TestClass(42);
+i = 0;
+while i < 100000:
+    obj.setValue(i);
+    let val = obj.getValue();
+    i = i + 1;
+end
+print("Class method calls completed");
+print("Final value: " + obj.getValue().toString());
+print("");
+
+# Test 4: Array Operations (50K iterations)
+print("Test 4: Array Operations (50K iterations)");
+let arr = [];
+i = 0;
+while i < 50000:
+    arr.push(i);
+    let size = arr.length;
+    i = i + 1;
+end
+print("Array operations completed");
+print("Final array size: " + arr.length.toString());
+print("");
+
+print("=== BENCHMARK COMPLETED ===");

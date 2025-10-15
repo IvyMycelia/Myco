@@ -106,48 +106,50 @@ Value handle_graph_method_call(Interpreter* interpreter, ASTNode* call_node, con
 }
 
 Value handle_heap_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object) {
-    // Pass the object directly to the builtin functions
+    // Set self context for heap method calls
+    interpreter_set_self_context(interpreter, &object);
     
-    // Evaluate all arguments and add object as first argument
+    // Evaluate arguments
     size_t arg_count = call_node->data.function_call_expr.argument_count;
-    Value* args = (Value*)calloc(arg_count + 1, sizeof(Value));
+    Value* args = (Value*)calloc(arg_count, sizeof(Value));
     if (!args) {
         interpreter_set_error(interpreter, "Memory allocation failed", call_node->line, call_node->column);
+        interpreter_set_self_context(interpreter, NULL);
         return value_create_null();
     }
     
-    // Add object as first argument
-    args[0] = value_clone(&object);
-    
     for (size_t i = 0; i < arg_count; i++) {
-        args[i + 1] = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[i]);
+        args[i] = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[i]);
     }
     
     Value result = value_create_null();
     
-    // Call the appropriate heap method
+    // Call the appropriate heap method (these expect self context to be set)
     if (strcmp(method_name, "insert") == 0) {
-        result = builtin_heap_insert(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        result = builtin_heap_insert_method(interpreter, args, arg_count, call_node->line, call_node->column);
     } else if (strcmp(method_name, "extract") == 0) {
-        result = builtin_heap_extract(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        result = builtin_heap_extract_method(interpreter, args, arg_count, call_node->line, call_node->column);
     } else if (strcmp(method_name, "peek") == 0) {
-        result = builtin_heap_peek(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        result = builtin_heap_peek_method(interpreter, args, arg_count, call_node->line, call_node->column);
     } else if (strcmp(method_name, "size") == 0) {
-        result = builtin_heap_size(interpreter, args, arg_count + 1, call_node->line, call_node->column);
-        } else if (strcmp(method_name, "isEmpty") == 0) {
-            result = builtin_heap_isEmpty(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        result = builtin_heap_size(interpreter, &object, 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "isEmpty") == 0) {
+        result = builtin_heap_isEmpty_method(interpreter, args, arg_count, call_node->line, call_node->column);
     } else if (strcmp(method_name, "clear") == 0) {
-        result = builtin_heap_clear(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+        result = builtin_heap_clear_method(interpreter, args, arg_count, call_node->line, call_node->column);
     } else {
         interpreter_set_error(interpreter, "Unknown heap method", call_node->line, call_node->column);
         result = value_create_null();
     }
     
     // Clean up arguments
-    for (size_t i = 0; i < arg_count + 1; i++) {
+    for (size_t i = 0; i < arg_count; i++) {
         value_free(&args[i]);
     }
     shared_free_safe(args, "interpreter", "handle_heap_method_call", 0);
+    
+    // Clear self context
+    interpreter_set_self_context(interpreter, NULL);
     
     return result;
 }

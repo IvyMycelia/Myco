@@ -8,6 +8,15 @@
 #include "../../include/utils/shared_utilities.h"
 
 // Map operations
+Value builtin_map_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 0) {
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.create() expects no arguments", line, column);
+        return value_create_null();
+    }
+    
+    return value_create_hash_map(8);
+}
+
 Value builtin_map_has(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
         std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.has() expects exactly 1 argument: key", line, column);
@@ -24,6 +33,58 @@ Value builtin_map_has(Interpreter* interpreter, Value* args, size_t arg_count, i
     
     int has_key = value_hash_map_has(&map, key);
     return value_create_boolean(has_key);
+}
+
+Value builtin_map_set(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 3) {
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.set() expects exactly 2 arguments: key, value", line, column);
+        return value_create_null();
+    }
+    
+    Value map = args[0];
+    Value key = args[1];
+    Value value = args[2];
+    
+    if (map.type != VALUE_HASH_MAP) {
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.set() can only be called on a hash map", line, column);
+        return value_create_null();
+    }
+    
+    // Create a new map with all existing elements plus the new key-value pair
+    Value result = value_create_hash_map(map.data.hash_map_value.capacity);
+    
+    // Copy all existing elements
+    for (size_t i = 0; i < map.data.hash_map_value.count; i++) {
+        Value* existing_key = (Value*)map.data.hash_map_value.keys[i];
+        Value* existing_value = (Value*)map.data.hash_map_value.values[i];
+        if (existing_key && existing_value) {
+            Value cloned_key = value_clone(existing_key);
+            Value cloned_value = value_clone(existing_value);
+            value_hash_map_set(&result, cloned_key, cloned_value);
+        }
+    }
+    
+    // Add the new key-value pair
+    value_hash_map_set(&result, key, value);
+    
+    return result;
+}
+
+Value builtin_map_get(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 2) {
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.get() expects exactly 1 argument: key", line, column);
+        return value_create_null();
+    }
+    
+    Value map = args[0];
+    Value key = args[1];
+    
+    if (map.type != VALUE_HASH_MAP) {
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.get() can only be called on a hash map", line, column);
+        return value_create_null();
+    }
+    
+    return value_hash_map_get(&map, key);
 }
 
 Value builtin_map_size(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -163,6 +224,18 @@ void maps_library_register(Interpreter* interpreter) {
     // Expose a library object for maps with __type__="Library"
     Value maps_lib = value_create_object(8);
     value_object_set(&maps_lib, "__type__", value_create_string("Library"));
-    // Optionally expose helpers if desired (suite checks type only)
+    value_object_set(&maps_lib, "type", value_create_string("Library"));
+    
+    // Add functions
+    value_object_set(&maps_lib, "create", value_create_builtin_function(builtin_map_create));
+    value_object_set(&maps_lib, "set", value_create_builtin_function(builtin_map_set));
+    value_object_set(&maps_lib, "get", value_create_builtin_function(builtin_map_get));
+    value_object_set(&maps_lib, "has", value_create_builtin_function(builtin_map_has));
+    value_object_set(&maps_lib, "size", value_create_builtin_function(builtin_map_size));
+    value_object_set(&maps_lib, "keys", value_create_builtin_function(builtin_map_keys));
+    value_object_set(&maps_lib, "delete", value_create_builtin_function(builtin_map_delete));
+    value_object_set(&maps_lib, "clear", value_create_builtin_function(builtin_map_clear));
+    value_object_set(&maps_lib, "update", value_create_builtin_function(builtin_map_update));
+    
     environment_define(interpreter->global_environment, "maps", maps_lib);
 }

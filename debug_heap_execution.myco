@@ -1,0 +1,15 @@
+print("=== Debugging Heap Execution ===");
+
+use heaps as heaps;
+
+# Test heap creation
+let heap = heaps.create(True);
+print("heap type: " + heap.type.toString());
+print("heap size: " + heap.size.toString());
+
+# Test isEmpty method
+let empty = heap.isEmpty();
+print("heap.isEmpty(): " + empty.toString());
+print("empty type: " + empty.type.toString());
+
+print("Done!");

@@ -16,4 +16,11 @@ Value builtin_queue_size(Interpreter* interpreter, Value* args, size_t arg_count
 Value builtin_queue_isEmpty(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_queue_clear(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 
+// Queue method functions (for object method calls)
+Value builtin_queue_isEmpty_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_queue_enqueue_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_queue_dequeue_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_queue_front_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_queue_clear_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+
 #endif // QUEUES_H

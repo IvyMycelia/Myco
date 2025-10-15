@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "../../include/core/bytecode.h"
 
 // Forward declarations for pattern matching functions
 static int pattern_matches(Interpreter* interpreter, Value* value, ASTNode* pattern);
@@ -189,6 +190,19 @@ Value interpreter_execute_program(Interpreter* interpreter, ASTNode* node) {
         interpreter_clear_error(interpreter);
     }
     
+    // Default: use bytecode VM for interpretation unless explicitly disabled via CLI
+    extern int g_force_ast_only; // defined in CLI layer
+    if (1) { // Enable bytecode execution
+        BytecodeProgram* bc = bytecode_program_create();
+        if (bc && bytecode_compile_program(bc, node, interpreter)) {
+            Value r = bytecode_execute(bc, interpreter, 0); // Debug disabled
+            bytecode_program_free(bc);
+            return r;
+        }
+        if (bc) bytecode_program_free(bc);
+        // Fallback to AST if bytecode failed (safety)
+    }
+
     if (node->type == AST_NODE_BLOCK) {
         for (size_t i = 0; i < node->data.block.statement_count; i++) {
             // Stop execution if there's an error (like Python)
@@ -348,7 +362,7 @@ void interpreter_set_error(Interpreter* interpreter, const char* message, int li
             enhanced_error_get_severity(error_code),
             enhanced_error_get_category(error_code),
             message,
-            interpreter->current_filename,
+            interpreter->current_file,
             line,
             column
         );
@@ -523,7 +537,7 @@ void interpreter_set_error_with_stack(Interpreter* interpreter, const char* mess
 void interpreter_set_source(Interpreter* interpreter, const char* source, const char* filename) {
     if (!interpreter) return;
     interpreter->current_source = source;
-    interpreter->current_filename = filename;
+    interpreter->current_file = filename;
 }
 
 // Exception handling

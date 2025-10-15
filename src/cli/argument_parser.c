@@ -19,6 +19,8 @@ int parse_arguments(int argc, char* argv[], ArgumentConfig* config) {
     config->optimization_level = OPTIMIZATION_NONE;
     config->jit_enabled = 0;
     config->jit_mode = 0;
+    config->ast_only = 0;
+    config->run_tests = 0;
     config->input_source = NULL;
     config->output_file = NULL;
     config->architecture = NULL;
@@ -32,13 +34,16 @@ int parse_arguments(int argc, char* argv[], ArgumentConfig* config) {
         return MYCO_SUCCESS;
     }
     
-    // Check for help and version flags first (these can be anywhere)
+    // Check for help, version, and test flags first (these can be anywhere)
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             config->help = 1;
             return MYCO_SUCCESS;
         } else if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-v") == 0) {
             config->version = 1;
+            return MYCO_SUCCESS;
+        } else if (strcmp(argv[i], "--test") == 0 || strcmp(argv[i], "-t") == 0) {
+            config->run_tests = 1;
             return MYCO_SUCCESS;
         }
     }
@@ -58,6 +63,9 @@ int parse_arguments(int argc, char* argv[], ArgumentConfig* config) {
             config->emit_arduino = 1;
         } else if (strcmp(argv[i], "--debug") == 0 || strcmp(argv[i], "-d") == 0) {
             config->debug = 1;
+        } else if (strcmp(argv[i], "--ast") == 0) {
+            // Force pure AST interpreter; disable bytecode VM
+            config->ast_only = 1;
         } else if (strcmp(argv[i], "--optimize") == 0 || strcmp(argv[i], "-O") == 0) {
             if (i + 1 < argc) {
                 i++;
@@ -156,6 +164,7 @@ void print_usage(const char* program_name) {
     printf("Options:\n");
     printf("  -h, --help                Show this help message\n");
     printf("  -v, --version             Show version information\n");
+    printf("  -t, --test                Run comprehensive test suite\n");
     printf("  -i, --interpret           Interpret the input (default)\n");
     printf("  -c, --compile             Compile the input to intermediate code\n");
     printf("  -b, --build               Build executable from input\n");
@@ -163,9 +172,10 @@ void print_usage(const char* program_name) {
     printf("  -d, --debug               Enable debug mode\n");
    printf("   -O, --optimize <level>    Set optimization level (0/none, 1/basic, 2/aggressive, 3/maximum)\n");
    printf("   -j, --jit [mode]          Enable JIT compilation (0/interpreted, 1/hybrid, 2/compiled)\n");
-   printf("   -t, --target <target>     Set compilation target (c, x86_64, arm64, wasm, bytecode)\n");
+   printf("       --target <target>     Set compilation target (c, x86_64, arm64, wasm, bytecode)\n");
    printf("   -a, --architecture <arch> Set target architecture (arm64, x86_64, arm, x86)\n");
    printf("   -o, --output <file>       Set output file\n");
+   printf("       --ast                  Disable bytecode VM; use pure AST interpreter\n");
     printf("\n");
     printf("Examples:\n");
     printf("  %s script.myco\n", program_name);

@@ -1,0 +1,15 @@
+// No loops benchmark test
+let a = 5;
+let b = 10;
+let c = a + b;
+let d = c * 2;
+let e = d - 5;
+
+let message = "Hello";
+let greeting = message + " World";
+
+let numbers = [1, 2, 3, 4, 5];
+let first = numbers.get(0);
+let last = numbers.get(4);
+
+print("No loops benchmark completed");

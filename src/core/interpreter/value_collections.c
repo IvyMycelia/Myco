@@ -3,6 +3,7 @@
 #include "../../include/utils/shared_utilities.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 // ============================================================================
 // ARRAY OPERATIONS
@@ -17,9 +18,12 @@ Value value_create_array(size_t initial_capacity) {
     
     // Allocate memory if capacity is specified
     if (initial_capacity > 0) {
-        v.data.array_value.elements = (void**)calloc(initial_capacity, sizeof(void*));
+        v.data.array_value.elements = (void**)shared_malloc_safe(initial_capacity * sizeof(void*), "interpreter", "value_create_array", 0);
         if (!v.data.array_value.elements) {
             v.data.array_value.capacity = 0;
+        } else {
+            // Initialize to NULL
+            memset(v.data.array_value.elements, 0, initial_capacity * sizeof(void*));
         }
     }
     
@@ -156,10 +160,17 @@ void value_object_set(Value* obj, const char* key, Value value) {
     // For now, just a simple implementation - don't expand, just add if there's space
     if (obj->data.object_value.count < obj->data.object_value.capacity) {
         obj->data.object_value.keys[obj->data.object_value.count] = key ? strdup(key) : NULL;
-        obj->data.object_value.values[obj->data.object_value.count] = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 2912);
-        if (obj->data.object_value.values[obj->data.object_value.count]) {
-            *((Value*)obj->data.object_value.values[obj->data.object_value.count]) = value_clone(&value);
+        Value* new_value = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 2912);
+        if (new_value) {
+            *new_value = value_clone(&value);
+            obj->data.object_value.values[obj->data.object_value.count] = new_value;
             obj->data.object_value.count++;
+        } else {
+            // If value allocation failed, free the key to prevent memory leak
+            if (obj->data.object_value.keys[obj->data.object_value.count]) {
+                shared_free_safe(obj->data.object_value.keys[obj->data.object_value.count], "interpreter", "value_object_set", 0);
+                obj->data.object_value.keys[obj->data.object_value.count] = NULL;
+            }
         }
     }
 }
@@ -276,12 +287,28 @@ char** value_object_keys(Value* obj, size_t* count) {
 // ============================================================================
 
 Value value_create_hash_map(size_t initial_capacity) {
-    Value v;
+    Value v = {0};  // Initialize entire struct to zero
     v.type = VALUE_HASH_MAP;
+    v.flags = 0;
+    v.ref_count = 1;
     v.data.hash_map_value.count = 0;
     v.data.hash_map_value.capacity = initial_capacity > 0 ? initial_capacity : 8;
-    v.data.hash_map_value.keys = calloc(v.data.hash_map_value.capacity, sizeof(Value*));
-    v.data.hash_map_value.values = calloc(v.data.hash_map_value.capacity, sizeof(void*));
+    v.data.hash_map_value.keys = shared_malloc_safe(v.data.hash_map_value.capacity * sizeof(void*), "interpreter", "value_create_hash_map", 0);
+    v.data.hash_map_value.values = shared_malloc_safe(v.data.hash_map_value.capacity * sizeof(void*), "interpreter", "value_create_hash_map", 1);
+    
+    // Initialize to NULL
+    if (v.data.hash_map_value.keys) {
+        memset(v.data.hash_map_value.keys, 0, v.data.hash_map_value.capacity * sizeof(void*));
+    }
+    if (v.data.hash_map_value.values) {
+        memset(v.data.hash_map_value.values, 0, v.data.hash_map_value.capacity * sizeof(void*));
+    }
+    
+    // Initialize cache
+    v.cache.cached_ptr = NULL;
+    v.cache.cached_length = 0;
+    v.cache.cached_numeric = 0.0;
+    
     return v;
 }
 
@@ -296,7 +323,9 @@ void value_hash_map_set(Value* map, Value key, Value value) {
             Value* existing_value = (Value*)map->data.hash_map_value.values[i];
             if (existing_value) {
                 value_free(existing_value);
-                *existing_value = value_clone(&value);
+                shared_free_safe(existing_value, "interpreter", "value_hash_map_set", 0);
+                map->data.hash_map_value.values[i] = shared_malloc_safe(sizeof(Value), "interpreter", "value_hash_map_set", 1);
+                *(Value*)map->data.hash_map_value.values[i] = value_clone(&value);
             }
             return;
         }
@@ -306,7 +335,7 @@ void value_hash_map_set(Value* map, Value key, Value value) {
     if (map->data.hash_map_value.count >= map->data.hash_map_value.capacity) {
         // Resize
         size_t new_capacity = map->data.hash_map_value.capacity * 2;
-        Value** new_keys = shared_realloc_safe(map->data.hash_map_value.keys, new_capacity * sizeof(Value*), "interpreter", "unknown_function", 3051);
+        void** new_keys = shared_realloc_safe(map->data.hash_map_value.keys, new_capacity * sizeof(void*), "interpreter", "unknown_function", 3051);
         void** new_values = shared_realloc_safe(map->data.hash_map_value.values, new_capacity * sizeof(void*), "interpreter", "unknown_function", 3052);
         if (!new_keys || !new_values) return;
         
@@ -316,9 +345,18 @@ void value_hash_map_set(Value* map, Value key, Value value) {
     }
     
     // Add new entry
-    map->data.hash_map_value.keys[map->data.hash_map_value.count] = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 3061);
-    *(Value*)map->data.hash_map_value.keys[map->data.hash_map_value.count] = value_clone(&key);
+    Value* new_key = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 3061);
+    if (!new_key) return;  // Safety check
+    *new_key = value_clone(&key);
+    map->data.hash_map_value.keys[map->data.hash_map_value.count] = new_key;
+    
     Value* new_value = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 3063);
+    if (!new_value) {
+        // Clean up the key we just allocated
+        value_free(new_key);
+        shared_free_safe(new_key, "interpreter", "value_hash_map_set", 0);
+        return;
+    }
     *new_value = value_clone(&value);
     map->data.hash_map_value.values[map->data.hash_map_value.count] = new_value;
     map->data.hash_map_value.count++;
@@ -395,6 +433,12 @@ Value* value_hash_map_keys(Value* map, size_t* count) {
         return NULL;
     }
     
+    // Safety check: ensure keys array exists
+    if (!map->data.hash_map_value.keys) {
+        if (count) *count = 0;
+        return NULL;
+    }
+    
     Value* keys = shared_malloc_safe(map->data.hash_map_value.count * sizeof(Value), "interpreter", "value_hash_map_keys", 0);
     if (!keys) {
         if (count) *count = 0;
@@ -427,7 +471,13 @@ Value value_create_set(size_t initial_capacity) {
     v.type = VALUE_SET;
     v.data.set_value.count = 0;
     v.data.set_value.capacity = initial_capacity > 0 ? initial_capacity : 8;
-    v.data.set_value.elements = calloc(v.data.set_value.capacity, sizeof(void*));
+    v.data.set_value.elements = shared_malloc_safe(v.data.set_value.capacity * sizeof(void*), "interpreter", "value_create_set", 0);
+    
+    // Initialize to NULL
+    if (v.data.set_value.elements) {
+        memset(v.data.set_value.elements, 0, v.data.set_value.capacity * sizeof(void*));
+    }
+    
     return v;
 }
 

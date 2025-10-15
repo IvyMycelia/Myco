@@ -141,13 +141,17 @@ Value value_create_string(const char* value) {
         char* processed_value = process_escape_sequences(value);
         if (processed_value) {
             v.data.string_value = processed_value;
+            v.cache.cached_length = strlen(processed_value);
         } else {
             // Fallback to original value if processing fails
             v.data.string_value = (value ? strdup(value) : NULL);
+            v.cache.cached_length = value ? strlen(value) : 0;
         }
     } else {
-        v.data.string_value = ("" ? strdup("") : NULL);  // Use empty string instead of NULL
+        v.data.string_value = strdup("");  // Use empty string instead of NULL
+        v.cache.cached_length = 0;
     }
+    v.cache.cached_ptr = NULL;
     
     return v; 
 }

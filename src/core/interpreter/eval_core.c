@@ -511,7 +511,7 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 for (size_t i = 0; i < count; i++) {
                     Value cloned = value_clone(&keys[i]);
                     value_array_push(&arr, cloned);
-                    value_free(&cloned);
+                    // Don't free cloned - value_array_push takes ownership
                 }
                 if (keys) shared_free_safe(keys, "interpreter", "member_access_keys", 0);
                 value_free(&object);

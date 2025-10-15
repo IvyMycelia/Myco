@@ -6,6 +6,9 @@
 #include "../../include/core/standardized_errors.h"
 #include "../../include/utils/shared_utilities.h"
 
+// Forward declaration
+void add_heap_methods(Value* heap);
+
 // Heap utility functions
 Value builtin_heap_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
@@ -23,9 +26,13 @@ Value builtin_heap_create(Interpreter* interpreter, Value* args, size_t arg_coun
     // Create a new heap object
     Value heap = value_create_object(16);
     value_object_set_member(&heap, "__class_name__", value_create_string(("Heap" ? strdup("Heap") : NULL)));
+    value_object_set(&heap, "type", value_create_string("Heap"));
     value_object_set_member(&heap, "elements", value_create_array(0));
     value_object_set_member(&heap, "is_max_heap", value_clone(&max_heap_arg));
     value_object_set_member(&heap, "size", value_create_number(0.0));
+    
+    // Add methods to the heap object
+    add_heap_methods(&heap);
     
     return heap;
 }
@@ -108,6 +115,7 @@ Value builtin_heap_insert(Interpreter* interpreter, Value* args, size_t arg_coun
     
     // Set the new heap components
     value_object_set_member(&new_heap, "__class_name__", value_create_string(("Heap" ? strdup("Heap") : NULL)));
+    value_object_set(&new_heap, "type", value_create_string("Heap"));
     value_object_set_member(&new_heap, "elements", new_elements);
     value_object_set_member(&new_heap, "is_max_heap", value_clone(&is_max_heap));
     value_object_set_member(&new_heap, "size", new_size);
@@ -157,6 +165,7 @@ Value builtin_heap_extract(Interpreter* interpreter, Value* args, size_t arg_cou
         // Return empty heap
         Value empty_heap = value_create_object(16);
         value_object_set_member(&empty_heap, "__class_name__", value_create_string(("Heap" ? strdup("Heap") : NULL)));
+        value_object_set(&empty_heap, "type", value_create_string("Heap"));
         value_object_set_member(&empty_heap, "elements", value_create_array(0));
         value_object_set_member(&empty_heap, "is_max_heap", value_clone(&is_max_heap));
         value_object_set_member(&empty_heap, "size", value_create_number(0.0));
@@ -246,6 +255,7 @@ Value builtin_heap_extract(Interpreter* interpreter, Value* args, size_t arg_cou
     
     // Set the new heap components
     value_object_set_member(&new_heap, "__class_name__", value_create_string(("Heap" ? strdup("Heap") : NULL)));
+    value_object_set(&new_heap, "type", value_create_string("Heap"));
     value_object_set_member(&new_heap, "elements", new_elements);
     value_object_set_member(&new_heap, "is_max_heap", value_clone(&is_max_heap));
     value_object_set_member(&new_heap, "size", new_size);
@@ -356,6 +366,7 @@ Value builtin_heap_clear(Interpreter* interpreter, Value* args, size_t arg_count
     // Return empty heap with same type
     Value empty_heap = value_create_object(16);
     value_object_set_member(&empty_heap, "__class_name__", value_create_string(("Heap" ? strdup("Heap") : NULL)));
+    value_object_set(&empty_heap, "type", value_create_string("Heap"));
     value_object_set_member(&empty_heap, "elements", value_create_array(0));
     value_object_set_member(&empty_heap, "is_max_heap", value_clone(&is_max_heap));
     value_object_set_member(&empty_heap, "size", value_create_number(0.0));
@@ -373,4 +384,104 @@ void heaps_library_register(Interpreter* interpreter) {
     
     // Register the heaps object
     environment_define(interpreter->global_environment, "heaps", heaps_obj);
+}
+
+// Wrapper functions for method calls
+Value builtin_heap_isEmpty_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    // When called as heap.isEmpty(), we need to get the heap object from self_context
+    fprintf(stderr, "DEBUG: builtin_heap_isEmpty_method called with %zu arguments\n", arg_count);
+    if (arg_count != 0) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.isEmpty() expects exactly 0 arguments", line, column);
+        return value_create_null();
+    }
+    
+    // Get the heap object from self_context
+    Value* self = interpreter_get_self_context(interpreter);
+    fprintf(stderr, "DEBUG: self = %p, self->type = %d\n", (void*)self, self ? self->type : -1);
+    if (!self || self->type != VALUE_OBJECT) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.isEmpty() can only be called on heap objects", line, column);
+        return value_create_null();
+    }
+    
+    // Call the original function with the heap object
+    Value heap_args[1] = { *self };
+    Value result = builtin_heap_isEmpty(interpreter, heap_args, 1, line, column);
+    fprintf(stderr, "DEBUG: builtin_heap_isEmpty returned type %d\n", result.type);
+    return result;
+}
+
+Value builtin_heap_insert_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    // When called as heap.insert(value), we need to get the heap object from self_context
+    if (arg_count != 1) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.insert() expects exactly 1 argument: value", line, column);
+        return value_create_null();
+    }
+    
+    // Get the heap object from self_context
+    Value* self = interpreter_get_self_context(interpreter);
+    if (!self || self->type != VALUE_OBJECT) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.insert() can only be called on heap objects", line, column);
+        return value_create_null();
+    }
+    
+    // Call the original function with the heap object and value
+    Value heap_args[2] = { *self, args[0] };
+    return builtin_heap_insert(interpreter, heap_args, 2, line, column);
+}
+
+Value builtin_heap_peek_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 0) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.peek() expects exactly 0 arguments", line, column);
+        return value_create_null();
+    }
+    
+    Value* self = interpreter_get_self_context(interpreter);
+    if (!self || self->type != VALUE_OBJECT) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.peek() can only be called on heap objects", line, column);
+        return value_create_null();
+    }
+    
+    Value heap_args[1] = { *self };
+    return builtin_heap_peek(interpreter, heap_args, 1, line, column);
+}
+
+Value builtin_heap_extract_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 0) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.extract() expects exactly 0 arguments", line, column);
+        return value_create_null();
+    }
+    
+    Value* self = interpreter_get_self_context(interpreter);
+    if (!self || self->type != VALUE_OBJECT) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.extract() can only be called on heap objects", line, column);
+        return value_create_null();
+    }
+    
+    Value heap_args[1] = { *self };
+    return builtin_heap_extract(interpreter, heap_args, 1, line, column);
+}
+
+Value builtin_heap_clear_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 0) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.clear() expects exactly 0 arguments", line, column);
+        return value_create_null();
+    }
+    
+    Value* self = interpreter_get_self_context(interpreter);
+    if (!self || self->type != VALUE_OBJECT) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.clear() can only be called on heap objects", line, column);
+        return value_create_null();
+    }
+    
+    Value heap_args[1] = { *self };
+    return builtin_heap_clear(interpreter, heap_args, 1, line, column);
+}
+
+// Helper function to add methods to a heap object
+void add_heap_methods(Value* heap) {
+    value_object_set(heap, "isEmpty", value_create_builtin_function(builtin_heap_isEmpty_method));
+    value_object_set(heap, "insert", value_create_builtin_function(builtin_heap_insert_method));
+    value_object_set(heap, "peek", value_create_builtin_function(builtin_heap_peek_method));
+    value_object_set(heap, "extract", value_create_builtin_function(builtin_heap_extract_method));
+    value_object_set(heap, "clear", value_create_builtin_function(builtin_heap_clear_method));
 }

@@ -233,6 +233,7 @@ void dir_library_register(Interpreter* interpreter) {
     // Build dir library object (keep namespaced symbols for compatibility)
     Value dir_lib = value_create_object(12);
     value_object_set(&dir_lib, "__type__", value_create_string("Library"));
+    value_object_set(&dir_lib, "type", value_create_string("Library"));
     value_object_set(&dir_lib, "list", value_create_builtin_function(builtin_dir_list));
     value_object_set(&dir_lib, "create", value_create_builtin_function(builtin_dir_create));
     value_object_set(&dir_lib, "remove", value_create_builtin_function(builtin_dir_remove));

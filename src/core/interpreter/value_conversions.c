@@ -398,12 +398,17 @@ int value_is_truthy(Value* value) {
 
 int value_equals(Value* a, Value* b) { 
     if (!a || !b) return 0;
-    if (a->type != b->type) return 0;
+    if (a->type != b->type) {
+        return 0;
+    }
     
     switch (a->type) {
-        case VALUE_NULL: return 1;
-        case VALUE_BOOLEAN: return a->data.boolean_value == b->data.boolean_value;
-        case VALUE_NUMBER: return a->data.number_value == b->data.number_value;
+        case VALUE_NULL: 
+            return 1;
+        case VALUE_BOOLEAN: 
+            return a->data.boolean_value == b->data.boolean_value;
+        case VALUE_NUMBER: 
+            return a->data.number_value == b->data.number_value;
         case VALUE_STRING: 
             if (!a->data.string_value || !b->data.string_value) return 0;
             return strcmp(a->data.string_value, b->data.string_value) == 0;

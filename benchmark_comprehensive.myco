@@ -1,0 +1,51 @@
+// Comprehensive benchmark test
+let iterations = 1000;
+
+// Arithmetic operations
+let sum = 0;
+let i = 0;
+while (i < iterations) {
+    sum = sum + i * 2;
+    i = i + 1;
+}
+
+// String operations
+let message = "Hello, World!";
+let j = 0;
+while (j < 100) {
+    message = message + " " + j;
+    j = j + 1;
+}
+
+// Array operations
+let numbers = [];
+let k = 0;
+while (k < 100) {
+    numbers.push(k * k);
+    k = k + 1;
+}
+
+// Function calls
+function fibonacci(n) {
+    if (n <= 1) {
+        return n;
+    }
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+let fib_result = fibonacci(15);
+
+// Object operations
+let person = {
+    name: "John",
+    age: 30,
+    city: "New York"
+};
+
+let m = 0;
+while (m < 50) {
+    person["key" + m] = m * 10;
+    m = m + 1;
+}
+
+print("Benchmark completed successfully");

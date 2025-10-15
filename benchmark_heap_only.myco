@@ -1,0 +1,17 @@
+# Heap-only benchmark
+print("=== Heap Performance Test ===");
+
+let heap = heaps.create(True);
+print("Heap created");
+
+let start_time = time.now();
+let i = 0;
+while i < 10000:
+    heap = heap.insert(i);
+    i = i + 1;
+end
+let end_time = time.now();
+
+print("Heap operations completed");
+print("Final size: " + heap.size().toString());
+print("Time taken: " + time.difference(end_time, start_time).toString());

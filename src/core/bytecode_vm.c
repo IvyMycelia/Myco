@@ -81,11 +81,15 @@ static Value bytecode_execute_function(Interpreter* interpreter, BytecodeFunctio
         return value_create_null();
     }
     
+    printf("DEBUG: Executing function %s with %zu parameters, %zu instructions\n", 
+           func->name ? func->name : "unknown", func->param_count, func->code_count);
+    
     size_t pc = 0;
     Value result = value_create_null();
     
     while (pc < func->code_count) {
         BytecodeInstruction* instr = &func->code[pc];
+        printf("DEBUG: Instruction %zu: op=%d, a=%d, b=%d\n", pc, instr->op, instr->a, instr->b);
         
         switch (instr->op) {
             case BC_RETURN_VALUE: {
@@ -159,9 +163,7 @@ static Value bytecode_execute_function(Interpreter* interpreter, BytecodeFunctio
             case BC_SUB: {
                 Value b = value_stack_pop();
                 Value a = value_stack_pop();
-                printf("DEBUG: BC_SUB - a type: %d, b type: %d\n", a.type, b.type);
                 Value result = value_subtract(&a, &b);
-                printf("DEBUG: BC_SUB - result type: %d\n", result.type);
                 value_free(&a);
                 value_free(&b);
                 value_stack_push(result);

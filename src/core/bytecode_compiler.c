@@ -74,8 +74,8 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
     
     switch (n->type) {
         case AST_NODE_NUMBER: {
-            int const_idx = bc_add_num_const(p, n->data.number_value);
-            bc_emit_to_function(func, BC_LOAD_NUM, const_idx, 0, 0);
+            int const_idx = bc_add_const(p, value_create_number(n->data.number_value));
+            bc_emit_to_function(func, BC_LOAD_CONST, const_idx, 0, 0);
         } break;
         case AST_NODE_STRING: {
             // String literals should be loaded as constants onto the value stack
@@ -127,15 +127,8 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
         } break;
         case AST_NODE_RETURN: {
             if (n->data.return_statement.value) {
-                // Check if the return value is a number or string
-                if (n->data.return_statement.value->type == AST_NODE_NUMBER) {
-                    // Numeric return - compile to numeric stack and convert
-                    compile_node_to_function(p, func, n->data.return_statement.value);
-                    bc_emit_to_function(func, (BytecodeOp)BC_NUM_TO_VALUE, 0, 0, 0);
-                } else {
-                    // Non-numeric return - compile directly to value stack
-                    compile_node_to_function(p, func, n->data.return_statement.value);
-                }
+                // Compile return value directly to value stack
+                compile_node_to_function(p, func, n->data.return_statement.value);
                 bc_emit_to_function(func, BC_RETURN_VALUE, 0, 0, 0); // Return with value
             } else {
                 bc_emit_to_function(func, BC_RETURN_VOID, 0, 0, 0); // Return void

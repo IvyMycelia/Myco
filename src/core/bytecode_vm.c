@@ -4,6 +4,8 @@
 #include "../../include/core/environment.h"
 #include "../../include/libs/array.h"
 #include "../../include/libs/math.h"
+#include "../../include/libs/maps.h"
+#include "../../include/libs/sets.h"
 #include <ctype.h>
 #include <string.h>
 #include <stdio.h>
@@ -413,6 +415,63 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     // Get object from stack
                     Value object = value_stack_pop();
                     
+                    // Handle built-in type methods that can work on multiple types
+                    if (strcmp(method_name, "has") == 0) {
+                        size_t arg_count = instr->b;
+                        
+                        // Get arguments from stack (in reverse order)
+                        Value* stack_args = NULL;
+                        if (arg_count > 0) {
+                            stack_args = shared_malloc_safe(arg_count * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL_has_stack", 0);
+                            for (size_t i = 0; i < arg_count; i++) {
+                                stack_args[arg_count - 1 - i] = value_stack_pop();
+                            }
+                        }
+                        
+                        // Build args array with object first
+                        Value* args = shared_malloc_safe((arg_count + 1) * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL_has", 1);
+                        args[0] = object;
+                        for (size_t i = 0; i < arg_count; i++) {
+                            args[i + 1] = stack_args[i];
+                        }
+                        if (stack_args) {
+                            shared_free_safe(stack_args, "bytecode_vm", "BC_METHOD_CALL_has_stack", 1);
+                        }
+                        
+                        Value result;
+                        if (object.type == VALUE_HASH_MAP) {
+                            result = builtin_map_has(NULL, args, arg_count + 1, 0, 0);
+                        } else if (object.type == VALUE_SET) {
+                            result = builtin_set_has(NULL, args, arg_count + 1, 0, 0);
+                        } else {
+                            result = value_create_null();
+                        }
+                        
+                        // Clean up
+                        for (size_t i = 0; i < arg_count + 1; i++) {
+                            value_free(&args[i]);
+                        }
+                        shared_free_safe(args, "bytecode_vm", "BC_METHOD_CALL_has", 2);
+                        
+                        value_stack_push(result);
+                        pc++;
+                        break;
+                    } else if (strcmp(method_name, "clear") == 0) {
+                        Value result;
+                        if (object.type == VALUE_HASH_MAP) {
+                            result = builtin_map_clear(NULL, (Value[]){object}, 1, 0, 0);
+                        } else if (object.type == VALUE_SET) {
+                            result = builtin_set_clear(NULL, (Value[]){object}, 1, 0, 0);
+                        } else {
+                            result = value_create_null();
+                        }
+                        
+                        value_free(&object);
+                        value_stack_push(result);
+                        pc++;
+                        break;
+                    }
+                    
                     // Handle different object types
                     if (object.type == VALUE_OBJECT) {
                         // Check if it's a class instance
@@ -511,6 +570,25 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 if (instr->a < program->const_count && program->constants[instr->a].type == VALUE_STRING) {
                     const char* prop_name = program->constants[instr->a].data.string_value;
                     Value object = value_stack_pop();
+                    
+                    // Handle special properties for built-in types
+                    if (strcmp(prop_name, "size") == 0) {
+                        if (object.type == VALUE_HASH_MAP) {
+                            Value result = builtin_map_size(NULL, (Value[]){object}, 1, 0, 0);
+                            value_stack_push(result);
+                            value_free(&object);
+                            pc++;
+                            break;
+                        } else if (object.type == VALUE_SET) {
+                            Value result = builtin_set_size(NULL, (Value[]){object}, 1, 0, 0);
+                            value_stack_push(result);
+                            value_free(&object);
+                            pc++;
+                            break;
+                        }
+                    }
+                    
+                    // Default property access
                     Value prop = value_object_get(&object, prop_name);
                     value_stack_push(prop);
                     value_free(&object);
@@ -1103,6 +1181,246 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 }
                 
                 value_free(&value);
+                pc++;
+                break;
+            }
+            
+            case BC_MAP_HAS: {
+                // Map has key check: map.has(key)
+                Value key = value_stack_pop();
+                Value map = value_stack_pop();
+                
+                if (map.type == VALUE_HASH_MAP) {
+                    Value result = builtin_map_has(NULL, (Value[]){map, key}, 2, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&map);
+                value_free(&key);
+                pc++;
+                break;
+            }
+            
+            case BC_MAP_SIZE: {
+                // Map size property: map.size
+                Value map = value_stack_pop();
+                
+                if (map.type == VALUE_HASH_MAP) {
+                    Value result = builtin_map_size(NULL, (Value[]){map}, 1, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&map);
+                pc++;
+                break;
+            }
+            
+            case BC_MAP_KEYS: {
+                // Map keys method: map.keys()
+                Value map = value_stack_pop();
+                
+                if (map.type == VALUE_HASH_MAP) {
+                    Value result = builtin_map_keys(NULL, (Value[]){map}, 1, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&map);
+                pc++;
+                break;
+            }
+            
+            case BC_MAP_DELETE: {
+                // Map delete method: map.delete(key)
+                Value key = value_stack_pop();
+                Value map = value_stack_pop();
+                
+                if (map.type == VALUE_HASH_MAP) {
+                    Value result = builtin_map_delete(NULL, (Value[]){map, key}, 2, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&map);
+                value_free(&key);
+                pc++;
+                break;
+            }
+            
+            case BC_MAP_CLEAR: {
+                // Map clear method: map.clear()
+                Value map = value_stack_pop();
+                
+                if (map.type == VALUE_HASH_MAP) {
+                    Value result = builtin_map_clear(NULL, (Value[]){map}, 1, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&map);
+                pc++;
+                break;
+            }
+            
+            case BC_MAP_UPDATE: {
+                // Map update method: map.update(other_map)
+                Value other_map = value_stack_pop();
+                Value map = value_stack_pop();
+                
+                if (map.type == VALUE_HASH_MAP) {
+                    Value result = builtin_map_update(NULL, (Value[]){map, other_map}, 2, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&map);
+                value_free(&other_map);
+                pc++;
+                break;
+            }
+            
+            case BC_SET_ADD: {
+                // Set add method: set.add(element)
+                Value element = value_stack_pop();
+                Value set = value_stack_pop();
+                
+                if (set.type == VALUE_SET) {
+                    Value result = builtin_set_add(NULL, (Value[]){set, element}, 2, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&set);
+                value_free(&element);
+                pc++;
+                break;
+            }
+            
+            case BC_SET_HAS: {
+                // Set has element check: set.has(element)
+                Value element = value_stack_pop();
+                Value set = value_stack_pop();
+                
+                if (set.type == VALUE_SET) {
+                    Value result = builtin_set_has(NULL, (Value[]){set, element}, 2, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&set);
+                value_free(&element);
+                pc++;
+                break;
+            }
+            
+            case BC_SET_REMOVE: {
+                // Set remove method: set.remove(element)
+                Value element = value_stack_pop();
+                Value set = value_stack_pop();
+                
+                if (set.type == VALUE_SET) {
+                    Value result = builtin_set_remove(NULL, (Value[]){set, element}, 2, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&set);
+                value_free(&element);
+                pc++;
+                break;
+            }
+            
+            case BC_SET_SIZE: {
+                // Set size property: set.size
+                Value set = value_stack_pop();
+                
+                if (set.type == VALUE_SET) {
+                    Value result = builtin_set_size(NULL, (Value[]){set}, 1, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&set);
+                pc++;
+                break;
+            }
+            
+            case BC_SET_CLEAR: {
+                // Set clear method: set.clear()
+                Value set = value_stack_pop();
+                
+                if (set.type == VALUE_SET) {
+                    Value result = builtin_set_clear(NULL, (Value[]){set}, 1, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&set);
+                pc++;
+                break;
+            }
+            
+            case BC_SET_TO_ARRAY: {
+                // Set toArray method: set.toArray()
+                Value set = value_stack_pop();
+                
+                if (set.type == VALUE_SET) {
+                    Value result = builtin_set_to_array(NULL, (Value[]){set}, 1, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&set);
+                pc++;
+                break;
+            }
+            
+            case BC_SET_UNION: {
+                // Set union method: set.union(other_set)
+                Value other_set = value_stack_pop();
+                Value set = value_stack_pop();
+                
+                if (set.type == VALUE_SET) {
+                    Value result = builtin_set_union(NULL, (Value[]){set, other_set}, 2, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&set);
+                value_free(&other_set);
+                pc++;
+                break;
+            }
+            
+            case BC_SET_INTERSECTION: {
+                // Set intersection method: set.intersection(other_set)
+                Value other_set = value_stack_pop();
+                Value set = value_stack_pop();
+                
+                if (set.type == VALUE_SET) {
+                    Value result = builtin_set_intersection(NULL, (Value[]){set, other_set}, 2, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&set);
+                value_free(&other_set);
                 pc++;
                 break;
             }

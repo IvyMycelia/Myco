@@ -690,6 +690,12 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             } else if (strcmp(member_name, "trim") == 0) {
                 compile_node(p, n->data.member_access.object);
                 bc_emit(p, BC_STRING_TRIM, 0, 0);
+            } else if (strcmp(member_name, "size") == 0) {
+                // Size property - could be map.size or set.size
+                // We'll check the type at runtime
+                compile_node(p, n->data.member_access.object);
+                int property_name_idx = bc_add_const(p, value_create_string(member_name));
+                bc_emit(p, BC_PROPERTY_ACCESS, property_name_idx, 0);
             } else {
                 // Fall back to general property access
                 compile_node(p, n->data.member_access.object);
@@ -857,6 +863,72 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                             compile_node(p, n->data.function_call_expr.arguments[i]);
                         }
                         bc_emit(p, BC_MATH_ROUND, 0, 0);
+                    } else if (strcmp(method_name, "has") == 0) {
+                        // Could be map.has(key) or set.has(element)
+                        // Compile object to determine type at runtime
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        // We'll check type at runtime - for now use generic method call
+                        int method_name_idx = bc_add_const(p, value_create_string(method_name));
+                        bc_emit(p, BC_METHOD_CALL, (int)n->data.function_call_expr.argument_count, method_name_idx);
+                    } else if (strcmp(method_name, "add") == 0) {
+                        // Set add method
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_SET_ADD, 0, 0);
+                    } else if (strcmp(method_name, "remove") == 0) {
+                        // Set remove method
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_SET_REMOVE, 0, 0);
+                    } else if (strcmp(method_name, "toArray") == 0) {
+                        // Set toArray method
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_SET_TO_ARRAY, 0, 0);
+                    } else if (strcmp(method_name, "union") == 0) {
+                        // Set union method
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_SET_UNION, 0, 0);
+                    } else if (strcmp(method_name, "intersection") == 0) {
+                        // Set intersection method
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_SET_INTERSECTION, 0, 0);
+                    } else if (strcmp(method_name, "keys") == 0) {
+                        // Map keys method
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_MAP_KEYS, 0, 0);
+                    } else if (strcmp(method_name, "delete") == 0) {
+                        // Map delete method
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_MAP_DELETE, 0, 0);
+                    } else if (strcmp(method_name, "clear") == 0) {
+                        // Could be map.clear() or set.clear()
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        // Use generic method call - VM will handle both
+                        int method_name_idx = bc_add_const(p, value_create_string(method_name));
+                        bc_emit(p, BC_METHOD_CALL, (int)n->data.function_call_expr.argument_count, method_name_idx);
+                    } else if (strcmp(method_name, "update") == 0) {
+                        // Map update method
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_MAP_UPDATE, 0, 0);
                     } else {
                         // Compile arguments
                         for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {

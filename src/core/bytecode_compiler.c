@@ -352,7 +352,7 @@ static bool is_builtin_function(const char* name) {
         "parse", "stringify", "get", "set", "has", "delete",
         "get", "post", "put", "delete", "head", "options",
         "match", "replace", "split", "test", "exec",
-        "now", "sleep", "format", "parse", "subtract",
+        "now", "sleep", "format", "parse",
         "create", "insert", "delete", "search", "inorder", "preorder", "postorder"
     };
     

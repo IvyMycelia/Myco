@@ -64,7 +64,7 @@ def main():
         'benchmark_simple_numeric.myco'
     ]
     
-    iterations = 5
+    iterations = 3
     
     print("=== Myco Bytecode VM vs AST Interpreter Benchmark ===\n")
     

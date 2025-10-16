@@ -16,13 +16,13 @@ static void bc_emit(BytecodeProgram* p, BytecodeOp op, int a, int b) {
     p->count++;
 }
 
-static void bc_emit_super(BytecodeProgram* p, BytecodeSuperOp op, int a, int b, int c) {
+static void bc_emit_super(BytecodeProgram* p, BytecodeOp op, int a, int b, int c) {
     if (p->count + 1 > p->capacity) {
         size_t new_cap = p->capacity ? p->capacity * 2 : 128;
         p->code = shared_realloc_safe(p->code, new_cap * sizeof(BytecodeInstruction), "bytecode", "bc_emit_super", 1);
         p->capacity = new_cap;
     }
-    p->code[p->count].op = (BytecodeOp)op;
+    p->code[p->count].op = op;
     p->code[p->count].a = a;
     p->code[p->count].b = b;
     p->code[p->count].c = c;
@@ -328,6 +328,35 @@ static bool is_numeric_identifier(BytecodeProgram* p, const char* name) {
     return false;
 }
 
+// Check if a function name is a built-in function
+static bool is_builtin_function(const char* name) {
+    // List of common built-in functions
+    const char* builtins[] = {
+        "len", "toString", "type", "isInt", "isString", "isArray", "isObject",
+        "abs", "sqrt", "pow", "sin", "cos", "tan", "log", "exp",
+        "push", "pop", "shift", "unshift", "join", "split", "substring",
+        "keys", "values", "has", "get", "set", "delete",
+        "add", "remove", "contains", "size", "clear",
+        "enqueue", "dequeue", "peek", "isEmpty",
+        "push_stack", "pop_stack", "top", "is_empty",
+        "insert", "remove_node", "find", "traverse",
+        "add_edge", "remove_edge", "has_edge", "neighbors",
+        "insert_heap", "extract_min", "peek_min", "is_empty_heap",
+        "parse", "stringify", "get", "set", "has", "delete",
+        "get", "post", "put", "delete", "head", "options",
+        "match", "replace", "split", "test", "exec",
+        "now", "sleep", "format", "parse", "add", "subtract",
+        "create", "insert", "delete", "search", "inorder", "preorder", "postorder"
+    };
+    
+    for (size_t i = 0; i < sizeof(builtins) / sizeof(builtins[0]); i++) {
+        if (strcmp(name, builtins[i]) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Check if a binary operation involves only numbers
 static bool is_numeric_binary_op(BytecodeProgram* p, ASTNode* n) {
     if (n->type != AST_NODE_BINARY_OP) return false;
@@ -340,7 +369,34 @@ static bool is_numeric_binary_op(BytecodeProgram* p, ASTNode* n) {
                        (n->data.binary.right->type == AST_NODE_IDENTIFIER && 
                         is_numeric_identifier(p, n->data.binary.right->data.identifier_value));
     
+    // Also check if both operands are local variables (they might contain numbers)
+    if (!left_is_num && n->data.binary.left->type == AST_NODE_IDENTIFIER) {
+        int idx = lookup_local(p, n->data.binary.left->data.identifier_value);
+        left_is_num = (idx >= 0); // If it's a local variable, assume it's numeric for now
+    }
+    if (!right_is_num && n->data.binary.right->type == AST_NODE_IDENTIFIER) {
+        int idx = lookup_local(p, n->data.binary.right->data.identifier_value);
+        right_is_num = (idx >= 0); // If it's a local variable, assume it's numeric for now
+    }
+    
     return left_is_num && right_is_num;
+}
+
+// Check if a node is an array literal or identifier (for array concatenation)
+static bool is_array_literal_or_identifier(ASTNode* n) {
+    if (!n) return false;
+    
+    // Check for array literal
+    if (n->type == AST_NODE_ARRAY_LITERAL) {
+        return true;
+    }
+    
+    // Check for identifier (could be an array variable)
+    if (n->type == AST_NODE_IDENTIFIER) {
+        return true;
+    }
+    
+    return false;
 }
 
 // Compile a node to numeric bytecode (for fast numeric operations)
@@ -355,11 +411,13 @@ static void compile_numeric_node(BytecodeProgram* p, ASTNode* n) {
         case AST_NODE_IDENTIFIER: {
             int idx = lookup_local(p, n->data.identifier_value);
             if (idx >= 0) {
-                bc_emit(p, BC_LOAD_NUM_LOCAL, idx, 0);
+                // Load the value from local storage and convert to numeric
+                bc_emit(p, BC_LOAD_LOCAL, idx, 0);
+                bc_emit_super(p, BC_VALUE_TO_NUM, 0, 0, 0);
             } else {
                 // Fall back to value operations for globals
                 compile_node(p, n);
-                bc_emit(p, BC_VALUE_TO_NUM, 0, 0);
+                bc_emit_super(p, BC_VALUE_TO_NUM, 0, 0, 0);
             }
         } break;
         case AST_NODE_BINARY_OP: {
@@ -418,27 +476,40 @@ static void compile_binary(BytecodeProgram* p, ASTNode* n) {
             } break;
         }
         
-        // Convert numeric result back to value for storage
-        bc_emit_super(p, BC_NUM_TO_VALUE, 0, 0, 0);
+        // Convert numeric result back to value for storage (only for arithmetic operations)
+        if (n->data.binary.op == OP_ADD || n->data.binary.op == OP_SUBTRACT || 
+            n->data.binary.op == OP_MULTIPLY || n->data.binary.op == OP_DIVIDE) {
+            bc_emit_super(p, BC_NUM_TO_VALUE, 0, 0, 0);
+        }
     } else {
-        // Use regular value operations
-        compile_node(p, n->data.binary.left);
-        compile_node(p, n->data.binary.right);
-        switch (n->data.binary.op) {
-            case OP_ADD: bc_emit(p, BC_ADD, 0, 0); break;
-            case OP_SUBTRACT: bc_emit(p, BC_SUB, 0, 0); break;
-            case OP_MULTIPLY: bc_emit(p, BC_MUL, 0, 0); break;
-            case OP_DIVIDE: bc_emit(p, BC_DIV, 0, 0); break;
-            case OP_EQUAL: bc_emit(p, BC_EQ, 0, 0); break;
-            case OP_NOT_EQUAL: bc_emit(p, BC_NE, 0, 0); break;
-            case OP_LESS_THAN: bc_emit(p, BC_LT, 0, 0); break;
-            case OP_LESS_EQUAL: bc_emit(p, BC_LE, 0, 0); break;
-            case OP_GREATER_THAN: bc_emit(p, BC_GT, 0, 0); break;
-            case OP_GREATER_EQUAL: bc_emit(p, BC_GE, 0, 0); break;
-            default: {
-                int id = bc_add_ast(p, n);
-                bc_emit(p, BC_EVAL_AST, id, 0);
-            } break;
+        // Check for array concatenation
+        if (n->data.binary.op == OP_ADD && 
+            is_array_literal_or_identifier(n->data.binary.left) && 
+            is_array_literal_or_identifier(n->data.binary.right)) {
+            // Array concatenation: arr1 + arr2
+            compile_node(p, n->data.binary.left);
+            compile_node(p, n->data.binary.right);
+            bc_emit(p, BC_ARRAY_CONCAT, 0, 0);
+        } else {
+            // Use regular value operations
+            compile_node(p, n->data.binary.left);
+            compile_node(p, n->data.binary.right);
+            switch (n->data.binary.op) {
+                    case OP_ADD: bc_emit(p, BC_ADD, 0, 0); break;
+                case OP_SUBTRACT: bc_emit(p, BC_SUB, 0, 0); break;
+                case OP_MULTIPLY: bc_emit(p, BC_MUL, 0, 0); break;
+                case OP_DIVIDE: bc_emit(p, BC_DIV, 0, 0); break;
+                case OP_EQUAL: bc_emit(p, BC_EQ, 0, 0); break;
+                case OP_NOT_EQUAL: bc_emit(p, BC_NE, 0, 0); break;
+                case OP_LESS_THAN: bc_emit(p, BC_LT, 0, 0); break;
+                case OP_LESS_EQUAL: bc_emit(p, BC_LE, 0, 0); break;
+                case OP_GREATER_THAN: bc_emit(p, BC_GT, 0, 0); break;
+                case OP_GREATER_EQUAL: bc_emit(p, BC_GE, 0, 0); break;
+                default: {
+                    int id = bc_add_ast(p, n);
+                    bc_emit(p, BC_EVAL_AST, id, 0);
+                } break;
+            }
         }
     }
 }
@@ -469,9 +540,9 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                 // Load from main locals array (supports all types)
                 bc_emit(p, BC_LOAD_LOCAL, idx, 0);
             } else if (p->interpreter && environment_exists(p->interpreter->global_environment, n->data.identifier_value)) {
-                // Global variable found - load it via AST evaluation
-                int id = bc_add_ast(p, n);
-                bc_emit(p, BC_EVAL_AST, id, 0);
+                // Global variable found - use BC_LOAD_GLOBAL
+                int name_idx = bc_add_const(p, value_create_string(n->data.identifier_value));
+                bc_emit(p, BC_LOAD_GLOBAL, name_idx, 0);
             } else {
                 // Variable not found - fall back to AST evaluation
                 int id = bc_add_ast(p, n);
@@ -479,22 +550,25 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             }
         } break;
         case AST_NODE_VARIABLE_DECLARATION: {
-            int idx = define_local(p, n->data.variable_declaration.variable_name);
+            const char* var_name = n->data.variable_declaration.variable_name;
             
             if (n->data.variable_declaration.initial_value) {
                 compile_node(p, n->data.variable_declaration.initial_value);
-                // For now, always use BC_STORE_LOCAL to store in main locals array
-                bc_emit(p, BC_STORE_LOCAL, idx, 0);
             } else {
                 // Initialize with null
                 bc_emit(p, BC_LOAD_CONST, bc_add_const(p, value_create_null()), 0);
-                bc_emit(p, BC_STORE_LOCAL, idx, 0);
             }
+            
+            // For now, always treat variable declarations as local variables
+            // This matches the AST interpreter behavior
+            int idx = define_local(p, var_name);
+            bc_emit(p, BC_STORE_LOCAL, idx, 0);
         } break;
         case AST_NODE_ASSIGNMENT: {
             const char* var = n->data.assignment.variable_name;
             int dst = define_local(p, var);
             ASTNode* v = n->data.assignment.value;
+            
             
             // dst = dst + id
             if (v && v->type == AST_NODE_BINARY_OP && v->data.binary.op == OP_ADD &&
@@ -557,33 +631,6 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             p->code[jmp_false_pos].a = else_start;
             p->code[jmp_end_pos].a = end_pos;
         } break;
-        case AST_NODE_WHILE_LOOP: {
-            int loop_start = (int)p->count;
-            ASTNode* cond = n->data.while_loop.condition;
-            // 
-            if (cond && cond->type == AST_NODE_BINARY_OP && cond->data.binary.op == OP_LESS_THAN &&
-                cond->data.binary.left && cond->data.binary.left->type == AST_NODE_IDENTIFIER &&
-                cond->data.binary.right && cond->data.binary.right->type == AST_NODE_NUMBER) {
-                const char* id = cond->data.binary.left->data.identifier_value;
-                int id_idx = lookup_local(p, id);
-                if (id_idx < 0) id_idx = define_local(p, id);
-                int imm_idx = bc_add_num_const(p, cond->data.binary.right->data.number_value);
-                int jmp_pos = (int)p->count;
-                // 
-                bc_emit_super(p, BC_CMP_LOCAL_IMM_JUMP_FALSE, id_idx, imm_idx, 0);
-                // target patched later in .c
-                compile_node(p, n->data.while_loop.body);
-                bc_emit(p, BC_JUMP, loop_start, 0);
-                p->code[jmp_pos].c = (int)p->count;
-            } else {
-                // Fallback generic while
-                compile_node(p, cond);
-                int jmp_if_false_pos = (int)p->count; bc_emit(p, BC_JUMP_IF_FALSE, 0, 0);
-                compile_node(p, n->data.while_loop.body);
-                bc_emit(p, BC_JUMP, loop_start, 0);
-                p->code[jmp_if_false_pos].a = (int)p->count;
-            }
-        } break;
         case AST_NODE_BLOCK: {
             for (size_t i = 0; i < n->data.block.statement_count; i++) {
                 ASTNode* stmt = n->data.block.statements[i];
@@ -599,45 +646,230 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
         } break;
         case AST_NODE_FUNCTION: {
             // Function definition - add to function table
-            int func_id = bc_add_function(p, n);
+            bc_add_function(p, n);
             // Function body is already compiled in bc_add_function
         } break;
         case AST_NODE_MEMBER_ACCESS: {
             // Property access: obj.name
-            // Compile the object
-            compile_node(p, n->data.member_access.object);
+            const char* member_name = n->data.member_access.member_name;
             
-            // Add property name to constants
-            int property_name_idx = bc_add_const(p, value_create_string(n->data.member_access.member_name));
-            
-            // Emit property access instruction
-            bc_emit(p, BC_PROPERTY_ACCESS, property_name_idx, 0);
+            // Check for common built-in properties and methods
+            if (strcmp(member_name, "toString") == 0) {
+                compile_node(p, n->data.member_access.object);
+                bc_emit(p, BC_TO_STRING, 0, 0);
+            } else if (strcmp(member_name, "type") == 0) {
+                compile_node(p, n->data.member_access.object);
+                bc_emit(p, BC_GET_TYPE, 0, 0);
+            } else if (strcmp(member_name, "length") == 0) {
+                compile_node(p, n->data.member_access.object);
+                bc_emit(p, BC_GET_LENGTH, 0, 0);
+            } else if (strcmp(member_name, "isString") == 0) {
+                compile_node(p, n->data.member_access.object);
+                bc_emit(p, BC_IS_STRING, 0, 0);
+            } else if (strcmp(member_name, "isInt") == 0) {
+                compile_node(p, n->data.member_access.object);
+                bc_emit(p, BC_IS_INT, 0, 0);
+            } else if (strcmp(member_name, "isFloat") == 0) {
+                compile_node(p, n->data.member_access.object);
+                bc_emit(p, BC_IS_FLOAT, 0, 0);
+            } else if (strcmp(member_name, "isBool") == 0) {
+                compile_node(p, n->data.member_access.object);
+                bc_emit(p, BC_IS_BOOL, 0, 0);
+            } else if (strcmp(member_name, "isArray") == 0) {
+                compile_node(p, n->data.member_access.object);
+                bc_emit(p, BC_IS_ARRAY, 0, 0);
+            } else if (strcmp(member_name, "isNull") == 0) {
+                compile_node(p, n->data.member_access.object);
+                bc_emit(p, BC_IS_NULL, 0, 0);
+            } else if (strcmp(member_name, "upper") == 0) {
+                compile_node(p, n->data.member_access.object);
+                bc_emit(p, BC_STRING_UPPER, 0, 0);
+            } else if (strcmp(member_name, "lower") == 0) {
+                compile_node(p, n->data.member_access.object);
+                bc_emit(p, BC_STRING_LOWER, 0, 0);
+            } else if (strcmp(member_name, "trim") == 0) {
+                compile_node(p, n->data.member_access.object);
+                bc_emit(p, BC_STRING_TRIM, 0, 0);
+            } else {
+                // Fall back to general property access
+                compile_node(p, n->data.member_access.object);
+                int property_name_idx = bc_add_const(p, value_create_string(member_name));
+                bc_emit(p, BC_PROPERTY_ACCESS, property_name_idx, 0);
+            }
+        } break;
+        case AST_NODE_ARRAY_LITERAL: {
+            // Array literal: [elem1, elem2, elem3]
+            // Compile all elements onto the stack
+            for (size_t i = 0; i < n->data.array_literal.element_count; i++) {
+                compile_node(p, n->data.array_literal.elements[i]);
+            }
+            // Emit instruction to create array from stack elements
+            bc_emit(p, BC_CREATE_ARRAY, (int)n->data.array_literal.element_count, 0);
         } break;
         case AST_NODE_HASH_MAP_LITERAL: {
             // Object literal: {key1: value1, key2: value2}
-            // For now, fall back to AST evaluation
-            int id = bc_add_ast(p, n);
-            bc_emit(p, BC_EVAL_AST, id, 0);
+            // Compile all key-value pairs onto the stack
+            for (size_t i = 0; i < n->data.hash_map_literal.pair_count; i++) {
+                // Compile value first (will be on top of stack)
+                compile_node(p, n->data.hash_map_literal.values[i]);
+                // Compile key second (will be on top of stack)
+                compile_node(p, n->data.hash_map_literal.keys[i]);
+            }
+            // Emit instruction to create object from stack pairs
+            bc_emit(p, BC_CREATE_OBJECT, (int)n->data.hash_map_literal.pair_count, 0);
         } break;
         case AST_NODE_FUNCTION_CALL_EXPR: {
             // Method call: obj.method(args...)
             // Check if the function is a member access
             if (n->data.function_call_expr.function->type == AST_NODE_MEMBER_ACCESS) {
                 ASTNode* member_access = n->data.function_call_expr.function;
+                const char* method_name = member_access->data.member_access.member_name;
                 
                 // Compile the object
                 compile_node(p, member_access->data.member_access.object);
                 
-                // Compile arguments
-                for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
-                    compile_node(p, n->data.function_call_expr.arguments[i]);
+                // Check for specific built-in methods that have direct bytecode support
+                if (strcmp(method_name, "toString") == 0 && n->data.function_call_expr.argument_count == 0) {
+                    bc_emit(p, BC_TO_STRING, 0, 0);
+                } else if (strcmp(method_name, "type") == 0 && n->data.function_call_expr.argument_count == 0) {
+                    bc_emit(p, BC_GET_TYPE, 0, 0);
+                } else if (strcmp(method_name, "length") == 0 && n->data.function_call_expr.argument_count == 0) {
+                    bc_emit(p, BC_GET_LENGTH, 0, 0);
+                } else {
+                    // Check for array methods
+                    if (strcmp(method_name, "contains") == 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_ARRAY_CONTAINS, 0, 0);
+                    } else if (strcmp(method_name, "indexOf") == 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_ARRAY_INDEX_OF, 0, 0);
+                    } else if (strcmp(method_name, "join") == 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_ARRAY_JOIN, 0, 0);
+                    } else if (strcmp(method_name, "unique") == 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_ARRAY_UNIQUE, 0, 0);
+                    } else if (strcmp(method_name, "slice") == 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_ARRAY_SLICE, 0, 0);
+                    } else if (strcmp(method_name, "concat") == 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_ARRAY_CONCAT_METHOD, 0, 0);
+                    } else if (strcmp(method_name, "upper") == 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_STRING_UPPER, 0, 0);
+                    } else if (strcmp(method_name, "lower") == 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_STRING_LOWER, 0, 0);
+                    } else if (strcmp(method_name, "trim") == 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_STRING_TRIM, 0, 0);
+                    } else if (strcmp(method_name, "split") == 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_STRING_SPLIT, 0, 0);
+                    } else if (strcmp(method_name, "replace") == 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_STRING_REPLACE, 0, 0);
+                    } else if (strcmp(method_name, "abs") == 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_MATH_ABS, 0, 0);
+                    } else if (strcmp(method_name, "sqrt") == 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_MATH_SQRT, 0, 0);
+                    } else if (strcmp(method_name, "pow") == 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_MATH_POW, 0, 0);
+                    } else if (strcmp(method_name, "sin") == 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_MATH_SIN, 0, 0);
+                    } else if (strcmp(method_name, "cos") == 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_MATH_COS, 0, 0);
+                    } else if (strcmp(method_name, "tan") == 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_MATH_TAN, 0, 0);
+                    } else if (strcmp(method_name, "floor") == 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_MATH_FLOOR, 0, 0);
+                    } else if (strcmp(method_name, "ceil") == 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_MATH_CEIL, 0, 0);
+                    } else if (strcmp(method_name, "round") == 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        bc_emit(p, BC_MATH_ROUND, 0, 0);
+                    } else {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
+                        }
+                        
+                        // Add method name to constants
+                        int method_name_idx = bc_add_const(p, value_create_string(method_name));
+                        
+                        // Emit method call instruction
+                        bc_emit(p, BC_METHOD_CALL, (int)n->data.function_call_expr.argument_count, method_name_idx);
+                    }
                 }
-                
-                // Add method name to constants
-                int method_name_idx = bc_add_const(p, value_create_string(member_access->data.member_access.member_name));
-                
-                // Emit method call instruction
-                bc_emit(p, BC_METHOD_CALL, (int)n->data.function_call_expr.argument_count, method_name_idx);
             } else {
                 // Regular function call - fall back to AST
                 int id = bc_add_ast(p, n);
@@ -645,10 +877,12 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             }
         } break;
         case AST_NODE_USE: {
-            // Use statements - fall back to AST evaluation for now
-            int id = bc_add_ast(p, n);
-            bc_emit(p, BC_EVAL_AST, id, 0);
+            // Use statements - import library
+            const char* library_name = n->data.use_statement.library_name;
+            int lib_name_idx = bc_add_const(p, value_create_string(library_name));
+            bc_emit(p, BC_IMPORT_LIB, lib_name_idx, 0);
         } break;
+        
         case AST_NODE_FUNCTION_CALL: {
             // For print statements, compile directly
             if (strcmp(n->data.function_call.function_name, "print") == 0) {
@@ -658,6 +892,13 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                 }
                 // Then print all arguments on one line
                 bc_emit(p, BC_PRINT_MULTIPLE, (int)n->data.function_call.argument_count, 0);
+            } else if (is_builtin_function(n->data.function_call.function_name)) {
+                // Built-in function - use BC_CALL_BUILTIN
+                for (size_t i = 0; i < n->data.function_call.argument_count; i++) {
+                    compile_node(p, n->data.function_call.arguments[i]);
+                }
+                int name_idx = bc_add_const(p, value_create_string(n->data.function_call.function_name));
+                bc_emit(p, BC_CALL_BUILTIN, name_idx, (int)n->data.function_call.argument_count);
             } else if (strchr(n->data.function_call.function_name, '.') != NULL) {
                 // This is a method call like math.abs(-5)
                 // Parse the object and method name
@@ -679,16 +920,27 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                     obj_node.data.identifier_value = obj_name;
                     compile_node(p, &obj_node);
                     
-                    // Compile arguments
-                    for (size_t i = 0; i < n->data.function_call.argument_count; i++) {
-                        compile_node(p, n->data.function_call.arguments[i]);
+                    // Check for common array methods
+                    if (strcmp(method_name, "push") == 0 && n->data.function_call.argument_count == 1) {
+                        // Compile the argument
+                        compile_node(p, n->data.function_call.arguments[0]);
+                        // Emit array push instruction
+                        bc_emit(p, BC_ARRAY_PUSH, 0, 0);
+                    } else if (strcmp(method_name, "pop") == 0 && n->data.function_call.argument_count == 0) {
+                        // Emit array pop instruction
+                        bc_emit(p, BC_ARRAY_POP, 0, 0);
+                    } else {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call.argument_count; i++) {
+                            compile_node(p, n->data.function_call.arguments[i]);
+                        }
+                        
+                        // Add method name to constants
+                        int method_name_idx = bc_add_const(p, value_create_string(method_name));
+                        
+                        // Emit method call instruction
+                        bc_emit(p, BC_METHOD_CALL, (int)n->data.function_call.argument_count, method_name_idx);
                     }
-                    
-                    // Add method name to constants
-                    int method_name_idx = bc_add_const(p, value_create_string(method_name));
-                    
-                    // Emit method call instruction
-                    bc_emit(p, BC_METHOD_CALL, (int)n->data.function_call.argument_count, method_name_idx);
                 }
                 
                 if (obj_name) shared_free_safe(obj_name, "bytecode_compiler", "AST_NODE_FUNCTION_CALL", 2);
@@ -719,10 +971,35 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                 }
             }
         } break;
+        case AST_NODE_WHILE_LOOP: {
+            // Compile while loop
+            int loop_start = p->count;
+            bc_emit(p, BC_LOOP_START, 0, 0);
+            
+            // Compile condition
+            compile_node(p, n->data.while_loop.condition);
+            
+            // Jump if false (exit loop)
+            int jump_to_end = p->count;
+            bc_emit(p, BC_JUMP_IF_FALSE, 0, 0); // Will be filled later
+            
+            // Compile body
+            compile_node(p, n->data.while_loop.body);
+            
+            // Jump back to condition
+            bc_emit(p, BC_JUMP, loop_start, 0);
+            
+            // Update jump target
+            p->code[jump_to_end].a = p->count;
+            
+            bc_emit(p, BC_LOOP_END, 0, 0);
+        } break;
+        
         case AST_NODE_FOR_LOOP: {
-            // Compile for loop: for i in range/array
-            // For now, fall back to AST evaluation for for loops
-            // TODO: Implement proper for loop bytecode compilation
+            // Compile for loop: for i in collection body
+            // For now, fall back to AST for complex for loops
+            // The AST execution will handle the iterator variable creation
+            
             int id = bc_add_ast(p, n);
             bc_emit(p, BC_EVAL_AST, id, 0);
         } break;

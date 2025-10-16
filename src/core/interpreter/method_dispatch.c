@@ -160,6 +160,11 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
         value_free(&object);
         return s;
     }
+    if (strcmp(method_name, "type") == 0) {
+        Value type_str = value_create_string(value_type_string(object.type));
+        value_free(&object);
+        return type_str;
+    }
     if (strcmp(method_name, "isString") == 0) { Value r = value_create_boolean(object.type == VALUE_STRING); value_free(&object); return r; }
     if (strcmp(method_name, "isInt") == 0) { Value r = value_create_boolean(object.type == VALUE_NUMBER && object.data.number_value == (int)object.data.number_value); value_free(&object); return r; }
     if (strcmp(method_name, "isFloat") == 0) { Value r = value_create_boolean(object.type == VALUE_NUMBER && object.data.number_value != (int)object.data.number_value); value_free(&object); return r; }

@@ -1,6 +1,10 @@
 #include "../../include/core/bytecode.h"
 #include "../../include/utils/shared_utilities.h"
 #include "../../include/core/interpreter/value_operations.h"
+#include "../../include/core/environment.h"
+#include "../../include/libs/array.h"
+#include "../../include/libs/math.h"
+#include <ctype.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -102,12 +106,6 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
         // Handle superinstructions
         if (instr->op >= BC_SUPER_START) {
             switch ((BytecodeSuperOp)instr->op) {
-                case BC_NUM_TO_VALUE: {
-                    double num = num_stack_pop();
-                    value_stack_push(value_create_number(num));
-                    pc++;
-                    break;
-                }
                 
                 case BC_CALL_FUNCTION: {
                     // Get function from AST nodes
@@ -177,12 +175,8 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             case BC_LOAD_LOCAL: {
                 if (instr->a < program->local_slot_count) {
                     Value local_val = program->locals[instr->a];
-                    // For numbers, avoid cloning by using direct push
-                    if (local_val.type == VALUE_NUMBER) {
-                        value_stack_push(value_create_number(local_val.data.number_value));
-                    } else {
-                        value_stack_push(value_clone(&local_val));
-                    }
+                    // Always clone to avoid memory issues
+                    value_stack_push(value_clone(&local_val));
                 } else {
                     value_stack_push(value_create_null());
                 }
@@ -195,6 +189,43 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     Value val = value_stack_pop();
                     value_free(&program->locals[instr->a]);
                     program->locals[instr->a] = val;
+                    
+                    // Also update numeric locals if this is a number
+                    if (val.type == VALUE_NUMBER && instr->a < program->num_local_count) {
+                        program->num_locals[instr->a] = val.data.number_value;
+                    }
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_LOAD_GLOBAL: {
+                // Load global variable by name
+                if (instr->a < program->const_count && program->constants[instr->a].type == VALUE_STRING) {
+                    const char* var_name = program->constants[instr->a].data.string_value;
+                    Value global_val = environment_get(interpreter->global_environment, var_name);
+                    if (global_val.type != VALUE_NULL) {
+                        value_stack_push(value_clone(&global_val));
+                    } else {
+                        value_stack_push(value_create_null());
+                    }
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_STORE_GLOBAL: {
+                // Store global variable by name
+                if (instr->a < program->const_count && program->constants[instr->a].type == VALUE_STRING) {
+                    const char* var_name = program->constants[instr->a].data.string_value;
+                    Value val = value_stack_pop();
+                    environment_assign(interpreter->global_environment, var_name, val);
+                    value_stack_push(value_clone(&val));
+                } else {
+                    value_stack_pop(); // Remove value from stack
+                    value_stack_push(value_create_null());
                 }
                 pc++;
                 break;
@@ -333,6 +364,20 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     pc++;
                 }
                 value_free(&condition);
+                break;
+            }
+            
+            case BC_LOOP_START: {
+                // Mark the start of a loop for potential optimization
+                // For now, just continue execution
+                pc++;
+                break;
+            }
+            
+            case BC_LOOP_END: {
+                // Mark the end of a loop iteration
+                // For now, just continue execution
+                pc++;
                 break;
             }
             
@@ -476,12 +521,627 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 break;
             }
             
+            case BC_CALL_BUILTIN: {
+                // Call built-in function by name - for now, fall back to AST evaluation
+                // TODO: Implement direct built-in function calling
+                if (instr->a < program->ast_count) {
+                    ASTNode* node = program->ast_nodes[instr->a];
+                    if (node) {
+                        Value result = interpreter_execute(interpreter, node);
+                        value_stack_push(result);
+                    } else {
+                        value_stack_push(value_create_null());
+                    }
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_TO_STRING: {
+                // Convert value to string
+                Value val = value_stack_pop();
+                Value result = value_to_string(&val);
+                value_free(&val);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            
+            case BC_GET_TYPE: {
+                // Get value type as string
+                Value val = value_stack_pop();
+                Value result = value_create_string(value_type_to_string(val.type));
+                value_free(&val);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            
+            case BC_GET_LENGTH: {
+                // Get value length
+                Value val = value_stack_pop();
+                Value result;
+                if (val.type == VALUE_STRING) {
+                    result = value_create_number((double)strlen(val.data.string_value));
+                } else if (val.type == VALUE_ARRAY) {
+                    result = value_create_number((double)val.data.array_value.count);
+                } else {
+                    result = value_create_number(0.0);
+                }
+                value_free(&val);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            
+            case BC_IS_STRING: {
+                // Check if value is string
+                Value val = value_stack_pop();
+                Value result = value_create_boolean(val.type == VALUE_STRING);
+                value_free(&val);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            
+            case BC_IS_INT: {
+                // Check if value is int
+                Value val = value_stack_pop();
+                Value result = value_create_boolean(val.type == VALUE_NUMBER && val.data.number_value == (int)val.data.number_value);
+                value_free(&val);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            
+            case BC_IS_FLOAT: {
+                // Check if value is float
+                Value val = value_stack_pop();
+                Value result = value_create_boolean(val.type == VALUE_NUMBER);
+                value_free(&val);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            
+            case BC_IS_BOOL: {
+                // Check if value is bool
+                Value val = value_stack_pop();
+                Value result = value_create_boolean(val.type == VALUE_BOOLEAN);
+                value_free(&val);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            
+            case BC_IS_ARRAY: {
+                // Check if value is array
+                Value val = value_stack_pop();
+                Value result = value_create_boolean(val.type == VALUE_ARRAY);
+                value_free(&val);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            
+            case BC_IS_NULL: {
+                // Check if value is null
+                Value val = value_stack_pop();
+                Value result = value_create_boolean(val.type == VALUE_NULL);
+                value_free(&val);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            
+            case BC_ARRAY_PUSH: {
+                // Push value to array (requires array and value on stack)
+                Value val = value_stack_pop();
+                Value arr = value_stack_pop();
+                if (arr.type == VALUE_ARRAY) {
+                    // Use built-in array push function
+                    Value args[2] = {arr, val};
+                    Value result = builtin_array_push(interpreter, args, 2, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                value_free(&arr);
+                pc++;
+                break;
+            }
+            
+            case BC_ARRAY_POP: {
+                // Pop value from array
+                Value arr = value_stack_pop();
+                if (arr.type == VALUE_ARRAY) {
+                    // Use built-in array pop function
+                    Value args[1] = {arr};
+                    Value result = builtin_array_pop(interpreter, args, 1, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                value_free(&arr);
+                pc++;
+                break;
+            }
+            
+            case BC_ARRAY_CONTAINS: {
+                // Check if array contains value
+                Value search_val = value_stack_pop();
+                Value arr = value_stack_pop();
+                if (arr.type == VALUE_ARRAY) {
+                    // Use built-in array contains function
+                    Value args[2] = {arr, search_val};
+                    Value result = builtin_array_contains(interpreter, args, 2, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                value_free(&arr);
+                value_free(&search_val);
+                pc++;
+                break;
+            }
+            
+            case BC_ARRAY_INDEX_OF: {
+                // Get index of value in array
+                Value search_val = value_stack_pop();
+                Value arr = value_stack_pop();
+                if (arr.type == VALUE_ARRAY) {
+                    // Use built-in array indexOf function
+                    Value args[2] = {arr, search_val};
+                    Value result = builtin_array_index_of(interpreter, args, 2, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                value_free(&arr);
+                value_free(&search_val);
+                pc++;
+                break;
+            }
+            
+            case BC_ARRAY_JOIN: {
+                // Array join: arr.join(separator)
+                Value separator = value_stack_pop();
+                Value array = value_stack_pop();
+                
+                if (array.type == VALUE_ARRAY) {
+                    Value result = builtin_array_join(NULL, (Value[]){array, separator}, 2, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&array);
+                value_free(&separator);
+                pc++;
+                break;
+            }
+            
+            case BC_ARRAY_UNIQUE: {
+                // Array unique: arr.unique()
+                Value array = value_stack_pop();
+                
+                if (array.type == VALUE_ARRAY) {
+                    Value result = builtin_array_unique(NULL, (Value[]){array}, 1, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&array);
+                pc++;
+                break;
+            }
+            
+            case BC_ARRAY_SLICE: {
+                // Array slice: arr.slice(start, end)
+                Value end = value_stack_pop();
+                Value start = value_stack_pop();
+                Value array = value_stack_pop();
+                
+                if (array.type == VALUE_ARRAY) {
+                    Value result = builtin_array_slice(NULL, (Value[]){array, start, end}, 3, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&array);
+                value_free(&start);
+                value_free(&end);
+                pc++;
+                break;
+            }
+            
+            case BC_ARRAY_CONCAT_METHOD: {
+                // Array concat method: arr.concat(other)
+                Value other = value_stack_pop();
+                Value array = value_stack_pop();
+                
+                if (array.type == VALUE_ARRAY) {
+                    Value result = builtin_array_concat(NULL, (Value[]){array, other}, 2, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&array);
+                value_free(&other);
+                pc++;
+                break;
+            }
+            
+            case BC_CREATE_ARRAY: {
+                // Create array from stack elements
+                size_t element_count = instr->a;
+                
+                // Create array with initial capacity
+                Value array_val = value_create_array(element_count > 0 ? element_count : 1);
+                
+                // Handle empty arrays
+                if (element_count == 0) {
+                    value_stack_push(array_val);
+                    pc++;
+                    break;
+                }
+                
+                // Allocate temporary storage for elements
+                Value* elements = shared_malloc_safe(element_count * sizeof(Value), "bytecode_vm", "BC_CREATE_ARRAY", 1);
+                
+                // Pop elements from stack (in reverse order)
+                for (size_t i = 0; i < element_count; i++) {
+                    elements[element_count - 1 - i] = value_stack_pop();
+                }
+                
+                // Push elements into the array
+                for (size_t i = 0; i < element_count; i++) {
+                    value_array_push(&array_val, elements[i]);
+                }
+                
+                value_stack_push(array_val);
+                
+                // Free the elements array (values are now owned by the array)
+                shared_free_safe(elements, "bytecode_vm", "BC_CREATE_ARRAY", 2);
+                pc++;
+                break;
+            }
+            
+            case BC_ARRAY_CONCAT: {
+                // Array concatenation: arr1 + arr2
+                Value arr2 = value_stack_pop();
+                Value arr1 = value_stack_pop();
+                
+                if (arr1.type == VALUE_ARRAY && arr2.type == VALUE_ARRAY) {
+                    // Create new array with combined capacity
+                    size_t total_capacity = arr1.data.array_value.capacity + arr2.data.array_value.capacity;
+                    Value result = value_create_array(total_capacity);
+                    
+                    // Copy elements from first array
+                    for (size_t i = 0; i < arr1.data.array_value.count; i++) {
+                        Value* element = (Value*)arr1.data.array_value.elements[i];
+                        Value cloned_element = value_clone(element);
+                        value_array_push(&result, cloned_element);
+                    }
+                    
+                    // Copy elements from second array
+                    for (size_t i = 0; i < arr2.data.array_value.count; i++) {
+                        Value* element = (Value*)arr2.data.array_value.elements[i];
+                        Value cloned_element = value_clone(element);
+                        value_array_push(&result, cloned_element);
+                    }
+                    
+                    value_stack_push(result);
+                } else {
+                    // Fallback to AST for non-array types
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&arr1);
+                value_free(&arr2);
+                pc++;
+                break;
+            }
+            
+            case BC_CREATE_OBJECT: {
+                // Create object from key-value pairs on stack
+                size_t pair_count = instr->a;
+                Value object_val = value_create_object(pair_count > 0 ? pair_count : 4);
+                
+                // Pop key-value pairs from stack (in reverse order)
+                for (size_t i = 0; i < pair_count; i++) {
+                    Value value = value_stack_pop();
+                    Value key = value_stack_pop();
+                    
+                    if (key.type == VALUE_STRING) {
+                        value_object_set(&object_val, key.data.string_value, value);
+                    }
+                    
+                    value_free(&key);
+                    value_free(&value);
+                }
+                
+                value_stack_push(object_val);
+                pc++;
+                break;
+            }
+            
+            case BC_IMPORT_LIB: {
+                // Import library: use library_name
+                if (instr->a < program->const_count && program->constants[instr->a].type == VALUE_STRING) {
+                    const char* library_name = program->constants[instr->a].data.string_value;
+                    
+                    // Get the library from global environment (it should already be registered)
+                    Value lib = environment_get(interpreter->global_environment, library_name);
+                    
+                    // Define it in the current environment
+                    environment_define(interpreter->current_environment, library_name, lib);
+                    
+                    // Push null result (use statements don't return a value)
+                    value_stack_push(value_create_null());
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            
+            
+            case BC_STRING_UPPER: {
+                // Convert string to uppercase
+                Value val = value_stack_pop();
+                if (val.type == VALUE_STRING) {
+                    char* upper = strdup(val.data.string_value);
+                    for (char* p = upper; *p; p++) {
+                        *p = toupper(*p);
+                    }
+                    Value result = value_create_string(upper);
+                    free(upper);
+                    value_free(&val);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_STRING_LOWER: {
+                // Convert string to lowercase
+                Value val = value_stack_pop();
+                if (val.type == VALUE_STRING) {
+                    char* lower = strdup(val.data.string_value);
+                    for (char* p = lower; *p; p++) {
+                        *p = tolower(*p);
+                    }
+                    Value result = value_create_string(lower);
+                    free(lower);
+                    value_free(&val);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_STRING_TRIM: {
+                // Trim string whitespace
+                Value val = value_stack_pop();
+                if (val.type == VALUE_STRING) {
+                    char* str = val.data.string_value;
+                    char* start = str;
+                    char* end = str + strlen(str) - 1;
+                    
+                    // Trim leading whitespace
+                    while (start <= end && isspace(*start)) start++;
+                    
+                    // Trim trailing whitespace
+                    while (end >= start && isspace(*end)) end--;
+                    
+                    // Create trimmed string
+                    size_t len = end - start + 1;
+                    char* trimmed = malloc(len + 1);
+                    strncpy(trimmed, start, len);
+                    trimmed[len] = '\0';
+                    
+                    Value result = value_create_string(trimmed);
+                    free(trimmed);
+                    value_free(&val);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_MATH_ABS: {
+                // Math abs: math.abs(value)
+                Value value = value_stack_pop();
+                
+                if (value.type == VALUE_NUMBER) {
+                    Value result = builtin_math_abs(NULL, (Value[]){value}, 1, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&value);
+                pc++;
+                break;
+            }
+            
+            case BC_MATH_SQRT: {
+                // Math sqrt: math.sqrt(value)
+                Value value = value_stack_pop();
+                
+                if (value.type == VALUE_NUMBER) {
+                    Value result = builtin_math_sqrt(NULL, (Value[]){value}, 1, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&value);
+                pc++;
+                break;
+            }
+            
+            case BC_MATH_POW: {
+                // Math pow: math.pow(base, exponent)
+                Value exponent = value_stack_pop();
+                Value base = value_stack_pop();
+                
+                if (base.type == VALUE_NUMBER && exponent.type == VALUE_NUMBER) {
+                    Value result = builtin_math_pow(NULL, (Value[]){base, exponent}, 2, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&base);
+                value_free(&exponent);
+                pc++;
+                break;
+            }
+            
+            case BC_MATH_SIN: {
+                // Math sin: math.sin(value)
+                Value value = value_stack_pop();
+                
+                if (value.type == VALUE_NUMBER) {
+                    Value result = builtin_math_sin(NULL, (Value[]){value}, 1, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&value);
+                pc++;
+                break;
+            }
+            
+            case BC_MATH_COS: {
+                // Math cos: math.cos(value)
+                Value value = value_stack_pop();
+                
+                if (value.type == VALUE_NUMBER) {
+                    Value result = builtin_math_cos(NULL, (Value[]){value}, 1, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&value);
+                pc++;
+                break;
+            }
+            
+            case BC_MATH_TAN: {
+                // Math tan: math.tan(value)
+                Value value = value_stack_pop();
+                
+                if (value.type == VALUE_NUMBER) {
+                    Value result = builtin_math_tan(NULL, (Value[]){value}, 1, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&value);
+                pc++;
+                break;
+            }
+            
+            case BC_MATH_FLOOR: {
+                // Math floor: math.floor(value)
+                Value value = value_stack_pop();
+                
+                if (value.type == VALUE_NUMBER) {
+                    Value result = builtin_math_floor(NULL, (Value[]){value}, 1, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&value);
+                pc++;
+                break;
+            }
+            
+            case BC_MATH_CEIL: {
+                // Math ceil: math.ceil(value)
+                Value value = value_stack_pop();
+                
+                if (value.type == VALUE_NUMBER) {
+                    Value result = builtin_math_ceil(NULL, (Value[]){value}, 1, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&value);
+                pc++;
+                break;
+            }
+            
+            case BC_MATH_ROUND: {
+                // Math round: math.round(value)
+                Value value = value_stack_pop();
+                
+                if (value.type == VALUE_NUMBER) {
+                    Value result = builtin_math_round(NULL, (Value[]){value}, 1, 0, 0);
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&value);
+                pc++;
+                break;
+            }
+            
             case BC_EVAL_AST: {
                 // Fallback to AST evaluation
                 if (instr->a < program->ast_count) {
                     ASTNode* node = program->ast_nodes[instr->a];
                     if (node) {
+                        // Synchronize bytecode variables with AST interpreter environment
+                        // This allows AST fallbacks to access bytecode-defined variables
+                        for (size_t i = 0; i < program->local_count && i < program->local_slot_count; i++) {
+                            if (program->local_names[i]) {
+                                Value local_val = program->locals[i];
+                                // Check if variable exists in environment
+                                if (environment_exists(interpreter->current_environment, program->local_names[i])) {
+                                    // Update existing variable
+                                    environment_assign(interpreter->current_environment, program->local_names[i], value_clone(&local_val));
+                                } else {
+                                    // Define new variable
+                                    environment_define(interpreter->current_environment, program->local_names[i], value_clone(&local_val));
+                                }
+                            }
+                        }
+                        
                         Value result = interpreter_execute(interpreter, node);
+                        
+                        // Synchronize back from AST environment to bytecode locals
+                        // This allows modifications in AST fallbacks to be visible in bytecode
+                        for (size_t i = 0; i < program->local_count && i < program->local_slot_count; i++) {
+                            if (program->local_names[i]) {
+                                Value env_val = environment_get(interpreter->current_environment, program->local_names[i]);
+                                if (env_val.type != VALUE_NULL) {
+                                    value_free(&program->locals[i]);
+                                    program->locals[i] = value_clone(&env_val);
+                                }
+                            }
+                        }
+                        
                         value_stack_push(result);
                     } else {
                         value_stack_push(value_create_null());
@@ -630,6 +1290,44 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 break;
             }
             
+            case BC_NUM_TO_VALUE: {
+                double num = num_stack_pop();
+                value_stack_push(value_create_number(num));
+                pc++;
+                break;
+            }
+            
+            
+            case BC_INC_LOCAL: {
+                if (instr->a < program->num_local_count) {
+                    program->num_locals[instr->a] += 1.0;
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_ADD_LOCAL_IMM: {
+                if (instr->a < program->num_local_count && instr->b < program->num_const_count) {
+                    program->num_locals[instr->a] += program->num_constants[instr->b];
+                    
+                    // Also update the value locals array for consistency
+                    if (instr->a < program->local_slot_count) {
+                        value_free(&program->locals[instr->a]);
+                        program->locals[instr->a] = value_create_number(program->num_locals[instr->a]);
+                    }
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_ADD_LLL: {
+                double c = num_stack_pop();
+                double b = num_stack_pop();
+                double a = num_stack_pop();
+                num_stack_push(a + b + c);
+                pc++;
+                break;
+            }
             
             default: {
                 // Unknown opcode - fallback to AST

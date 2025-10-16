@@ -11,3 +11,4 @@ let i = h - 50;
 let j = i / 2;
 
 print("Simple numeric benchmark: " + j.toString());
+

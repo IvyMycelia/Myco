@@ -14,6 +14,45 @@
 // Bytecode VM implementation
 // This implements a stack-based virtual machine for executing Myco bytecode
 
+// Execute a user-defined function's bytecode
+static Value bytecode_execute_function(Interpreter* interpreter, BytecodeFunction* func) {
+    if (!func || !func->code) {
+        return value_create_null();
+    }
+    
+    size_t pc = 0;
+    Value result = value_create_null();
+    
+    while (pc < func->code_count) {
+        BytecodeInstruction* instr = &func->code[pc];
+        
+        switch (instr->op) {
+            case BC_RETURN_VALUE: {
+                // For now, return null - we'll implement proper stack handling later
+                result = value_create_null();
+                return result;
+            }
+            case BC_RETURN_VOID: {
+                result = value_create_null();
+                return result;
+            }
+            case BC_HALT: {
+                return result;
+            }
+            // Handle other instructions by delegating to main VM
+            default: {
+                // For now, fall back to AST for complex instructions
+                // TODO: Implement full instruction set for functions
+                return value_create_null();
+            }
+        }
+        
+        pc++;
+    }
+    
+    return result;
+}
+
 // Stack operations
 static Value* value_stack = NULL;
 static size_t value_stack_size = 0;
@@ -1421,6 +1460,92 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 
                 value_free(&set);
                 value_free(&other_set);
+                pc++;
+                break;
+            }
+            
+            case BC_CALL_USER_FUNCTION: {
+                // Call user-defined function: a=func_id, b=arg_count
+                if (instr->a < program->function_count) {
+                    BytecodeFunction* func = &program->functions[instr->a];
+                    size_t arg_count = instr->b;
+                    
+                    // Get arguments from stack (in reverse order)
+                    Value* args = NULL;
+                    if (arg_count > 0) {
+                        args = shared_malloc_safe(arg_count * sizeof(Value), "bytecode_vm", "BC_CALL_USER_FUNCTION", 0);
+                        for (size_t i = 0; i < arg_count; i++) {
+                            args[arg_count - 1 - i] = value_stack_pop();
+                        }
+                    }
+                    
+                    // Create new environment for function execution
+                    Environment* func_env = environment_create(interpreter->current_environment);
+                    if (!func_env) {
+                        // Clean up arguments
+                        if (args) {
+                            for (size_t i = 0; i < arg_count; i++) {
+                                value_free(&args[i]);
+                            }
+                            shared_free_safe(args, "bytecode_vm", "BC_CALL_USER_FUNCTION", 1);
+                        }
+                        value_stack_push(value_create_null());
+                        pc++;
+                        break;
+                    }
+                    
+                    // Bind parameters to arguments
+                    for (size_t i = 0; i < func->param_count && i < arg_count; i++) {
+                        if (func->param_names[i]) {
+                            environment_define(func_env, func->param_names[i], args[i]);
+                        }
+                    }
+                    
+                    // Clean up arguments
+                    if (args) {
+                        for (size_t i = 0; i < arg_count; i++) {
+                            value_free(&args[i]);
+                        }
+                        shared_free_safe(args, "bytecode_vm", "BC_CALL_USER_FUNCTION", 2);
+                    }
+                    
+                    // Save current environment and set function environment
+                    Environment* old_env = interpreter->current_environment;
+                    interpreter->current_environment = func_env;
+                    
+                    // For now, fall back to AST execution for function bodies
+                    // TODO: Implement full bytecode execution for function bodies
+                    Value result = value_create_null();
+                    
+                    // Check if function has AST body
+                    if (func->ast_body) {
+                        result = interpreter_execute(interpreter, func->ast_body);
+                    }
+                    
+                    // Restore environment
+                    interpreter->current_environment = old_env;
+                    environment_free(func_env);
+                    
+                    value_stack_push(result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_RETURN_VALUE: {
+                // Return value from function: value on stack
+                Value return_val = value_stack_pop();
+                // The return value will be handled by the calling function
+                value_stack_push(return_val);
+                pc++;
+                break;
+            }
+            
+            case BC_RETURN_VOID: {
+                // Return void from function
+                value_stack_push(value_create_null());
                 pc++;
                 break;
             }

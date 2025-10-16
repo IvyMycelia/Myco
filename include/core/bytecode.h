@@ -84,6 +84,9 @@ typedef enum {
     BC_SET_TO_ARRAY,  // Set toArray method
     BC_SET_UNION,     // Set union method
     BC_SET_INTERSECTION, // Set intersection method
+    BC_CALL_USER_FUNCTION, // Call user-defined function: a=func_id, b=arg_count
+    BC_RETURN_VALUE,  // Return value from function: value on stack
+    BC_RETURN_VOID,   // Return void from function
     BC_EVAL_AST,      // Fallback: evaluate referenced AST subtree via eval_node()
     BC_POP,
     BC_HALT,
@@ -157,6 +160,7 @@ typedef struct {
     size_t local_count;         // Number of local variables for this function
     size_t num_local_start;     // Start of numeric locals for this function
     size_t num_local_count;     // Number of numeric locals for this function
+    ASTNode* ast_body;          // Original AST body for fallback execution
 } BytecodeFunction;
 
 typedef struct {

@@ -136,8 +136,10 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
                     // Non-numeric return - compile directly to value stack
                     compile_node_to_function(p, func, n->data.return_statement.value);
                 }
+                bc_emit_to_function(func, BC_RETURN_VALUE, 0, 0, 0); // Return with value
+            } else {
+                bc_emit_to_function(func, BC_RETURN_VOID, 0, 0, 0); // Return void
             }
-            bc_emit_to_function(func, (BytecodeOp)BC_RETURN, 1, 0, 0); // Return with value
         } break;
         case AST_NODE_BLOCK: {
             // Compile all statements in the block
@@ -170,10 +172,12 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
                 }
                 
                 if (func_id >= 0) {
-                    // For now, always fall back to AST for function calls
-                    // This ensures function calls work while we debug the bytecode execution
-                    int id = bc_add_ast(p, n);
-                    bc_emit_to_function(func, BC_EVAL_AST, id, 0, 0);
+                    // Compile arguments
+                    for (size_t i = 0; i < n->data.function_call.argument_count; i++) {
+                        compile_node_to_function(p, func, n->data.function_call.arguments[i]);
+                    }
+                    // Emit user function call instruction
+                    bc_emit_to_function(func, BC_CALL_USER_FUNCTION, func_id, (int)n->data.function_call.argument_count, 0);
                 } else {
                     // Function not found, fall back to AST
                     int id = bc_add_ast(p, n);
@@ -213,6 +217,9 @@ static int bc_add_function(BytecodeProgram* p, ASTNode* func) {
     // Allocate space for function bytecode
     bc_func->code_capacity = 64;
     bc_func->code = shared_malloc_safe(bc_func->code_capacity * sizeof(BytecodeInstruction), "bytecode", "bc_add_function", 3);
+    
+    // Store AST body for fallback execution
+    bc_func->ast_body = func->data.function_definition.body;
     
     // Compile function body to bytecode
     if (func->data.function_definition.body) {
@@ -1032,10 +1039,12 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                     }
                 }
                 if (func_id >= 0) {
-                    // For now, always fall back to AST for function calls
-                    // This ensures function calls work while we debug the bytecode execution
-                    int id = bc_add_ast(p, n);
-                    bc_emit(p, BC_EVAL_AST, id, 0);
+                    // Compile arguments
+                    for (size_t i = 0; i < n->data.function_call.argument_count; i++) {
+                        compile_node(p, n->data.function_call.arguments[i]);
+                    }
+                    // Emit user function call instruction
+                    bc_emit(p, BC_CALL_USER_FUNCTION, func_id, (int)n->data.function_call.argument_count);
                 } else {
                     // Function not found, fall back to AST
                     int id = bc_add_ast(p, n);

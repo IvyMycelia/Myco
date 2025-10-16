@@ -256,16 +256,24 @@ static Value bytecode_execute_function(Interpreter* interpreter, BytecodeFunctio
                     }
                     
                     // Bind parameters to arguments in both environment and bytecode locals
+                    // First, ensure we have enough space in the locals array
+                    while (program->local_count <= called_func->param_count) {
+                        if (program->local_count + 1 > program->local_slot_capacity) {
+                            size_t new_cap = program->local_slot_capacity ? program->local_slot_capacity * 2 : 16;
+                            program->locals = shared_realloc_safe(program->locals, new_cap * sizeof(Value), "bytecode_vm", "BC_CALL_USER_FUNCTION_recursive_locals", 0);
+                            program->local_slot_capacity = new_cap;
+                        }
+                        program->locals[program->local_count++] = value_create_null();
+                    }
+                    
                     for (size_t i = 0; i < called_func->param_count && i < arg_count; i++) {
                         if (called_func->param_names[i]) {
                             // Store in AST environment
                             environment_define(func_env, called_func->param_names[i], args[i]);
                             
                             // Store in bytecode locals array for function execution
-                            if (i < program->local_count) {
-                                value_free(&program->locals[i]);
-                                program->locals[i] = value_clone(&args[i]);
-                            }
+                            value_free(&program->locals[i]);
+                            program->locals[i] = value_clone(&args[i]);
                         }
                     }
                     
@@ -1690,16 +1698,24 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     }
                     
                     // Bind parameters to arguments in both environment and bytecode locals
+                    // First, ensure we have enough space in the locals array
+                    while (program->local_count <= func->param_count) {
+                        if (program->local_count + 1 > program->local_slot_capacity) {
+                            size_t new_cap = program->local_slot_capacity ? program->local_slot_capacity * 2 : 16;
+                            program->locals = shared_realloc_safe(program->locals, new_cap * sizeof(Value), "bytecode_vm", "BC_CALL_USER_FUNCTION_locals", 0);
+                            program->local_slot_capacity = new_cap;
+                        }
+                        program->locals[program->local_count++] = value_create_null();
+                    }
+                    
                     for (size_t i = 0; i < func->param_count && i < arg_count; i++) {
                         if (func->param_names[i]) {
                             // Store in AST environment
                             environment_define(func_env, func->param_names[i], args[i]);
                             
                             // Store in bytecode locals array for function execution
-                            if (i < program->local_count) {
-                                value_free(&program->locals[i]);
-                                program->locals[i] = value_clone(&args[i]);
-                            }
+                            value_free(&program->locals[i]);
+                            program->locals[i] = value_clone(&args[i]);
                         }
                     }
                     

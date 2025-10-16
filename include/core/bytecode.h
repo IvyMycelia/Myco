@@ -12,6 +12,8 @@ typedef enum {
     BC_LOAD_CONST = 1,
     BC_LOAD_LOCAL,
     BC_STORE_LOCAL,
+    BC_LOAD_GLOBAL,
+    BC_STORE_GLOBAL,
     BC_ADD,
     BC_SUB,
     BC_MUL,
@@ -24,12 +26,50 @@ typedef enum {
     BC_GE,
     BC_JUMP,
     BC_JUMP_IF_FALSE,
+    BC_LOOP_START,     // Start while loop
+    BC_LOOP_END,       // End while loop iteration
     BC_FOR_LOOP_START, // Start for loop: for i in range/array
     BC_FOR_LOOP_END,   // End for loop iteration
     BC_PRINT,         // Print top of stack
     BC_PRINT_MULTIPLE,// Print multiple values on one line
     BC_METHOD_CALL,   // Call method on object: obj.method(args...)
     BC_PROPERTY_ACCESS, // Access object property: obj.name
+    BC_CALL_BUILTIN,  // Call built-in function by name
+    BC_TO_STRING,     // Convert value to string
+    BC_GET_TYPE,      // Get value type
+    BC_GET_LENGTH,    // Get value length
+    BC_IS_STRING,     // Check if value is string
+    BC_IS_INT,        // Check if value is int
+    BC_IS_FLOAT,      // Check if value is float
+    BC_IS_BOOL,       // Check if value is bool
+    BC_IS_ARRAY,      // Check if value is array
+    BC_IS_NULL,       // Check if value is null
+    BC_ARRAY_PUSH,    // Push value to array
+    BC_ARRAY_POP,     // Pop value from array
+    BC_ARRAY_CONTAINS, // Check if array contains value
+    BC_ARRAY_INDEX_OF, // Get index of value in array
+    BC_ARRAY_JOIN,     // Join array elements with separator
+    BC_ARRAY_UNIQUE,   // Remove duplicates from array
+    BC_ARRAY_SLICE,    // Slice array from start to end
+    BC_ARRAY_CONCAT_METHOD, // Array concat method: arr.concat(other)
+    BC_CREATE_ARRAY,   // Create array from stack elements
+    BC_ARRAY_CONCAT,   // Concatenate arrays: arr1 + arr2
+    BC_CREATE_OBJECT,  // Create object from key-value pairs on stack
+    BC_IMPORT_LIB,     // Import library: use library_name
+    BC_STRING_UPPER,  // Convert string to uppercase
+    BC_STRING_LOWER,  // Convert string to lowercase
+    BC_STRING_TRIM,   // Trim string whitespace
+    BC_STRING_SPLIT,  // Split string by delimiter
+    BC_STRING_REPLACE, // Replace substring in string
+    BC_MATH_ABS,      // Math absolute value
+    BC_MATH_SQRT,     // Math square root
+    BC_MATH_POW,      // Math power
+    BC_MATH_SIN,      // Math sine
+    BC_MATH_COS,      // Math cosine
+    BC_MATH_TAN,      // Math tangent
+    BC_MATH_FLOOR,    // Math floor
+    BC_MATH_CEIL,     // Math ceiling
+    BC_MATH_ROUND,    // Math round
     BC_EVAL_AST,      // Fallback: evaluate referenced AST subtree via eval_node()
     BC_POP,
     BC_HALT,
@@ -47,22 +87,33 @@ typedef enum {
     BC_GE_NUM,        // Direct numeric greater equal
     BC_EQ_NUM,        // Direct numeric equality
     BC_NE_NUM,        // Direct numeric inequality
-    BC_VALUE_TO_NUM   // Convert Value to numeric
+    BC_VALUE_TO_NUM,  // Convert Value to numeric
+    // Superinstructions (register-like, numeric locals only)
+    BC_INC_LOCAL,     // a: num_locals[a] += 1
+    BC_ADD_LLL,       // a,b,c: a = b + c
+    BC_ADD_LOCAL_IMM, // a,b:   a += num_constants[b]
+    BC_CMP_LOCAL_IMM_JUMP_FALSE, // a,b,c: if (!(a < num_constants[b])) pc=c
+    BC_MUL_LOCAL_IMM, // a,b:   a *= num_constants[b]
+    BC_NUM_TO_VALUE,  // a:     convert num_stack to value_stack
+    BC_CALL_FUNCTION, // a:     call function at AST index a
+    BC_RETURN,        // a:     return (a=0: void, a=1: value on stack)
+    BC_PUSH_FRAME,    // a:     push new call frame (a = param count)
+    BC_POP_FRAME      // a:     pop call frame (a = return value count)
 } BytecodeOp;
 
-// Superinstructions (register-like, numeric locals only)
+// Legacy superinstruction enum (kept for compatibility)
 #define BC_SUPER_START 1000
 typedef enum {
-    BC_INC_LOCAL = BC_SUPER_START,                 // a: num_locals[a] += 1
-    BC_ADD_LLL,                                    // a,b,c: a = b + c
-    BC_ADD_LOCAL_IMM,                              // a,b:   a += num_constants[b]
-    BC_CMP_LOCAL_IMM_JUMP_FALSE,                   // a,b,c: if (!(a < num_constants[b])) pc=c
-    BC_MUL_LOCAL_IMM,                              // a,b:   a *= num_constants[b]
-    BC_NUM_TO_VALUE,                               // a:     convert num_stack to value_stack
-    BC_CALL_FUNCTION,                              // a:     call function at AST index a
-    BC_RETURN,                                     // a:     return (a=0: void, a=1: value on stack)
-    BC_PUSH_FRAME,                                 // a:     push new call frame (a = param count)
-    BC_POP_FRAME                                   // a:     pop call frame (a = return value count)
+    BC_INC_LOCAL_LEGACY = BC_SUPER_START,          // Legacy: use BC_INC_LOCAL instead
+    BC_ADD_LLL_LEGACY,                             // Legacy: use BC_ADD_LLL instead
+    BC_ADD_LOCAL_IMM_LEGACY,                       // Legacy: use BC_ADD_LOCAL_IMM instead
+    BC_CMP_LOCAL_IMM_JUMP_FALSE_LEGACY,            // Legacy: use BC_CMP_LOCAL_IMM_JUMP_FALSE instead
+    BC_MUL_LOCAL_IMM_LEGACY,                       // Legacy: use BC_MUL_LOCAL_IMM instead
+    BC_NUM_TO_VALUE_LEGACY,                        // Legacy: use BC_NUM_TO_VALUE instead
+    BC_CALL_FUNCTION_LEGACY,                       // Legacy: use BC_CALL_FUNCTION instead
+    BC_RETURN_LEGACY,                              // Legacy: use BC_RETURN instead
+    BC_PUSH_FRAME_LEGACY,                          // Legacy: use BC_PUSH_FRAME instead
+    BC_POP_FRAME_LEGACY                            // Legacy: use BC_POP_FRAME instead
 } BytecodeSuperOp;
 
 typedef struct {

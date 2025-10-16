@@ -3847,9 +3847,10 @@ print("Success rate: " + rate.toString() + "%");
 
 if total_tests - tests_passed > 0:
     print("Failed tests:");
+    print("First failed test: " + tests_failed[0].toString());
     
-    for i in tests_failed:
-        print("\t - " + i);
+    for test_name in tests_failed:
+        print("\t - " + test_name);
     end
 else:
     print("ALL TESTS PASSED!");

@@ -14,44 +14,6 @@
 // Bytecode VM implementation
 // This implements a stack-based virtual machine for executing Myco bytecode
 
-// Execute a user-defined function's bytecode
-static Value bytecode_execute_function(Interpreter* interpreter, BytecodeFunction* func) {
-    if (!func || !func->code) {
-        return value_create_null();
-    }
-    
-    size_t pc = 0;
-    Value result = value_create_null();
-    
-    while (pc < func->code_count) {
-        BytecodeInstruction* instr = &func->code[pc];
-        
-        switch (instr->op) {
-            case BC_RETURN_VALUE: {
-                // For now, return null - we'll implement proper stack handling later
-                result = value_create_null();
-                return result;
-            }
-            case BC_RETURN_VOID: {
-                result = value_create_null();
-                return result;
-            }
-            case BC_HALT: {
-                return result;
-            }
-            // Handle other instructions by delegating to main VM
-            default: {
-                // For now, fall back to AST for complex instructions
-                // TODO: Implement full instruction set for functions
-                return value_create_null();
-            }
-        }
-        
-        pc++;
-    }
-    
-    return result;
-}
 
 // Stack operations
 static Value* value_stack = NULL;
@@ -111,6 +73,206 @@ static double num_stack_peek(void) {
         return 0.0;
     }
     return num_stack[num_stack_size - 1];
+}
+
+// Execute a user-defined function's bytecode
+static Value bytecode_execute_function(Interpreter* interpreter, BytecodeFunction* func, BytecodeProgram* program) {
+    if (!func || !func->code) {
+        return value_create_null();
+    }
+    
+    size_t pc = 0;
+    Value result = value_create_null();
+    
+    while (pc < func->code_count) {
+        BytecodeInstruction* instr = &func->code[pc];
+        
+        switch (instr->op) {
+            case BC_RETURN_VALUE: {
+                result = value_stack_pop();
+                return result;
+            }
+            case BC_RETURN_VOID: {
+                result = value_create_null();
+                return result;
+            }
+            case BC_HALT: {
+                return result;
+            }
+            case BC_LOAD_CONST: {
+                if (instr->a < program->const_count) {
+                    value_stack_push(value_clone(&program->constants[instr->a]));
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            case BC_LOAD_LOCAL: {
+                if (instr->a < program->local_count) {
+                    value_stack_push(value_clone(&program->locals[instr->a]));
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            case BC_STORE_LOCAL: {
+                if (instr->a < program->local_count) {
+                    Value val = value_stack_pop();
+                    value_free(&program->locals[instr->a]);
+                    program->locals[instr->a] = val;
+                } else {
+                    value_stack_pop(); // Pop and discard
+                }
+                pc++;
+                break;
+            }
+            case BC_ADD: {
+                Value b = value_stack_pop();
+                Value a = value_stack_pop();
+                Value result = value_add(&a, &b);
+                value_free(&a);
+                value_free(&b);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            case BC_SUB: {
+                Value b = value_stack_pop();
+                Value a = value_stack_pop();
+                Value result = value_subtract(&a, &b);
+                value_free(&a);
+                value_free(&b);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            case BC_MUL: {
+                Value b = value_stack_pop();
+                Value a = value_stack_pop();
+                Value result = value_multiply(&a, &b);
+                value_free(&a);
+                value_free(&b);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            case BC_DIV: {
+                Value b = value_stack_pop();
+                Value a = value_stack_pop();
+                Value result = value_divide(&a, &b);
+                value_free(&a);
+                value_free(&b);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            case BC_TO_STRING: {
+                Value val = value_stack_pop();
+                Value result = value_to_string(&val);
+                value_free(&val);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            case BC_PRINT: {
+                Value val = value_stack_pop();
+                Value str = value_to_string(&val);
+                printf("%s", str.data.string_value);
+                value_free(&val);
+                value_free(&str);
+                pc++;
+                break;
+            }
+            case BC_PRINT_MULTIPLE: {
+                size_t count = instr->a;
+                for (size_t i = 0; i < count; i++) {
+                    Value val = value_stack_pop();
+                    Value str = value_to_string(&val);
+                    printf("%s", str.data.string_value);
+                    if (i < count - 1) printf(" ");
+                    value_free(&val);
+                    value_free(&str);
+                }
+                printf("\n");
+                pc++;
+                break;
+            }
+            case BC_CALL_USER_FUNCTION: {
+                // Recursive function call
+                if (instr->a < program->function_count) {
+                    BytecodeFunction* called_func = &program->functions[instr->a];
+                    size_t arg_count = instr->b;
+                    
+                    // Get arguments from stack (in reverse order)
+                    Value* args = NULL;
+                    if (arg_count > 0) {
+                        args = shared_malloc_safe(arg_count * sizeof(Value), "bytecode_vm", "BC_CALL_USER_FUNCTION_recursive", 0);
+                        for (size_t i = 0; i < arg_count; i++) {
+                            args[arg_count - 1 - i] = value_stack_pop();
+                        }
+                    }
+                    
+                    // Create new environment for function execution
+                    Environment* func_env = environment_create(interpreter->current_environment);
+                    if (!func_env) {
+                        // Clean up arguments
+                        if (args) {
+                            for (size_t i = 0; i < arg_count; i++) {
+                                value_free(&args[i]);
+                            }
+                            shared_free_safe(args, "bytecode_vm", "BC_CALL_USER_FUNCTION_recursive", 1);
+                        }
+                        value_stack_push(value_create_null());
+                        pc++;
+                        break;
+                    }
+                    
+                    // Bind parameters to arguments
+                    for (size_t i = 0; i < called_func->param_count && i < arg_count; i++) {
+                        if (called_func->param_names[i]) {
+                            environment_define(func_env, called_func->param_names[i], args[i]);
+                        }
+                    }
+                    
+                    // Clean up arguments
+                    if (args) {
+                        for (size_t i = 0; i < arg_count; i++) {
+                            value_free(&args[i]);
+                        }
+                        shared_free_safe(args, "bytecode_vm", "BC_CALL_USER_FUNCTION_recursive", 2);
+                    }
+                    
+                    // Save current environment and set function environment
+                    Environment* old_env = interpreter->current_environment;
+                    interpreter->current_environment = func_env;
+                    
+                    // Execute function bytecode recursively
+                    Value call_result = bytecode_execute_function(interpreter, called_func, program);
+                    
+                    // Restore environment
+                    interpreter->current_environment = old_env;
+                    environment_free(func_env);
+                    
+                    value_stack_push(call_result);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            // Handle other instructions by delegating to main VM
+            default: {
+                // For now, fall back to AST for complex instructions
+                // TODO: Implement full instruction set for functions
+                pc++;
+                break;
+            }
+        }
+    }
+    
+    return result;
 }
 
 // These functions are implemented in bytecode_compiler.c
@@ -1513,14 +1675,8 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     Environment* old_env = interpreter->current_environment;
                     interpreter->current_environment = func_env;
                     
-                    // For now, fall back to AST execution for function bodies
-                    // TODO: Implement full bytecode execution for function bodies
-                    Value result = value_create_null();
-                    
-                    // Check if function has AST body
-                    if (func->ast_body) {
-                        result = interpreter_execute(interpreter, func->ast_body);
-                    }
+                    // Execute function bytecode
+                    Value result = bytecode_execute_function(interpreter, func, program);
                     
                     // Restore environment
                     interpreter->current_environment = old_env;

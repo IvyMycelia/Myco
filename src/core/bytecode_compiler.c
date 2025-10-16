@@ -94,7 +94,7 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
             
             if (param_idx >= 0) {
                 // This is a function parameter - load from local variables
-                bc_emit_to_function(func, BC_LOAD_NUM_LOCAL, param_idx, 0, 0);
+                bc_emit_to_function(func, BC_LOAD_LOCAL, param_idx, 0, 0);
             } else {
                 // This is a regular variable - load as constant for now
                 int const_idx = bc_add_const(p, value_create_string(n->data.identifier_value));

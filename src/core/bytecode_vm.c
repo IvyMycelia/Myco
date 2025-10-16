@@ -255,10 +255,17 @@ static Value bytecode_execute_function(Interpreter* interpreter, BytecodeFunctio
                         break;
                     }
                     
-                    // Bind parameters to arguments
+                    // Bind parameters to arguments in both environment and bytecode locals
                     for (size_t i = 0; i < called_func->param_count && i < arg_count; i++) {
                         if (called_func->param_names[i]) {
+                            // Store in AST environment
                             environment_define(func_env, called_func->param_names[i], args[i]);
+                            
+                            // Store in bytecode locals array for function execution
+                            if (i < program->local_count) {
+                                value_free(&program->locals[i]);
+                                program->locals[i] = value_clone(&args[i]);
+                            }
                         }
                     }
                     
@@ -1682,10 +1689,17 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         break;
                     }
                     
-                    // Bind parameters to arguments
+                    // Bind parameters to arguments in both environment and bytecode locals
                     for (size_t i = 0; i < func->param_count && i < arg_count; i++) {
                         if (func->param_names[i]) {
+                            // Store in AST environment
                             environment_define(func_env, func->param_names[i], args[i]);
+                            
+                            // Store in bytecode locals array for function execution
+                            if (i < program->local_count) {
+                                value_free(&program->locals[i]);
+                                program->locals[i] = value_clone(&args[i]);
+                            }
                         }
                     }
                     

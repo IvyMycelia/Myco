@@ -108,6 +108,24 @@ static Value bytecode_execute_function(Interpreter* interpreter, BytecodeFunctio
                 pc++;
                 break;
             }
+            case BC_LOAD_NUM: {
+                if (instr->a < program->num_const_count) {
+                    num_stack_push(program->num_constants[instr->a]);
+                } else {
+                    num_stack_push(0.0);
+                }
+                pc++;
+                break;
+            }
+            case BC_LOAD_NUM_LOCAL: {
+                if (instr->a < program->num_local_count) {
+                    num_stack_push(program->num_locals[instr->a]);
+                } else {
+                    num_stack_push(0.0);
+                }
+                pc++;
+                break;
+            }
             case BC_LOAD_LOCAL: {
                 if (instr->a < program->local_count) {
                     value_stack_push(value_clone(&program->locals[instr->a]));
@@ -172,6 +190,14 @@ static Value bytecode_execute_function(Interpreter* interpreter, BytecodeFunctio
                 Value val = value_stack_pop();
                 Value result = value_to_string(&val);
                 value_free(&val);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            case BC_NUM_TO_VALUE: {
+                // Convert numeric value to Value type
+                double num_val = num_stack_pop();
+                Value result = value_create_number(num_val);
                 value_stack_push(result);
                 pc++;
                 break;

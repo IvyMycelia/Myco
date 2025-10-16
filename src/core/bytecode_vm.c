@@ -78,14 +78,18 @@ static double num_stack_peek(void) {
 // Execute a user-defined function's bytecode
 static Value bytecode_execute_function(Interpreter* interpreter, BytecodeFunction* func, BytecodeProgram* program) {
     if (!func || !func->code) {
+        printf("DEBUG: Function has no code, falling back to AST\n");
         return value_create_null();
     }
+    
+    printf("DEBUG: Executing function %s with %zu instructions\n", func->name ? func->name : "unknown", func->code_count);
     
     size_t pc = 0;
     Value result = value_create_null();
     
     while (pc < func->code_count) {
         BytecodeInstruction* instr = &func->code[pc];
+        printf("DEBUG: Instruction %zu: op=%d, a=%d, b=%d\n", pc, instr->op, instr->a, instr->b);
         
         switch (instr->op) {
             case BC_RETURN_VALUE: {

@@ -343,7 +343,7 @@ static bool is_builtin_function(const char* name) {
         "abs", "sqrt", "pow", "sin", "cos", "tan", "log", "exp",
         "push", "pop", "shift", "unshift", "join", "split", "substring",
         "keys", "values", "has", "get", "set", "delete",
-        "add", "remove", "contains", "size", "clear",
+        "remove", "contains", "size", "clear",
         "enqueue", "dequeue", "peek", "isEmpty",
         "push_stack", "pop_stack", "top", "is_empty",
         "insert", "remove_node", "find", "traverse",
@@ -352,7 +352,7 @@ static bool is_builtin_function(const char* name) {
         "parse", "stringify", "get", "set", "has", "delete",
         "get", "post", "put", "delete", "head", "options",
         "match", "replace", "split", "test", "exec",
-        "now", "sleep", "format", "parse", "add", "subtract",
+        "now", "sleep", "format", "parse", "subtract",
         "create", "insert", "delete", "search", "inorder", "preorder", "postorder"
     };
     
@@ -1030,10 +1030,8 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                 
                 for (size_t i = 0; i < p->function_count; i++) {
                     if (p->functions[i].name) {
-                        
                         if (strcmp(p->functions[i].name, n->data.function_call.function_name) == 0) {
                             func_id = (int)i;
-                            
                             break;
                         }
                     }

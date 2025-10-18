@@ -39,11 +39,14 @@ typedef enum {
     BC_GET_TYPE,      // Get value type
     BC_GET_LENGTH,    // Get value length
     BC_IS_STRING,     // Check if value is string
+    BC_IS_NUMBER,     // Check if value is number
     BC_IS_INT,        // Check if value is int
     BC_IS_FLOAT,      // Check if value is float
     BC_IS_BOOL,       // Check if value is bool
     BC_IS_ARRAY,      // Check if value is array
     BC_IS_NULL,       // Check if value is null
+    BC_IS_OBJECT,     // Check if value is object
+    BC_IS_FUNCTION,   // Check if value is function
     BC_ARRAY_PUSH,    // Push value to array
     BC_ARRAY_POP,     // Pop value from array
     BC_ARRAY_CONTAINS, // Check if array contains value

@@ -513,6 +513,48 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 if (instr->a < program->const_count && program->constants[instr->a].type == VALUE_STRING) {
                     const char* prop_name = program->constants[instr->a].data.string_value;
                     Value object = value_stack_pop();
+                    
+                    // Special handling for .type property (matches AST interpreter logic)
+                    if (strcmp(prop_name, "type") == 0) {
+                        // For objects, check for __type__ override (e.g., Library)
+                        if (object.type == VALUE_OBJECT) {
+                            Value type_override = value_object_get(&object, "__type__");
+                            if (type_override.type == VALUE_STRING) {
+                                value_stack_push(type_override);
+                                value_free(&object);
+                                pc++;
+                                break;
+                            }
+                            value_free(&type_override);
+                            
+                            // Check for __class_name__ (class instances)
+                            Value class_name = value_object_get(&object, "__class_name__");
+                            if (class_name.type == VALUE_STRING) {
+                                value_stack_push(class_name);
+                                value_free(&object);
+                                pc++;
+                                break;
+                            }
+                            value_free(&class_name);
+                        }
+                        
+                        // For numbers, distinguish Int vs Float
+                        if (object.type == VALUE_NUMBER) {
+                            const char* num_type = (object.data.number_value == (long long)object.data.number_value) ? "Int" : "Float";
+                            value_stack_push(value_create_string(num_type));
+                            value_free(&object);
+                            pc++;
+                            break;
+                        }
+                        
+                        // Default: return type string
+                        value_stack_push(value_create_string(value_type_to_string(object.type)));
+                        value_free(&object);
+                        pc++;
+                        break;
+                    }
+                    
+                    // Default property access
                     Value prop = value_object_get(&object, prop_name);
                     value_stack_push(prop);
                     value_free(&object);
@@ -552,9 +594,46 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             case BC_GET_TYPE: {
-                // Get value type as string
+                // Get value type as string (matches AST interpreter logic)
                 Value val = value_stack_pop();
-                Value result = value_create_string(value_type_to_string(val.type));
+                Value result;
+                
+                // For objects, check for __type__ override (e.g., Library)
+                if (val.type == VALUE_OBJECT) {
+                    Value type_override = value_object_get(&val, "__type__");
+                    if (type_override.type == VALUE_STRING) {
+                        result = type_override;
+                        value_free(&val);
+                        value_stack_push(result);
+                        pc++;
+                        break;
+                    }
+                    value_free(&type_override);
+                    
+                    // Check for __class_name__ (class instances)
+                    Value class_name = value_object_get(&val, "__class_name__");
+                    if (class_name.type == VALUE_STRING) {
+                        result = class_name;
+                        value_free(&val);
+                        value_stack_push(result);
+                        pc++;
+                        break;
+                    }
+                    value_free(&class_name);
+                }
+                
+                // For numbers, distinguish Int vs Float
+                if (val.type == VALUE_NUMBER) {
+                    const char* num_type = (val.data.number_value == (long long)val.data.number_value) ? "Int" : "Float";
+                    result = value_create_string(num_type);
+                    value_free(&val);
+                    value_stack_push(result);
+                    pc++;
+                    break;
+                }
+                
+                // Default: return type string
+                result = value_create_string(value_type_to_string(val.type));
                 value_free(&val);
                 value_stack_push(result);
                 pc++;

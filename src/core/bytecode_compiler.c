@@ -681,6 +681,15 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             } else if (strcmp(member_name, "isNull") == 0) {
                 compile_node(p, n->data.member_access.object);
                 bc_emit(p, BC_IS_NULL, 0, 0);
+            } else if (strcmp(member_name, "isNumber") == 0) {
+                compile_node(p, n->data.member_access.object);
+                bc_emit(p, BC_IS_NUMBER, 0, 0);
+            } else if (strcmp(member_name, "isObject") == 0) {
+                compile_node(p, n->data.member_access.object);
+                bc_emit(p, BC_IS_OBJECT, 0, 0);
+            } else if (strcmp(member_name, "isFunction") == 0) {
+                compile_node(p, n->data.member_access.object);
+                bc_emit(p, BC_IS_FUNCTION, 0, 0);
             } else if (strcmp(member_name, "upper") == 0) {
                 compile_node(p, n->data.member_access.object);
                 bc_emit(p, BC_STRING_UPPER, 0, 0);
@@ -735,6 +744,24 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                     bc_emit(p, BC_GET_TYPE, 0, 0);
                 } else if (strcmp(method_name, "length") == 0 && n->data.function_call_expr.argument_count == 0) {
                     bc_emit(p, BC_GET_LENGTH, 0, 0);
+                } else if (strcmp(method_name, "isString") == 0 && n->data.function_call_expr.argument_count == 0) {
+                    bc_emit(p, BC_IS_STRING, 0, 0);
+                } else if (strcmp(method_name, "isNumber") == 0 && n->data.function_call_expr.argument_count == 0) {
+                    bc_emit(p, BC_IS_NUMBER, 0, 0);
+                } else if (strcmp(method_name, "isInt") == 0 && n->data.function_call_expr.argument_count == 0) {
+                    bc_emit(p, BC_IS_INT, 0, 0);
+                } else if (strcmp(method_name, "isFloat") == 0 && n->data.function_call_expr.argument_count == 0) {
+                    bc_emit(p, BC_IS_FLOAT, 0, 0);
+                } else if (strcmp(method_name, "isBool") == 0 && n->data.function_call_expr.argument_count == 0) {
+                    bc_emit(p, BC_IS_BOOL, 0, 0);
+                } else if (strcmp(method_name, "isArray") == 0 && n->data.function_call_expr.argument_count == 0) {
+                    bc_emit(p, BC_IS_ARRAY, 0, 0);
+                } else if (strcmp(method_name, "isNull") == 0 && n->data.function_call_expr.argument_count == 0) {
+                    bc_emit(p, BC_IS_NULL, 0, 0);
+                } else if (strcmp(method_name, "isObject") == 0 && n->data.function_call_expr.argument_count == 0) {
+                    bc_emit(p, BC_IS_OBJECT, 0, 0);
+                } else if (strcmp(method_name, "isFunction") == 0 && n->data.function_call_expr.argument_count == 0) {
+                    bc_emit(p, BC_IS_FUNCTION, 0, 0);
                 } else {
                     // Check for array methods
                     if (strcmp(method_name, "contains") == 0) {

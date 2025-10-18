@@ -702,6 +702,16 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 break;
             }
             
+            case BC_IS_NUMBER: {
+                // Check if value is number
+                Value val = value_stack_pop();
+                Value result = value_create_boolean(val.type == VALUE_NUMBER);
+                value_free(&val);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            
             case BC_IS_INT: {
                 // Check if value is int
                 Value val = value_stack_pop();
@@ -746,6 +756,26 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 // Check if value is null
                 Value val = value_stack_pop();
                 Value result = value_create_boolean(val.type == VALUE_NULL);
+                value_free(&val);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            
+            case BC_IS_OBJECT: {
+                // Check if value is object
+                Value val = value_stack_pop();
+                Value result = value_create_boolean(val.type == VALUE_OBJECT);
+                value_free(&val);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            
+            case BC_IS_FUNCTION: {
+                // Check if value is function
+                Value val = value_stack_pop();
+                Value result = value_create_boolean(val.type == VALUE_FUNCTION);
                 value_free(&val);
                 value_stack_push(result);
                 pc++;

@@ -70,6 +70,20 @@ typedef enum {
     BC_MATH_FLOOR,    // Math floor
     BC_MATH_CEIL,     // Math ceiling
     BC_MATH_ROUND,    // Math round
+    BC_MAP_HAS,       // Map has key check
+    BC_MAP_SIZE,      // Map size property
+    BC_MAP_KEYS,      // Map keys method
+    BC_MAP_DELETE,    // Map delete method
+    BC_MAP_CLEAR,     // Map clear method
+    BC_MAP_UPDATE,    // Map update method
+    BC_SET_ADD,       // Set add method
+    BC_SET_HAS,       // Set has element check
+    BC_SET_REMOVE,    // Set remove method
+    BC_SET_SIZE,      // Set size property
+    BC_SET_CLEAR,     // Set clear method
+    BC_SET_TO_ARRAY,  // Set toArray method
+    BC_SET_UNION,     // Set union method
+    BC_SET_INTERSECTION, // Set intersection method
     BC_EVAL_AST,      // Fallback: evaluate referenced AST subtree via eval_node()
     BC_POP,
     BC_HALT,

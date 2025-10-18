@@ -867,7 +867,7 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                         int method_name_idx = bc_add_const(p, value_create_string(method_name));
                         
                         // Emit method call instruction
-                        bc_emit(p, BC_METHOD_CALL, (int)n->data.function_call_expr.argument_count, method_name_idx);
+                        bc_emit(p, BC_METHOD_CALL, method_name_idx, (int)n->data.function_call_expr.argument_count);
                     }
                 }
             } else {

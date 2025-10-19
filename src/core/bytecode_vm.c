@@ -411,12 +411,15 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             case BC_METHOD_CALL: {
+                // Declare variables outside the if block
+                int arg_count = instr->b;
+                Value* args = NULL;
+                Value object = value_create_null();
+                
                 // Get method name from constant pool
                 if (instr->a < program->const_count && program->constants[instr->a].type == VALUE_STRING) {
                     const char* method_name = program->constants[instr->a].data.string_value;
                     // Get arguments from stack (in reverse order)
-                    int arg_count = instr->b;
-                    Value* args = NULL;
                     if (arg_count > 0) {
                         args = shared_malloc_safe(arg_count * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL", 7);
                         for (int i = arg_count - 1; i >= 0; i--) {
@@ -425,7 +428,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     }
                     
                     // Get object from stack
-                    Value object = value_stack_pop();
+                    object = value_stack_pop();
                     // Handle different object types
                     if (object.type == VALUE_HASH_MAP) {
                         // Handle map methods
@@ -433,17 +436,11 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             Value result = builtin_map_has(NULL, (Value[]){object, args[0]}, 2, 0, 0);
                             value_stack_push(result);
                         } else if (strcmp(method_name, "delete") == 0) {
-                            // Get key from stack
-                            Value key = value_stack_pop();
-                            Value result = builtin_map_delete(NULL, (Value[]){object, key}, 2, 0, 0);
+                            Value result = builtin_map_delete(NULL, (Value[]){object, args[0]}, 2, 0, 0);
                             value_stack_push(result);
-                            value_free(&key);
                         } else if (strcmp(method_name, "update") == 0) {
-                            // Get other map from stack
-                            Value other_map = value_stack_pop();
-                            Value result = builtin_map_update(NULL, (Value[]){object, other_map}, 2, 0, 0);
+                            Value result = builtin_map_update(NULL, (Value[]){object, args[0]}, 2, 0, 0);
                             value_stack_push(result);
-                            value_free(&other_map);
                         } else if (strcmp(method_name, "keys") == 0) {
                             Value result = builtin_map_keys(NULL, (Value[]){object}, 1, 0, 0);
                             value_stack_push(result);
@@ -459,23 +456,14 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     } else if (object.type == VALUE_SET) {
                         // Handle set methods
                         if (strcmp(method_name, "add") == 0) {
-                            // Get element from stack
-                            Value element = value_stack_pop();
-                            Value result = builtin_set_add(NULL, (Value[]){object, element}, 2, 0, 0);
+                            Value result = builtin_set_add(NULL, (Value[]){object, args[0]}, 2, 0, 0);
                             value_stack_push(result);
-                            value_free(&element);
                         } else if (strcmp(method_name, "has") == 0) {
-                            // Get element from stack
-                            Value element = value_stack_pop();
-                            Value result = builtin_set_has(NULL, (Value[]){object, element}, 2, 0, 0);
+                            Value result = builtin_set_has(NULL, (Value[]){object, args[0]}, 2, 0, 0);
                             value_stack_push(result);
-                            value_free(&element);
                         } else if (strcmp(method_name, "remove") == 0) {
-                            // Get element from stack
-                            Value element = value_stack_pop();
-                            Value result = builtin_set_remove(NULL, (Value[]){object, element}, 2, 0, 0);
+                            Value result = builtin_set_remove(NULL, (Value[]){object, args[0]}, 2, 0, 0);
                             value_stack_push(result);
-                            value_free(&element);
                         } else if (strcmp(method_name, "clear") == 0) {
                             Value result = builtin_set_clear(NULL, (Value[]){object}, 1, 0, 0);
                             value_stack_push(result);
@@ -486,66 +474,14 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             Value result = builtin_set_to_array(NULL, (Value[]){object}, 1, 0, 0);
                             value_stack_push(result);
                         } else if (strcmp(method_name, "union") == 0) {
-                            // Get other set from stack
-                            Value other_set = value_stack_pop();
-                            Value result = builtin_set_union(NULL, (Value[]){object, other_set}, 2, 0, 0);
+                            Value result = builtin_set_union(NULL, (Value[]){object, args[0]}, 2, 0, 0);
                             value_stack_push(result);
-                            value_free(&other_set);
                         } else if (strcmp(method_name, "intersection") == 0) {
-                            // Get other set from stack
-                            Value other_set = value_stack_pop();
-                            Value result = builtin_set_intersection(NULL, (Value[]){object, other_set}, 2, 0, 0);
+                            Value result = builtin_set_intersection(NULL, (Value[]){object, args[0]}, 2, 0, 0);
                             value_stack_push(result);
-                            value_free(&other_set);
                         } else {
                             value_stack_push(value_create_null());
                         }
-                        value_free(&object);
-                    } else if (object.type == VALUE_SET) {
-                        // Handle set methods
-                        if (strcmp(method_name, "add") == 0) {
-                            // Get element from stack
-                            Value element = value_stack_pop();
-                            Value result = builtin_set_add(NULL, (Value[]){object, element}, 2, 0, 0);
-                            value_stack_push(result);
-                            value_free(&element);
-                        } else if (strcmp(method_name, "has") == 0) {
-                            // Get element from stack
-                            Value element = value_stack_pop();
-                            Value result = builtin_set_has(NULL, (Value[]){object, element}, 2, 0, 0);
-                            value_stack_push(result);
-                            value_free(&element);
-                        } else if (strcmp(method_name, "remove") == 0) {
-                            // Get element from stack
-                            Value element = value_stack_pop();
-                            Value result = builtin_set_remove(NULL, (Value[]){object, element}, 2, 0, 0);
-                            value_stack_push(result);
-                            value_free(&element);
-                        } else if (strcmp(method_name, "clear") == 0) {
-                            Value result = builtin_set_clear(NULL, (Value[]){object}, 1, 0, 0);
-                            value_stack_push(result);
-                        } else if (strcmp(method_name, "size") == 0) {
-                            Value result = builtin_set_size(NULL, (Value[]){object}, 1, 0, 0);
-                            value_stack_push(result);
-                        } else if (strcmp(method_name, "toArray") == 0) {
-                            Value result = builtin_set_to_array(NULL, (Value[]){object}, 1, 0, 0);
-                            value_stack_push(result);
-                        } else if (strcmp(method_name, "union") == 0) {
-                            // Get other set from stack
-                            Value other_set = value_stack_pop();
-                            Value result = builtin_set_union(NULL, (Value[]){object, other_set}, 2, 0, 0);
-                            value_stack_push(result);
-                            value_free(&other_set);
-                        } else if (strcmp(method_name, "intersection") == 0) {
-                            // Get other set from stack
-                            Value other_set = value_stack_pop();
-                            Value result = builtin_set_intersection(NULL, (Value[]){object, other_set}, 2, 0, 0);
-                            value_stack_push(result);
-                            value_free(&other_set);
-                        } else {
-                            value_stack_push(value_create_null());
-                        }
-                        value_free(&object);
                     } else if (object.type == VALUE_OBJECT) {
                         // Check if it's a library object first
                         Value library_type = value_object_get(&object, "__type__");
@@ -669,7 +605,17 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 } else {
                     // Unknown object type - return null
                     value_stack_push(value_create_null());
+                    value_free(&object);
                 }
+                
+                // Clean up arguments
+                if (args) {
+                    for (int i = 0; i < arg_count; i++) {
+                        value_free(&args[i]);
+                    }
+                    shared_free_safe(args, "bytecode_vm", "BC_METHOD_CALL", 8);
+                }
+                
                 pc++;
                 break;
             }

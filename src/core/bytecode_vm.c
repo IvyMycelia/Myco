@@ -160,7 +160,6 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
         } else {
             // Handle regular bytecode operations
-            printf("DEBUG: Executing instruction %d at pc=%zu\n", instr->op, pc);
             switch (instr->op) {
             case BC_LOAD_CONST: {
                 if (instr->a < program->const_count) {
@@ -429,10 +428,8 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     Value object = value_stack_pop();
                     // Handle different object types
                     if (object.type == VALUE_HASH_MAP) {
-                        printf("DEBUG: Processing VALUE_HASH_MAP method: %s\n", method_name);
                         // Handle map methods
                         if (strcmp(method_name, "has") == 0) {
-                            printf("DEBUG: Calling builtin_map_has\n");
                             Value result = builtin_map_has(NULL, (Value[]){object, args[0]}, 2, 0, 0);
                             value_stack_push(result);
                         } else if (strcmp(method_name, "delete") == 0) {
@@ -568,7 +565,6 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                 
                                 // Call library method
                                 Value result = value_function_call(&method, args, arg_count, interpreter, 0, 0);
-                                printf("DEBUG: Library method result.type=%d\n", result.type);
                                 
                                 // Clean up arguments
                                 if (args) {
@@ -578,13 +574,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                     shared_free_safe(args, "bytecode_vm", "BC_METHOD_CALL", 6);
                                 }
                                 
-                                printf("DEBUG: Pushing result to stack, type=%d\n", result.type);
                                 value_stack_push(result);
-                                printf("DEBUG: Stack size after push=%zu\n", value_stack_size);
-                                // Verify what's on top of stack
-                                if (value_stack_size > 0) {
-                                    printf("DEBUG: Top of stack type=%d\n", value_stack[value_stack_size-1].type);
-                                }
                             } else {
                                 value_stack_push(value_create_null());
                             }

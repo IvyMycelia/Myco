@@ -12,7 +12,7 @@
 #include <stdlib.h>
 
 // Forward declarations
-Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunction* func, Value* args, int arg_count);
+Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunction* func, Value* args, int arg_count, BytecodeProgram* program);
 
 // Bytecode VM implementation
 // This implements a stack-based virtual machine for executing Myco bytecode
@@ -130,16 +130,6 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     break;
                 }
                 
-                case BC_RETURN: {
-                    if (instr->a == 0) {
-                        // Void return
-                        result = value_create_null();
-                    } else {
-                        // Value return
-                        result = value_stack_pop();
-                    }
-                    goto cleanup;
-                }
                 
                 default: {
                     // Unknown superinstruction - fallback to AST
@@ -640,6 +630,17 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 break;
             }
             
+            case BC_RETURN: {
+                if (instr->a == 0) {
+                    // Void return
+                    result = value_create_null();
+                } else {
+                    // Value return
+                    result = value_stack_pop();
+                }
+                goto cleanup;
+            }
+            
             case BC_CALL_USER_FUNCTION: {
                 // Call user-defined function: func(args...)
                 // instr->a = function index, instr->b = argument count
@@ -658,8 +659,8 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         }
                     }
                     
-                    // Execute function bytecode
-                    Value result = bytecode_execute_function_bytecode(interpreter, func, args, arg_count);
+                // Execute function bytecode
+                Value result = bytecode_execute_function_bytecode(interpreter, func, args, arg_count, program);
                     
                     // Clean up arguments
                     if (args) {
@@ -1805,25 +1806,41 @@ cleanup:
 }
 
 // Execute a user-defined function's bytecode
-Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunction* func, Value* args, int arg_count) {
+Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunction* func, Value* args, int arg_count, BytecodeProgram* program) {
     if (!func || !interpreter) {
         return value_create_null();
     }
     
-    // For now, we'll execute the function bytecode directly
-    // TODO: Implement proper function parameter binding
+    // Create new environment for function execution
+    Environment* func_env = environment_create(interpreter->current_environment);
+    if (!func_env) {
+        return value_create_null();
+    }
+    
+    // Bind parameters to arguments
+    size_t param_count = func->param_count;
+    for (size_t i = 0; i < param_count && i < (size_t)arg_count; i++) {
+        if (func->param_names[i]) {
+            const char* param_name = func->param_names[i];
+            environment_define(func_env, param_name, args[i]);
+        }
+    }
+    
+    // Save current environment and set function environment
+    Environment* old_env = interpreter->current_environment;
+    interpreter->current_environment = func_env;
     
     // Execute the function's bytecode
     Value result = value_create_null();
     
-    // Simple implementation: execute the function's bytecode
     if (func->code_count > 0) {
         // Create a temporary program with just this function's code
+        // We need to pass the constants from the main program
         BytecodeProgram temp_program = {0};
         temp_program.code = func->code;
         temp_program.count = func->code_count;
-        temp_program.const_count = 0;
-        temp_program.constants = NULL;
+        temp_program.const_count = program ? program->const_count : 0;
+        temp_program.constants = program ? program->constants : NULL;
         temp_program.ast_count = 0;
         temp_program.ast_nodes = NULL;
         temp_program.function_count = 0;
@@ -1831,7 +1848,19 @@ Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunct
         
         // Execute the function's bytecode
         result = bytecode_execute(&temp_program, interpreter, 0);
+        
+        // Check if the function returned a value
+        if (interpreter->has_return) {
+            result = interpreter->return_value;
+            interpreter->has_return = 0; // Reset return flag
+        }
     }
+    
+    // Restore old environment
+    interpreter->current_environment = old_env;
+    
+    // Clean up function environment
+    environment_free(func_env);
     
     return result;
 }

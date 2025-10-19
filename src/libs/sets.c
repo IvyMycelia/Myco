@@ -7,6 +7,12 @@
 #include "../../include/utils/shared_utilities.h"
 
 // Set operations
+
+// Create a new empty set
+Value builtin_set_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    return value_create_set(0);
+}
+
 Value builtin_set_add(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
         std_error_report(ERROR_INTERNAL_ERROR, "sets", "unknown_function", "set.add() expects exactly 1 argument: element", line, column);
@@ -202,7 +208,16 @@ Value builtin_set_intersection(Interpreter* interpreter, Value* args, size_t arg
 // Register the sets library
 void sets_library_register(Interpreter* interpreter) {
     if (!interpreter) return;
+    if (!interpreter->global_environment) return;
     
-    // Sets library is now built-in and methods are called directly on set objects
-    // No global sets object needed
+    // Expose a library object for sets with __type__="Library"
+    Value sets_lib = value_create_object(8);
+    value_object_set(&sets_lib, "__type__", value_create_string("Library"));
+    value_object_set(&sets_lib, "type", value_create_string("Library"));
+    
+    // Add functions
+    value_object_set(&sets_lib, "create", value_create_builtin_function(builtin_set_create));
+    
+    // Register in global environment
+    environment_define(interpreter->global_environment, "sets", sets_lib);
 }

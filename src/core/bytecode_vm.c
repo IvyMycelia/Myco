@@ -11,6 +11,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// Forward declarations
+Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunction* func, Value* args, int arg_count);
+
 // Bytecode VM implementation
 // This implements a stack-based virtual machine for executing Myco bytecode
 
@@ -157,6 +160,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
         } else {
             // Handle regular bytecode operations
+            printf("DEBUG: Executing instruction %d at pc=%zu\n", instr->op, pc);
             switch (instr->op) {
             case BC_LOAD_CONST: {
                 if (instr->a < program->const_count) {
@@ -411,12 +415,141 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 // Get method name from constant pool
                 if (instr->a < program->const_count && program->constants[instr->a].type == VALUE_STRING) {
                     const char* method_name = program->constants[instr->a].data.string_value;
+                    // Get arguments from stack (in reverse order)
+                    int arg_count = instr->b;
+                    Value* args = NULL;
+                    if (arg_count > 0) {
+                        args = shared_malloc_safe(arg_count * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL", 7);
+                        for (int i = arg_count - 1; i >= 0; i--) {
+                            args[i] = value_stack_pop();
+                        }
+                    }
                     
                     // Get object from stack
                     Value object = value_stack_pop();
-                    
                     // Handle different object types
-                    if (object.type == VALUE_OBJECT) {
+                    if (object.type == VALUE_HASH_MAP) {
+                        printf("DEBUG: Processing VALUE_HASH_MAP method: %s\n", method_name);
+                        // Handle map methods
+                        if (strcmp(method_name, "has") == 0) {
+                            printf("DEBUG: Calling builtin_map_has\n");
+                            Value result = builtin_map_has(NULL, (Value[]){object, args[0]}, 2, 0, 0);
+                            value_stack_push(result);
+                        } else if (strcmp(method_name, "delete") == 0) {
+                            // Get key from stack
+                            Value key = value_stack_pop();
+                            Value result = builtin_map_delete(NULL, (Value[]){object, key}, 2, 0, 0);
+                            value_stack_push(result);
+                            value_free(&key);
+                        } else if (strcmp(method_name, "update") == 0) {
+                            // Get other map from stack
+                            Value other_map = value_stack_pop();
+                            Value result = builtin_map_update(NULL, (Value[]){object, other_map}, 2, 0, 0);
+                            value_stack_push(result);
+                            value_free(&other_map);
+                        } else if (strcmp(method_name, "keys") == 0) {
+                            Value result = builtin_map_keys(NULL, (Value[]){object}, 1, 0, 0);
+                            value_stack_push(result);
+                        } else if (strcmp(method_name, "clear") == 0) {
+                            Value result = builtin_map_clear(NULL, (Value[]){object}, 1, 0, 0);
+                            value_stack_push(result);
+                        } else if (strcmp(method_name, "size") == 0) {
+                            Value result = builtin_map_size(NULL, (Value[]){object}, 1, 0, 0);
+                            value_stack_push(result);
+                        } else {
+                            value_stack_push(value_create_null());
+                        }
+                    } else if (object.type == VALUE_SET) {
+                        // Handle set methods
+                        if (strcmp(method_name, "add") == 0) {
+                            // Get element from stack
+                            Value element = value_stack_pop();
+                            Value result = builtin_set_add(NULL, (Value[]){object, element}, 2, 0, 0);
+                            value_stack_push(result);
+                            value_free(&element);
+                        } else if (strcmp(method_name, "has") == 0) {
+                            // Get element from stack
+                            Value element = value_stack_pop();
+                            Value result = builtin_set_has(NULL, (Value[]){object, element}, 2, 0, 0);
+                            value_stack_push(result);
+                            value_free(&element);
+                        } else if (strcmp(method_name, "remove") == 0) {
+                            // Get element from stack
+                            Value element = value_stack_pop();
+                            Value result = builtin_set_remove(NULL, (Value[]){object, element}, 2, 0, 0);
+                            value_stack_push(result);
+                            value_free(&element);
+                        } else if (strcmp(method_name, "clear") == 0) {
+                            Value result = builtin_set_clear(NULL, (Value[]){object}, 1, 0, 0);
+                            value_stack_push(result);
+                        } else if (strcmp(method_name, "size") == 0) {
+                            Value result = builtin_set_size(NULL, (Value[]){object}, 1, 0, 0);
+                            value_stack_push(result);
+                        } else if (strcmp(method_name, "toArray") == 0) {
+                            Value result = builtin_set_to_array(NULL, (Value[]){object}, 1, 0, 0);
+                            value_stack_push(result);
+                        } else if (strcmp(method_name, "union") == 0) {
+                            // Get other set from stack
+                            Value other_set = value_stack_pop();
+                            Value result = builtin_set_union(NULL, (Value[]){object, other_set}, 2, 0, 0);
+                            value_stack_push(result);
+                            value_free(&other_set);
+                        } else if (strcmp(method_name, "intersection") == 0) {
+                            // Get other set from stack
+                            Value other_set = value_stack_pop();
+                            Value result = builtin_set_intersection(NULL, (Value[]){object, other_set}, 2, 0, 0);
+                            value_stack_push(result);
+                            value_free(&other_set);
+                        } else {
+                            value_stack_push(value_create_null());
+                        }
+                        value_free(&object);
+                    } else if (object.type == VALUE_SET) {
+                        // Handle set methods
+                        if (strcmp(method_name, "add") == 0) {
+                            // Get element from stack
+                            Value element = value_stack_pop();
+                            Value result = builtin_set_add(NULL, (Value[]){object, element}, 2, 0, 0);
+                            value_stack_push(result);
+                            value_free(&element);
+                        } else if (strcmp(method_name, "has") == 0) {
+                            // Get element from stack
+                            Value element = value_stack_pop();
+                            Value result = builtin_set_has(NULL, (Value[]){object, element}, 2, 0, 0);
+                            value_stack_push(result);
+                            value_free(&element);
+                        } else if (strcmp(method_name, "remove") == 0) {
+                            // Get element from stack
+                            Value element = value_stack_pop();
+                            Value result = builtin_set_remove(NULL, (Value[]){object, element}, 2, 0, 0);
+                            value_stack_push(result);
+                            value_free(&element);
+                        } else if (strcmp(method_name, "clear") == 0) {
+                            Value result = builtin_set_clear(NULL, (Value[]){object}, 1, 0, 0);
+                            value_stack_push(result);
+                        } else if (strcmp(method_name, "size") == 0) {
+                            Value result = builtin_set_size(NULL, (Value[]){object}, 1, 0, 0);
+                            value_stack_push(result);
+                        } else if (strcmp(method_name, "toArray") == 0) {
+                            Value result = builtin_set_to_array(NULL, (Value[]){object}, 1, 0, 0);
+                            value_stack_push(result);
+                        } else if (strcmp(method_name, "union") == 0) {
+                            // Get other set from stack
+                            Value other_set = value_stack_pop();
+                            Value result = builtin_set_union(NULL, (Value[]){object, other_set}, 2, 0, 0);
+                            value_stack_push(result);
+                            value_free(&other_set);
+                        } else if (strcmp(method_name, "intersection") == 0) {
+                            // Get other set from stack
+                            Value other_set = value_stack_pop();
+                            Value result = builtin_set_intersection(NULL, (Value[]){object, other_set}, 2, 0, 0);
+                            value_stack_push(result);
+                            value_free(&other_set);
+                        } else {
+                            value_stack_push(value_create_null());
+                        }
+                        value_free(&object);
+                    } else if (object.type == VALUE_OBJECT) {
                         // Check if it's a library object first
                         Value library_type = value_object_get(&object, "__type__");
                         if (library_type.type == VALUE_STRING && strcmp(library_type.data.string_value, "Library") == 0) {
@@ -435,6 +568,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                 
                                 // Call library method
                                 Value result = value_function_call(&method, args, arg_count, interpreter, 0, 0);
+                                printf("DEBUG: Library method result.type=%d\n", result.type);
                                 
                                 // Clean up arguments
                                 if (args) {
@@ -444,7 +578,13 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                     shared_free_safe(args, "bytecode_vm", "BC_METHOD_CALL", 6);
                                 }
                                 
+                                printf("DEBUG: Pushing result to stack, type=%d\n", result.type);
                                 value_stack_push(result);
+                                printf("DEBUG: Stack size after push=%zu\n", value_stack_size);
+                                // Verify what's on top of stack
+                                if (value_stack_size > 0) {
+                                    printf("DEBUG: Top of stack type=%d\n", value_stack[value_stack_size-1].type);
+                                }
                             } else {
                                 value_stack_push(value_create_null());
                             }
@@ -537,6 +677,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     }
                     value_free(&object);
                 } else {
+                    // Unknown object type - return null
                     value_stack_push(value_create_null());
                 }
                 pc++;
@@ -611,6 +752,43 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     } else {
                         value_stack_push(value_create_null());
                     }
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_CALL_USER_FUNCTION: {
+                // Call user-defined function: func(args...)
+                // instr->a = function index, instr->b = argument count
+                int func_id = instr->a;
+                int arg_count = instr->b;
+                
+                if (func_id >= 0 && func_id < (int)program->function_count) {
+                    BytecodeFunction* func = &program->functions[func_id];
+                    
+                    // Get arguments from stack
+                    Value* args = NULL;
+                    if (arg_count > 0) {
+                        args = shared_malloc_safe(arg_count * sizeof(Value), "bytecode_vm", "BC_CALL_USER_FUNCTION", 1);
+                        for (int i = 0; i < arg_count; i++) {
+                            args[arg_count - 1 - i] = value_stack_pop();
+                        }
+                    }
+                    
+                    // Execute function bytecode
+                    Value result = bytecode_execute_function_bytecode(interpreter, func, args, arg_count);
+                    
+                    // Clean up arguments
+                    if (args) {
+                        for (int i = 0; i < arg_count; i++) {
+                            value_free(&args[i]);
+                        }
+                        shared_free_safe(args, "bytecode_vm", "BC_CALL_USER_FUNCTION", 2);
+                    }
+                    
+                    value_stack_push(result);
                 } else {
                     value_stack_push(value_create_null());
                 }
@@ -1740,6 +1918,38 @@ cleanup:
     while (value_stack_size > 0) {
         Value val = value_stack_pop();
         value_free(&val);
+    }
+    
+    return result;
+}
+
+// Execute a user-defined function's bytecode
+Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunction* func, Value* args, int arg_count) {
+    if (!func || !interpreter) {
+        return value_create_null();
+    }
+    
+    // For now, we'll execute the function bytecode directly
+    // TODO: Implement proper function parameter binding
+    
+    // Execute the function's bytecode
+    Value result = value_create_null();
+    
+    // Simple implementation: execute the function's bytecode
+    if (func->code_count > 0) {
+        // Create a temporary program with just this function's code
+        BytecodeProgram temp_program = {0};
+        temp_program.code = func->code;
+        temp_program.count = func->code_count;
+        temp_program.const_count = 0;
+        temp_program.constants = NULL;
+        temp_program.ast_count = 0;
+        temp_program.ast_nodes = NULL;
+        temp_program.function_count = 0;
+        temp_program.functions = NULL;
+        
+        // Execute the function's bytecode
+        result = bytecode_execute(&temp_program, interpreter, 0);
     }
     
     return result;

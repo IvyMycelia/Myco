@@ -170,10 +170,12 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
                 }
                 
                 if (func_id >= 0) {
-                    // For now, always fall back to AST for function calls
-                    // This ensures function calls work while we debug the bytecode execution
-                    int id = bc_add_ast(p, n);
-                    bc_emit_to_function(func, BC_EVAL_AST, id, 0, 0);
+                    // Compile arguments
+                    for (size_t i = 0; i < n->data.function_call.argument_count; i++) {
+                        compile_node_to_function(p, func, n->data.function_call.arguments[i]);
+                    }
+                    // Emit user function call
+                    bc_emit_to_function(func, BC_CALL_USER_FUNCTION, func_id, (int)n->data.function_call.argument_count, 0);
                 } else {
                     // Function not found, fall back to AST
                     int id = bc_add_ast(p, n);
@@ -966,7 +968,7 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                         int method_name_idx = bc_add_const(p, value_create_string(method_name));
                         
                         // Emit method call instruction
-                        bc_emit(p, BC_METHOD_CALL, (int)n->data.function_call.argument_count, method_name_idx);
+                        bc_emit(p, BC_METHOD_CALL, method_name_idx, (int)n->data.function_call.argument_count);
                     }
                 }
                 
@@ -987,10 +989,12 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                     }
                 }
                 if (func_id >= 0) {
-                    // For now, always fall back to AST for function calls
-                    // This ensures function calls work while we debug the bytecode execution
-                    int id = bc_add_ast(p, n);
-                    bc_emit(p, BC_EVAL_AST, id, 0);
+                    // Compile arguments
+                    for (size_t i = 0; i < n->data.function_call.argument_count; i++) {
+                        compile_node(p, n->data.function_call.arguments[i]);
+                    }
+                    // Emit user function call
+                    bc_emit(p, BC_CALL_USER_FUNCTION, func_id, (int)n->data.function_call.argument_count);
                 } else {
                     // Function not found, fall back to AST
                     int id = bc_add_ast(p, n);

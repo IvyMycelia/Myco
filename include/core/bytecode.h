@@ -35,6 +35,7 @@ typedef enum {
     BC_METHOD_CALL,   // Call method on object: obj.method(args...)
     BC_PROPERTY_ACCESS, // Access object property: obj.name
     BC_CALL_BUILTIN,  // Call built-in function by name
+    BC_CALL_USER_FUNCTION, // Call user-defined function: func(args...)
     BC_TO_STRING,     // Convert value to string
     BC_GET_TYPE,      // Get value type
     BC_GET_LENGTH,    // Get value length

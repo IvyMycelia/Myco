@@ -489,27 +489,8 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             // It's a library object - get method directly
                             Value method = value_object_get(&object, method_name);
                             if (method.type == VALUE_FUNCTION) {
-                                // Get arguments from stack
-                                size_t arg_count = instr->b;
-                                Value* args = NULL;
-                                if (arg_count > 0) {
-                                    args = shared_malloc_safe(arg_count * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL", 5);
-                                    for (size_t i = 0; i < arg_count; i++) {
-                                        args[arg_count - 1 - i] = value_stack_pop();
-                                    }
-                                }
-                                
-                                // Call library method
+                                // Call library method with args already populated
                                 Value result = value_function_call(&method, args, arg_count, interpreter, 0, 0);
-                                
-                                // Clean up arguments
-                                if (args) {
-                                    for (size_t i = 0; i < arg_count; i++) {
-                                        value_free(&args[i]);
-                                    }
-                                    shared_free_safe(args, "bytecode_vm", "BC_METHOD_CALL", 6);
-                                }
-                                
                                 value_stack_push(result);
                             } else {
                                 value_stack_push(value_create_null());
@@ -529,25 +510,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                     // Set self context and call method
                                     interpreter_set_self_context(interpreter, &object);
                                     
-                                    // Get arguments from stack
-                                    size_t arg_count = instr->b;
-                                    Value* args = NULL;
-                                    if (arg_count > 0) {
-                                        args = shared_malloc_safe(arg_count * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL", 1);
-                                        for (size_t i = 0; i < arg_count; i++) {
-                                            args[arg_count - 1 - i] = value_stack_pop();
-                                        }
-                                    }
-                                    
                                     Value result = value_function_call_with_self(&method, args, arg_count, interpreter, &object, 0, 0);
-                                    
-                                    // Clean up arguments
-                                    if (args) {
-                                        for (size_t i = 0; i < arg_count; i++) {
-                                            value_free(&args[i]);
-                                        }
-                                        shared_free_safe(args, "bytecode_vm", "BC_METHOD_CALL", 2);
-                                    }
                                     
                                     // Clear self context
                                     interpreter_set_self_context(interpreter, NULL);
@@ -568,25 +531,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                 // Set self context for method calls
                                 interpreter_set_self_context(interpreter, &object);
                                 
-                                // Get arguments from stack
-                                size_t arg_count = instr->b;
-                                Value* args = NULL;
-                                if (arg_count > 0) {
-                                    args = shared_malloc_safe(arg_count * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL", 3);
-                                    for (size_t i = 0; i < arg_count; i++) {
-                                        args[arg_count - 1 - i] = value_stack_pop();
-                                    }
-                                }
-                                
                                 Value result = value_function_call_with_self(&method, args, arg_count, interpreter, &object, 0, 0);
-                                
-                                // Clean up arguments
-                                if (args) {
-                                    for (size_t i = 0; i < arg_count; i++) {
-                                        value_free(&args[i]);
-                                    }
-                                    shared_free_safe(args, "bytecode_vm", "BC_METHOD_CALL", 4);
-                                }
                                 
                                 // Clear self context
                                 interpreter_set_self_context(interpreter, NULL);

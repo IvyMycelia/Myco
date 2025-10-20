@@ -1,7 +1,0 @@
-Basic Arithmetic Benchmark Results:
-Integer sum: 15
-Float sum: 17.500000
-Mixed sum: 32.500000
-Product: 120
-Final quotient: 31250
-Benchmark completed successfully

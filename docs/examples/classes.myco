@@ -1,0 +1,102 @@
+# Classes Example
+# Demonstrates object-oriented programming in Myco
+
+print("=== Classes Example ===");
+
+# Define a simple Person class
+class Person:
+    let name: String
+    let age: Int
+    let email: String?
+    
+    # Constructor
+    func init(name: String, age: Int, email: String? = Null):
+        self.name = name;
+        self.age = age;
+        self.email = email;
+    end
+    
+    # Method to get greeting
+    func greet() -> String:
+        return "Hello, I'm " + self.name + " and I'm " + self.age.toString() + " years old.";
+    end
+    
+    # Method to have a birthday
+    func haveBirthday():
+        self.age = self.age + 1;
+        print(self.name + " is now " + self.age.toString() + " years old!");
+    end
+    
+    # Method to get contact info
+    func getContactInfo() -> String:
+        if self.email != Null:
+            return "Email: " + self.email;
+        else:
+            return "No email provided";
+        end
+    end
+end
+
+# Create some Person objects
+let alice = Person("Alice", 30, "alice@example.com");
+let bob = Person("Bob", 25);
+let charlie = Person("Charlie", 35, "charlie@example.com");
+
+# Use the objects
+print(alice.greet());
+print("Contact:", alice.getContactInfo());
+
+print(bob.greet());
+print("Contact:", bob.getContactInfo());
+
+print(charlie.greet());
+print("Contact:", charlie.getContactInfo());
+
+# Have some birthdays
+alice.haveBirthday();
+bob.haveBirthday();
+
+print("=== Inheritance Example ===");
+
+# Define a Student class that extends Person
+class Student extends Person:
+    let studentId: String
+    let major: String
+    
+    func init(name: String, age: Int, studentId: String, major: String, email: String? = Null):
+        # Call parent constructor
+        super.init(name, age, email);
+        self.studentId = studentId;
+        self.major = major;
+    end
+    
+    # Override the greet method
+    func greet() -> String:
+        return "Hi, I'm " + self.name + ", a " + self.major + " student (ID: " + self.studentId + ").";
+    end
+    
+    # New method specific to students
+    func study(subject: String) -> String:
+        return self.name + " is studying " + subject + ".";
+    end
+end
+
+# Create a Student object
+let student = Student("Diana", 20, "S12345", "Computer Science", "diana@university.edu");
+
+print(student.greet());
+print(student.study("Data Structures"));
+print("Contact:", student.getContactInfo());
+
+print("=== Polymorphism Example ===");
+
+# Function that works with any Person
+func introducePerson(person: Person) -> String:
+    return person.greet();
+end
+
+# This works with both Person and Student objects
+print(introducePerson(alice));    # Uses Person.greet()
+print(introducePerson(student));  # Uses Student.greet()
+
+print("=== Classes example completed!");

@@ -257,7 +257,7 @@ static void parser_error(Parser* parser, const char* message) {
                  message,
                  token_text);
         
-        parser->error_message = (buf ? strdup(buf) : NULL);
+        parser->error_message = (buf ? shared_strdup(buf) : NULL);
         
         // Record the location of the error
         parser->error_line = parser->current_token->line;
@@ -265,7 +265,7 @@ static void parser_error(Parser* parser, const char* message) {
     } else {
         // No current token, create a basic error message
         snprintf(buf, sizeof(buf), "Parse Error: %s", message);
-        parser->error_message = (buf ? strdup(buf) : NULL);
+        parser->error_message = (buf ? shared_strdup(buf) : NULL);
     }
     
     // Error message is stored in parser->error_message for the caller to handle
@@ -599,7 +599,7 @@ ASTNode* parser_parse_assignment(Parser* parser) {
     }
     
     Token* var_token = parser_peek(parser);
-    char* var_name = (var_token->text ? strdup(var_token->text) : NULL);
+    char* var_name = (var_token->text ? shared_strdup(var_token->text) : NULL);
     parser_advance(parser);  // Consume the identifier
     
     // Expect an equals sign

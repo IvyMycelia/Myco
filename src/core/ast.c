@@ -48,7 +48,7 @@ ASTNode* ast_create_string(const char* value, int line, int column) {
     if (!node) return NULL;
     
     node->type = AST_NODE_STRING;
-    node->data.string_value = (value ? strdup(value) : NULL);
+    node->data.string_value = (value ? shared_strdup(value) : NULL);
     node->line = line;
     node->column = column;
     node->next = NULL;
@@ -61,7 +61,7 @@ ASTNode* ast_create_identifier(const char* name, int line, int column) {
     if (!node) return NULL;
     
     node->type = AST_NODE_IDENTIFIER;
-    node->data.identifier_value = (name ? strdup(name) : NULL);
+    node->data.identifier_value = (name ? shared_strdup(name) : NULL);
     node->line = line;
     node->column = column;
     node->next = NULL;
@@ -74,8 +74,8 @@ ASTNode* ast_create_typed_parameter(const char* name, const char* type, int line
     if (!node) return NULL;
     
     node->type = AST_NODE_TYPED_PARAMETER;
-    node->data.typed_parameter.parameter_name = (name ? strdup(name) : NULL);
-    node->data.typed_parameter.parameter_type = (type ? strdup(type) : NULL);
+    node->data.typed_parameter.parameter_name = (name ? shared_strdup(name) : NULL);
+    node->data.typed_parameter.parameter_type = (type ? shared_strdup(type) : NULL);
     node->line = line;
     node->column = column;
     node->next = NULL;
@@ -134,7 +134,7 @@ ASTNode* ast_create_assignment(const char* variable, ASTNode* value, int line, i
     if (!node) return NULL;
     
     node->type = AST_NODE_ASSIGNMENT;
-    node->data.assignment.variable_name = (variable ? strdup(variable) : NULL);
+    node->data.assignment.variable_name = (variable ? shared_strdup(variable) : NULL);
     node->data.assignment.value = value;
     node->line = line;
     node->column = column;
@@ -148,7 +148,7 @@ ASTNode* ast_create_function_call(const char* name, ASTNode** args, size_t arg_c
     if (!node) return NULL;
     
     node->type = AST_NODE_FUNCTION_CALL;
-    node->data.function_call.function_name = (name ? strdup(name) : NULL);
+    node->data.function_call.function_name = (name ? shared_strdup(name) : NULL);
     if (!node->data.function_call.function_name) {
         shared_free_safe(node, "ast", "unknown_function", 153);
         return NULL;
@@ -167,8 +167,8 @@ ASTNode* ast_create_variable_declaration(const char* name, const char* type, AST
     if (!node) return NULL;
     
     node->type = AST_NODE_VARIABLE_DECLARATION;
-    node->data.variable_declaration.variable_name = (name ? strdup(name) : NULL);
-    node->data.variable_declaration.type_name = type ? (type ? strdup(type) : NULL) : NULL;
+    node->data.variable_declaration.variable_name = (name ? shared_strdup(name) : NULL);
+    node->data.variable_declaration.type_name = type ? (type ? shared_strdup(type) : NULL) : NULL;
     node->data.variable_declaration.initial_value = initial_value;
     node->data.variable_declaration.is_mutable = is_mutable;
     node->line = line;
@@ -213,7 +213,7 @@ ASTNode* ast_create_for_loop(const char* iterator, ASTNode* collection, ASTNode*
     if (!node) return NULL;
     
     node->type = AST_NODE_FOR_LOOP;
-    node->data.for_loop.iterator_name = (iterator ? strdup(iterator) : NULL);
+    node->data.for_loop.iterator_name = (iterator ? shared_strdup(iterator) : NULL);
     node->data.for_loop.collection = collection;
     node->data.for_loop.body = body;
     node->line = line;
@@ -269,7 +269,7 @@ ASTNode* ast_create_try_catch(ASTNode* try_block, const char* catch_var, ASTNode
     
     node->type = AST_NODE_TRY_CATCH;
     node->data.try_catch.try_block = try_block;
-    node->data.try_catch.catch_variable = catch_var ? (catch_var ? strdup(catch_var) : NULL) : NULL;
+    node->data.try_catch.catch_variable = catch_var ? (catch_var ? shared_strdup(catch_var) : NULL) : NULL;
     node->data.try_catch.catch_block = catch_block;
     node->data.try_catch.finally_block = finally_block;
     node->line = line;
@@ -480,8 +480,8 @@ ASTNode* ast_create_class(const char* name, const char* parent, ASTNode* body, i
     if (!node) return NULL;
     
     node->type = AST_NODE_CLASS;
-    node->data.class_definition.class_name = (name ? strdup(name) : NULL);
-    node->data.class_definition.parent_class = parent ? (parent ? strdup(parent) : NULL) : NULL;
+    node->data.class_definition.class_name = (name ? shared_strdup(name) : NULL);
+    node->data.class_definition.parent_class = parent ? (parent ? shared_strdup(parent) : NULL) : NULL;
     node->data.class_definition.body = body;
     node->line = line;
     node->column = column;
@@ -499,10 +499,10 @@ ASTNode* ast_create_generic_function(const char* name, char** generic_params, si
     if (!node) return NULL;
     
     node->type = AST_NODE_FUNCTION;
-    node->data.function_definition.function_name = (name ? strdup(name) : NULL);
+    node->data.function_definition.function_name = (name ? shared_strdup(name) : NULL);
     node->data.function_definition.parameters = params;
     node->data.function_definition.parameter_count = param_count;
-    node->data.function_definition.return_type = return_type ? (return_type ? strdup(return_type) : NULL) : NULL;
+    node->data.function_definition.return_type = return_type ? (return_type ? shared_strdup(return_type) : NULL) : NULL;
     node->data.function_definition.body = body;
     
     // Handle generic parameters
@@ -511,7 +511,7 @@ ASTNode* ast_create_generic_function(const char* name, char** generic_params, si
         node->data.function_definition.generic_parameters = shared_malloc_safe(generic_param_count * sizeof(char*), "ast", "unknown_function", 370);
         if (node->data.function_definition.generic_parameters) {
             for (size_t i = 0; i < generic_param_count; i++) {
-                node->data.function_definition.generic_parameters[i] = (generic_params[i] ? strdup(generic_params[i]) : NULL);
+                node->data.function_definition.generic_parameters[i] = (generic_params[i] ? shared_strdup(generic_params[i]) : NULL);
             }
         }
     } else {
@@ -532,7 +532,7 @@ ASTNode* ast_create_lambda(ASTNode** params, size_t param_count, const char* ret
     node->type = AST_NODE_LAMBDA;
     node->data.lambda.parameters = params;
     node->data.lambda.parameter_count = param_count;
-    node->data.lambda.return_type = return_type ? (return_type ? strdup(return_type) : NULL) : NULL;
+    node->data.lambda.return_type = return_type ? (return_type ? shared_strdup(return_type) : NULL) : NULL;
     node->data.lambda.body = body;
     node->line = line;
     node->column = column;
@@ -619,7 +619,7 @@ ASTNode* ast_create_member_access(ASTNode* object, const char* member_name, int 
     
     node->type = AST_NODE_MEMBER_ACCESS;
     node->data.member_access.object = object;
-    node->data.member_access.member_name = (member_name ? strdup(member_name) : NULL);
+    node->data.member_access.member_name = (member_name ? shared_strdup(member_name) : NULL);
     node->line = line;
     node->column = column;
     node->next = NULL;
@@ -632,8 +632,8 @@ ASTNode* ast_create_import(const char* module, const char* alias, int line, int 
     if (!node) return NULL;
     
     node->type = AST_NODE_IMPORT;
-    node->data.import_statement.module_name = (module ? strdup(module) : NULL);
-    node->data.import_statement.alias = alias ? (alias ? strdup(alias) : NULL) : NULL;
+    node->data.import_statement.module_name = (module ? shared_strdup(module) : NULL);
+    node->data.import_statement.alias = alias ? (alias ? shared_strdup(alias) : NULL) : NULL;
     node->line = line;
     node->column = column;
     node->next = NULL;
@@ -646,8 +646,8 @@ ASTNode* ast_create_use(const char* library, const char* alias, char** specific_
     if (!node) return NULL;
     
     node->type = AST_NODE_USE;
-    node->data.use_statement.library_name = (library ? strdup(library) : NULL);
-    node->data.use_statement.alias = alias ? (alias ? strdup(alias) : NULL) : NULL;
+    node->data.use_statement.library_name = (library ? shared_strdup(library) : NULL);
+    node->data.use_statement.alias = alias ? (alias ? shared_strdup(alias) : NULL) : NULL;
     node->data.use_statement.item_count = item_count;
     
     if (specific_items && item_count > 0) {
@@ -657,7 +657,7 @@ ASTNode* ast_create_use(const char* library, const char* alias, char** specific_
             return NULL;
         }
         for (size_t i = 0; i < item_count; i++) {
-            node->data.use_statement.specific_items[i] = (specific_items[i] ? strdup(specific_items[i]) : NULL);
+            node->data.use_statement.specific_items[i] = (specific_items[i] ? shared_strdup(specific_items[i]) : NULL);
         }
     } else {
         node->data.use_statement.specific_items = NULL;
@@ -677,7 +677,7 @@ ASTNode* ast_create_use(const char* library, const char* alias, char** specific_
             return NULL;
         }
         for (size_t i = 0; i < item_count; i++) {
-            node->data.use_statement.specific_aliases[i] = specific_aliases[i] ? (specific_aliases[i] ? strdup(specific_aliases[i]) : NULL) : NULL;
+            node->data.use_statement.specific_aliases[i] = specific_aliases[i] ? (specific_aliases[i] ? shared_strdup(specific_aliases[i]) : NULL) : NULL;
         }
     } else {
         node->data.use_statement.specific_aliases = NULL;
@@ -695,7 +695,7 @@ ASTNode* ast_create_module(const char* name, ASTNode* body, int line, int column
     if (!node) return NULL;
     
     node->type = AST_NODE_MODULE;
-    node->data.module_definition.module_name = (name ? strdup(name) : NULL);
+    node->data.module_definition.module_name = (name ? shared_strdup(name) : NULL);
     node->data.module_definition.body = body;
     node->line = line;
     node->column = column;
@@ -709,7 +709,7 @@ ASTNode* ast_create_package(const char* name, ASTNode* body, int line, int colum
     if (!node) return NULL;
     
     node->type = AST_NODE_PACKAGE;
-    node->data.package_definition.package_name = (name ? strdup(name) : NULL);
+    node->data.package_definition.package_name = (name ? shared_strdup(name) : NULL);
     node->data.package_definition.body = body;
     node->line = line;
     node->column = column;
@@ -1012,16 +1012,16 @@ ASTNode* ast_clone(ASTNode* node) {
             break;
             
         case AST_NODE_STRING:
-            clone->data.string_value = (node->data.string_value ? strdup(node->data.string_value) : NULL);
+            clone->data.string_value = (node->data.string_value ? shared_strdup(node->data.string_value) : NULL);
             break;
             
         case AST_NODE_IDENTIFIER:
-            clone->data.identifier_value = (node->data.identifier_value ? strdup(node->data.identifier_value) : NULL);
+            clone->data.identifier_value = (node->data.identifier_value ? shared_strdup(node->data.identifier_value) : NULL);
             break;
             
         case AST_NODE_TYPED_PARAMETER:
-            clone->data.typed_parameter.parameter_name = (node->data.typed_parameter.parameter_name ? strdup(node->data.typed_parameter.parameter_name) : NULL);
-            clone->data.typed_parameter.parameter_type = (node->data.typed_parameter.parameter_type ? strdup(node->data.typed_parameter.parameter_type) : NULL);
+            clone->data.typed_parameter.parameter_name = (node->data.typed_parameter.parameter_name ? shared_strdup(node->data.typed_parameter.parameter_name) : NULL);
+            clone->data.typed_parameter.parameter_type = (node->data.typed_parameter.parameter_type ? shared_strdup(node->data.typed_parameter.parameter_type) : NULL);
             break;
             
         case AST_NODE_BINARY_OP:
@@ -1048,7 +1048,7 @@ ASTNode* ast_clone(ASTNode* node) {
             break;
             
         case AST_NODE_FUNCTION_CALL:
-            clone->data.function_call.function_name = (node->data.function_call.function_name ? strdup(node->data.function_call.function_name) : NULL);
+            clone->data.function_call.function_name = (node->data.function_call.function_name ? shared_strdup(node->data.function_call.function_name) : NULL);
             clone->data.function_call.argument_count = node->data.function_call.argument_count;
             clone->data.function_call.arguments = shared_malloc_safe(node->data.function_call.argument_count * sizeof(ASTNode*), "ast", "unknown_function", 901);
             for (size_t i = 0; i < node->data.function_call.argument_count; i++) {
@@ -1057,13 +1057,13 @@ ASTNode* ast_clone(ASTNode* node) {
             break;
             
         case AST_NODE_ASSIGNMENT:
-            clone->data.assignment.variable_name = (node->data.assignment.variable_name ? strdup(node->data.assignment.variable_name) : NULL);
+            clone->data.assignment.variable_name = (node->data.assignment.variable_name ? shared_strdup(node->data.assignment.variable_name) : NULL);
             clone->data.assignment.value = ast_clone(node->data.assignment.value);
             break;
             
         case AST_NODE_VARIABLE_DECLARATION:
-            clone->data.variable_declaration.variable_name = (node->data.variable_declaration.variable_name ? strdup(node->data.variable_declaration.variable_name) : NULL);
-            clone->data.variable_declaration.type_name = node->data.variable_declaration.type_name ? (node->data.variable_declaration.type_name ? strdup(node->data.variable_declaration.type_name) : NULL) : NULL;
+            clone->data.variable_declaration.variable_name = (node->data.variable_declaration.variable_name ? shared_strdup(node->data.variable_declaration.variable_name) : NULL);
+            clone->data.variable_declaration.type_name = node->data.variable_declaration.type_name ? (node->data.variable_declaration.type_name ? shared_strdup(node->data.variable_declaration.type_name) : NULL) : NULL;
             clone->data.variable_declaration.initial_value = ast_clone(node->data.variable_declaration.initial_value);
             clone->data.variable_declaration.is_mutable = node->data.variable_declaration.is_mutable;
             break;
@@ -1313,7 +1313,7 @@ ASTNode* ast_create_error_node(const char* error_message, int line, int column) 
     if (!node) return NULL;
     
     node->type = AST_NODE_ERROR;
-    node->data.error_node.error_message = (error_message ? strdup(error_message) : NULL);
+    node->data.error_node.error_message = (error_message ? shared_strdup(error_message) : NULL);
     node->line = line;
     node->column = column;
     node->next = NULL;
@@ -1331,10 +1331,10 @@ ASTNode* ast_create_generic_async_function(const char* name, char** generic_para
     if (!node) return NULL;
     
     node->type = AST_NODE_ASYNC_FUNCTION;
-    node->data.async_function_definition.function_name = (name ? strdup(name) : NULL);
+    node->data.async_function_definition.function_name = (name ? shared_strdup(name) : NULL);
     node->data.async_function_definition.parameters = params;
     node->data.async_function_definition.parameter_count = param_count;
-    node->data.async_function_definition.return_type = return_type ? (return_type ? strdup(return_type) : NULL) : NULL;
+    node->data.async_function_definition.return_type = return_type ? (return_type ? shared_strdup(return_type) : NULL) : NULL;
     node->data.async_function_definition.body = body;
     
     // Handle generic parameters
@@ -1343,7 +1343,7 @@ ASTNode* ast_create_generic_async_function(const char* name, char** generic_para
         node->data.async_function_definition.generic_parameters = shared_malloc_safe(generic_param_count * sizeof(char*), "ast", "unknown_function", 1180);
         if (node->data.async_function_definition.generic_parameters) {
             for (size_t i = 0; i < generic_param_count; i++) {
-                node->data.async_function_definition.generic_parameters[i] = (generic_params[i] ? strdup(generic_params[i]) : NULL);
+                node->data.async_function_definition.generic_parameters[i] = (generic_params[i] ? shared_strdup(generic_params[i]) : NULL);
             }
         }
     } else {

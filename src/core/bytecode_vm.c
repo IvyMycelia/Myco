@@ -13,6 +13,7 @@
 
 // Forward declarations
 Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunction* func, Value* args, int arg_count, BytecodeProgram* program);
+static int pattern_matches_value(Value* value, Value* pattern);
 
 // Bytecode VM implementation
 // This implements a stack-based virtual machine for executing Myco bytecode
@@ -112,23 +113,6 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
         if (instr->op >= BC_SUPER_START) {
             switch ((BytecodeSuperOp)instr->op) {
                 
-                case BC_CALL_FUNCTION: {
-                    // Get function from AST nodes
-                    if (instr->a < program->ast_count) {
-                        ASTNode* func_node = program->ast_nodes[instr->a];
-                        if (func_node && func_node->type == AST_NODE_FUNCTION_CALL) {
-                            // Fallback to AST evaluation for function calls
-                            Value result = interpreter_execute(interpreter, func_node);
-                            value_stack_push(result);
-                        } else {
-                            value_stack_push(value_create_null());
-                        }
-                    } else {
-                        value_stack_push(value_create_null());
-                    }
-                    pc++;
-                    break;
-                }
                 
                 
                 default: {
@@ -422,7 +406,10 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     // Handle different object types
                     if (object.type == VALUE_HASH_MAP) {
                         // Handle map methods
-                        if (strcmp(method_name, "has") == 0) {
+                        if (strcmp(method_name, "set") == 0) {
+                            Value result = builtin_map_set(NULL, (Value[]){object, args[0], args[1]}, 3, 0, 0);
+                            value_stack_push(result);
+                        } else if (strcmp(method_name, "has") == 0) {
                             Value result = builtin_map_has(NULL, (Value[]){object, args[0]}, 2, 0, 0);
                             value_stack_push(result);
                         } else if (strcmp(method_name, "delete") == 0) {
@@ -489,31 +476,51 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         }
                         value_free(&library_type);
                         
-                        // Check if it's a class instance
+                        // Check if it's a library instance (has __class_name__ but not a VALUE_CLASS)
                         Value class_name = value_object_get(&object, "__class_name__");
                         if (class_name.type == VALUE_STRING) {
-                            // It's a class instance - find method in inheritance chain
-                            Value class_def = environment_get(interpreter->global_environment, class_name.data.string_value);
-                            if (class_def.type == VALUE_CLASS) {
-                                Value method = find_method_in_inheritance_chain(interpreter, &class_def, method_name);
+                            // Check if it's a library instance (Tree, Graph, Heap, etc.)
+                            if (strcmp(class_name.data.string_value, "Tree") == 0 ||
+                                strcmp(class_name.data.string_value, "Graph") == 0 ||
+                                strcmp(class_name.data.string_value, "Heap") == 0 ||
+                                strcmp(class_name.data.string_value, "Queue") == 0 ||
+                                strcmp(class_name.data.string_value, "Stack") == 0) {
+                                // It's a library instance - get method directly from object
+                                Value method = value_object_get(&object, method_name);
                                 if (method.type == VALUE_FUNCTION) {
                                     // Set self context and call method
                                     interpreter_set_self_context(interpreter, &object);
                                     
                                     Value result = value_function_call_with_self(&method, args, arg_count, interpreter, &object, 0, 0);
-                                    
-                                    // Clear self context
-                                    interpreter_set_self_context(interpreter, NULL);
-                                    
                                     value_stack_push(result);
-                                    value_free(&method);
                                 } else {
                                     value_stack_push(value_create_null());
                                 }
+                                value_free(&method);
                             } else {
-                                value_stack_push(value_create_null());
+                                // It's a regular class instance - find method in inheritance chain
+                                Value class_def = environment_get(interpreter->global_environment, class_name.data.string_value);
+                                if (class_def.type == VALUE_CLASS) {
+                                    Value method = find_method_in_inheritance_chain(interpreter, &class_def, method_name);
+                                    if (method.type == VALUE_FUNCTION) {
+                                        // Set self context and call method
+                                        interpreter_set_self_context(interpreter, &object);
+                                        
+                                        Value result = value_function_call_with_self(&method, args, arg_count, interpreter, &object, 0, 0);
+                                        
+                                        // Clear self context
+                                        interpreter_set_self_context(interpreter, NULL);
+                                        
+                                        value_stack_push(result);
+                                        value_free(&method);
+                                    } else {
+                                        value_stack_push(value_create_null());
+                                    }
+                                    value_free(&class_def);
+                                } else {
+                                    value_stack_push(value_create_null());
+                                }
                             }
-                            value_free(&class_def);
                         } else {
                             // It's a regular object - get method directly
                             Value method = value_object_get(&object, method_name);
@@ -587,24 +594,98 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         
                         // For numbers, distinguish Int vs Float
                         if (object.type == VALUE_NUMBER) {
-                            const char* num_type = (object.data.number_value == (long long)object.data.number_value) ? "Int" : "Float";
-                            value_stack_push(value_create_string(num_type));
+                            double num = object.data.number_value;
+                            if (num == (double)((int)num)) {
+                                value_stack_push(value_create_string("Int"));
+                            } else {
+                                value_stack_push(value_create_string("Float"));
+                            }
                             value_free(&object);
                             pc++;
                             break;
                         }
                         
-                        // Default: return type string
-                        value_stack_push(value_create_string(value_type_to_string(object.type)));
+                        // Default type handling
+                        Value type_str = value_create_string(value_type_to_string(object.type));
+                        value_stack_push(type_str);
                         value_free(&object);
                         pc++;
                         break;
                     }
                     
-                    // Default property access
-                    Value prop = value_object_get(&object, prop_name);
-                    value_stack_push(prop);
+                    // Map properties
+                    if (object.type == VALUE_HASH_MAP && strcmp(prop_name, "size") == 0) {
+                        size_t sz = value_hash_map_size(&object);
+                        value_stack_push(value_create_number((double)sz));
+                        value_free(&object);
+                        pc++;
+                        break;
+                    }
+                    if (object.type == VALUE_HASH_MAP && strcmp(prop_name, "keys") == 0) {
+                        size_t count = 0;
+                        Value* keys = value_hash_map_keys(&object, &count);
+                        Value arr = value_create_array(count);
+                        for (size_t i = 0; i < count; i++) {
+                            Value cloned = value_clone(&keys[i]);
+                            value_array_push(&arr, cloned);
+                        }
+                        if (keys) shared_free_safe(keys, "bytecode_vm", "BC_PROPERTY_ACCESS", 0);
+                        value_stack_push(arr);
+                        value_free(&object);
+                        pc++;
+                        break;
+                    }
+                    
+                    // Set properties
+                    if (object.type == VALUE_SET && strcmp(prop_name, "size") == 0) {
+                        size_t sz = value_set_size(&object);
+                        value_stack_push(value_create_number((double)sz));
+                        value_free(&object);
+                        pc++;
+                        break;
+                    }
+                    
+                    // Array properties
+                    if (object.type == VALUE_ARRAY && strcmp(prop_name, "length") == 0) {
+                        value_stack_push(value_create_number((double)object.data.array_value.count));
+                        value_free(&object);
+                        pc++;
+                        break;
+                    }
+                    
+                    // String properties
+                    if (object.type == VALUE_STRING && strcmp(prop_name, "length") == 0) {
+                        value_stack_push(value_create_number((double)strlen(object.data.string_value)));
+                        value_free(&object);
+                        pc++;
+                        break;
+                    }
+                    
+                    // Hash map property access
+                    if (object.type == VALUE_HASH_MAP) {
+                        Value key = value_create_string(prop_name);
+                        Value prop = value_hash_map_get(&object, key);
+                        value_free(&key);
+                        value_stack_push(prop);
+                        value_free(&object);
+                        pc++;
+                        break;
+                    }
+                    
+                    // Default: try object property access
+                    if (object.type == VALUE_OBJECT) {
+                        Value prop = value_object_get(&object, prop_name);
+                        value_stack_push(prop);
+                        value_free(&object);
+                        pc++;
+                        break;
+                    }
+                    
+                    // Default: return null for unsupported property access
+                    value_stack_push(value_create_null());
                     value_free(&object);
+                    pc++;
+                    break;
                 } else {
                     value_stack_push(value_create_null());
                 }
@@ -717,10 +798,10 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     value_free(&class_name);
                 }
                 
-                // For numbers, distinguish Int vs Float
+                // For numbers, distinguish Int vs Float (consistent with AST interpreter)
                 if (val.type == VALUE_NUMBER) {
-                    const char* num_type = (val.data.number_value == (long long)val.data.number_value) ? "Int" : "Float";
-                    result = value_create_string(num_type);
+                    const char* ntype = (val.data.number_value == (long long)val.data.number_value) ? "Int" : "Float";
+                    result = value_create_string(ntype);
                     value_free(&val);
                     value_stack_push(result);
                     pc++;
@@ -783,9 +864,9 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             case BC_IS_FLOAT: {
-                // Check if value is float
+                // Check if value is float (has decimal places)
                 Value val = value_stack_pop();
-                Value result = value_create_boolean(val.type == VALUE_NUMBER);
+                Value result = value_create_boolean(val.type == VALUE_NUMBER && val.data.number_value != (long long)val.data.number_value);
                 value_free(&val);
                 value_stack_push(result);
                 pc++;
@@ -1031,23 +1112,29 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     // Copy elements from first array
                     for (size_t i = 0; i < arr1.data.array_value.count; i++) {
                         Value* element = (Value*)arr1.data.array_value.elements[i];
-                        Value cloned_element = value_clone(element);
-                        value_array_push(&result, cloned_element);
+                        if (element) {
+                            Value cloned_element = value_clone(element);
+                            value_array_push(&result, cloned_element);
+                        }
                     }
                     
                     // Copy elements from second array
                     for (size_t i = 0; i < arr2.data.array_value.count; i++) {
                         Value* element = (Value*)arr2.data.array_value.elements[i];
-                        Value cloned_element = value_clone(element);
-                        value_array_push(&result, cloned_element);
+                        if (element) {
+                            Value cloned_element = value_clone(element);
+                            value_array_push(&result, cloned_element);
+                        }
                     }
                     
+                    // Push result first, then free original arrays
                     value_stack_push(result);
                 } else {
                     // Fallback to AST for non-array types
                     value_stack_push(value_create_null());
                 }
                 
+                // Free original arrays after result is safely on stack
                 value_free(&arr1);
                 value_free(&arr2);
                 pc++;
@@ -1077,6 +1164,28 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 break;
             }
             
+            case BC_CREATE_MAP: {
+                // Create hash map from key-value pairs on stack
+                size_t pair_count = instr->a;
+                Value map_val = value_create_hash_map(pair_count > 0 ? pair_count : 4);
+                
+                // Pop key-value pairs from stack (in reverse order)
+                for (size_t i = 0; i < pair_count; i++) {
+                    Value key = value_stack_pop();
+                    Value value = value_stack_pop();
+                    
+                    // Add key-value pair to hash map
+                    value_hash_map_set(&map_val, key, value);
+                    
+                    value_free(&key);
+                    value_free(&value);
+                }
+                
+                value_stack_push(map_val);
+                pc++;
+                break;
+            }
+            
             case BC_IMPORT_LIB: {
                 // Import library: use library_name
                 if (instr->a < program->const_count && program->constants[instr->a].type == VALUE_STRING) {
@@ -1102,12 +1211,12 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 // Convert string to uppercase
                 Value val = value_stack_pop();
                 if (val.type == VALUE_STRING) {
-                    char* upper = strdup(val.data.string_value);
+                    char* upper = shared_strdup(val.data.string_value);
                     for (char* p = upper; *p; p++) {
                         *p = toupper(*p);
                     }
                     Value result = value_create_string(upper);
-                    free(upper);
+                    shared_free_safe(upper, "bytecode_vm", "BC_STRING_UPPER", 0);
                     value_free(&val);
                     value_stack_push(result);
                 } else {
@@ -1121,12 +1230,12 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 // Convert string to lowercase
                 Value val = value_stack_pop();
                 if (val.type == VALUE_STRING) {
-                    char* lower = strdup(val.data.string_value);
+                    char* lower = shared_strdup(val.data.string_value);
                     for (char* p = lower; *p; p++) {
                         *p = tolower(*p);
                     }
                     Value result = value_create_string(lower);
-                    free(lower);
+                    shared_free_safe(lower, "bytecode_vm", "BC_STRING_LOWER", 0);
                     value_free(&val);
                     value_stack_push(result);
                 } else {
@@ -1599,6 +1708,274 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 break;
             }
             
+            case BC_MATCH: {
+                // Pattern matching: match expr with cases
+                // instr->a = number of cases
+                int case_count = instr->a;
+                Value match_value = value_stack_pop();
+                int matched = 0;
+                
+                // Try each case in order
+                for (int i = 0; i < case_count && !matched; i++) {
+                    // Check if we have a BC_MATCH_CASE instruction next
+                    if (pc < program->count) {
+                        BytecodeInstruction* case_instr = &program->code[pc];
+                        if (case_instr->op == BC_MATCH_CASE) {
+                            // Skip the BC_MATCH_CASE instruction
+                            pc++;
+                            
+                            // The pattern and body are already on the stack from compilation
+                            // We need to check if the pattern matches
+                            Value pattern = value_stack_pop();
+                            Value body = value_stack_pop();
+                            
+                            // Check if pattern matches
+                            if (pattern_matches_value(&match_value, &pattern)) {
+                                // Pattern matches, execute the body
+                                value_free(&pattern);
+                                value_free(&match_value);
+                                value_stack_push(body);
+                                matched = 1;
+                                // Skip remaining cases
+                                for (int j = i + 1; j < case_count; j++) {
+                                    if (pc < program->count) {
+                                        BytecodeInstruction* skip_instr = &program->code[pc];
+                                        if (skip_instr->op == BC_MATCH_CASE) {
+                                            pc++;
+                                            // Skip pattern and body
+                                            Value skip_pattern = value_stack_pop();
+                                            Value skip_body = value_stack_pop();
+                                            value_free(&skip_pattern);
+                                            value_free(&skip_body);
+                                        }
+                                    }
+                                }
+                            } else {
+                                // Pattern doesn't match, continue to next case
+                                value_free(&pattern);
+                                value_free(&body);
+                            }
+                        }
+                    }
+                }
+                
+                // No pattern matched, return null
+                if (!matched) {
+                    value_free(&match_value);
+                    value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_MATCH_CASE: {
+                // This instruction is handled within BC_MATCH
+                pc++;
+                break;
+            }
+            
+            case BC_PATTERN_LITERAL: {
+                // Pattern: literal pattern (string, number, etc.)
+                // The literal value is already on the stack from compilation
+                // This instruction just marks it as a pattern
+                pc++;
+                break;
+            }
+            
+            case BC_PATTERN_WILDCARD: {
+                // Pattern: wildcard pattern (_) - matches anything
+                // Push a special wildcard marker
+                value_stack_push(value_create_string("__WILDCARD__"));
+                pc++;
+                break;
+            }
+            
+            case BC_PATTERN_TYPE: {
+                // Pattern: type pattern (e.g., String, Int)
+                // instr->a = type name constant index
+                if (instr->a < program->const_count) {
+                    Value type_name = program->constants[instr->a];
+                    if (type_name.type == VALUE_STRING) {
+                        value_stack_push(value_create_string(type_name.data.string_value));
+                    } else {
+                        value_stack_push(value_create_null());
+                    }
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_CREATE_CLASS: {
+                // Create class definition
+                // instr->a = class name constant index, instr->b = parent class name constant index
+                if (instr->a < program->const_count) {
+                    Value class_name = program->constants[instr->a];
+                    if (class_name.type == VALUE_STRING) {
+                        const char* parent_name = NULL;
+                        if (instr->b >= 0 && instr->b < program->const_count) {
+                            Value parent_name_val = program->constants[instr->b];
+                            if (parent_name_val.type == VALUE_STRING) {
+                                parent_name = parent_name_val.data.string_value;
+                            }
+                        }
+                        
+                        // Create class value (this will be handled by AST evaluation of class body)
+                        Value class_value = value_create_class(
+                            class_name.data.string_value,
+                            parent_name,
+                            NULL, // Body will be set by AST evaluation
+                            interpreter->current_environment
+                        );
+                        
+                        // Store class in environment
+                        environment_define(interpreter->current_environment, class_name.data.string_value, class_value);
+                        value_free(&class_value);
+                    }
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_INSTANTIATE_CLASS: {
+                // Instantiate class: ClassName(args...)
+                // instr->a = class name constant index, instr->b = argument count
+                if (instr->a < program->const_count) {
+                    Value class_name = program->constants[instr->a];
+                    if (class_name.type == VALUE_STRING) {
+                        // Get class from environment
+                        Value class_value = environment_get(interpreter->current_environment, class_name.data.string_value);
+                        if (class_value.type != VALUE_CLASS) {
+                            class_value = environment_get(interpreter->global_environment, class_name.data.string_value);
+                        }
+                        
+                        if (class_value.type == VALUE_CLASS) {
+                            // Pop arguments from stack
+                            int arg_count = instr->b;
+                            Value* args = (Value*)calloc(arg_count, sizeof(Value));
+                            if (args) {
+                                for (int i = arg_count - 1; i >= 0; i--) {
+                                    args[i] = value_stack_pop();
+                                }
+                                
+                                // Create class instance
+                                Value instance = value_create_object(16);
+                                
+                                // Set class name
+                                Value class_name_val = value_create_string(class_value.data.class_value.class_name);
+                                value_object_set(&instance, "__class_name__", class_name_val);
+                                value_free(&class_name_val);
+                                
+                                // Call constructor if it exists
+                                Value init_func = value_object_get(&class_value, "init");
+                                if (init_func.type == VALUE_FUNCTION) {
+                                    // Push instance as 'this' and arguments
+                                    value_stack_push(instance);
+                                    for (int i = 0; i < arg_count; i++) {
+                                        value_stack_push(args[i]);
+                                    }
+                                    
+                                    // Call constructor function
+                                    Value result = value_function_call(&init_func, NULL, arg_count + 1, interpreter, 0, 0);
+                                    value_free(&result);
+                                    
+                                    // Get the updated instance from stack
+                                    instance = value_stack_pop();
+                                }
+                                
+                                value_free(&init_func);
+                                
+                                value_stack_push(instance);
+                                
+                                // Clean up arguments
+                                for (int i = 0; i < arg_count; i++) {
+                                    value_free(&args[i]);
+                                }
+                                shared_free_safe(args, "bytecode_vm", "BC_INSTANTIATE_CLASS", 0);
+                            } else {
+                                value_stack_push(value_create_null());
+                            }
+                        } else {
+                            value_stack_push(value_create_null());
+                        }
+                    }
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_FOR_LOOP: {
+                // For loop: for i in collection body
+                // instr->a = variable name constant index, instr->b = body AST index
+                if (instr->a < program->const_count && instr->b < program->ast_count) {
+                    Value var_name = program->constants[instr->a];
+                    ASTNode* body = program->ast_nodes[instr->b];
+                    
+                    if (var_name.type == VALUE_STRING && body) {
+                        // Get collection from stack
+                        Value collection = value_stack_pop();
+                        
+                        // Handle different collection types
+                        if (collection.type == VALUE_ARRAY) {
+                            // Iterate over array elements
+                            for (size_t i = 0; i < collection.data.array_value.count; i++) {
+                                Value* elem_ptr = (Value*)collection.data.array_value.elements[i];
+                                Value element;
+                                
+                                if (!elem_ptr) {
+                                    // Null pointer - use Null value
+                                    element = value_create_null();
+                                } else {
+                                    element = value_clone(elem_ptr);
+                                }
+                                
+                                // Set loop variable in environment
+                                environment_define(interpreter->current_environment, var_name.data.string_value, element);
+                                
+                                // Execute loop body
+                                if (body) {
+                                    Value result = interpreter_execute(interpreter, body);
+                                    value_free(&result);
+                                }
+                                
+                                // Check for break/continue (simplified for now)
+                                if (interpreter_has_error(interpreter)) {
+                                    value_free(&element);
+                                    break;
+                                }
+                                value_free(&element);
+                            }
+                        } else if (collection.type == VALUE_STRING) {
+                            // Iterate over string characters
+                            for (size_t i = 0; i < strlen(collection.data.string_value); i++) {
+                                char ch = collection.data.string_value[i];
+                                Value element = value_create_string((char[]){ch, '\0'});
+                                
+                                // Set loop variable in environment
+                                environment_define(interpreter->current_environment, var_name.data.string_value, element);
+                                
+                                // Execute loop body
+                                Value result = interpreter_execute(interpreter, body);
+                                value_free(&result);
+                                value_free(&element);
+                                
+                                // Check for break/continue (simplified for now)
+                                if (interpreter_has_error(interpreter)) {
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        value_free(&collection);
+                    }
+                }
+                pc++;
+                break;
+            }
+            
             case BC_POP: {
                 Value val = value_stack_pop();
                 value_free(&val);
@@ -1841,10 +2218,13 @@ Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunct
         temp_program.count = func->code_count;
         temp_program.const_count = program ? program->const_count : 0;
         temp_program.constants = program ? program->constants : NULL;
+        temp_program.num_const_count = program ? program->num_const_count : 0;
+        temp_program.num_constants = program ? program->num_constants : NULL;
         temp_program.ast_count = 0;
         temp_program.ast_nodes = NULL;
         temp_program.function_count = 0;
         temp_program.functions = NULL;
+        
         
         // Execute the function's bytecode
         result = bytecode_execute(&temp_program, interpreter, 0);
@@ -1864,3 +2244,32 @@ Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunct
     
     return result;
 }
+
+// Pattern matching helper function
+static int pattern_matches_value(Value* value, Value* pattern) {
+    if (!value || !pattern) return 0;
+    
+    // Check for wildcard pattern
+    if (pattern->type == VALUE_STRING && strcmp(pattern->data.string_value, "__WILDCARD__") == 0) {
+        return 1; // Wildcard matches anything
+    }
+    
+    // Check for literal pattern matching
+    if (value->type == pattern->type) {
+        switch (value->type) {
+            case VALUE_NUMBER:
+                return value->data.number_value == pattern->data.number_value;
+            case VALUE_STRING:
+                return strcmp(value->data.string_value, pattern->data.string_value) == 0;
+            case VALUE_BOOLEAN:
+                return value->data.boolean_value == pattern->data.boolean_value;
+            case VALUE_NULL:
+                return 1; // Both are null
+            default:
+                return 0;
+        }
+    }
+    
+    return 0;
+}
+

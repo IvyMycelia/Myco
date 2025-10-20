@@ -19,16 +19,18 @@ Value builtin_set_add(Interpreter* interpreter, Value* args, size_t arg_count, i
         return value_create_null();
     }
     
-    Value* set = &args[0];
+    Value set = args[0];
     Value element = args[1];
     
-    if (set->type != VALUE_SET) {
+    if (set.type != VALUE_SET) {
         std_error_report(ERROR_INTERNAL_ERROR, "sets", "unknown_function", "set.add() can only be called on a set", line, column);
         return value_create_null();
     }
     
-    value_set_add(set, element);
-    return value_clone(set);
+    // Clone the set first, then add to the clone
+    Value result = value_clone(&set);
+    value_set_add(&result, element);
+    return result;
 }
 
 Value builtin_set_has(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {

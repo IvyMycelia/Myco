@@ -144,11 +144,11 @@ Value value_create_string(const char* value) {
             v.cache.cached_length = strlen(processed_value);
         } else {
             // Fallback to original value if processing fails
-            v.data.string_value = (value ? strdup(value) : NULL);
+            v.data.string_value = (value ? shared_strdup(value) : NULL);
             v.cache.cached_length = value ? strlen(value) : 0;
         }
     } else {
-        v.data.string_value = strdup("");  // Use empty string instead of NULL
+        v.data.string_value = shared_strdup("");  // Use empty string instead of NULL
         v.cache.cached_length = 0;
     }
     v.cache.cached_ptr = NULL;

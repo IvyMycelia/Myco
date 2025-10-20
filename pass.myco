@@ -3045,6 +3045,7 @@ else:
 end
 
 # 17.2. Field inheritance
+total_tests = total_tests + 1;
 let dog: Dog = Dog("Buddy");
 if dog.name == "Buddy":
     print("✓ Field inheritance");
@@ -3086,6 +3087,7 @@ else:
 end
 
 # 17.5. Inheritance with additional fields
+total_tests = total_tests + 1;
 let puppy: Puppy = Puppy("Max", 6);
 if puppy.name == "Max":
     print("✓ Inheritance with additional fields");
@@ -3847,8 +3849,6 @@ print("Success rate: " + rate.toString() + "%");
 
 if total_tests - tests_passed > 0:
     print("Failed tests:");
-    print("First failed test: " + tests_failed[0].toString());
-    
     for test_name in tests_failed:
         print("\t - " + test_name);
     end

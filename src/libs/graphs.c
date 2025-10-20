@@ -170,6 +170,12 @@ Value builtin_graph_create(Interpreter* interpreter, Value* args, size_t arg_cou
     value_object_set(&graph_obj, "size", value_create_number(0));
     value_object_set(&graph_obj, "isDirected", value_create_boolean(is_directed));
     
+    // Add instance methods
+    value_object_set(&graph_obj, "isEmpty", value_create_builtin_function(builtin_graph_is_empty));
+    value_object_set(&graph_obj, "addNode", value_create_builtin_function(builtin_graph_add_node));
+    value_object_set(&graph_obj, "addEdge", value_create_builtin_function(builtin_graph_add_edge));
+    value_object_set(&graph_obj, "clear", value_create_builtin_function(builtin_graph_clear));
+    
     return graph_obj;
 }
 

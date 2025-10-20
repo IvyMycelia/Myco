@@ -200,7 +200,7 @@ static int bc_add_function(BytecodeProgram* p, ASTNode* func) {
     memset(bc_func, 0, sizeof(BytecodeFunction));
     
     // Store function name
-    bc_func->name = strdup(func->data.function_definition.function_name);
+    bc_func->name = shared_strdup(func->data.function_definition.function_name);
     
     // Store parameter names
     bc_func->param_count = func->data.function_definition.parameter_count;
@@ -208,7 +208,7 @@ static int bc_add_function(BytecodeProgram* p, ASTNode* func) {
         bc_func->param_capacity = bc_func->param_count;
         bc_func->param_names = shared_malloc_safe(bc_func->param_count * sizeof(char*), "bytecode", "bc_add_function", 2);
         for (size_t i = 0; i < bc_func->param_count; i++) {
-            bc_func->param_names[i] = strdup(func->data.function_definition.parameters[i]->data.identifier_value);
+            bc_func->param_names[i] = shared_strdup(func->data.function_definition.parameters[i]->data.identifier_value);
         }
     }
     
@@ -292,7 +292,7 @@ static int define_local(BytecodeProgram* p, const char* name) {
         p->local_names = shared_realloc_safe(p->local_names, new_cap * sizeof(char*), "bytecode", "define_local", 1);
         p->local_capacity = new_cap;
     }
-    p->local_names[p->local_count] = strdup(name ? name : "");
+    p->local_names[p->local_count] = shared_strdup(name ? name : "");
     
     // Ensure locals array has enough slots
     if (p->local_count + 1 > p->local_slot_capacity) {
@@ -363,23 +363,10 @@ static bool is_builtin_function(const char* name) {
 static bool is_numeric_binary_op(BytecodeProgram* p, ASTNode* n) {
     if (n->type != AST_NODE_BINARY_OP) return false;
     
-    // Check if both operands are numbers
-    bool left_is_num = (n->data.binary.left->type == AST_NODE_NUMBER) ||
-                      (n->data.binary.left->type == AST_NODE_IDENTIFIER && 
-                       is_numeric_identifier(p, n->data.binary.left->data.identifier_value));
-    bool right_is_num = (n->data.binary.right->type == AST_NODE_NUMBER) ||
-                       (n->data.binary.right->type == AST_NODE_IDENTIFIER && 
-                        is_numeric_identifier(p, n->data.binary.right->data.identifier_value));
-    
-    // Also check if both operands are local variables (they might contain numbers)
-    if (!left_is_num && n->data.binary.left->type == AST_NODE_IDENTIFIER) {
-        int idx = lookup_local(p, n->data.binary.left->data.identifier_value);
-        left_is_num = (idx >= 0); // If it's a local variable, assume it's numeric for now
-    }
-    if (!right_is_num && n->data.binary.right->type == AST_NODE_IDENTIFIER) {
-        int idx = lookup_local(p, n->data.binary.right->data.identifier_value);
-        right_is_num = (idx >= 0); // If it's a local variable, assume it's numeric for now
-    }
+    // Only treat explicit number literals as numeric
+    // Do NOT assume local variables are numeric - they could be strings, objects, etc.
+    bool left_is_num = (n->data.binary.left->type == AST_NODE_NUMBER);
+    bool right_is_num = (n->data.binary.right->type == AST_NODE_NUMBER);
     
     return left_is_num && right_is_num;
 }
@@ -453,8 +440,17 @@ static void compile_numeric_node(BytecodeProgram* p, ASTNode* n) {
 }
 
 static void compile_binary(BytecodeProgram* p, ASTNode* n) {
+    // Check for array concatenation FIRST (before numeric check)
+    if (n->data.binary.op == OP_ADD && 
+        is_array_literal_or_identifier(n->data.binary.left) && 
+        is_array_literal_or_identifier(n->data.binary.right)) {
+        // Array concatenation: arr1 + arr2
+        compile_node(p, n->data.binary.left);
+        compile_node(p, n->data.binary.right);
+        bc_emit(p, BC_ARRAY_CONCAT, 0, 0);
+    }
     // Check if this is a pure numeric operation
-    if (is_numeric_binary_op(p, n)) {
+    else if (is_numeric_binary_op(p, n)) {
         // Use fast numeric operations
         compile_numeric_node(p, n->data.binary.left);
         compile_numeric_node(p, n->data.binary.right);
@@ -484,20 +480,11 @@ static void compile_binary(BytecodeProgram* p, ASTNode* n) {
             bc_emit_super(p, BC_NUM_TO_VALUE, 0, 0, 0);
         }
     } else {
-        // Check for array concatenation
-        if (n->data.binary.op == OP_ADD && 
-            is_array_literal_or_identifier(n->data.binary.left) && 
-            is_array_literal_or_identifier(n->data.binary.right)) {
-            // Array concatenation: arr1 + arr2
-            compile_node(p, n->data.binary.left);
-            compile_node(p, n->data.binary.right);
-            bc_emit(p, BC_ARRAY_CONCAT, 0, 0);
-        } else {
-            // Use regular value operations
-            compile_node(p, n->data.binary.left);
-            compile_node(p, n->data.binary.right);
-            switch (n->data.binary.op) {
-                    case OP_ADD: bc_emit(p, BC_ADD, 0, 0); break;
+        // Use regular value operations
+        compile_node(p, n->data.binary.left);
+        compile_node(p, n->data.binary.right);
+        switch (n->data.binary.op) {
+                case OP_ADD: bc_emit(p, BC_ADD, 0, 0); break;
                 case OP_SUBTRACT: bc_emit(p, BC_SUB, 0, 0); break;
                 case OP_MULTIPLY: bc_emit(p, BC_MUL, 0, 0); break;
                 case OP_DIVIDE: bc_emit(p, BC_DIV, 0, 0); break;
@@ -512,7 +499,39 @@ static void compile_binary(BytecodeProgram* p, ASTNode* n) {
                     bc_emit(p, BC_EVAL_AST, id, 0);
                 } break;
             }
-        }
+    }
+}
+
+
+static void compile_pattern(BytecodeProgram* p, ASTNode* pattern) {
+    if (!pattern) return;
+    
+    switch (pattern->type) {
+        case AST_NODE_NUMBER:
+        case AST_NODE_STRING:
+        case AST_NODE_BOOL:
+        case AST_NODE_NULL: {
+            // Literal patterns - compile as constants
+            compile_node(p, pattern);
+            bc_emit(p, BC_PATTERN_LITERAL, 0, 0);
+        } break;
+        
+        case AST_NODE_IDENTIFIER: {
+            // Wildcard pattern - matches anything
+            bc_emit(p, BC_PATTERN_WILDCARD, 0, 0);
+        } break;
+        
+        case AST_NODE_PATTERN_TYPE: {
+            // Type pattern - check if value matches type
+            int type_name_idx = bc_add_const(p, value_create_string(pattern->data.pattern_type.type_name));
+            bc_emit(p, BC_PATTERN_TYPE, type_name_idx, 0);
+        } break;
+        
+        default: {
+            // For complex patterns, fall back to AST evaluation
+            int id = bc_add_ast(p, pattern);
+            bc_emit(p, BC_EVAL_AST, id, 0);
+        } break;
     }
 }
 
@@ -718,16 +737,10 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             bc_emit(p, BC_CREATE_ARRAY, (int)n->data.array_literal.element_count, 0);
         } break;
         case AST_NODE_HASH_MAP_LITERAL: {
-            // Object literal: {key1: value1, key2: value2}
-            // Compile all key-value pairs onto the stack
-            for (size_t i = 0; i < n->data.hash_map_literal.pair_count; i++) {
-                // Compile value first (will be on top of stack)
-                compile_node(p, n->data.hash_map_literal.values[i]);
-                // Compile key second (will be on top of stack)
-                compile_node(p, n->data.hash_map_literal.keys[i]);
-            }
-            // Emit instruction to create object from stack pairs
-            bc_emit(p, BC_CREATE_OBJECT, (int)n->data.hash_map_literal.pair_count, 0);
+            // Map literal: {key1: value1, key2: value2}
+            // Fall back to AST evaluation for now due to crashes
+            int id = bc_add_ast(p, n);
+            bc_emit(p, BC_EVAL_AST, id, 0);
         } break;
         case AST_NODE_FUNCTION_CALL_EXPR: {
             // Method call: obj.method(args...)
@@ -975,33 +988,72 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                 if (obj_name) shared_free_safe(obj_name, "bytecode_compiler", "AST_NODE_FUNCTION_CALL", 2);
                 if (method_name) shared_free_safe(method_name, "bytecode_compiler", "AST_NODE_FUNCTION_CALL", 3);
             } else {
-                // Look up existing function and call it
-                int func_id = -1;
-                
-                for (size_t i = 0; i < p->function_count; i++) {
-                    if (p->functions[i].name) {
-                        
-                        if (strcmp(p->functions[i].name, n->data.function_call.function_name) == 0) {
-                            func_id = (int)i;
+                // Check if this is a class instantiation
+                if (p->interpreter && environment_exists(p->interpreter->global_environment, n->data.function_call.function_name)) {
+                    Value class_val = environment_get(p->interpreter->global_environment, n->data.function_call.function_name);
+                    if (class_val.type == VALUE_CLASS) {
+                        // This is a class instantiation
+                        for (size_t i = 0; i < n->data.function_call.argument_count; i++) {
+                            compile_node(p, n->data.function_call.arguments[i]);
+                        }
+                        int name_idx = bc_add_const(p, value_create_string(n->data.function_call.function_name));
+                        bc_emit(p, BC_INSTANTIATE_CLASS, name_idx, (int)n->data.function_call.argument_count);
+                    } else {
+                        // Not a class, fall back to AST
+                        int id = bc_add_ast(p, n);
+                        bc_emit(p, BC_EVAL_AST, id, 0);
+                    }
+                } else {
+                    // Look up existing function and call it
+                    int func_id = -1;
+                    
+                    for (size_t i = 0; i < p->function_count; i++) {
+                        if (p->functions[i].name) {
                             
-                            break;
+                            if (strcmp(p->functions[i].name, n->data.function_call.function_name) == 0) {
+                                func_id = (int)i;
+                                
+                                break;
+                            }
                         }
                     }
-                }
-                if (func_id >= 0) {
-                    // Compile arguments
-                    for (size_t i = 0; i < n->data.function_call.argument_count; i++) {
-                        compile_node(p, n->data.function_call.arguments[i]);
+                    if (func_id >= 0) {
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call.argument_count; i++) {
+                            compile_node(p, n->data.function_call.arguments[i]);
+                        }
+                        // Emit user function call
+                        bc_emit(p, BC_CALL_USER_FUNCTION, func_id, (int)n->data.function_call.argument_count);
+                    } else {
+                        // Function not found, fall back to AST
+                        int id = bc_add_ast(p, n);
+                        bc_emit(p, BC_EVAL_AST, id, 0);
                     }
-                    // Emit user function call
-                    bc_emit(p, BC_CALL_USER_FUNCTION, func_id, (int)n->data.function_call.argument_count);
-                } else {
-                    // Function not found, fall back to AST
-                    int id = bc_add_ast(p, n);
-                    bc_emit(p, BC_EVAL_AST, id, 0);
                 }
             }
         } break;
+        case AST_NODE_SPORE: {
+            // Compile pattern matching (spore/match statement)
+            // For now, fall back to AST evaluation
+            // Pattern matching is complex and needs more work
+            int id = bc_add_ast(p, n);
+            bc_emit(p, BC_EVAL_AST, id, 0);
+        } break;
+        
+        case AST_NODE_CLASS: {
+            // Compile class definition
+            // Create class with name and parent
+            int name_idx = bc_add_const(p, value_create_string(n->data.class_definition.class_name));
+            int parent_idx = n->data.class_definition.parent_class ? 
+                bc_add_const(p, value_create_string(n->data.class_definition.parent_class)) : -1;
+            
+            // Compile class body (fields and methods)
+            int body_idx = bc_add_ast(p, n->data.class_definition.body);
+            
+            bc_emit(p, BC_CREATE_CLASS, name_idx, parent_idx);
+            bc_emit(p, BC_EVAL_AST, body_idx, 0); // Execute class body
+        } break;
+        
         case AST_NODE_WHILE_LOOP: {
             // Compile while loop
             int loop_start = p->count;
@@ -1027,10 +1079,8 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
         } break;
         
         case AST_NODE_FOR_LOOP: {
-            // Compile for loop: for i in collection body
-            // For now, fall back to AST for complex for loops
-            // The AST execution will handle the iterator variable creation
-            
+            // For loops are complex and need proper environment scoping
+            // Fall back to AST evaluation to ensure variables are accessible
             int id = bc_add_ast(p, n);
             bc_emit(p, BC_EVAL_AST, id, 0);
         } break;

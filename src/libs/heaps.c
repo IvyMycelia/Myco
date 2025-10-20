@@ -9,6 +9,12 @@
 // Forward declaration
 void add_heap_methods(Value* heap);
 
+// Forward declarations for method functions
+Value builtin_heap_isEmpty_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_heap_insert_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_heap_peek_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_heap_extract_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+
 // Heap utility functions
 Value builtin_heap_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
@@ -30,6 +36,12 @@ Value builtin_heap_create(Interpreter* interpreter, Value* args, size_t arg_coun
     value_object_set_member(&heap, "elements", value_create_array(0));
     value_object_set_member(&heap, "is_max_heap", value_clone(&max_heap_arg));
     value_object_set_member(&heap, "size", value_create_number(0.0));
+    
+    // Add instance methods
+    value_object_set(&heap, "isEmpty", value_create_builtin_function(builtin_heap_isEmpty_method));
+    value_object_set(&heap, "insert", value_create_builtin_function(builtin_heap_insert_method));
+    value_object_set(&heap, "peek", value_create_builtin_function(builtin_heap_peek_method));
+    value_object_set(&heap, "extract", value_create_builtin_function(builtin_heap_extract_method));
     
     // Add methods to the heap object
     add_heap_methods(&heap);

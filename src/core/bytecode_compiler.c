@@ -667,8 +667,12 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
         } break;
         case AST_NODE_FUNCTION: {
             // Function definition - add to function table
-            bc_add_function(p, n);
+            int func_id = bc_add_function(p, n);
             // Function body is already compiled in bc_add_function
+            
+            // Emit instruction to define function in environment
+            int name_idx = bc_add_const(p, value_create_string(n->data.function_definition.function_name));
+            bc_emit_super(p, BC_DEFINE_FUNCTION, name_idx, func_id, 0);
         } break;
         case AST_NODE_MEMBER_ACCESS: {
             // Property access: obj.name
@@ -1052,6 +1056,9 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             
             bc_emit(p, BC_CREATE_CLASS, name_idx, parent_idx);
             bc_emit(p, BC_EVAL_AST, body_idx, 0); // Execute class body
+            
+            // After class body execution, the class should be fully defined
+            // The class body execution will add methods and fields to the class
         } break;
         
         case AST_NODE_WHILE_LOOP: {

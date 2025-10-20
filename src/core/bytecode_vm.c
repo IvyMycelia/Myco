@@ -491,7 +491,21 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                     // Set self context and call method
                                     interpreter_set_self_context(interpreter, &object);
                                     
-                                    Value result = value_function_call_with_self(&method, args, arg_count, interpreter, &object, 0, 0);
+                                    // For library instances, self is passed separately, so don't count it in arg_count
+                                    // But we need to pass the self object as the first argument
+                                    Value* method_args = shared_malloc_safe((arg_count + 1) * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL", 9);
+                                    method_args[0] = value_clone(&object); // self as first argument
+                                    for (int i = 0; i < arg_count; i++) {
+                                        method_args[i + 1] = value_clone(&args[i]);
+                                    }
+                                    
+                                    Value result = value_function_call(&method, method_args, arg_count + 1, interpreter, 0, 0);
+                                    
+                                    // Clean up method arguments
+                                    for (int i = 0; i < arg_count + 1; i++) {
+                                        value_free(&method_args[i]);
+                                    }
+                                    shared_free_safe(method_args, "bytecode_vm", "BC_METHOD_CALL", 10);
                                     value_stack_push(result);
                                 } else {
                                     value_stack_push(value_create_null());
@@ -754,6 +768,36 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     value_stack_push(result);
                 } else {
                     value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_DEFINE_FUNCTION: {
+                // Define function in environment: func_name -> function_value
+                // instr->a = function name constant index, instr->b = function id
+                int name_idx = instr->a;
+                int func_id = instr->b;
+                
+                if (name_idx >= 0 && name_idx < (int)program->const_count && 
+                    program->constants[name_idx].type == VALUE_STRING &&
+                    func_id >= 0 && func_id < (int)program->function_count) {
+                    
+                    const char* func_name = program->constants[name_idx].data.string_value;
+                    BytecodeFunction* func = &program->functions[func_id];
+                    
+                    // Create a simple function value that represents a bytecode function
+                    // We'll use a special marker to indicate this is a bytecode function
+                    Value function_value = value_create_function(
+                        NULL, // No AST body for bytecode functions
+                        NULL, // No AST parameters for bytecode functions
+                        func->param_count,
+                        NULL, // No return type for now
+                        interpreter->current_environment
+                    );
+                    
+                    // Define in global environment so it can be called from anywhere
+                    environment_define(interpreter->global_environment, func_name, function_value);
                 }
                 pc++;
                 break;
@@ -1829,8 +1873,8 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             interpreter->current_environment
                         );
                         
-                        // Store class in environment
-                        environment_define(interpreter->current_environment, class_name.data.string_value, class_value);
+                        // Store class in global environment so it can be accessed from anywhere
+                        environment_define(interpreter->global_environment, class_name.data.string_value, class_value);
                         value_free(&class_value);
                     }
                 }
@@ -1853,7 +1897,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         if (class_value.type == VALUE_CLASS) {
                             // Pop arguments from stack
                             int arg_count = instr->b;
-                            Value* args = (Value*)calloc(arg_count, sizeof(Value));
+                            Value* args = shared_malloc_safe(arg_count * sizeof(Value), "bytecode_vm", "BC_INSTANTIATE_CLASS", 1);
                             if (args) {
                                 for (int i = arg_count - 1; i >= 0; i--) {
                                     args[i] = value_stack_pop();

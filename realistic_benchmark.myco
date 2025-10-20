@@ -1,0 +1,64 @@
+# Realistic Performance Benchmark
+
+print("=== Myco Bytecode Performance Analysis ===");
+
+# Test 1: Basic Arithmetic (10K operations)
+print("Test 1: Basic arithmetic (10K operations)");
+let sum = 0;
+let i = 0;
+
+while i < 10000:
+    sum = sum + i * 2;
+    i = i + 1;
+end
+
+print("Result: " + sum.toString());
+
+# Test 2: Array Operations (1K operations)
+print("Test 2: Array operations (1K operations)");
+let arr = [1, 2, 3, 4, 5];
+let arr_sum = 0;
+let j = 0;
+
+while j < 1000:
+    let k = 0;
+    while k < 5:
+        arr_sum = arr_sum + arr[k];
+        k = k + 1;
+    end
+    j = j + 1;
+end
+
+print("Result: " + arr_sum.toString());
+
+# Test 3: String Operations (100 operations)
+print("Test 3: String operations (100 operations)");
+let str = "Hello";
+let result = "";
+let m = 0;
+
+while m < 100:
+    result = result + str;
+    m = m + 1;
+end
+
+print("Result length: " + result.length.toString());
+
+# Test 4: Object Operations (100 operations)
+print("Test 4: Object operations (100 operations)");
+
+class TestClass:
+    let value = 0;
+end
+
+let obj = TestClass();
+let n = 0;
+
+while n < 100:
+    obj.value = obj.value + n;
+    n = n + 1;
+end
+
+print("Object value: " + obj.value.toString());
+
+print("=== Benchmark Complete ===");

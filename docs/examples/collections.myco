@@ -1,0 +1,177 @@
+# Collections Example
+# Demonstrates Myco's built-in collection types
+
+print("=== Collections Example ===");
+
+# Arrays
+print("--- Arrays ---");
+let numbers = [1, 2, 3, 4, 5];
+let fruits = ["apple", "banana", "orange"];
+
+print("Numbers:", numbers);
+print("Fruits:", fruits);
+print("First number:", numbers[0]);
+print("Last fruit:", fruits[2]);
+
+# Array operations
+numbers = numbers + [6, 7];
+print("After adding elements:", numbers);
+
+let doubled = [];
+for num in numbers:
+    doubled = doubled + [num * 2];
+end
+print("Doubled numbers:", doubled);
+
+# Array methods
+print("Array length:", numbers.length);
+print("Contains 3:", numbers.contains(3));
+print("Index of 4:", numbers.indexOf(4));
+
+# Maps (Dictionaries)
+print("\n--- Maps ---");
+let person = {
+    name: "Alice",
+    age: 30,
+    city: "New York",
+    isStudent: False
+};
+
+print("Person:", person);
+print("Name:", person.name);
+print("Age:", person.age);
+
+# Map operations
+person.email = "alice@example.com";
+person["phone"] = "555-1234";
+print("After adding fields:", person);
+
+print("Has email:", person.has("email"));
+print("Keys:", person.keys());
+print("Values:", person.values());
+
+# Sets
+print("\n--- Sets ---");
+let colors = {"red", "green", "blue"};
+let primaryColors = {"red", "green", "blue"};
+let secondaryColors = {"yellow", "cyan", "magenta"};
+
+print("Colors:", colors);
+print("Primary colors:", primaryColors);
+print("Secondary colors:", secondaryColors);
+
+# Set operations
+let allColors = primaryColors + secondaryColors;
+print("All colors:", allColors);
+
+let common = primaryColors & {"red", "blue", "purple"};
+print("Common colors:", common);
+
+let diff = primaryColors - {"red"};
+print("Primary without red:", diff);
+
+print("Red in colors:", colors.has("red"));
+print("Yellow in colors:", colors.has("yellow"));
+
+# Advanced Collections
+print("\n--- Advanced Collections ---");
+
+# Trees
+use trees;
+let tree = trees.create();
+tree = tree.insert(5);
+tree = tree.insert(3);
+tree = tree.insert(7);
+tree = tree.insert(1);
+tree = tree.insert(9);
+
+print("Tree size:", tree.size);
+print("Tree contains 3:", tree.search(3));
+print("Tree contains 4:", tree.search(4));
+
+# Heaps
+use heaps;
+let heap = heaps.create();
+heap = heap.insert(10);
+heap = heap.insert(5);
+heap = heap.insert(15);
+heap = heap.insert(3);
+
+print("Heap size:", heap.size);
+print("Heap peek (min):", heap.peek());
+
+# Queues
+use queues;
+let queue = queues.create();
+queue = queue.enqueue("first");
+queue = queue.enqueue("second");
+queue = queue.enqueue("third");
+
+print("Queue size:", queue.size);
+print("Queue front:", queue.front());
+print("Queue back:", queue.back());
+
+# Stacks
+use stacks;
+let stack = stacks.create();
+stack = stack.push("bottom");
+stack = stack.push("middle");
+stack = stack.push("top");
+
+print("Stack size:", stack.size);
+print("Stack top:", stack.top());
+
+# Collection Processing
+print("\n--- Collection Processing ---");
+
+# Map function
+let numbers = [1, 2, 3, 4, 5];
+let squared = numbers.map(func(x: Int) -> Int: return x * x; end);
+print("Numbers:", numbers);
+print("Squared:", squared);
+
+# Filter function
+let evens = numbers.filter(func(x: Int) -> Boolean: return x % 2 == 0; end);
+print("Even numbers:", evens);
+
+# Reduce function
+let sum = numbers.reduce(0, func(acc: Int, x: Int) -> Int: return acc + x; end);
+print("Sum of numbers:", sum);
+
+# String operations on arrays
+let words = ["hello", "world", "myco"];
+let upperWords = words.map(func(word: String) -> String: return word.upper(); end);
+print("Words:", words);
+print("Upper words:", upperWords);
+
+# Complex data processing
+let students = [
+    {name: "Alice", grade: 85},
+    {name: "Bob", grade: 92},
+    {name: "Charlie", grade: 78},
+    {name: "Diana", grade: 96}
+];
+
+print("\nStudent grades:");
+for student in students:
+    print(student.name + ": " + student.grade.toString());
+end
+
+# Find students with grade >= 90
+let topStudents = students.filter(func(s: {name: String, grade: Int}) -> Boolean: 
+    return s.grade >= 90; 
+end);
+
+print("\nTop students (grade >= 90):");
+for student in topStudents:
+    print(student.name + ": " + student.grade.toString());
+end
+
+# Calculate average grade
+let totalGrade = students.reduce(0, func(acc: Int, s: {name: String, grade: Int}) -> Int: 
+    return acc + s.grade; 
+end);
+let averageGrade = totalGrade / students.length;
+print("Average grade:", averageGrade);
+
+print("\n=== Collections example completed!");

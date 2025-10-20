@@ -1,0 +1,30 @@
+# Hello World Example
+# This is the classic "Hello, World!" program in Myco
+# Perfect for your first Myco program
+
+print("Hello, World!");
+
+# Let's make it a bit more interesting
+let name = "Myco";
+let version = 1.0;
+print("Welcome to " + name + " v" + version.toString() + "!");
+
+# Show some basic Myco features
+let numbers = [1, 2, 3, 4, 5];
+let sum = 0;
+
+for num in numbers:
+    sum = sum + num;
+end
+
+print("Sum of numbers:", sum);
+
+# Demonstrate functions
+func greet(person: String) -> String:
+    return "Hello, " + person + "!";
+end
+
+let greeting = greet("Developer");
+print(greeting);
+
+print("Hello World example completed!");

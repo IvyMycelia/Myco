@@ -516,27 +516,89 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
     if (object.type == VALUE_OBJECT) {
         Value member = value_object_get(&object, method_name);
         if (member.type == VALUE_FUNCTION) {
+            // Check if this is a library instance (has __class_name__)
+            Value class_name = value_object_get(&object, "__class_name__");
+            bool is_library_instance = (class_name.type == VALUE_STRING && 
+                (strcmp(class_name.data.string_value, "Tree") == 0 ||
+                 strcmp(class_name.data.string_value, "Graph") == 0 ||
+                 strcmp(class_name.data.string_value, "Heap") == 0 ||
+                 strcmp(class_name.data.string_value, "Queue") == 0 ||
+                 strcmp(class_name.data.string_value, "Stack") == 0));
+            
+            // Determine which calling pattern to use
+            bool uses_self_context = false;
+            if (is_library_instance) {
+                uses_self_context = (strcmp(class_name.data.string_value, "Heap") == 0 ||
+                                   strcmp(class_name.data.string_value, "Queue") == 0 ||
+                                   strcmp(class_name.data.string_value, "Stack") == 0);
+            }
+            value_free(&class_name);
+            
             // Set self context for method calls
             interpreter_set_self_context(interpreter, &object);
             
             size_t arg_count = call_node->data.function_call_expr.argument_count;
             Value result;
-            if (arg_count == 0) {
-                result = value_function_call_with_self(&member, NULL, 0, interpreter, &object, call_node->line, call_node->column);
+            
+            if (is_library_instance) {
+                if (uses_self_context) {
+                    // For heaps/queues/stacks, use self context (no self argument)
+                    if (arg_count == 0) {
+                        result = value_function_call_with_self(&member, NULL, 0, interpreter, &object, call_node->line, call_node->column);
+                    } else {
+                        Value* args = (Value*)shared_malloc_safe(arg_count * sizeof(Value), "interpreter", "handle_method_call", 0);
+                        if (!args) { 
+                            value_free(&member); 
+                            value_free(&object); 
+                            interpreter_set_self_context(interpreter, NULL);
+                            return value_create_null(); 
+                        }
+                        for (size_t i = 0; i < arg_count; i++) {
+                            args[i] = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[i]);
+                        }
+                        result = value_function_call_with_self(&member, args, arg_count, interpreter, &object, call_node->line, call_node->column);
+                        for (size_t i = 0; i < arg_count; i++) value_free(&args[i]);
+                        shared_free_safe(args, "interpreter", "handle_method_call", 0);
+                    }
+                } else {
+                    // For trees/graphs, pass self as first argument
+                    Value* method_args = shared_malloc_safe((arg_count + 1) * sizeof(Value), "interpreter", "handle_method_call", 0);
+                    if (!method_args) { 
+                        value_free(&member); 
+                        value_free(&object); 
+                        interpreter_set_self_context(interpreter, NULL);
+                        return value_create_null(); 
+                    }
+                    
+                    method_args[0] = value_clone(&object); // self as first argument
+                    for (size_t i = 0; i < arg_count; i++) {
+                        method_args[i + 1] = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[i]);
+                    }
+                    
+                    result = value_function_call(&member, method_args, arg_count + 1, interpreter, call_node->line, call_node->column);
+                    
+                    for (size_t i = 0; i < arg_count + 1; i++) value_free(&method_args[i]);
+                    shared_free_safe(method_args, "interpreter", "handle_method_call", 0);
+                }
             } else {
-                Value* args = (Value*)shared_malloc_safe(arg_count * sizeof(Value), "interpreter", "handle_method_call", 0);
-                if (!args) { 
-                    value_free(&member); 
-                    value_free(&object); 
-                    interpreter_set_self_context(interpreter, NULL);
-                    return value_create_null(); 
+                // For regular objects, use self context
+                if (arg_count == 0) {
+                    result = value_function_call_with_self(&member, NULL, 0, interpreter, &object, call_node->line, call_node->column);
+                } else {
+                    Value* args = (Value*)shared_malloc_safe(arg_count * sizeof(Value), "interpreter", "handle_method_call", 0);
+                    if (!args) { 
+                        value_free(&member); 
+                        value_free(&object); 
+                        interpreter_set_self_context(interpreter, NULL);
+                        return value_create_null(); 
+                    }
+                    for (size_t i = 0; i < arg_count; i++) {
+                        args[i] = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[i]);
+                    }
+                    result = value_function_call_with_self(&member, args, arg_count, interpreter, &object, call_node->line, call_node->column);
+                    for (size_t i = 0; i < arg_count; i++) value_free(&args[i]);
+                    shared_free_safe(args, "interpreter", "handle_method_call", 0);
                 }
-                for (size_t i = 0; i < arg_count; i++) {
-                    args[i] = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[i]);
-                }
-                result = value_function_call_with_self(&member, args, arg_count, interpreter, &object, call_node->line, call_node->column);
-                for (size_t i = 0; i < arg_count; i++) value_free(&args[i]);
-                shared_free_safe(args, "interpreter", "handle_method_call", 0);
             }
             
             // Clear self context

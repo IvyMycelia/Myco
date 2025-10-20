@@ -233,7 +233,10 @@ static ExecutionCounter* get_or_create_counter(HotSpotTracker* tracker, ASTNode*
 // ============================================================================
 
 void hot_spot_tracker_record_execution(HotSpotTracker* tracker, ASTNode* node, uint64_t execution_time_ns) {
-    if (!tracker || !node || !tracker->enable_profiling) return;
+    if (!tracker || !tracker->enable_profiling) return;
+    
+    // Allow NULL node for simplified tracking
+    if (!node) return;
     
     uint64_t start_time = get_current_time_ns();
     

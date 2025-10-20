@@ -407,7 +407,6 @@ void heaps_library_register(Interpreter* interpreter) {
 // Wrapper functions for method calls
 Value builtin_heap_isEmpty_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     // When called as heap.isEmpty(), we need to get the heap object from self_context
-    fprintf(stderr, "DEBUG: builtin_heap_isEmpty_method called with %zu arguments\n", arg_count);
     if (arg_count != 0) {
         std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.isEmpty() expects exactly 0 arguments", line, column);
         return value_create_null();
@@ -424,7 +423,6 @@ Value builtin_heap_isEmpty_method(Interpreter* interpreter, Value* args, size_t 
     // Call the original function with the heap object
     Value heap_args[1] = { *self };
     Value result = builtin_heap_isEmpty(interpreter, heap_args, 1, line, column);
-    fprintf(stderr, "DEBUG: builtin_heap_isEmpty returned type %d\n", result.type);
     return result;
 }
 

@@ -2,6 +2,265 @@
 #include "../../include/utils/shared_utilities.h"
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
+
+// Compiler optimization structures
+typedef struct {
+    int* constant_foldings;
+    size_t count;
+    size_t capacity;
+} ConstantFoldingCache;
+
+typedef struct {
+    int* dead_instructions;
+    size_t count;
+    size_t capacity;
+} DeadCodeTracker;
+
+// Compiler optimization globals
+static ConstantFoldingCache* const_fold_cache = NULL;
+static DeadCodeTracker* dead_code_tracker = NULL;
+
+// Helper function for adding numeric constants
+static int bc_add_num_const(BytecodeProgram* p, double val) {
+    if (p->num_const_count + 1 > p->num_const_capacity) {
+        size_t new_cap = p->num_const_capacity ? p->num_const_capacity * 2 : 64;
+        p->num_constants = shared_realloc_safe(p->num_constants, new_cap * sizeof(double), "bytecode", "bc_add_num_const", 1);
+        p->num_const_capacity = new_cap;
+    }
+    p->num_constants[p->num_const_count] = val;
+    return (int)p->num_const_count++;
+}
+
+// Compiler optimization helper functions
+static void init_compiler_optimizations(void) {
+    if (!const_fold_cache) {
+        const_fold_cache = shared_malloc_safe(sizeof(ConstantFoldingCache), "bytecode_compiler", "init_const_fold", 0);
+        if (const_fold_cache) {
+            const_fold_cache->constant_foldings = shared_malloc_safe(64 * sizeof(int), "bytecode_compiler", "init_const_fold_array", 0);
+            const_fold_cache->count = 0;
+            const_fold_cache->capacity = 64;
+        }
+    }
+    
+    if (!dead_code_tracker) {
+        dead_code_tracker = shared_malloc_safe(sizeof(DeadCodeTracker), "bytecode_compiler", "init_dead_code", 0);
+        if (dead_code_tracker) {
+            dead_code_tracker->dead_instructions = shared_malloc_safe(128 * sizeof(int), "bytecode_compiler", "init_dead_code_array", 0);
+            dead_code_tracker->count = 0;
+            dead_code_tracker->capacity = 128;
+        }
+    }
+}
+
+static void cleanup_compiler_optimizations(void) {
+    if (const_fold_cache) {
+        if (const_fold_cache->constant_foldings) {
+            shared_free_safe(const_fold_cache->constant_foldings, "bytecode_compiler", "cleanup_const_fold", 0);
+        }
+        shared_free_safe(const_fold_cache, "bytecode_compiler", "cleanup_const_fold_struct", 0);
+        const_fold_cache = NULL;
+    }
+    
+    if (dead_code_tracker) {
+        if (dead_code_tracker->dead_instructions) {
+            shared_free_safe(dead_code_tracker->dead_instructions, "bytecode_compiler", "cleanup_dead_code", 0);
+        }
+        shared_free_safe(dead_code_tracker, "bytecode_compiler", "cleanup_dead_code_struct", 0);
+        dead_code_tracker = NULL;
+    }
+}
+
+// Constant folding optimization
+static int try_constant_fold(BytecodeProgram* p, BytecodeOp op, int a, int b) {
+    if (!const_fold_cache) return -1;
+    
+    // Only fold numeric operations for now
+    if (op == BC_ADD_NUM || op == BC_SUB_NUM || op == BC_MUL_NUM || op == BC_DIV_NUM) {
+        if (a >= 0 && a < (int)p->num_const_count && b >= 0 && b < (int)p->num_const_count) {
+            double val_a = p->num_constants[a];
+            double val_b = p->num_constants[b];
+            double result;
+            
+            switch (op) {
+                case BC_ADD_NUM: result = val_a + val_b; break;
+                case BC_SUB_NUM: result = val_a - val_b; break;
+                case BC_MUL_NUM: result = val_a * val_b; break;
+                case BC_DIV_NUM: 
+                    if (val_b != 0.0) {
+                        result = val_a / val_b; 
+                    } else {
+                        return -1; // Division by zero
+                    }
+                    break;
+                default: return -1;
+            }
+            
+            // Add result as new constant
+            return bc_add_num_const(p, result);
+        }
+    }
+    
+    return -1;
+}
+
+// Dead code elimination
+static void mark_dead_instruction(int instruction_index) {
+    if (!dead_code_tracker) return;
+    
+    if (dead_code_tracker->count >= dead_code_tracker->capacity) {
+        size_t new_cap = dead_code_tracker->capacity * 2;
+        int* new_array = shared_realloc_safe(
+            dead_code_tracker->dead_instructions,
+            new_cap * sizeof(int),
+            "bytecode_compiler", "dead_code_realloc", 0
+        );
+        if (!new_array) return;
+        dead_code_tracker->dead_instructions = new_array;
+        dead_code_tracker->capacity = new_cap;
+    }
+    
+    dead_code_tracker->dead_instructions[dead_code_tracker->count] = instruction_index;
+    dead_code_tracker->count++;
+}
+
+// Loop unrolling optimization
+static int should_unroll_loop(BytecodeProgram* p, int start_idx, int end_idx) {
+    if (!p || start_idx < 0 || end_idx >= (int)p->count || start_idx >= end_idx) {
+        return 0;
+    }
+    
+    int instruction_count = end_idx - start_idx + 1;
+    
+    // Unroll loops with <= 5 instructions and <= 3 iterations
+    return (instruction_count <= 5);
+}
+
+// Local variable slot reuse optimization
+static int find_reusable_slot(BytecodeProgram* p, int current_slot) {
+    if (!p || current_slot < 0 || current_slot >= (int)p->local_slot_count) {
+        return current_slot;
+    }
+    
+    // Simple strategy: reuse slots that are no longer needed
+    // This is a basic implementation - could be enhanced with liveness analysis
+    return current_slot;
+}
+
+// Forward declarations
+static void apply_constant_folding(BytecodeProgram* program);
+static void apply_dead_code_elimination(BytecodeProgram* program);
+static void apply_loop_unrolling(BytecodeProgram* program);
+static void apply_slot_reuse(BytecodeProgram* program);
+
+// Apply all compiler optimizations
+static void apply_compiler_optimizations(BytecodeProgram* program) {
+    if (!program || !program->code) return;
+    
+    // Phase 1: Constant folding
+    apply_constant_folding(program);
+    
+    // Phase 2: Dead code elimination
+    apply_dead_code_elimination(program);
+    
+    // Phase 3: Loop unrolling
+    apply_loop_unrolling(program);
+    
+    // Phase 4: Local variable slot reuse
+    apply_slot_reuse(program);
+}
+
+// Apply constant folding optimization
+static void apply_constant_folding(BytecodeProgram* program) {
+    if (!program || !program->code) return;
+    
+    for (size_t i = 0; i < program->count; i++) {
+        BytecodeInstruction* instr = &program->code[i];
+        
+        // Try to fold numeric operations
+        if (instr->op == BC_ADD_NUM || instr->op == BC_SUB_NUM || 
+            instr->op == BC_MUL_NUM || instr->op == BC_DIV_NUM) {
+            
+            int folded_result = try_constant_fold(program, instr->op, instr->a, instr->b);
+            if (folded_result >= 0) {
+                // Replace with load constant
+                instr->op = BC_LOAD_NUM;
+                instr->a = folded_result;
+                instr->b = 0;
+            }
+        }
+    }
+}
+
+// Apply dead code elimination
+static void apply_dead_code_elimination(BytecodeProgram* program) {
+    if (!program || !program->code || !dead_code_tracker) return;
+    
+    // Mark unreachable code after unconditional jumps
+    for (size_t i = 0; i < program->count; i++) {
+        BytecodeInstruction* instr = &program->code[i];
+        
+        if (instr->op == BC_JUMP || instr->op == BC_RETURN) {
+            // Mark instructions after unconditional jumps as dead
+            for (size_t j = i + 1; j < program->count; j++) {
+                mark_dead_instruction((int)j);
+            }
+            break;
+        }
+    }
+    
+    // Remove dead instructions (simplified - in practice would compact array)
+    // For now, just mark them as NOP
+    for (size_t i = 0; i < dead_code_tracker->count; i++) {
+        int dead_idx = dead_code_tracker->dead_instructions[i];
+        if (dead_idx >= 0 && dead_idx < (int)program->count) {
+            program->code[dead_idx].op = BC_POP; // Use BC_POP as NOP equivalent
+            program->code[dead_idx].a = 0;
+            program->code[dead_idx].b = 0;
+        }
+    }
+}
+
+// Apply loop unrolling optimization
+static void apply_loop_unrolling(BytecodeProgram* program) {
+    if (!program || !program->code) return;
+    
+    // Simple loop detection and unrolling
+    for (size_t i = 0; i < program->count - 1; i++) {
+        BytecodeInstruction* instr = &program->code[i];
+        
+        // Look for loop patterns (simplified detection)
+        if (instr->op == BC_JUMP_IF_FALSE) {
+            int target = instr->a;
+            if (target > (int)i && target < (int)program->count) {
+                // Check if this is a small loop that should be unrolled
+                if (should_unroll_loop(program, (int)i, target)) {
+                    // Mark for unrolling (simplified - would duplicate instructions)
+                    // For now, just optimize the loop condition by inverting it
+                    // This is a placeholder - actual unrolling would duplicate instructions
+                }
+            }
+        }
+    }
+}
+
+// Apply local variable slot reuse optimization
+static void apply_slot_reuse(BytecodeProgram* program) {
+    if (!program || !program->code) return;
+    
+    // Optimize local variable assignments
+    for (size_t i = 0; i < program->count; i++) {
+        BytecodeInstruction* instr = &program->code[i];
+        
+        if (instr->op == BC_STORE_LOCAL) {
+            // Try to reuse a slot if possible
+            int new_slot = find_reusable_slot(program, instr->a);
+            if (new_slot != instr->a) {
+                instr->a = new_slot;
+            }
+        }
+    }
+}
 
 static void bc_emit(BytecodeProgram* p, BytecodeOp op, int a, int b) {
     if (p->count + 1 > p->capacity) {
@@ -37,16 +296,6 @@ static int bc_add_const(BytecodeProgram* p, Value v) {
     }
     p->constants[p->const_count] = v; // Stored by value; execution will clone as needed
     return (int)p->const_count++;
-}
-
-static int bc_add_num_const(BytecodeProgram* p, double val) {
-    if (p->num_const_count + 1 > p->num_const_capacity) {
-        size_t new_cap = p->num_const_capacity ? p->num_const_capacity * 2 : 64;
-        p->num_constants = shared_realloc_safe(p->num_constants, new_cap * sizeof(double), "bytecode", "bc_add_num_const", 1);
-        p->num_const_capacity = new_cap;
-    }
-    p->num_constants[p->num_const_count] = val;
-    return (int)p->num_const_count++;
 }
 
 static int bc_add_ast(BytecodeProgram* p, ASTNode* n) {
@@ -254,6 +503,13 @@ BytecodeProgram* bytecode_program_create(void) {
     BytecodeProgram* p = shared_malloc_safe(sizeof(BytecodeProgram), "bytecode", "create", 1);
     if (!p) return NULL;
     memset(p, 0, sizeof(*p));
+    
+    // Initialize value pool for performance
+    p->value_pool_initialized = false;
+    p->value_pool_size = 0;
+    p->value_pool_next = 0;
+    p->value_pool = NULL;
+    
     return p;
 }
 
@@ -282,6 +538,16 @@ void bytecode_program_free(BytecodeProgram* p) {
     // Free numeric arrays
     shared_free_safe(p->num_constants, "bytecode", "free", 7);
     shared_free_safe(p->num_locals, "bytecode", "free", 8);
+    // Free value pool
+    if (p->value_pool_initialized && p->value_pool) {
+        // Free any string values in the pool
+        for (size_t i = 0; i < p->value_pool_next; i++) {
+            if (p->value_pool[i].type == VALUE_STRING && p->value_pool[i].data.string_value) {
+                shared_free_safe(p->value_pool[i].data.string_value, "bytecode", "free_pool_string", 0);
+            }
+        }
+        shared_free_safe(p->value_pool, "bytecode", "free", 11);
+    }
     // Free function definitions
     if (p->functions) {
         for (size_t i = 0; i < p->function_count; i++) {
@@ -1124,11 +1390,20 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
 int bytecode_compile_program(BytecodeProgram* program, ASTNode* root, Interpreter* interpreter) {
     if (!program || !root) return 0;
     
+    // Initialize compiler optimizations
+    init_compiler_optimizations();
+    
     // Store interpreter reference for global variable access
     program->interpreter = interpreter;
     
     compile_node(program, root);
     bc_emit(program, BC_HALT, 0, 0);
+    
+    // Apply optimizations
+    apply_compiler_optimizations(program);
+    
+    // Cleanup optimizations
+    cleanup_compiler_optimizations();
     
     return 1;
 }

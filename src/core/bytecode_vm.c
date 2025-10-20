@@ -2184,36 +2184,72 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             case BC_ADD_NUM: {
-                double b = num_stack_pop();
-                double a = num_stack_pop();
-                num_stack_push(a + b);
+                // Fast path: direct stack access without function calls
+                if (num_stack_size >= 2) {
+                    double b = num_stack[--num_stack_size];
+                    double a = num_stack[--num_stack_size];
+                    num_stack[num_stack_size++] = a + b;
+                } else {
+                    // Fallback for safety
+                    double b = num_stack_pop();
+                    double a = num_stack_pop();
+                    num_stack_push(a + b);
+                }
                 pc++;
                 break;
             }
             
             case BC_SUB_NUM: {
-                double b = num_stack_pop();
-                double a = num_stack_pop();
-                num_stack_push(a - b);
+                // Fast path: direct stack access without function calls
+                if (num_stack_size >= 2) {
+                    double b = num_stack[--num_stack_size];
+                    double a = num_stack[--num_stack_size];
+                    num_stack[num_stack_size++] = a - b;
+                } else {
+                    // Fallback for safety
+                    double b = num_stack_pop();
+                    double a = num_stack_pop();
+                    num_stack_push(a - b);
+                }
                 pc++;
                 break;
             }
             
             case BC_MUL_NUM: {
-                double b = num_stack_pop();
-                double a = num_stack_pop();
-                num_stack_push(a * b);
+                // Fast path: direct stack access without function calls
+                if (num_stack_size >= 2) {
+                    double b = num_stack[--num_stack_size];
+                    double a = num_stack[--num_stack_size];
+                    num_stack[num_stack_size++] = a * b;
+                } else {
+                    // Fallback for safety
+                    double b = num_stack_pop();
+                    double a = num_stack_pop();
+                    num_stack_push(a * b);
+                }
                 pc++;
                 break;
             }
             
             case BC_DIV_NUM: {
-                double b = num_stack_pop();
-                double a = num_stack_pop();
-                if (b != 0.0) {
-                    num_stack_push(a / b);
+                // Fast path: direct stack access without function calls
+                if (num_stack_size >= 2) {
+                    double b = num_stack[--num_stack_size];
+                    double a = num_stack[--num_stack_size];
+                    if (b != 0.0) {
+                        num_stack[num_stack_size++] = a / b;
+                    } else {
+                        num_stack[num_stack_size++] = 0.0;
+                    }
                 } else {
-                    num_stack_push(0.0);
+                    // Fallback for safety
+                    double b = num_stack_pop();
+                    double a = num_stack_pop();
+                    if (b != 0.0) {
+                        num_stack_push(a / b);
+                    } else {
+                        num_stack_push(0.0);
+                    }
                 }
                 pc++;
                 break;

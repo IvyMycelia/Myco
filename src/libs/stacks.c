@@ -76,6 +76,9 @@ Value builtin_stack_push(Interpreter* interpreter, Value* args, size_t arg_count
     value_object_set_member(&new_stack, "elements", new_elements);
     value_object_set_member(&new_stack, "size", new_size);
     
+    // Add methods to the new stack
+    add_stack_methods(&new_stack);
+    
     return new_stack;
 }
 
@@ -144,6 +147,9 @@ Value builtin_stack_pop(Interpreter* interpreter, Value* args, size_t arg_count,
     value_object_set(&new_stack, "type", value_create_string("Stack"));
     value_object_set_member(&new_stack, "elements", new_elements);
     value_object_set_member(&new_stack, "size", new_size);
+    
+    // Add methods to the new stack
+    add_stack_methods(&new_stack);
     
     return new_stack;
 }

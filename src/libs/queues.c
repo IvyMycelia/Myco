@@ -76,6 +76,9 @@ Value builtin_queue_enqueue(Interpreter* interpreter, Value* args, size_t arg_co
     value_object_set_member(&new_queue, "elements", new_elements);
     value_object_set_member(&new_queue, "size", new_size);
     
+    // Add methods to the new queue
+    add_queue_methods(&new_queue);
+    
     return new_queue;
 }
 
@@ -143,6 +146,9 @@ Value builtin_queue_dequeue(Interpreter* interpreter, Value* args, size_t arg_co
     value_object_set(&new_queue, "type", value_create_string("Queue"));
     value_object_set_member(&new_queue, "elements", new_elements);
     value_object_set_member(&new_queue, "size", new_size);
+    
+    // Add methods to the new queue
+    add_queue_methods(&new_queue);
     
     return new_queue;
 }

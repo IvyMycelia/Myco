@@ -197,6 +197,13 @@ Value builtin_graph_add_node(Interpreter* interpreter, Value* args, size_t arg_c
     // TODO: Implement actual node addition
     Value result = value_clone(&graph_obj);
     value_object_set_member(&result, "__class_name__", value_create_string(("Graph" ? strdup("Graph") : NULL)));
+    
+    // Add methods to the new graph
+    value_object_set(&result, "isEmpty", value_create_builtin_function(builtin_graph_is_empty));
+    value_object_set(&result, "addNode", value_create_builtin_function(builtin_graph_add_node));
+    value_object_set(&result, "addEdge", value_create_builtin_function(builtin_graph_add_edge));
+    value_object_set(&result, "clear", value_create_builtin_function(builtin_graph_clear));
+    
     return result;
 }
 
@@ -219,6 +226,13 @@ Value builtin_graph_add_edge(Interpreter* interpreter, Value* args, size_t arg_c
     // TODO: Implement actual edge addition
     Value result = value_clone(&graph_obj);
     value_object_set_member(&result, "__class_name__", value_create_string(("Graph" ? strdup("Graph") : NULL)));
+    
+    // Add methods to the new graph
+    value_object_set(&result, "isEmpty", value_create_builtin_function(builtin_graph_is_empty));
+    value_object_set(&result, "addNode", value_create_builtin_function(builtin_graph_add_node));
+    value_object_set(&result, "addEdge", value_create_builtin_function(builtin_graph_add_edge));
+    value_object_set(&result, "clear", value_create_builtin_function(builtin_graph_clear));
+    
     return result;
 }
 

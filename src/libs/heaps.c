@@ -132,6 +132,9 @@ Value builtin_heap_insert(Interpreter* interpreter, Value* args, size_t arg_coun
     value_object_set_member(&new_heap, "is_max_heap", value_clone(&is_max_heap));
     value_object_set_member(&new_heap, "size", new_size);
     
+    // Add methods to the new heap
+    add_heap_methods(&new_heap);
+    
     return new_heap;
 }
 
@@ -271,6 +274,9 @@ Value builtin_heap_extract(Interpreter* interpreter, Value* args, size_t arg_cou
     value_object_set_member(&new_heap, "elements", new_elements);
     value_object_set_member(&new_heap, "is_max_heap", value_clone(&is_max_heap));
     value_object_set_member(&new_heap, "size", new_size);
+    
+    // Add methods to the new heap
+    add_heap_methods(&new_heap);
     
     return new_heap;
 }

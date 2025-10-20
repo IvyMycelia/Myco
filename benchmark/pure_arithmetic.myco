@@ -1,0 +1,17 @@
+# Pure Arithmetic Benchmark - No function calls, direct hot path
+# This should hit our superinstructions perfectly
+
+let sum = 0;
+let i = 0;
+
+# 20M iterations for clear timing difference
+while i < 20000000:
+    sum = sum + i;
+    i = i + 1;
+end
+
+print("Pure arithmetic benchmark completed");
+print("Sum:", sum);
+
+
+

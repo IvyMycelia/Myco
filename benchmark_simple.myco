@@ -1,0 +1,65 @@
+# Simple Bytecode Performance Benchmark
+
+print("Starting bytecode performance benchmark...");
+
+# Test 1: Arithmetic operations
+let sum = 0;
+let i = 0;
+
+print("Running arithmetic test...");
+while i < 1000000:
+    sum = sum + i * 2;
+    i = i + 1;
+end
+
+print("Arithmetic test completed");
+print("Sum: " + sum.toString());
+
+# Test 2: Function calls
+print("Running function test...");
+
+func fibonacci(n: Int) -> Int:
+    if n <= 1:
+        return n;
+    else:
+        return fibonacci(n - 1) + fibonacci(n - 2);
+    end
+end
+
+let fib_result = fibonacci(25);
+print("Fibonacci(25) = " + fib_result.toString());
+
+# Test 3: Array operations
+print("Running array test...");
+let arr = [1, 2, 3, 4, 5];
+let arr_sum = 0;
+
+for i in range(10000):
+    for j in range(5):
+        arr_sum = arr_sum + arr[j];
+    end
+end
+
+print("Array operations completed");
+print("Array sum: " + arr_sum.toString());
+
+# Test 4: Class operations
+print("Running class test...");
+
+class TestClass:
+    let value = 0;
+    
+    func add(self, n: Int):
+        self.value = self.value + n;
+    end
+end
+
+let obj = TestClass();
+for i in range(1000):
+    obj.add(i);
+end
+
+print("Class test completed");
+print("Object value: " + obj.value.toString());
+
+print("Benchmark completed!");

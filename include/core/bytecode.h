@@ -11,6 +11,7 @@
 typedef enum {
     BC_LOAD_CONST = 1,
     BC_LOAD_LOCAL,
+    BC_LOAD_VAR,        // Load variable from environment
     BC_STORE_LOCAL,
     BC_LOAD_GLOBAL,
     BC_STORE_GLOBAL,

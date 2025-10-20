@@ -15,6 +15,54 @@
 Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunction* func, Value* args, int arg_count, BytecodeProgram* program);
 static int pattern_matches_value(Value* value, Value* pattern);
 
+// Helper function to collect class fields for bytecode instantiation
+static void collect_class_fields_for_bytecode(
+    Interpreter* interpreter,
+    Value* class_value,
+    ASTNode*** all_fields,
+    size_t* field_count,
+    size_t* field_capacity
+) {
+    if (!class_value || class_value->type != VALUE_CLASS) {
+        return;
+    }
+    
+    // Collect from parent first (recursively)
+    if (class_value->data.class_value.parent_class_name) {
+        Value parent_class = environment_get(
+            interpreter->global_environment,
+            class_value->data.class_value.parent_class_name
+        );
+        if (parent_class.type == VALUE_CLASS) {
+            collect_class_fields_for_bytecode(
+                interpreter, &parent_class, all_fields, field_count, field_capacity
+            );
+            value_free(&parent_class);
+        }
+    }
+    
+    // Collect from current class body
+    ASTNode* class_body = class_value->data.class_value.class_body;
+    if (class_body && class_body->type == AST_NODE_BLOCK) {
+        ASTNode* stmt = *class_body->data.block.statements;
+        while (stmt) {
+            if (stmt->type == AST_NODE_VARIABLE_DECLARATION) {
+                if (*field_count >= *field_capacity) {
+                    size_t new_cap = *field_capacity ? *field_capacity * 2 : 8;
+                    *all_fields = shared_realloc_safe(
+                        *all_fields, new_cap * sizeof(ASTNode*),
+                        "bytecode_vm", "collect_class_fields", 0
+                    );
+                    *field_capacity = new_cap;
+                }
+                (*all_fields)[*field_count] = stmt;
+                (*field_count)++;
+            }
+            stmt = stmt->next;
+        }
+    }
+}
+
 // Bytecode VM implementation
 // This implements a stack-based virtual machine for executing Myco bytecode
 
@@ -156,6 +204,23 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     Value local_val = program->locals[instr->a];
                     // Always clone to avoid memory issues
                     value_stack_push(value_clone(&local_val));
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_LOAD_VAR: {
+                // Load variable from environment
+                if (instr->a < program->const_count) {
+                    Value var_name = program->constants[instr->a];
+                    if (var_name.type == VALUE_STRING) {
+                        Value var_val = environment_get(interpreter->current_environment, var_name.data.string_value);
+                        value_stack_push(var_val);
+                    } else {
+                        value_stack_push(value_create_null());
+                    }
                 } else {
                     value_stack_push(value_create_null());
                 }
@@ -1865,7 +1930,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             
             case BC_CREATE_CLASS: {
                 // Create class definition
-                // instr->a = class name constant index, instr->b = parent class name constant index
+                // instr->a = class name constant index, instr->b = parent class name constant index, instr->c = body AST index
                 if (instr->a < program->const_count) {
                     Value class_name = program->constants[instr->a];
                     if (class_name.type == VALUE_STRING) {
@@ -1877,11 +1942,17 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             }
                         }
                         
-                        // Create class value (this will be handled by AST evaluation of class body)
+                        // Get class body AST
+                        ASTNode* class_body = NULL;
+                        if (instr->c >= 0 && instr->c < program->ast_count) {
+                            class_body = program->ast_nodes[instr->c];
+                        }
+                        
+                        // Create class value with the body AST
                         Value class_value = value_create_class(
                             class_name.data.string_value,
                             parent_name,
-                            NULL, // Body will be set by AST evaluation
+                            class_body,
                             interpreter->current_environment
                         );
                         
@@ -1922,6 +1993,45 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                 Value class_name_val = value_create_string(class_value.data.class_value.class_name);
                                 value_object_set(&instance, "__class_name__", class_name_val);
                                 value_free(&class_name_val);
+                                
+                                // Collect all fields from inheritance chain
+                                ASTNode** all_fields = NULL;
+                                size_t field_count = 0;
+                                size_t field_capacity = 0;
+                                
+                                collect_class_fields_for_bytecode(interpreter, &class_value, &all_fields, &field_count, &field_capacity);
+                                
+                                // Initialize fields
+                                size_t field_index = 0;
+                                for (size_t i = 0; i < field_count; i++) {
+                                    ASTNode* stmt = all_fields[i];
+                                    if (stmt && stmt->type == AST_NODE_VARIABLE_DECLARATION) {
+                                        const char* field_name = stmt->data.variable_declaration.variable_name;
+                                        if (field_name) {
+                                            Value field_value;
+                                            if (field_index < (size_t)arg_count) {
+                                                // Use constructor argument
+                                                field_value = value_clone(&args[field_index]);
+                                                field_index++;
+                                            } else {
+                                                // Use default value from field declaration
+                                                if (stmt->data.variable_declaration.initial_value) {
+                                                    field_value = interpreter_execute(interpreter, stmt->data.variable_declaration.initial_value);
+                                                } else {
+                                                    field_value = value_create_null();
+                                                }
+                                            }
+                                            
+                                            value_object_set(&instance, field_name, field_value);
+                                            value_free(&field_value);
+                                        }
+                                    }
+                                }
+                                
+                                // Clean up
+                                if (all_fields) {
+                                    shared_free_safe(all_fields, "bytecode_vm", "BC_INSTANTIATE_CLASS", 2);
+                                }
                                 
                                 // Call constructor if it exists
                                 Value init_func = value_object_get(&class_value, "init");
@@ -2289,9 +2399,6 @@ Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunct
         if (interpreter->has_return) {
             result = interpreter->return_value;
             interpreter->has_return = 0; // Reset return flag
-            fprintf(stderr, "DEBUG: Function returned value of type %d\n", result.type);
-        } else {
-            fprintf(stderr, "DEBUG: Function did not return a value\n");
         }
     }
     

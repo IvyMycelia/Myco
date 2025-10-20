@@ -93,8 +93,9 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
             }
             
             if (param_idx >= 0) {
-                // This is a function parameter - load from local variables
-                bc_emit_to_function(func, BC_LOAD_NUM_LOCAL, param_idx, 0, 0);
+                // This is a function parameter - load from environment
+                int const_idx = bc_add_const(p, value_create_string(n->data.identifier_value));
+                bc_emit_to_function(func, BC_LOAD_VAR, const_idx, 0, 0);
             } else {
                 // This is a regular variable - load as constant for now
                 int const_idx = bc_add_const(p, value_create_string(n->data.identifier_value));
@@ -183,8 +184,33 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
                 }
             }
         } break;
+        case AST_NODE_FUNCTION_CALL_EXPR: {
+            // Method call expression: obj.method(args)
+            if (n->data.function_call_expr.function->type == AST_NODE_MEMBER_ACCESS) {
+                ASTNode* member_access = n->data.function_call_expr.function;
+                const char* method_name = member_access->data.member_access.member_name;
+                
+                // Compile the object
+                compile_node_to_function(p, func, member_access->data.member_access.object);
+                
+                // Handle toString specially
+                if (strcmp(method_name, "toString") == 0 && n->data.function_call_expr.argument_count == 0) {
+                    // Convert number to value if needed, then call toString
+                    bc_emit_to_function(func, BC_NUM_TO_VALUE, 0, 0, 0);
+                    bc_emit_to_function(func, BC_TO_STRING, 0, 0, 0);
+                } else {
+                    // Fall back to AST for complex method calls
+                    int id = bc_add_ast(p, n);
+                    bc_emit_to_function(func, BC_EVAL_AST, id, 0, 0);
+                }
+            } else {
+                // Fall back to AST
+                int id = bc_add_ast(p, n);
+                bc_emit_to_function(func, BC_EVAL_AST, id, 0, 0);
+            }
+        } break;
         default:
-            // For unsupported nodes, we'll need to fall back to AST
+            // For truly unsupported nodes, fall back to AST
             break;
     }
 }
@@ -1051,14 +1077,11 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             int parent_idx = n->data.class_definition.parent_class ? 
                 bc_add_const(p, value_create_string(n->data.class_definition.parent_class)) : -1;
             
-            // Compile class body (fields and methods)
+            // Store class body AST for later processing during instantiation
             int body_idx = bc_add_ast(p, n->data.class_definition.body);
             
-            bc_emit(p, BC_CREATE_CLASS, name_idx, parent_idx);
-            bc_emit(p, BC_EVAL_AST, body_idx, 0); // Execute class body
-            
-            // After class body execution, the class should be fully defined
-            // The class body execution will add methods and fields to the class
+            bc_emit_super(p, BC_CREATE_CLASS, name_idx, parent_idx, body_idx);
+            // Don't execute class body here - it will be processed during instantiation
         } break;
         
         case AST_NODE_WHILE_LOOP: {

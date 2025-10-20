@@ -45,3 +45,8 @@ benchmark/results/
 benchmark/*.txt
 test_output*.txt
 **/*.dSYM
+
+# Development-only planning (ignored)
+dev-planning/
+benchmark/
+optimization_roadmap.md

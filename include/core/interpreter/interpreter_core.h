@@ -98,33 +98,43 @@ typedef union {
         char* class_name;
         char* parent_class_name;  // Name of parent class for inheritance
         ASTNode* class_body;  // The class definition body (fields and methods)
-        struct Environment* class_environment;  // Environment for class-level variables
+        struct Environment* class_environment;  // Environment for class scope
     } class_value;
     struct {
         char* module_name;
-        void* exports;
+        char* module_path;
+        struct Environment* module_environment;  // Environment for module scope
+        struct Environment* exports;  // Exported symbols
+        int is_loaded;  // Whether the module has been loaded
     } module_value;
     struct {
         char* error_message;
-        int error_code;
+        char* error_type;  // Type of error (e.g., "TypeError", "ValueError")
+        int error_line;
+        int error_column;
     } error_value;
 } ValueData;
 
-// Optimized Value structure with better memory layout
+// Value cache structure
 typedef struct {
+    void* cached_ptr;
+    double cached_numeric;
+    size_t cached_length;
+} ValueCache;
+
+// Value structure
+typedef struct Value {
     ValueType type;
-    uint8_t flags;          // Flags for optimization (cached, immutable, etc.)
-    uint16_t ref_count;       // Reference count for garbage collection
     ValueData data;
-    // Cache for frequently accessed data
-    union {
-        size_t cached_length;    // For strings, arrays
-        double cached_numeric;   // For numbers
-        void* cached_ptr;        // For objects, functions
-    } cache;
+    uint8_t flags;  // Optimization flags
+    uint32_t ref_count;  // Reference count for memory management
+    ValueCache cache;  // Cached data for optimization
 } Value;
 
-// Environment for variable storage
+// ============================================================================
+// ENVIRONMENT STRUCTURE
+// ============================================================================
+
 struct Environment {
     struct Environment* parent;
     char** names;
@@ -133,145 +143,139 @@ struct Environment {
     size_t capacity;
 };
 
-// Call stack frame for stack traces
+// ============================================================================
+// CALL FRAME STRUCTURE
+// ============================================================================
+
 typedef struct CallFrame {
-    const char* function_name;    // Function or method name
-    const char* file_name;        // Source file name
-    int line;                     // Line number
-    int column;                   // Column number
-    const char* source_line;      // Actual source code line content
-    struct CallFrame* next;       // Next frame in stack
+    const char* function_name;
+    const char* file_name;
+    int line;
+    int column;
+    const char* source_line;  // The actual source code line
+    struct CallFrame* next;
 } CallFrame;
 
-// Interpreter structure
+// ============================================================================
+// INTERPRETER STRUCTURE
+// ============================================================================
+
 typedef struct Interpreter {
-    struct Environment* global_environment;
-    struct Environment* current_environment;
-    Value return_value;
+    Environment* global_environment;
+    Environment* current_environment;
+    
+    // Return handling
     int has_return;
+    Value return_value;
+    
+    // Error handling
     int has_error;
     char* error_message;
     int error_line;
     int error_column;
+    
+    // Control flow
     int break_depth;
     int continue_depth;
     int try_depth;
-    const char* current_function_return_type;  // Track return type for type checking
-    Value* self_context; // Current self object for method calls
+    
+    // Type checking
+    char* current_function_return_type;
+    
+    // Class context
+    Value* self_context;  // Current 'self' object for method calls
     
     // Enhanced error handling
-    CallFrame* call_stack;        // Call stack for stack traces
-    int stack_depth;              // Current stack depth
-    int max_stack_depth;          // Maximum allowed stack depth
-    int recursion_count;          // Recursion counter for limit detection
-    int max_recursion_depth;      // Maximum recursion depth
+    CallFrame* call_stack;
+    size_t stack_depth;
+    size_t max_stack_depth;
+    size_t recursion_count;
     
-    // Source text for line extraction
-    const char* current_source;   // Current source text (for line extraction)
-    const char* current_filename; // Current filename (stdin, file path, etc.)
+    // Test mode - allows continued execution after errors
+    int test_mode;
+    size_t max_recursion_depth;
     
-    // JIT compilation support
+    // JIT compilation
     JitContext* jit_context;
     int jit_enabled;
     int jit_mode;
     
-    // Macro system support
+    // Macro system
     struct MacroExpander* macro_expander;
     
-    // Compile-time evaluation support
-    struct CompileTimeEvaluator* compile_time_evaluator;
-    
-    // Benchmark timing support
-    int benchmark_mode;           // Enable timing instrumentation
-    uint64_t execution_time_ns;   // Total execution time in nanoseconds
-    uint64_t start_time_ns;       // Start time for current execution
-    
-    // Hot spot tracking support
-    void* hot_spot_tracker;       // HotSpotTracker instance
-    
-    // Micro-JIT compiler support
-    void* micro_jit_context;      // MicroJitContext instance
-    
-    // Value specialization support
-    void* value_specializer;      // ValueSpecializer instance
-    
-    // Adaptive executor support
-    void* adaptive_executor;      // AdaptiveExecutor instance
+    // Source tracking
+    const char* current_source;
+    const char* current_file;
 } Interpreter;
 
-// Environment management
-Environment* environment_create(Environment* parent);
-void environment_free(Environment* env);
-void environment_define(Environment* env, const char* name, Value value);
-Value environment_get(Environment* env, const char* name);
-void environment_assign(Environment* env, const char* name, Value value);
-Environment* environment_copy(Environment* env);
-int environment_exists(Environment* env, const char* name);
-void environment_set(Environment* env, const char* name, Value value);
+// ============================================================================
+// INTERPRETER LIFECYCLE FUNCTIONS
+// ============================================================================
 
-// Interpreter lifecycle functions
 Interpreter* interpreter_create(void);
 void interpreter_free(Interpreter* interpreter);
 void interpreter_reset(Interpreter* interpreter);
 
-// Global system initialization
-void interpreter_initialize_global_systems(void);
-void interpreter_cleanup_global_systems(void);
+// ============================================================================
+// INTERPRETER EXECUTION FUNCTIONS
+// ============================================================================
 
-// Environment management
-Environment* interpreter_get_global_environment(Interpreter* interpreter);
-Environment* interpreter_get_current_environment(Interpreter* interpreter);
-void interpreter_set_current_environment(Interpreter* interpreter, Environment* env);
-
-// Error handling
-int interpreter_has_error(Interpreter* interpreter);
-const char* interpreter_get_error(Interpreter* interpreter);
-void interpreter_set_error(Interpreter* interpreter, const char* message, int line, int column);
-void interpreter_clear_error(Interpreter* interpreter);
-void interpreter_throw_exception(Interpreter* interpreter, const char* message, int line, int column);
-int interpreter_has_exception(Interpreter* interpreter);
-void interpreter_clear_exception(Interpreter* interpreter);
-
-// Return value management
-Value interpreter_get_return_value(Interpreter* interpreter);
-void interpreter_set_return_value(Interpreter* interpreter, Value value);
-int interpreter_has_return(Interpreter* interpreter);
-void interpreter_set_return(Interpreter* interpreter, int has_return);
-
-// Self context for method calls
-Value* interpreter_get_self_context(Interpreter* interpreter);
-void interpreter_set_self_context(Interpreter* interpreter, Value* self);
-
-// File context
-const char* interpreter_get_current_filename(Interpreter* interpreter);
-void interpreter_set_current_filename(Interpreter* interpreter, const char* filename);
-
-// Call stack management
-void interpreter_push_call_frame(Interpreter* interpreter, const char* function_name, const char* file_name, int line, int column);
-void interpreter_pop_call_frame(Interpreter* interpreter);
-
-// Try-catch depth
-int interpreter_get_try_depth(Interpreter* interpreter);
-void interpreter_set_try_depth(Interpreter* interpreter, int depth);
-
-// JIT and macro system integration
-void interpreter_initialize_jit(Interpreter* interpreter);
-void interpreter_initialize_macros(Interpreter* interpreter);
-
-// Source management
-void interpreter_set_source(Interpreter* interpreter, const char* source, const char* filename);
-
-// Program execution
+Value interpreter_execute(Interpreter* interpreter, ASTNode* node);
+Value interpreter_eval_file(Interpreter* interpreter, const char* filename);
+Value interpreter_eval_string(Interpreter* interpreter, const char* source);
 Value interpreter_execute_program(Interpreter* interpreter, ASTNode* node);
 
-// Value printing
-void value_print(Value* value);
-void value_print_debug(Value* value);
+// ============================================================================
+// INTERPRETER ERROR HANDLING FUNCTIONS
+// ============================================================================
 
-// Benchmark timing functions
-void interpreter_set_benchmark_mode(Interpreter* interpreter, int enabled);
-uint64_t interpreter_get_execution_time_ns(Interpreter* interpreter);
-void interpreter_start_timing(Interpreter* interpreter);
-void interpreter_stop_timing(Interpreter* interpreter);
+void interpreter_set_error(Interpreter* interpreter, const char* message, int line, int column);
+void interpreter_clear_error(Interpreter* interpreter);
+int interpreter_has_error(Interpreter* interpreter);
+void interpreter_set_test_mode(Interpreter* interpreter, int test_mode);
+const char* interpreter_get_error(Interpreter* interpreter);
+
+// ============================================================================
+// INTERPRETER CALL STACK FUNCTIONS
+// ============================================================================
+
+void interpreter_push_call_frame(Interpreter* interpreter, const char* function_name, const char* file_name, int line, int column);
+void interpreter_pop_call_frame(Interpreter* interpreter);
+void interpreter_print_stack_trace(Interpreter* interpreter);
+
+// ============================================================================
+// ENVIRONMENT FUNCTIONS
+// ============================================================================
+
+Environment* environment_create(Environment* parent);
+void environment_free(Environment* env);
+void environment_define(Environment* env, const char* name, Value value);
+Value environment_get(Environment* env, const char* name);
+int environment_set(Environment* env, const char* name, Value value);
+int environment_exists(Environment* env, const char* name);
+
+// ============================================================================
+// INTERPRETER CONTEXT FUNCTIONS
+// ============================================================================
+
+void interpreter_set_self_context(Interpreter* interpreter, Value* self);
+Value* interpreter_get_self_context(Interpreter* interpreter);
+
+// ============================================================================
+// INTERPRETER EXCEPTION FUNCTIONS
+// ============================================================================
+
+void interpreter_throw_exception(Interpreter* interpreter, const char* message, int line, int column);
+void interpreter_set_source(Interpreter* interpreter, const char* source, const char* filename);
+
+// ============================================================================
+// VALUE UTILITY FUNCTIONS
+// ============================================================================
+
+void value_print(Value* value);
+Value value_to_string(Value* value);
+Value value_clone(Value* value);
+void value_free(Value* value);
+int value_equals(Value* a, Value* b);
 
 #endif // INTERPRETER_CORE_H

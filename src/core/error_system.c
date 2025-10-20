@@ -114,22 +114,22 @@ static const char* error_suggestions[] = {
 
 // Error system implementation
 ErrorSystem* error_system_create(void) {
-    ErrorSystem* system = malloc(sizeof(ErrorSystem));
+    ErrorSystem* system = shared_malloc_safe(sizeof(ErrorSystem), "error_system", "error_system_create", 0);
     if (!system) return NULL;
     
     memset(system, 0, sizeof(ErrorSystem));
     
     system->error_capacity = 100;
-    system->errors = malloc(sizeof(ErrorInfo*) * system->error_capacity);
+    system->errors = shared_malloc_safe(sizeof(ErrorInfo*) * system->error_capacity, "error_system", "error_system_create", 0);
     if (!system->errors) {
-        free(system);
+        shared_free_safe(system, "error_system", "error_system_create", 0);
         return NULL;
     }
     
     system->exception_context = exception_context_create();
     if (!system->exception_context) {
-        free(system->errors);
-        free(system);
+        shared_free_safe(system->errors, "error_system", "error_system_create", 0);
+        shared_free_safe(system, "error_system", "error_system_create", 0);
         return NULL;
     }
     
@@ -147,7 +147,7 @@ void error_system_free(ErrorSystem* system) {
     for (size_t i = 0; i < system->error_count; i++) {
         error_free(system->errors[i]);
     }
-    free(system->errors);
+    shared_free_safe(system->errors, "error_system", "error_system_free", 0);
     
     // Free exception context
     if (system->exception_context) {
@@ -155,18 +155,18 @@ void error_system_free(ErrorSystem* system) {
     }
     
     // Free handlers
-    free(system->handlers);
+    shared_free_safe(system->handlers, "error_system", "error_system_free", 0);
     
     // Free log file path
-    free(system->log_file);
+    shared_free_safe(system->log_file, "error_system", "error_system_free", 0);
     
-    free(system);
+    shared_free_safe(system, "error_system", "error_system_free", 0);
 }
 
 // Error creation and management
 ErrorInfo* error_create(ErrorCode code, ErrorSeverity severity, ErrorCategory category, 
                        const char* message, const char* file_name, uint32_t line, uint32_t column) {
-    ErrorInfo* error = malloc(sizeof(ErrorInfo));
+    ErrorInfo* error = shared_malloc_safe(sizeof(ErrorInfo), "error_system", "error_create", 0);
     if (!error) return NULL;
     
     memset(error, 0, sizeof(ErrorInfo));
@@ -195,37 +195,37 @@ ErrorInfo* error_create(ErrorCode code, ErrorSeverity severity, ErrorCategory ca
 void error_free(ErrorInfo* error) {
     if (!error) return;
     
-    free(error->message);
-    free(error->file_name);
-    free(error->suggestion);
-    free(error->source_line);
-    free(error->context);
+    shared_free_safe(error->message, "error_system", "error_free", 0);
+    shared_free_safe(error->file_name, "error_system", "error_free", 0);
+    shared_free_safe(error->suggestion, "error_system", "error_free", 0);
+    shared_free_safe(error->source_line, "error_system", "error_free", 0);
+    shared_free_safe(error->context, "error_system", "error_free", 0);
     
     // Free stack trace
     if (error->stack_trace) {
         for (size_t i = 0; i < error->stack_trace_size; i++) {
-            free(error->stack_trace[i].function_name);
-            free(error->stack_trace[i].file_name);
-            free(error->stack_trace[i].source_line);
+            shared_free_safe(error->stack_trace[i].function_name, "error_system", "error_free", 0);
+            shared_free_safe(error->stack_trace[i].file_name, "error_system", "error_free", 0);
+            shared_free_safe(error->stack_trace[i].source_line, "error_system", "error_free", 0);
         }
-        free(error->stack_trace);
+        shared_free_safe(error->stack_trace, "error_system", "error_free", 0);
     }
     
-    free(error);
+    shared_free_safe(error, "error_system", "error_free", 0);
 }
 
 void error_add_context(ErrorInfo* error, const char* context) {
     if (!error || !context) return;
     
-    free(error->context);
-    error->context = (context ? strdup(context) : NULL);
+    shared_free_safe(error->context, "error_system", "error_add_context", 0);
+    error->context = (context ? shared_strdup(context) : NULL);
 }
 
 void error_add_suggestion(ErrorInfo* error, const char* suggestion) {
     if (!error || !suggestion) return;
     
-    free(error->suggestion);
-    error->suggestion = (suggestion ? strdup(suggestion) : NULL);
+    shared_free_safe(error->suggestion, "error_system", "error_add_suggestion", 0);
+    error->suggestion = (suggestion ? shared_strdup(suggestion) : NULL);
 }
 
 void error_add_stack_frame(ErrorInfo* error, const char* function_name, const char* file_name, 
@@ -234,7 +234,7 @@ void error_add_stack_frame(ErrorInfo* error, const char* function_name, const ch
     
     // Reallocate stack trace array
     error->stack_trace_size++;
-    error->stack_trace = realloc(error->stack_trace, sizeof(StackFrame) * error->stack_trace_size);
+    error->stack_trace = shared_realloc_safe(error->stack_trace, sizeof(StackFrame) * error->stack_trace_size, "error_system", "error_add_stack_frame", 0);
     if (!error->stack_trace) {
         error->stack_trace_size--;
         return;
@@ -255,7 +255,7 @@ void error_report(ErrorSystem* system, ErrorInfo* error) {
     // Add to error list
     if (system->error_count >= system->error_capacity) {
         system->error_capacity *= 2;
-        system->errors = realloc(system->errors, sizeof(ErrorInfo*) * system->error_capacity);
+        system->errors = shared_realloc_safe(system->errors, sizeof(ErrorInfo*) * system->error_capacity, "error_system", "error_report", 0);
         if (!system->errors) return;
     }
     
@@ -415,7 +415,7 @@ void error_log(ErrorSystem* system, ErrorInfo* error) {
 
 // Exception handling
 ExceptionContext* exception_context_create(void) {
-    ExceptionContext* context = malloc(sizeof(ExceptionContext));
+    ExceptionContext* context = shared_malloc_safe(sizeof(ExceptionContext), "error_system", "exception_context_create", 0);
     if (!context) return NULL;
     
     memset(context, 0, sizeof(ExceptionContext));
@@ -430,8 +430,8 @@ void exception_context_free(ExceptionContext* context) {
         error_free(context->current_error);
     }
     
-    free(context->catch_variable);
-    free(context);
+    shared_free_safe(context->catch_variable, "error_system", "exception_context_free", 0);
+    shared_free_safe(context, "error_system", "exception_context_free", 0);
 }
 
 void exception_throw(ErrorSystem* system, ErrorInfo* error) {
@@ -486,14 +486,14 @@ void exception_exit_try(ExceptionContext* context) {
 void exception_enter_catch(ExceptionContext* context, const char* variable_name) {
     if (!context) return;
     context->in_catch_block = true;
-    free(context->catch_variable);
+    shared_free_safe(context->catch_variable, "error_system", "exception_context_set_catch_variable", 0);
     context->catch_variable = variable_name ? (variable_name ? strdup(variable_name) : NULL) : NULL;
 }
 
 void exception_exit_catch(ExceptionContext* context) {
     if (!context) return;
     context->in_catch_block = false;
-    free(context->catch_variable);
+    shared_free_safe(context->catch_variable, "error_system", "exception_context_set_catch_variable", 0);
     context->catch_variable = NULL;
 }
 
@@ -512,7 +512,7 @@ void error_register_handler(ErrorSystem* system, ErrorHandler handler) {
     if (!system || !handler) return;
     
     system->handler_count++;
-    system->handlers = realloc(system->handlers, sizeof(ErrorHandler) * system->handler_count);
+    system->handlers = shared_realloc_safe(system->handlers, sizeof(ErrorHandler) * system->handler_count, "error_system", "error_register_handler", 0);
     if (!system->handlers) {
         system->handler_count--;
         return;
@@ -631,8 +631,8 @@ void error_set_max_stack_depth(ErrorSystem* system, size_t max_depth) {
 void error_set_log_file(ErrorSystem* system, const char* log_file) {
     if (!system) return;
     
-    free(system->log_file);
-    system->log_file = log_file ? (log_file ? strdup(log_file) : NULL) : NULL;
+    shared_free_safe(system->log_file, "error_system", "error_system_set_log_file", 0);
+    system->log_file = log_file ? (log_file ? shared_strdup(log_file) : NULL) : NULL;
 }
 
 // Assertion system
@@ -650,7 +650,7 @@ void error_assert(ErrorSystem* system, bool condition, const char* message,
 void error_assert_equals(ErrorSystem* system, const void* expected, const void* actual, 
                         const char* message, const char* file_name, uint32_t line) {
     if (expected != actual) {
-        char* full_message = malloc(256);
+        char* full_message = shared_malloc_safe(256, "error_system", "error_assert", 0);
         if (full_message) {
             snprintf(full_message, 256, "%s: expected %p, got %p", message, expected, actual);
             ErrorInfo* error = error_create(ERROR_RUNTIME_ASSERTION_FAILED, ERROR_SEVERITY_ERROR, 
@@ -658,7 +658,7 @@ void error_assert_equals(ErrorSystem* system, const void* expected, const void* 
             if (error) {
                 exception_throw(system, error);
             }
-            free(full_message);
+            shared_free_safe(full_message, "error_system", "error_assert_equals", 0);
         }
     }
 }

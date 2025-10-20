@@ -6,6 +6,12 @@
 #include "../../include/core/standardized_errors.h"
 #include "../../include/utils/shared_utilities.h"
 
+// Forward declaration
+void add_queue_methods(Value* queue);
+
+// Forward declarations for method functions
+Value builtin_queue_back_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+
 // Queue utility functions
 Value builtin_queue_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 0) {
@@ -16,8 +22,12 @@ Value builtin_queue_create(Interpreter* interpreter, Value* args, size_t arg_cou
     // Create a new queue object
     Value queue = value_create_object(16);
     value_object_set_member(&queue, "__class_name__", value_create_string(("Queue" ? strdup("Queue") : NULL)));
+    value_object_set(&queue, "type", value_create_string("Queue"));
     value_object_set_member(&queue, "elements", value_create_array(0));
     value_object_set_member(&queue, "size", value_create_number(0.0));
+    
+    // Add methods to the queue object
+    add_queue_methods(&queue);
     
     return queue;
 }
@@ -65,8 +75,12 @@ Value builtin_queue_enqueue(Interpreter* interpreter, Value* args, size_t arg_co
     
     // Set the new queue components
     value_object_set_member(&new_queue, "__class_name__", value_create_string(("Queue" ? strdup("Queue") : NULL)));
+    value_object_set(&new_queue, "type", value_create_string("Queue"));
     value_object_set_member(&new_queue, "elements", new_elements);
     value_object_set_member(&new_queue, "size", new_size);
+    
+    // Add methods to the new queue
+    add_queue_methods(&new_queue);
     
     return new_queue;
 }
@@ -132,8 +146,12 @@ Value builtin_queue_dequeue(Interpreter* interpreter, Value* args, size_t arg_co
     
     // Set the new queue components
     value_object_set_member(&new_queue, "__class_name__", value_create_string(("Queue" ? strdup("Queue") : NULL)));
+    value_object_set(&new_queue, "type", value_create_string("Queue"));
     value_object_set_member(&new_queue, "elements", new_elements);
     value_object_set_member(&new_queue, "size", new_size);
+    
+    // Add methods to the new queue
+    add_queue_methods(&new_queue);
     
     return new_queue;
 }
@@ -275,6 +293,7 @@ Value builtin_queue_clear(Interpreter* interpreter, Value* args, size_t arg_coun
     // Return empty queue
     Value empty_queue = value_create_object(16);
     value_object_set_member(&empty_queue, "__class_name__", value_create_string(("Queue" ? strdup("Queue") : NULL)));
+    value_object_set(&empty_queue, "type", value_create_string("Queue"));
     value_object_set_member(&empty_queue, "elements", value_create_array(0));
     value_object_set_member(&empty_queue, "size", value_create_number(0.0));
     
@@ -291,4 +310,113 @@ void queues_library_register(Interpreter* interpreter) {
     
     // Register the queues object
     environment_define(interpreter->global_environment, "queues", queues_obj);
+}
+
+// Queue method functions (for object method calls with self context)
+Value builtin_queue_isEmpty_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 0) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.isEmpty() expects exactly 0 arguments", line, column);
+        return value_create_null();
+    }
+    
+    Value* self = interpreter_get_self_context(interpreter);
+    if (!self || self->type != VALUE_OBJECT) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.isEmpty() can only be called on queue objects", line, column);
+        return value_create_null();
+    }
+    
+    Value queue_args[1] = { *self };
+    return builtin_queue_isEmpty(interpreter, queue_args, 1, line, column);
+}
+
+Value builtin_queue_enqueue_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 1) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.enqueue() expects exactly 1 argument: value", line, column);
+        return value_create_null();
+    }
+    
+    Value* self = interpreter_get_self_context(interpreter);
+    if (!self || self->type != VALUE_OBJECT) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.enqueue() can only be called on queue objects", line, column);
+        return value_create_null();
+    }
+    
+    Value queue_args[2] = { *self, args[0] };
+    return builtin_queue_enqueue(interpreter, queue_args, 2, line, column);
+}
+
+Value builtin_queue_dequeue_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 0) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.dequeue() expects exactly 0 arguments", line, column);
+        return value_create_null();
+    }
+    
+    Value* self = interpreter_get_self_context(interpreter);
+    if (!self || self->type != VALUE_OBJECT) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.dequeue() can only be called on queue objects", line, column);
+        return value_create_null();
+    }
+    
+    Value queue_args[1] = { *self };
+    return builtin_queue_dequeue(interpreter, queue_args, 1, line, column);
+}
+
+Value builtin_queue_front_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 0) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.front() expects exactly 0 arguments", line, column);
+        return value_create_null();
+    }
+    
+    Value* self = interpreter_get_self_context(interpreter);
+    if (!self || self->type != VALUE_OBJECT) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.front() can only be called on queue objects", line, column);
+        return value_create_null();
+    }
+    
+    Value queue_args[1] = { *self };
+    return builtin_queue_front(interpreter, queue_args, 1, line, column);
+}
+
+Value builtin_queue_back_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    // When called as queue.back(), we need to get the queue object from self_context
+    if (arg_count != 0) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.back() expects exactly 0 arguments", line, column);
+        return value_create_null();
+    }
+    
+    // Get the queue object from self_context
+    Value* self = interpreter_get_self_context(interpreter);
+    if (!self || self->type != VALUE_OBJECT) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.back() can only be called on queue objects", line, column);
+        return value_create_null();
+    }
+    
+    Value queue_args[1] = { *self };
+    return builtin_queue_back(interpreter, queue_args, 1, line, column);
+}
+
+Value builtin_queue_clear_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 0) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.clear() expects exactly 0 arguments", line, column);
+        return value_create_null();
+    }
+    
+    Value* self = interpreter_get_self_context(interpreter);
+    if (!self || self->type != VALUE_OBJECT) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "queue.clear() can only be called on queue objects", line, column);
+        return value_create_null();
+    }
+    
+    Value queue_args[1] = { *self };
+    return builtin_queue_clear(interpreter, queue_args, 1, line, column);
+}
+
+// Helper function to add methods to a queue object
+void add_queue_methods(Value* queue) {
+    value_object_set(queue, "isEmpty", value_create_builtin_function(builtin_queue_isEmpty_method));
+    value_object_set(queue, "enqueue", value_create_builtin_function(builtin_queue_enqueue_method));
+    value_object_set(queue, "dequeue", value_create_builtin_function(builtin_queue_dequeue_method));
+    value_object_set(queue, "front", value_create_builtin_function(builtin_queue_front_method));
+    value_object_set(queue, "back", value_create_builtin_function(builtin_queue_back_method));
+    value_object_set(queue, "clear", value_create_builtin_function(builtin_queue_clear_method));
 }

@@ -6,6 +6,9 @@
 #include "../../include/core/standardized_errors.h"
 #include "../../include/utils/shared_utilities.h"
 
+// Forward declaration
+void add_stack_methods(Value* stack);
+
 // Stack utility functions
 Value builtin_stack_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 0) {
@@ -16,8 +19,12 @@ Value builtin_stack_create(Interpreter* interpreter, Value* args, size_t arg_cou
     // Create a new stack object
     Value stack = value_create_object(16);
     value_object_set_member(&stack, "__class_name__", value_create_string(("Stack" ? strdup("Stack") : NULL)));
+    value_object_set(&stack, "type", value_create_string("Stack"));
     value_object_set_member(&stack, "elements", value_create_array(0));
     value_object_set_member(&stack, "size", value_create_number(0.0));
+    
+    // Add methods to the stack object
+    add_stack_methods(&stack);
     
     return stack;
 }
@@ -65,8 +72,12 @@ Value builtin_stack_push(Interpreter* interpreter, Value* args, size_t arg_count
     
     // Set the new stack components
     value_object_set_member(&new_stack, "__class_name__", value_create_string(("Stack" ? strdup("Stack") : NULL)));
+    value_object_set(&new_stack, "type", value_create_string("Stack"));
     value_object_set_member(&new_stack, "elements", new_elements);
     value_object_set_member(&new_stack, "size", new_size);
+    
+    // Add methods to the new stack
+    add_stack_methods(&new_stack);
     
     return new_stack;
 }
@@ -133,8 +144,12 @@ Value builtin_stack_pop(Interpreter* interpreter, Value* args, size_t arg_count,
     
     // Set the new stack components
     value_object_set_member(&new_stack, "__class_name__", value_create_string(("Stack" ? strdup("Stack") : NULL)));
+    value_object_set(&new_stack, "type", value_create_string("Stack"));
     value_object_set_member(&new_stack, "elements", new_elements);
     value_object_set_member(&new_stack, "size", new_size);
+    
+    // Add methods to the new stack
+    add_stack_methods(&new_stack);
     
     return new_stack;
 }
@@ -240,6 +255,7 @@ Value builtin_stack_clear(Interpreter* interpreter, Value* args, size_t arg_coun
     // Return empty stack
     Value empty_stack = value_create_object(16);
     value_object_set_member(&empty_stack, "__class_name__", value_create_string(("Stack" ? strdup("Stack") : NULL)));
+    value_object_set(&empty_stack, "type", value_create_string("Stack"));
     value_object_set_member(&empty_stack, "elements", value_create_array(0));
     value_object_set_member(&empty_stack, "size", value_create_number(0.0));
     
@@ -256,4 +272,94 @@ void stacks_library_register(Interpreter* interpreter) {
     
     // Register the stacks object
     environment_define(interpreter->global_environment, "stacks", stacks_obj);
+}
+
+// Stack method functions (for object method calls with self context)
+Value builtin_stack_isEmpty_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 0) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.isEmpty() expects exactly 0 arguments", line, column);
+        return value_create_null();
+    }
+    
+    Value* self = interpreter_get_self_context(interpreter);
+    if (!self || self->type != VALUE_OBJECT) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.isEmpty() can only be called on stack objects", line, column);
+        return value_create_null();
+    }
+    
+    Value stack_args[1] = { *self };
+    return builtin_stack_isEmpty(interpreter, stack_args, 1, line, column);
+}
+
+Value builtin_stack_push_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 1) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.push() expects exactly 1 argument: value", line, column);
+        return value_create_null();
+    }
+    
+    Value* self = interpreter_get_self_context(interpreter);
+    if (!self || self->type != VALUE_OBJECT) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.push() can only be called on stack objects", line, column);
+        return value_create_null();
+    }
+    
+    Value stack_args[2] = { *self, args[0] };
+    return builtin_stack_push(interpreter, stack_args, 2, line, column);
+}
+
+Value builtin_stack_pop_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 0) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.pop() expects exactly 0 arguments", line, column);
+        return value_create_null();
+    }
+    
+    Value* self = interpreter_get_self_context(interpreter);
+    if (!self || self->type != VALUE_OBJECT) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.pop() can only be called on stack objects", line, column);
+        return value_create_null();
+    }
+    
+    Value stack_args[1] = { *self };
+    return builtin_stack_pop(interpreter, stack_args, 1, line, column);
+}
+
+Value builtin_stack_top_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 0) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.top() expects exactly 0 arguments", line, column);
+        return value_create_null();
+    }
+    
+    Value* self = interpreter_get_self_context(interpreter);
+    if (!self || self->type != VALUE_OBJECT) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.top() can only be called on stack objects", line, column);
+        return value_create_null();
+    }
+    
+    Value stack_args[1] = { *self };
+    return builtin_stack_top(interpreter, stack_args, 1, line, column);
+}
+
+Value builtin_stack_clear_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 0) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.clear() expects exactly 0 arguments", line, column);
+        return value_create_null();
+    }
+    
+    Value* self = interpreter_get_self_context(interpreter);
+    if (!self || self->type != VALUE_OBJECT) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "stack.clear() can only be called on stack objects", line, column);
+        return value_create_null();
+    }
+    
+    Value stack_args[1] = { *self };
+    return builtin_stack_clear(interpreter, stack_args, 1, line, column);
+}
+
+// Helper function to add methods to a stack object
+void add_stack_methods(Value* stack) {
+    value_object_set(stack, "isEmpty", value_create_builtin_function(builtin_stack_isEmpty_method));
+    value_object_set(stack, "push", value_create_builtin_function(builtin_stack_push_method));
+    value_object_set(stack, "pop", value_create_builtin_function(builtin_stack_pop_method));
+    value_object_set(stack, "top", value_create_builtin_function(builtin_stack_top_method));
+    value_object_set(stack, "clear", value_create_builtin_function(builtin_stack_clear_method));
 }

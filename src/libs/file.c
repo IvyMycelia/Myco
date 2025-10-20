@@ -709,6 +709,7 @@ void file_library_register(Interpreter* interpreter) {
     // Build file library object (keep namespaced symbols for compatibility)
     Value file_lib = value_create_object(16);
     value_object_set(&file_lib, "__type__", value_create_string("Library"));
+    value_object_set(&file_lib, "type", value_create_string("Library"));
     value_object_set(&file_lib, "read", value_create_builtin_function(builtin_file_read));
     value_object_set(&file_lib, "write", value_create_builtin_function(builtin_file_write));
     value_object_set(&file_lib, "append", value_create_builtin_function(builtin_file_append));

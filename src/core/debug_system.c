@@ -1,5 +1,6 @@
 #include "debug_system.h"
 #include "enhanced_error_system.h"
+#include "shared_utilities.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -57,7 +58,7 @@ static const char* get_category_color(DebugCategory category) {
 // ============================================================================
 
 DebugSystem* debug_system_create(void) {
-    DebugSystem* system = malloc(sizeof(DebugSystem));
+    DebugSystem* system = shared_malloc_safe(sizeof(DebugSystem), "debug_system", "debug_system_create", 0);
     if (!system) return NULL;
     
     memset(system, 0, sizeof(DebugSystem));
@@ -94,7 +95,7 @@ DebugSystem* debug_system_create(void) {
     
     // Initialize breakpoints
     system->breakpoint_capacity = 10;
-    system->breakpoints = malloc(sizeof(Breakpoint) * system->breakpoint_capacity);
+    system->breakpoints = shared_malloc_safe(sizeof(Breakpoint) * system->breakpoint_capacity, "debug_system", "debug_system_create", 0);
     if (!system->breakpoints) {
         free(system);
         return NULL;
@@ -104,7 +105,7 @@ DebugSystem* debug_system_create(void) {
     
     // Initialize watch expressions
     system->watch_capacity = 10;
-    system->watch_expressions = malloc(sizeof(WatchExpression) * system->watch_capacity);
+    system->watch_expressions = shared_malloc_safe(sizeof(WatchExpression) * system->watch_capacity, "debug_system", "debug_system_create", 0);
     if (!system->watch_expressions) {
         free(system->breakpoints);
         free(system);
@@ -155,48 +156,48 @@ void debug_system_free(DebugSystem* system) {
     
     // Free breakpoints
     for (size_t i = 0; i < system->breakpoint_count; i++) {
-        free(system->breakpoints[i].file_name);
-        free(system->breakpoints[i].function_name);
-        free(system->breakpoints[i].condition);
-        free(system->breakpoints[i].variable_name);
+        shared_free_safe(system->breakpoints[i].file_name, "debug_system", "debug_system_free", 0);
+        shared_free_safe(system->breakpoints[i].function_name, "debug_system", "debug_system_free", 0);
+        shared_free_safe(system->breakpoints[i].condition, "debug_system", "debug_system_free", 0);
+        shared_free_safe(system->breakpoints[i].variable_name, "debug_system", "debug_system_free", 0);
     }
-    free(system->breakpoints);
+    shared_free_safe(system->breakpoints, "debug_system", "debug_system_free", 0);
     
     // Free watch expressions
     for (size_t i = 0; i < system->watch_count; i++) {
-        free(system->watch_expressions[i].expression);
-        free(system->watch_expressions[i].last_value);
+        shared_free_safe(system->watch_expressions[i].expression, "debug_system", "debug_system_free", 0);
+        shared_free_safe(system->watch_expressions[i].last_value, "debug_system", "debug_system_free", 0);
     }
-    free(system->watch_expressions);
+    shared_free_safe(system->watch_expressions, "debug_system", "debug_system_free", 0);
     
     // Free debug context
-    free(system->context.current_file);
-    free(system->context.current_function);
+    shared_free_safe(system->context.current_file, "debug_system", "debug_system_free", 0);
+    shared_free_safe(system->context.current_function, "debug_system", "debug_system_free", 0);
     
     // Free call stack
     for (size_t i = 0; i < system->context.call_stack.depth; i++) {
-        free(system->context.call_stack.functions[i]);
-        free(system->context.call_stack.files[i]);
+        shared_free_safe(system->context.call_stack.functions[i], "debug_system", "debug_system_free", 0);
+        shared_free_safe(system->context.call_stack.files[i], "debug_system", "debug_system_free", 0);
     }
-    free(system->context.call_stack.functions);
-    free(system->context.call_stack.files);
-    free(system->context.call_stack.lines);
+    shared_free_safe(system->context.call_stack.functions, "debug_system", "debug_system_free", 0);
+    shared_free_safe(system->context.call_stack.files, "debug_system", "debug_system_free", 0);
+    shared_free_safe(system->context.call_stack.lines, "debug_system", "debug_system_free", 0);
     
     // Free variables
     for (size_t i = 0; i < system->context.variables.count; i++) {
-        free(system->context.variables.names[i]);
-        free(system->context.variables.values[i]);
-        free(system->context.variables.types[i]);
+        shared_free_safe(system->context.variables.names[i], "debug_system", "debug_system_free", 0);
+        shared_free_safe(system->context.variables.values[i], "debug_system", "debug_system_free", 0);
+        shared_free_safe(system->context.variables.types[i], "debug_system", "debug_system_free", 0);
     }
-    free(system->context.variables.names);
-    free(system->context.variables.values);
-    free(system->context.variables.types);
+    shared_free_safe(system->context.variables.names, "debug_system", "debug_system_free", 0);
+    shared_free_safe(system->context.variables.values, "debug_system", "debug_system_free", 0);
+    shared_free_safe(system->context.variables.types, "debug_system", "debug_system_free", 0);
     
     // Free configuration
-    free(system->config.log_file);
-    free(system->config.output_file);
+    shared_free_safe(system->config.log_file, "debug_system", "debug_system_free", 0);
+    shared_free_safe(system->config.output_file, "debug_system", "debug_system_free", 0);
     
-    free(system);
+    shared_free_safe(system, "debug_system", "debug_system_free", 0);
 }
 
 void debug_system_configure(DebugSystem* system, const DebugSystemConfig* config) {
@@ -351,7 +352,7 @@ uint32_t debug_add_breakpoint(DebugSystem* system, BreakpointType type, const ch
     // Reallocate if needed
     if (system->breakpoint_count >= system->breakpoint_capacity) {
         system->breakpoint_capacity *= 2;
-        system->breakpoints = realloc(system->breakpoints, sizeof(Breakpoint) * system->breakpoint_capacity);
+        system->breakpoints = shared_realloc_safe(system->breakpoints, sizeof(Breakpoint) * system->breakpoint_capacity, "debug_system", "debug_system_add_breakpoint", 0);
         if (!system->breakpoints) return 0;
     }
     
@@ -462,8 +463,8 @@ uint32_t debug_add_watch(DebugSystem* system, const char* expression) {
     // Reallocate if needed
     if (system->watch_count >= system->watch_capacity) {
         system->watch_capacity *= 2;
-        system->watch_expressions = realloc(system->watch_expressions, 
-                                          sizeof(WatchExpression) * system->watch_capacity);
+        system->watch_expressions = shared_realloc_safe(system->watch_expressions, 
+                                          sizeof(WatchExpression) * system->watch_capacity, "debug_system", "debug_system_add_watch_expression", 0);
         if (!system->watch_expressions) return 0;
     }
     
@@ -554,17 +555,17 @@ void debug_push_stack_frame(DebugSystem* system, const char* function, const cha
     if (system->context.call_stack.depth >= system->context.call_stack.capacity) {
         system->context.call_stack.capacity = system->context.call_stack.capacity ? 
             system->context.call_stack.capacity * 2 : 10;
-        system->context.call_stack.functions = realloc(system->context.call_stack.functions,
-            sizeof(char*) * system->context.call_stack.capacity);
-        system->context.call_stack.files = realloc(system->context.call_stack.files,
-            sizeof(char*) * system->context.call_stack.capacity);
-        system->context.call_stack.lines = realloc(system->context.call_stack.lines,
-            sizeof(uint32_t) * system->context.call_stack.capacity);
+        system->context.call_stack.functions = shared_realloc_safe(system->context.call_stack.functions,
+            sizeof(char*) * system->context.call_stack.capacity, "debug_system", "debug_system_push_call_stack_frame", 0);
+        system->context.call_stack.files = shared_realloc_safe(system->context.call_stack.files,
+            sizeof(char*) * system->context.call_stack.capacity, "debug_system", "debug_system_push_call_stack_frame", 0);
+        system->context.call_stack.lines = shared_realloc_safe(system->context.call_stack.lines,
+            sizeof(uint32_t) * system->context.call_stack.capacity, "debug_system", "debug_system_push_call_stack_frame", 0);
     }
     
     size_t index = system->context.call_stack.depth++;
-    system->context.call_stack.functions[index] = function ? strdup(function) : NULL;
-    system->context.call_stack.files[index] = file ? strdup(file) : NULL;
+    system->context.call_stack.functions[index] = function ? shared_strdup(function) : NULL;
+    system->context.call_stack.files[index] = file ? shared_strdup(file) : NULL;
     system->context.call_stack.lines[index] = line;
 }
 
@@ -583,18 +584,18 @@ void debug_add_variable(DebugSystem* system, const char* name, const char* value
     if (system->context.variables.count >= system->context.variables.capacity) {
         system->context.variables.capacity = system->context.variables.capacity ? 
             system->context.variables.capacity * 2 : 10;
-        system->context.variables.names = realloc(system->context.variables.names,
-            sizeof(char*) * system->context.variables.capacity);
-        system->context.variables.values = realloc(system->context.variables.values,
-            sizeof(char*) * system->context.variables.capacity);
-        system->context.variables.types = realloc(system->context.variables.types,
-            sizeof(char*) * system->context.variables.capacity);
+        system->context.variables.names = shared_realloc_safe(system->context.variables.names,
+            sizeof(char*) * system->context.variables.capacity, "debug_system", "debug_system_add_variable_to_context", 0);
+        system->context.variables.values = shared_realloc_safe(system->context.variables.values,
+            sizeof(char*) * system->context.variables.capacity, "debug_system", "debug_system_add_variable_to_context", 0);
+        system->context.variables.types = shared_realloc_safe(system->context.variables.types,
+            sizeof(char*) * system->context.variables.capacity, "debug_system", "debug_system_add_variable_to_context", 0);
     }
     
     size_t index = system->context.variables.count++;
-    system->context.variables.names[index] = strdup(name);
-    system->context.variables.values[index] = value ? strdup(value) : NULL;
-    system->context.variables.types[index] = type ? strdup(type) : NULL;
+    system->context.variables.names[index] = shared_strdup(name);
+    system->context.variables.values[index] = value ? shared_strdup(value) : NULL;
+    system->context.variables.types[index] = type ? shared_strdup(type) : NULL;
 }
 
 void debug_clear_variables(DebugSystem* system) {

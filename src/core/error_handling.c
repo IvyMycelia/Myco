@@ -1,5 +1,6 @@
 #include "interpreter.h"
 #include "error_system.h"
+#include "shared_utilities.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -99,7 +100,7 @@ int get_error_code_from_message(const char* message) {
     if (!message) return MYCO_ERROR_INTERNAL_ERROR;
     
     // Convert to lowercase for case-insensitive matching
-    char* lower_message = malloc(strlen(message) + 1);
+    char* lower_message = shared_malloc_safe(strlen(message) + 1, "error_handling", "get_error_code_from_message", 102);
     if (!lower_message) return MYCO_ERROR_OUT_OF_MEMORY;
     
     for (size_t i = 0; message[i]; i++) {
@@ -253,7 +254,7 @@ int get_error_code_from_message(const char* message) {
         error_code = MYCO_ERROR_UNIMPLEMENTED;
     }
     
-    free(lower_message);
+    shared_free_safe(lower_message, "error_handling", "get_error_code_from_message", 256);
     return error_code;
 }
 
@@ -474,7 +475,7 @@ void interpreter_report_error_enhanced(Interpreter* interpreter, const char* mes
         printf("%s", header);
         
         // Copy pointers to an array
-        CallFrame** frames = (CallFrame**)malloc(sizeof(CallFrame*) * count);
+        CallFrame** frames = (CallFrame**)shared_malloc_safe(sizeof(CallFrame*) * count, "error_handling", "interpreter_report_error_enhanced", 477);
         size_t idx = 0;
         it = interpreter->call_stack;
         while (it && idx < count) { frames[idx++] = it; it = it->next; }
@@ -487,7 +488,7 @@ void interpreter_report_error_enhanced(Interpreter* interpreter, const char* mes
             unsigned line_no = (unsigned)(f->line > 0 ? f->line : 0);
             printf("  File \"%s\", line %u, in %s\n", file_name, line_no, func_name);
         }
-        free(frames);
+        shared_free_safe(frames, "error_handling", "interpreter_report_error_enhanced", 490);
     }
     
     // Column numbers should be 0-based for user display
@@ -691,9 +692,9 @@ void interpreter_report_error_comprehensive(Interpreter* interpreter, int error_
     // Set error state
     interpreter->has_error = 1;
     if (interpreter->error_message) {
-        free(interpreter->error_message);
+        shared_free_safe(interpreter->error_message, "error_handling", "interpreter_report_error_comprehensive", 694);
     }
-    interpreter->error_message = (message ? strdup(message) : NULL);
+    interpreter->error_message = (message ? shared_strdup(message) : NULL);
     interpreter->error_line = line;
     interpreter->error_column = column;
     
@@ -782,7 +783,7 @@ Value safe_array_access(Value* array, int index, Interpreter* interpreter, int l
 
 // Safe memory allocation with error handling
 void* safe_malloc(size_t size, Interpreter* interpreter, const char* context, int line, int column) {
-    void* ptr = malloc(size);
+    void* ptr = shared_malloc_safe(size, "error_handling", "safe_malloc", 785);
     if (!ptr) {
         interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_OUT_OF_MEMORY, 
                                             "Memory allocation failed", interpreter->current_filename, line, column, 
@@ -801,7 +802,7 @@ char* safe_strdup(const char* str, Interpreter* interpreter, const char* context
         return NULL;
     }
     
-    char* result = (str ? strdup(str) : NULL);
+    char* result = (str ? shared_strdup(str) : NULL);
     if (!result) {
         interpreter_report_error_comprehensive(interpreter, MYCO_ERROR_OUT_OF_MEMORY, 
                                             "String duplication failed", interpreter->current_filename, line, column, 

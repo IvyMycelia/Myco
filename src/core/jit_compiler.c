@@ -1,4 +1,5 @@
 #include "jit_compiler.h"
+#include "shared_utilities.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -23,7 +24,7 @@
 
 // JIT context management
 JitContext* jit_context_create(JitTargetArchitecture target, JitCompilationMode mode) {
-    JitContext* context = malloc(sizeof(JitContext));
+    JitContext* context = shared_malloc_safe(sizeof(JitContext), "jit_compiler", "jit_context_create", 0);
     if (!context) return NULL;
     
     context->target = target;
@@ -70,25 +71,25 @@ void jit_context_free(JitContext* context) {
     
     // Free function table
     for (size_t i = 0; i < context->function_count; i++) {
-        free(context->function_names[i]);
+        shared_free_safe(context->function_names[i], "jit_compiler", "jit_context_free", 0);
         type_free(context->function_types[i]);
     }
-    free(context->function_table);
-    free(context->function_types);
-    free(context->function_names);
+    shared_free_safe(context->function_table, "jit_compiler", "jit_context_free", 0);
+    shared_free_safe(context->function_types, "jit_compiler", "jit_context_free", 0);
+    shared_free_safe(context->function_names, "jit_compiler", "jit_context_free", 0);
     
     // Free runtime data
     if (context->runtime_data) {
-        free(context->runtime_data);
+        shared_free_safe(context->runtime_data, "jit_compiler", "jit_context_free", 0);
     }
     
     // Free debug symbols
     for (size_t i = 0; i < context->debug_symbol_count; i++) {
-        free(context->debug_symbols[i]);
+        shared_free_safe(context->debug_symbols[i], "jit_compiler", "jit_context_free", 0);
     }
-    free(context->debug_symbols);
+    shared_free_safe(context->debug_symbols, "jit_compiler", "jit_context_free", 0);
     
-    free(context);
+    shared_free_safe(context, "jit_compiler", "jit_context_free", 0);
 }
 
 // Main JIT compilation
@@ -96,7 +97,7 @@ JitResult* jit_compile_ast(JitContext* context, ASTNode* ast) {
     if (!context || !ast) return NULL;
     
     clock_t start_time = clock();
-    JitResult* result = malloc(sizeof(JitResult));
+    JitResult* result = shared_malloc_safe(sizeof(JitResult), "jit_compiler", "jit_compile_ast", 0);
     if (!result) return NULL;
     
     result->success = 0;
@@ -109,14 +110,14 @@ JitResult* jit_compile_ast(JitContext* context, ASTNode* ast) {
     // Allocate initial code buffer
     if (!jit_allocate_code_buffer(context, 1024 * 1024)) { // 1MB initial buffer
         jit_set_error(context, "Failed to allocate code buffer");
-        result->error_message = jit_get_last_error(context) ? strdup(jit_get_last_error(context)) : NULL;
+        result->error_message = jit_get_last_error(context) ? shared_strdup(jit_get_last_error(context)) : NULL;
         return result;
     }
     
     // Generate prologue
     if (!jit_generate_prologue(context)) {
         jit_set_error(context, "Failed to generate prologue");
-        result->error_message = jit_get_last_error(context) ? strdup(jit_get_last_error(context)) : NULL;
+        result->error_message = jit_get_last_error(context) ? shared_strdup(jit_get_last_error(context)) : NULL;
         return result;
     }
     
@@ -129,12 +130,12 @@ JitResult* jit_compile_ast(JitContext* context, ASTNode* ast) {
                 JitResult* func_result = jit_compile_function(context, stmt);
                 if (!func_result || !func_result->success) {
                     if (func_result) {
-                        result->error_message = (func_result->error_message ? strdup(func_result->error_message) : NULL);
-                        free(func_result);
+                        result->error_message = (func_result->error_message ? shared_strdup(func_result->error_message) : NULL);
+                        shared_free_safe(func_result, "jit_compiler", "jit_compile_ast", 0);
                     }
                     return result;
                 }
-                free(func_result);
+                shared_free_safe(func_result, "jit_compiler", "jit_compile_ast", 0);
             }
         }
     }
@@ -142,7 +143,7 @@ JitResult* jit_compile_ast(JitContext* context, ASTNode* ast) {
     // Generate epilogue
     if (!jit_generate_epilogue(context)) {
         jit_set_error(context, "Failed to generate epilogue");
-        result->error_message = jit_get_last_error(context) ? strdup(jit_get_last_error(context)) : NULL;
+        result->error_message = jit_get_last_error(context) ? shared_strdup(jit_get_last_error(context)) : NULL;
         return result;
     }
     
@@ -164,7 +165,7 @@ JitResult* jit_compile_function(JitContext* context, ASTNode* function_node) {
         return NULL;
     }
     
-    JitResult* result = malloc(sizeof(JitResult));
+    JitResult* result = shared_malloc_safe(sizeof(JitResult), "jit_compiler", "jit_compile_ast", 0);
     if (!result) return NULL;
     
     result->success = 0;
@@ -176,18 +177,18 @@ JitResult* jit_compile_function(JitContext* context, ASTNode* function_node) {
     
     // Check if function is compilable
     if (!jit_is_function_compilable(function_node)) {
-        result->error_message = ("Function is not suitable for JIT compilation" ? strdup("Function is not suitable for JIT compilation") : NULL);
+        result->error_message = ("Function is not suitable for JIT compilation" ? shared_strdup("Function is not suitable for JIT compilation") : NULL);
         return result;
     }
     
     // Allocate space for compiled function
-    JitFunction* func = malloc(sizeof(JitFunction));
+    JitFunction* func = shared_malloc_safe(sizeof(JitFunction), "jit_compiler", "jit_compile_function", 0);
     if (!func) {
-        result->error_message = ("Memory allocation failed" ? strdup("Memory allocation failed") : NULL);
+        result->error_message = ("Memory allocation failed" ? shared_strdup("Memory allocation failed") : NULL);
         return result;
     }
     
-    func->name = (function_node->data.function_definition.function_name ? strdup(function_node->data.function_definition.function_name) : NULL);
+    func->name = (function_node->data.function_definition.function_name ? shared_strdup(function_node->data.function_definition.function_name) : NULL);
     func->signature = type_create_function(NULL, 0, NULL, 0, 0);
     func->native_code = NULL;
     func->code_size = 0;
@@ -199,10 +200,10 @@ JitResult* jit_compile_function(JitContext* context, ASTNode* function_node) {
     // Generate function body
     if (function_node->data.function_definition.body) {
         if (!jit_generate_expression(context, function_node->data.function_definition.body)) {
-            result->error_message = ("Failed to generate function body" ? strdup("Failed to generate function body") : NULL);
-            free(func->name);
+            result->error_message = ("Failed to generate function body" ? shared_strdup("Failed to generate function body") : NULL);
+            shared_free_safe(func->name, "jit_compiler", "jit_compile_function", 0);
             type_free(func->signature);
-            free(func);
+            shared_free_safe(func, "jit_compiler", "jit_compile_function", 0);
             return result;
         }
     }
@@ -216,12 +217,12 @@ JitResult* jit_compile_function(JitContext* context, ASTNode* function_node) {
     // Add to function table
     if (context->function_count >= context->function_capacity) {
         size_t new_capacity = context->function_capacity == 0 ? 4 : context->function_capacity * 2;
-        JitFunction** new_table = realloc(context->compiled_functions, new_capacity * sizeof(JitFunction*));
+        JitFunction** new_table = shared_realloc_safe(context->compiled_functions, new_capacity * sizeof(JitFunction*), "jit_compiler", "jit_compile_function", 0);
         if (!new_table) {
-            result->error_message = ("Failed to expand function table" ? strdup("Failed to expand function table") : NULL);
-            free(func->name);
+            result->error_message = ("Failed to expand function table" ? shared_strdup("Failed to expand function table") : NULL);
+            shared_free_safe(func->name, "jit_compiler", "jit_compile_function", 0);
             type_free(func->signature);
-            free(func);
+            shared_free_safe(func, "jit_compiler", "jit_compile_function", 0);
             return result;
         }
         context->compiled_functions = new_table;
@@ -242,7 +243,7 @@ JitResult* jit_compile_function(JitContext* context, ASTNode* function_node) {
 JitResult* jit_compile_expression(JitContext* context, ASTNode* expression) {
     if (!context || !expression) return NULL;
     
-    JitResult* result = malloc(sizeof(JitResult));
+    JitResult* result = shared_malloc_safe(sizeof(JitResult), "jit_compiler", "jit_compile_ast", 0);
     if (!result) return NULL;
     
     result->success = 0;
@@ -271,12 +272,12 @@ JitResult* jit_compile_expression(JitContext* context, ASTNode* expression) {
             success = jit_generate_variable_assignment(context, expression);
             break;
         default:
-            result->error_message = ("Unsupported expression type for JIT compilation" ? strdup("Unsupported expression type for JIT compilation") : NULL);
+            result->error_message = ("Unsupported expression type for JIT compilation" ? shared_strdup("Unsupported expression type for JIT compilation") : NULL);
             return result;
     }
     
     if (!success) {
-        result->error_message = ("Failed to generate code for expression" ? strdup("Failed to generate code for expression") : NULL);
+        result->error_message = ("Failed to generate code for expression" ? shared_strdup("Failed to generate code for expression") : NULL);
         return result;
     }
     
@@ -501,7 +502,7 @@ int jit_allocate_code_buffer(JitContext* context, size_t size) {
 int jit_allocate_runtime_data(JitContext* context, size_t size) {
     if (!context) return 0;
     
-    context->runtime_data = malloc(size);
+    context->runtime_data = shared_malloc_safe(size, "jit_compiler", "jit_allocate_runtime_data", 0);
     if (!context->runtime_data) return 0;
     
     context->runtime_size = size;

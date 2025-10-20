@@ -8,6 +8,15 @@
 #include "../../include/utils/shared_utilities.h"
 
 // Map operations
+Value builtin_map_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 0) {
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.create() expects no arguments", line, column);
+        return value_create_null();
+    }
+    
+    return value_create_hash_map(8);
+}
+
 Value builtin_map_has(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
         std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.has() expects exactly 1 argument: key", line, column);
@@ -24,6 +33,58 @@ Value builtin_map_has(Interpreter* interpreter, Value* args, size_t arg_count, i
     
     int has_key = value_hash_map_has(&map, key);
     return value_create_boolean(has_key);
+}
+
+Value builtin_map_set(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 3) {
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.set() expects exactly 2 arguments: key, value", line, column);
+        return value_create_null();
+    }
+    
+    Value map = args[0];
+    Value key = args[1];
+    Value value = args[2];
+    
+    if (map.type != VALUE_HASH_MAP) {
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.set() can only be called on a hash map", line, column);
+        return value_create_null();
+    }
+    
+    // Create a new map with all existing elements plus the new key-value pair
+    Value result = value_create_hash_map(map.data.hash_map_value.capacity);
+    
+    // Copy all existing elements
+    for (size_t i = 0; i < map.data.hash_map_value.count; i++) {
+        Value* existing_key = (Value*)map.data.hash_map_value.keys[i];
+        Value* existing_value = (Value*)map.data.hash_map_value.values[i];
+        if (existing_key && existing_value) {
+            Value cloned_key = value_clone(existing_key);
+            Value cloned_value = value_clone(existing_value);
+            value_hash_map_set(&result, cloned_key, cloned_value);
+        }
+    }
+    
+    // Add the new key-value pair
+    value_hash_map_set(&result, key, value);
+    
+    return result;
+}
+
+Value builtin_map_get(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 2) {
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.get() expects exactly 1 argument: key", line, column);
+        return value_create_null();
+    }
+    
+    Value map = args[0];
+    Value key = args[1];
+    
+    if (map.type != VALUE_HASH_MAP) {
+        std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.get() can only be called on a hash map", line, column);
+        return value_create_null();
+    }
+    
+    return value_hash_map_get(&map, key);
 }
 
 Value builtin_map_size(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -86,16 +147,32 @@ Value builtin_map_delete(Interpreter* interpreter, Value* args, size_t arg_count
         return value_create_null();
     }
     
-    Value* map = &args[0];
+    Value map = args[0];
     Value key = args[1];
     
-    if (map->type != VALUE_HASH_MAP) {
+    if (map.type != VALUE_HASH_MAP) {
         std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.delete() can only be called on a hash map", line, column);
         return value_create_null();
     }
     
-    value_hash_map_delete(map, key);
-    return value_clone(map);
+    // Create a new map with all existing elements except the one to delete
+    Value result = value_create_hash_map(map.data.hash_map_value.capacity);
+    
+    // Copy all existing elements except the one to delete
+    for (size_t i = 0; i < map.data.hash_map_value.count; i++) {
+        Value* existing_key = (Value*)map.data.hash_map_value.keys[i];
+        Value* existing_value = (Value*)map.data.hash_map_value.values[i];
+        if (existing_key && existing_value) {
+            // Check if this is the key to delete
+            if (!value_equals(existing_key, &key)) {
+                Value cloned_key = value_clone(existing_key);
+                Value cloned_value = value_clone(existing_value);
+                value_hash_map_set(&result, cloned_key, cloned_value);
+            }
+        }
+    }
+    
+    return result;
 }
 
 Value builtin_map_clear(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -104,25 +181,15 @@ Value builtin_map_clear(Interpreter* interpreter, Value* args, size_t arg_count,
         return value_create_null();
     }
     
-    Value* map = &args[0];
+    Value map = args[0];
     
-    if (map->type != VALUE_HASH_MAP) {
+    if (map.type != VALUE_HASH_MAP) {
         std_error_report(ERROR_INTERNAL_ERROR, "maps", "unknown_function", "map.clear() can only be called on a hash map", line, column);
         return value_create_null();
     }
     
-    // Clear all key-value pairs
-    size_t count;
-    Value* keys = value_hash_map_keys(map, &count);
-    
-    if (keys) {
-        for (size_t i = 0; i < count; i++) {
-            value_hash_map_delete(map, keys[i]);
-        }
-        shared_free_safe(keys, "libs", "unknown_function", 121);
-    }
-    
-    return value_clone(map);
+    // Create a new empty map (immutable operation)
+    return value_create_hash_map(8);
 }
 
 Value builtin_map_update(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -131,28 +198,40 @@ Value builtin_map_update(Interpreter* interpreter, Value* args, size_t arg_count
         return value_create_null();
     }
     
-    Value* map = &args[0];
+    Value map = args[0];
     Value other_map = args[1];
     
-    if (map->type != VALUE_HASH_MAP || other_map.type != VALUE_HASH_MAP) {
+    if (map.type != VALUE_HASH_MAP || other_map.type != VALUE_HASH_MAP) {
         std_error_report(ERROR_INVALID_ARGUMENT, "maps", "builtin_map_update", "map.update() argument must be a hash map", line, column);
         return value_create_null();
     }
     
-    // Get all keys from other_map and add them to map
-    size_t count;
-    Value* keys = value_hash_map_keys(&other_map, &count);
+    // Create a new map with all elements from both maps
+    Value result = value_create_hash_map(map.data.hash_map_value.capacity + other_map.data.hash_map_value.capacity);
     
-    if (keys) {
-        for (size_t i = 0; i < count; i++) {
-            Value value = value_hash_map_get(&other_map, keys[i]);
-            value_hash_map_set(map, keys[i], value);
-            value_free(&value);
+    // Copy all elements from the original map
+    for (size_t i = 0; i < map.data.hash_map_value.count; i++) {
+        Value* existing_key = (Value*)map.data.hash_map_value.keys[i];
+        Value* existing_value = (Value*)map.data.hash_map_value.values[i];
+        if (existing_key && existing_value) {
+            Value cloned_key = value_clone(existing_key);
+            Value cloned_value = value_clone(existing_value);
+            value_hash_map_set(&result, cloned_key, cloned_value);
         }
-        shared_free_safe(keys, "libs", "unknown_function", 151);
     }
     
-    return value_clone(map);
+    // Add all elements from the other map (this will overwrite any duplicate keys)
+    for (size_t i = 0; i < other_map.data.hash_map_value.count; i++) {
+        Value* other_key = (Value*)other_map.data.hash_map_value.keys[i];
+        Value* other_value = (Value*)other_map.data.hash_map_value.values[i];
+        if (other_key && other_value) {
+            Value cloned_key = value_clone(other_key);
+            Value cloned_value = value_clone(other_value);
+            value_hash_map_set(&result, cloned_key, cloned_value);
+        }
+    }
+    
+    return result;
 }
 
 // Register the maps library
@@ -163,6 +242,18 @@ void maps_library_register(Interpreter* interpreter) {
     // Expose a library object for maps with __type__="Library"
     Value maps_lib = value_create_object(8);
     value_object_set(&maps_lib, "__type__", value_create_string("Library"));
-    // Optionally expose helpers if desired (suite checks type only)
+    value_object_set(&maps_lib, "type", value_create_string("Library"));
+    
+    // Add functions
+    value_object_set(&maps_lib, "create", value_create_builtin_function(builtin_map_create));
+    value_object_set(&maps_lib, "set", value_create_builtin_function(builtin_map_set));
+    value_object_set(&maps_lib, "get", value_create_builtin_function(builtin_map_get));
+    value_object_set(&maps_lib, "has", value_create_builtin_function(builtin_map_has));
+    value_object_set(&maps_lib, "size", value_create_builtin_function(builtin_map_size));
+    value_object_set(&maps_lib, "keys", value_create_builtin_function(builtin_map_keys));
+    value_object_set(&maps_lib, "delete", value_create_builtin_function(builtin_map_delete));
+    value_object_set(&maps_lib, "clear", value_create_builtin_function(builtin_map_clear));
+    value_object_set(&maps_lib, "update", value_create_builtin_function(builtin_map_update));
+    
     environment_define(interpreter->global_environment, "maps", maps_lib);
 }

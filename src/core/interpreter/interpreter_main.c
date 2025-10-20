@@ -13,8 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <time.h>
-#include <stdint.h>
+#include "../../include/core/bytecode.h"
 
 // Forward declarations for pattern matching functions
 static int pattern_matches(Interpreter* interpreter, Value* value, ASTNode* pattern);
@@ -78,6 +77,9 @@ Interpreter* interpreter_create(void) {
     interpreter->current_function_return_type = NULL;
     interpreter->self_context = NULL;
     
+    // Test mode - disabled by default
+    interpreter->test_mode = 0;
+    
     // Enhanced error handling initialization
     interpreter->call_stack = NULL;
     interpreter->stack_depth = 0;
@@ -89,23 +91,6 @@ Interpreter* interpreter_create(void) {
     interpreter->jit_context = NULL;
     interpreter->jit_enabled = 0;
     interpreter->jit_mode = 0;
-    
-    // Benchmark timing initialization
-    interpreter->benchmark_mode = 0;
-    interpreter->execution_time_ns = 0;
-    interpreter->start_time_ns = 0;
-    
-    // Hot spot tracking initialization
-    interpreter->hot_spot_tracker = NULL;
-    
-    // Micro-JIT compiler initialization
-    interpreter->micro_jit_context = NULL;
-    
-    // Value specialization initialization
-    interpreter->value_specializer = NULL;
-    
-    // Adaptive executor initialization
-    interpreter->adaptive_executor = NULL;
     
     // Macro system initialization
     interpreter->macro_expander = macro_expander_create();
@@ -208,6 +193,19 @@ Value interpreter_execute_program(Interpreter* interpreter, ASTNode* node) {
         interpreter_clear_error(interpreter);
     }
     
+    // Default: use bytecode VM for interpretation unless explicitly disabled via CLI
+    extern int g_force_ast_only; // defined in CLI layer
+    if (1) { // Enable bytecode execution
+        BytecodeProgram* bc = bytecode_program_create();
+        if (bc && bytecode_compile_program(bc, node, interpreter)) {
+            Value r = bytecode_execute(bc, interpreter, 0); // Debug disabled
+            bytecode_program_free(bc);
+            return r;
+        }
+        if (bc) bytecode_program_free(bc);
+        // Fallback to AST if bytecode failed (safety)
+    }
+
     if (node->type == AST_NODE_BLOCK) {
         for (size_t i = 0; i < node->data.block.statement_count; i++) {
             // Stop execution if there's an error (like Python)
@@ -319,6 +317,7 @@ static MycoErrorCode get_error_code(const char* message) {
 void interpreter_set_error(Interpreter* interpreter, const char* message, int line, int column) {
     if (!interpreter) return;
     
+    
     // Initialize global error system if not already done
     if (!global_error_system) {
         global_error_system = enhanced_error_system_create();
@@ -336,9 +335,9 @@ void interpreter_set_error(Interpreter* interpreter, const char* message, int li
     
     // Create new error message
     if (message) {
-        interpreter->error_message = (message ? strdup(message) : NULL);
+        interpreter->error_message = (message ? shared_strdup(message) : NULL);
     } else {
-        interpreter->error_message = strdup("Unknown runtime error");
+        interpreter->error_message = shared_strdup("Unknown runtime error");
     }
     
     // Use enhanced error reporting
@@ -367,7 +366,7 @@ void interpreter_set_error(Interpreter* interpreter, const char* message, int li
             enhanced_error_get_severity(error_code),
             enhanced_error_get_category(error_code),
             message,
-            interpreter->current_filename,
+            interpreter->current_file,
             line,
             column
         );
@@ -404,6 +403,12 @@ void interpreter_set_error(Interpreter* interpreter, const char* message, int li
         // Fallback to simple error display
         printf("Error: %s at line %d, column %d\n", message, line, column);
     }
+    
+    
+    // Clear error state after reporting if in test mode to allow continued execution
+    if (interpreter->test_mode) {
+        interpreter_clear_error(interpreter);
+    }
 }
 
 void interpreter_clear_error(Interpreter* interpreter) {
@@ -417,6 +422,11 @@ void interpreter_clear_error(Interpreter* interpreter) {
         shared_free_safe(interpreter->error_message, "interpreter", "unknown_function", 5326);
         interpreter->error_message = NULL;
     }
+}
+
+void interpreter_set_test_mode(Interpreter* interpreter, int test_mode) {
+    if (!interpreter) return;
+    interpreter->test_mode = test_mode;
 }
 
 int interpreter_has_error(Interpreter* interpreter) {
@@ -445,8 +455,8 @@ void interpreter_push_call_frame(Interpreter* interpreter, const char* function_
         return;
     }
     
-    frame->function_name = function_name ? strdup(function_name) : strdup("<unknown>");
-    frame->file_name = file_name ? strdup(file_name) : strdup("<unknown>");
+    frame->function_name = function_name ? shared_strdup(function_name) : shared_strdup("<unknown>");
+    frame->file_name = file_name ? shared_strdup(file_name) : shared_strdup("<unknown>");
     frame->line = line;
     frame->column = column;
     
@@ -542,7 +552,7 @@ void interpreter_set_error_with_stack(Interpreter* interpreter, const char* mess
 void interpreter_set_source(Interpreter* interpreter, const char* source, const char* filename) {
     if (!interpreter) return;
     interpreter->current_source = source;
-    interpreter->current_filename = filename;
+    interpreter->current_file = filename;
 }
 
 // Exception handling
@@ -904,35 +914,4 @@ ReplDebugSession* interpreter_get_global_repl_session(void) {
         interpreter_initialize_global_systems();
     }
     return global_repl_session;
-}
-
-// ============================================================================
-// BENCHMARK TIMING FUNCTIONS
-// ============================================================================
-
-void interpreter_set_benchmark_mode(Interpreter* interpreter, int enabled) {
-    if (interpreter) {
-        interpreter->benchmark_mode = enabled;
-    }
-}
-
-uint64_t interpreter_get_execution_time_ns(Interpreter* interpreter) {
-    return interpreter ? interpreter->execution_time_ns : 0;
-}
-
-void interpreter_start_timing(Interpreter* interpreter) {
-    if (interpreter && interpreter->benchmark_mode) {
-        struct timespec ts;
-        clock_gettime(CLOCK_MONOTONIC, &ts);
-        interpreter->start_time_ns = (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
-    }
-}
-
-void interpreter_stop_timing(Interpreter* interpreter) {
-    if (interpreter && interpreter->benchmark_mode) {
-        struct timespec ts;
-        clock_gettime(CLOCK_MONOTONIC, &ts);
-        uint64_t end_time_ns = (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
-        interpreter->execution_time_ns = end_time_ns - interpreter->start_time_ns;
-    }
 }

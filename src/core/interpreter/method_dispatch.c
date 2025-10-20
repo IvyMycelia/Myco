@@ -160,6 +160,11 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
         value_free(&object);
         return s;
     }
+    if (strcmp(method_name, "type") == 0) {
+        Value type_str = value_create_string(value_type_string(object.type));
+        value_free(&object);
+        return type_str;
+    }
     if (strcmp(method_name, "isString") == 0) { Value r = value_create_boolean(object.type == VALUE_STRING); value_free(&object); return r; }
     if (strcmp(method_name, "isInt") == 0) { Value r = value_create_boolean(object.type == VALUE_NUMBER && object.data.number_value == (int)object.data.number_value); value_free(&object); return r; }
     if (strcmp(method_name, "isFloat") == 0) { Value r = value_create_boolean(object.type == VALUE_NUMBER && object.data.number_value != (int)object.data.number_value); value_free(&object); return r; }
@@ -437,8 +442,11 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
         if (strcmp(method_name, "add") == 0) {
             if (call_node->data.function_call_expr.argument_count >= 1) {
                 Value v = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[0]);
-                value_set_add(&object, v);
+                Value out = value_clone(&object);
+                value_set_add(&out, v);
                 value_free(&v);
+                value_free(&object);
+                return out;
             }
             Value out = value_clone(&object);
             value_free(&object);
@@ -448,8 +456,11 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
         if (strcmp(method_name, "remove") == 0) {
             if (call_node->data.function_call_expr.argument_count >= 1) {
                 Value v = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[0]);
-                value_set_remove(&object, v);
+                Value out = value_clone(&object);
+                value_set_remove(&out, v);
                 value_free(&v);
+                value_free(&object);
+                return out;
             }
             Value out = value_clone(&object);
             value_free(&object);
@@ -505,20 +516,32 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
     if (object.type == VALUE_OBJECT) {
         Value member = value_object_get(&object, method_name);
         if (member.type == VALUE_FUNCTION) {
+            // Set self context for method calls
+            interpreter_set_self_context(interpreter, &object);
+            
             size_t arg_count = call_node->data.function_call_expr.argument_count;
             Value result;
             if (arg_count == 0) {
-                result = value_function_call(&member, NULL, 0, interpreter, call_node->line, call_node->column);
+                result = value_function_call_with_self(&member, NULL, 0, interpreter, &object, call_node->line, call_node->column);
             } else {
                 Value* args = (Value*)shared_malloc_safe(arg_count * sizeof(Value), "interpreter", "handle_method_call", 0);
-                if (!args) { value_free(&member); value_free(&object); return value_create_null(); }
+                if (!args) { 
+                    value_free(&member); 
+                    value_free(&object); 
+                    interpreter_set_self_context(interpreter, NULL);
+                    return value_create_null(); 
+                }
                 for (size_t i = 0; i < arg_count; i++) {
                     args[i] = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[i]);
                 }
-                result = value_function_call(&member, args, arg_count, interpreter, call_node->line, call_node->column);
+                result = value_function_call_with_self(&member, args, arg_count, interpreter, &object, call_node->line, call_node->column);
                 for (size_t i = 0; i < arg_count; i++) value_free(&args[i]);
                 shared_free_safe(args, "interpreter", "handle_method_call", 0);
             }
+            
+            // Clear self context
+            interpreter_set_self_context(interpreter, NULL);
+            
             value_free(&member);
             value_free(&object);
             return result;

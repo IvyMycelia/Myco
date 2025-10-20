@@ -190,6 +190,9 @@ typedef struct Interpreter {
     size_t stack_depth;
     size_t max_stack_depth;
     size_t recursion_count;
+    
+    // Test mode - allows continued execution after errors
+    int test_mode;
     size_t max_recursion_depth;
     
     // JIT compilation
@@ -229,6 +232,7 @@ Value interpreter_execute_program(Interpreter* interpreter, ASTNode* node);
 void interpreter_set_error(Interpreter* interpreter, const char* message, int line, int column);
 void interpreter_clear_error(Interpreter* interpreter);
 int interpreter_has_error(Interpreter* interpreter);
+void interpreter_set_test_mode(Interpreter* interpreter, int test_mode);
 const char* interpreter_get_error(Interpreter* interpreter);
 
 // ============================================================================

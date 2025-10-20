@@ -145,7 +145,7 @@ void value_object_set_member(Value* object, const char* member_name, Value membe
     
     // Add new member if there's space
     if (object->data.object_value.count < object->data.object_value.capacity) {
-        object->data.object_value.keys[object->data.object_value.count] = strdup(member_name);
+        object->data.object_value.keys[object->data.object_value.count] = shared_strdup(member_name);
         object->data.object_value.values[object->data.object_value.count] = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 420);
         if (object->data.object_value.values[object->data.object_value.count]) {
             *((Value*)object->data.object_value.values[object->data.object_value.count]) = value_clone(&member_value);
@@ -159,7 +159,7 @@ void value_object_set(Value* obj, const char* key, Value value) {
     
     // For now, just a simple implementation - don't expand, just add if there's space
     if (obj->data.object_value.count < obj->data.object_value.capacity) {
-        obj->data.object_value.keys[obj->data.object_value.count] = key ? strdup(key) : NULL;
+        obj->data.object_value.keys[obj->data.object_value.count] = key ? shared_strdup(key) : NULL;
         Value* new_value = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 2912);
         if (new_value) {
             *new_value = value_clone(&value);
@@ -264,7 +264,7 @@ char** value_object_keys(Value* obj, size_t* count) {
     
     for (size_t i = 0; i < *count; i++) {
         if (obj->data.object_value.keys[i]) {
-            keys[i] = obj->data.object_value.keys[i] ? strdup(obj->data.object_value.keys[i]) : NULL;
+            keys[i] = obj->data.object_value.keys[i] ? shared_strdup(obj->data.object_value.keys[i]) : NULL;
             if (!keys[i]) {
                 // Clean up on failure
                 for (size_t j = 0; j < i; j++) {
@@ -492,9 +492,19 @@ void value_set_add(Value* set, Value element) {
         }
     }
     
+    // Resize if needed
+    if (set->data.set_value.count >= set->data.set_value.capacity) {
+        size_t new_capacity = set->data.set_value.capacity > 0 ? set->data.set_value.capacity * 2 : 8;
+        void** new_elements = shared_realloc_safe(set->data.set_value.elements, new_capacity * sizeof(void*), "interpreter", "value_set_add", 0);
+        if (!new_elements) return;
+        
+        set->data.set_value.elements = new_elements;
+        set->data.set_value.capacity = new_capacity;
+    }
+    
     // Add new element
-    if (set->data.set_value.count < set->data.set_value.capacity) {
-        Value* new_element = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 3186);
+    Value* new_element = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 3186);
+    if (new_element) {
         *new_element = value_clone(&element);
         set->data.set_value.elements[set->data.set_value.count] = new_element;
         set->data.set_value.count++;
@@ -530,6 +540,8 @@ void value_set_remove(Value* set, Value element) {
                 set->data.set_value.elements[j] = set->data.set_value.elements[j + 1];
             }
             
+            // Clear the last element after shift
+            set->data.set_value.elements[set->data.set_value.count - 1] = NULL;
             set->data.set_value.count--;
             break;
         }

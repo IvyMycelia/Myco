@@ -54,8 +54,10 @@ void environment_define(Environment* env, const char* name, Value value) {
     int index = environment_find_index(env, name);
     if (index >= 0) {
         // Update existing variable
+        // Clone the new value BEFORE freeing the old one to avoid use-after-free
+        Value cloned_value = value_clone(&value);
         value_free(&env->values[index]);
-        env->values[index] = value_clone(&value);
+        env->values[index] = cloned_value;
         return;
     }
     
@@ -77,7 +79,7 @@ void environment_define(Environment* env, const char* name, Value value) {
     }
     
     // Add new variable
-    env->names[env->count] = (name ? strdup(name) : NULL);
+    env->names[env->count] = (name ? shared_strdup(name) : NULL);
     env->values[env->count] = value_clone(&value);
     env->count++;
 }

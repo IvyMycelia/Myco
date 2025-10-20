@@ -442,8 +442,11 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
         if (strcmp(method_name, "add") == 0) {
             if (call_node->data.function_call_expr.argument_count >= 1) {
                 Value v = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[0]);
-                value_set_add(&object, v);
+                Value out = value_clone(&object);
+                value_set_add(&out, v);
                 value_free(&v);
+                value_free(&object);
+                return out;
             }
             Value out = value_clone(&object);
             value_free(&object);
@@ -453,8 +456,11 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
         if (strcmp(method_name, "remove") == 0) {
             if (call_node->data.function_call_expr.argument_count >= 1) {
                 Value v = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[0]);
-                value_set_remove(&object, v);
+                Value out = value_clone(&object);
+                value_set_remove(&out, v);
                 value_free(&v);
+                value_free(&object);
+                return out;
             }
             Value out = value_clone(&object);
             value_free(&object);

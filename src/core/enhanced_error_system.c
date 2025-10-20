@@ -215,7 +215,7 @@ static const char* get_severity_icon(ErrorSeverity severity) {
 // ============================================================================
 
 EnhancedErrorSystem* enhanced_error_system_create(void) {
-    EnhancedErrorSystem* system = malloc(sizeof(EnhancedErrorSystem));
+    EnhancedErrorSystem* system = shared_malloc_safe(sizeof(EnhancedErrorSystem), "enhanced_error_system", "enhanced_error_system_create", 0);
     if (!system) return NULL;
     
     memset(system, 0, sizeof(EnhancedErrorSystem));
@@ -239,9 +239,9 @@ EnhancedErrorSystem* enhanced_error_system_create(void) {
     
     // Initialize error storage
     system->error_capacity = 100;
-    system->errors = malloc(sizeof(EnhancedErrorInfo*) * system->error_capacity);
+    system->errors = shared_malloc_safe(sizeof(EnhancedErrorInfo*) * system->error_capacity, "enhanced_error_system", "enhanced_error_system_create", 0);
     if (!system->errors) {
-        free(system);
+        shared_free_safe(system, "enhanced_error_system", "enhanced_error_system_create", 0);
         return NULL;
     }
     
@@ -261,13 +261,13 @@ void enhanced_error_system_free(EnhancedErrorSystem* system) {
     for (size_t i = 0; i < system->error_count; i++) {
         enhanced_error_free(system->errors[i]);
     }
-    free(system->errors);
+    shared_free_safe(system->errors, "enhanced_error_system", "enhanced_error_system_free", 0);
     
     // Free configuration strings
-    free(system->config.log_file);
-    free(system->config.component_filter);
+    shared_free_safe(system->config.log_file, "enhanced_error_system", "enhanced_error_system_free", 0);
+    shared_free_safe(system->config.component_filter, "enhanced_error_system", "enhanced_error_system_free", 0);
     
-    free(system);
+    shared_free_safe(system, "enhanced_error_system", "enhanced_error_system_free", 0);
 }
 
 void enhanced_error_system_configure(EnhancedErrorSystem* system, const ErrorSystemConfig* config) {
@@ -276,11 +276,11 @@ void enhanced_error_system_configure(EnhancedErrorSystem* system, const ErrorSys
     system->config = *config;
     
     // Copy strings
-    free(system->config.log_file);
-    system->config.log_file = config->log_file ? strdup(config->log_file) : NULL;
+    shared_free_safe(system->config.log_file, "enhanced_error_system", "enhanced_error_system_configure", 0);
+    system->config.log_file = config->log_file ? shared_strdup(config->log_file) : NULL;
     
-    free(system->config.component_filter);
-    system->config.component_filter = config->component_filter ? strdup(config->component_filter) : NULL;
+    shared_free_safe(system->config.component_filter, "enhanced_error_system", "enhanced_error_system_configure", 0);
+    system->config.component_filter = config->component_filter ? shared_strdup(config->component_filter) : NULL;
 }
 
 // ============================================================================
@@ -290,7 +290,7 @@ void enhanced_error_system_configure(EnhancedErrorSystem* system, const ErrorSys
 EnhancedErrorInfo* enhanced_error_create(MycoErrorCode code, ErrorSeverity severity, 
                                         ErrorCategory category, const char* message,
                                         const char* file_name, uint32_t line, uint32_t column) {
-    EnhancedErrorInfo* error = malloc(sizeof(EnhancedErrorInfo));
+    EnhancedErrorInfo* error = shared_malloc_safe(sizeof(EnhancedErrorInfo), "enhanced_error_system", "enhanced_error_create", 0);
     if (!error) return NULL;
     
     memset(error, 0, sizeof(EnhancedErrorInfo));
@@ -304,8 +304,8 @@ EnhancedErrorInfo* enhanced_error_create(MycoErrorCode code, ErrorSeverity sever
     error->execution_time = 0;
     
     // Copy strings
-    error->message = message ? strdup(message) : NULL;
-    error->file_name = file_name ? strdup(file_name) : NULL;
+    error->message = message ? shared_strdup(message) : NULL;
+    error->file_name = file_name ? shared_strdup(file_name) : NULL;
     error->source_line = NULL;
     error->suggestion = NULL;
     error->context = NULL;
@@ -330,22 +330,22 @@ void enhanced_error_free(EnhancedErrorInfo* error) {
     if (!error) return;
     
     // Free strings
-    free(error->message);
-    free(error->file_name);
-    free(error->source_line);
-    free(error->suggestion);
-    free(error->context);
-    free(error->variable_context);
+    shared_free_safe(error->message, "enhanced_error_system", "enhanced_error_free", 0);
+    shared_free_safe(error->file_name, "enhanced_error_system", "enhanced_error_free", 0);
+    shared_free_safe(error->source_line, "enhanced_error_system", "enhanced_error_free", 0);
+    shared_free_safe(error->suggestion, "enhanced_error_system", "enhanced_error_free", 0);
+    shared_free_safe(error->context, "enhanced_error_system", "enhanced_error_free", 0);
+    shared_free_safe(error->variable_context, "enhanced_error_system", "enhanced_error_free", 0);
     
     // Free stack trace
     if (error->stack_trace) {
         for (size_t i = 0; i < error->stack_trace_size; i++) {
-            free(error->stack_trace[i].function_name);
-            free(error->stack_trace[i].file_name);
-            free(error->stack_trace[i].source_line);
-            free(error->stack_trace[i].context_info);
+            shared_free_safe(error->stack_trace[i].function_name, "enhanced_error_system", "enhanced_error_free", 0);
+            shared_free_safe(error->stack_trace[i].file_name, "enhanced_error_system", "enhanced_error_free", 0);
+            shared_free_safe(error->stack_trace[i].source_line, "enhanced_error_system", "enhanced_error_free", 0);
+            shared_free_safe(error->stack_trace[i].context_info, "enhanced_error_system", "enhanced_error_free", 0);
         }
-        free(error->stack_trace);
+        shared_free_safe(error->stack_trace, "enhanced_error_system", "enhanced_error_free", 0);
     }
     
     // Free related errors
@@ -353,7 +353,7 @@ void enhanced_error_free(EnhancedErrorInfo* error) {
         for (size_t i = 0; i < error->related_count; i++) {
             enhanced_error_free(&error->related_errors[i]);
         }
-        free(error->related_errors);
+        shared_free_safe(error->related_errors, "enhanced_error_system", "enhanced_error_free", 0);
     }
     
     // Free error chain
@@ -364,7 +364,7 @@ void enhanced_error_free(EnhancedErrorInfo* error) {
         enhanced_error_free(error->next);
     }
     
-    free(error);
+    shared_free_safe(error, "enhanced_error_system", "enhanced_error_free", 0);
 }
 
 // ============================================================================
@@ -384,7 +384,7 @@ void enhanced_error_report(EnhancedErrorSystem* system, EnhancedErrorInfo* error
     // Add to error list
     if (system->error_count >= system->error_capacity) {
         system->error_capacity *= 2;
-        system->errors = realloc(system->errors, sizeof(EnhancedErrorInfo*) * system->error_capacity);
+        system->errors = shared_realloc_safe(system->errors, sizeof(EnhancedErrorInfo*) * system->error_capacity, "enhanced_error_system", "enhanced_error_system_add_error", 0);
         if (!system->errors) return;
     }
     
@@ -430,7 +430,7 @@ void enhanced_error_report(EnhancedErrorSystem* system, EnhancedErrorInfo* error
             char* formatted = enhanced_error_format(error);
             if (formatted) {
                 fprintf(log_file, "%s\n", formatted);
-                free(formatted);
+                shared_free_safe(formatted, "enhanced_error_system", "enhanced_error_system_export_log", 0);
             }
             fclose(log_file);
         }
@@ -578,7 +578,7 @@ void enhanced_error_print_verbose(const EnhancedErrorInfo* error) {
 char* enhanced_error_format(const EnhancedErrorInfo* error) {
     if (!error) return NULL;
     
-    char* result = malloc(1024);
+    char* result = shared_malloc_safe(1024, "enhanced_error_system", "enhanced_error_get_severity_name", 0);
     if (!result) return NULL;
     
     snprintf(result, 1024, "[%s] E%d: %s (%s:%u:%u)",
@@ -595,7 +595,7 @@ char* enhanced_error_format(const EnhancedErrorInfo* error) {
 char* enhanced_error_format_json(const EnhancedErrorInfo* error) {
     if (!error) return NULL;
     
-    char* result = malloc(2048);
+    char* result = shared_malloc_safe(2048, "enhanced_error_system", "enhanced_error_get_detailed_info", 0);
     if (!result) return NULL;
     
     snprintf(result, 2048,
@@ -633,17 +633,17 @@ void enhanced_error_add_stack_frame(EnhancedErrorInfo* error, const char* functi
     // Reallocate stack trace array if needed
     if (error->stack_trace_size >= error->stack_trace_capacity) {
         error->stack_trace_capacity = error->stack_trace_capacity ? error->stack_trace_capacity * 2 : 10;
-        error->stack_trace = realloc(error->stack_trace, sizeof(StackFrame) * error->stack_trace_capacity);
+        error->stack_trace = shared_realloc_safe(error->stack_trace, sizeof(StackFrame) * error->stack_trace_capacity, "enhanced_error_system", "enhanced_error_add_stack_frame", 0);
         if (!error->stack_trace) return;
     }
     
     StackFrame* frame = &error->stack_trace[error->stack_trace_size];
-    frame->function_name = function_name ? strdup(function_name) : NULL;
-    frame->file_name = file_name ? strdup(file_name) : NULL;
+    frame->function_name = function_name ? shared_strdup(function_name) : NULL;
+    frame->file_name = file_name ? shared_strdup(file_name) : NULL;
     frame->line_number = line;
     frame->column_number = column;
-    frame->source_line = source_line ? strdup(source_line) : NULL;
-    frame->context_info = context_info ? strdup(context_info) : NULL;
+    frame->source_line = source_line ? shared_strdup(source_line) : NULL;
+    frame->context_info = context_info ? shared_strdup(context_info) : NULL;
     
     error->stack_trace_size++;
 }
@@ -691,29 +691,29 @@ void enhanced_error_print_stack_trace(const EnhancedErrorInfo* error) {
 void enhanced_error_add_context(EnhancedErrorInfo* error, const char* context) {
     if (!error || !context) return;
     
-    free(error->context);
-    error->context = strdup(context);
+    shared_free_safe(error->context, "enhanced_error_system", "enhanced_error_add_context", 0);
+    error->context = shared_strdup(context);
 }
 
 void enhanced_error_add_suggestion(EnhancedErrorInfo* error, const char* suggestion) {
     if (!error || !suggestion) return;
     
-    free(error->suggestion);
-    error->suggestion = strdup(suggestion);
+    shared_free_safe(error->suggestion, "enhanced_error_system", "enhanced_error_add_suggestion", 0);
+    error->suggestion = shared_strdup(suggestion);
 }
 
 void enhanced_error_add_variable_context(EnhancedErrorInfo* error, const char* variable_context) {
     if (!error || !variable_context) return;
     
-    free(error->variable_context);
-    error->variable_context = strdup(variable_context);
+    shared_free_safe(error->variable_context, "enhanced_error_system", "enhanced_error_add_variable_context", 0);
+    error->variable_context = shared_strdup(variable_context);
 }
 
 void enhanced_error_add_source_line(EnhancedErrorInfo* error, const char* source_line) {
     if (!error || !source_line) return;
     
-    free(error->source_line);
-    error->source_line = strdup(source_line);
+    shared_free_safe(error->source_line, "enhanced_error_system", "enhanced_error_add_source_line", 0);
+    error->source_line = shared_strdup(source_line);
 }
 
 // ============================================================================
@@ -817,7 +817,7 @@ EnhancedErrorInfo** enhanced_error_system_filter_by_severity(EnhancedErrorSystem
     if (!system || !count) return NULL;
     
     *count = 0;
-    EnhancedErrorInfo** result = malloc(sizeof(EnhancedErrorInfo*) * system->error_count);
+    EnhancedErrorInfo** result = shared_malloc_safe(sizeof(EnhancedErrorInfo*) * system->error_count, "enhanced_error_system", "enhanced_error_system_get_errors_by_severity", 0);
     if (!result) return NULL;
     
     for (size_t i = 0; i < system->error_count; i++) {
@@ -834,7 +834,7 @@ EnhancedErrorInfo** enhanced_error_system_filter_by_category(EnhancedErrorSystem
     if (!system || !count) return NULL;
     
     *count = 0;
-    EnhancedErrorInfo** result = malloc(sizeof(EnhancedErrorInfo*) * system->error_count);
+    EnhancedErrorInfo** result = shared_malloc_safe(sizeof(EnhancedErrorInfo*) * system->error_count, "enhanced_error_system", "enhanced_error_system_get_errors_by_severity", 0);
     if (!result) return NULL;
     
     for (size_t i = 0; i < system->error_count; i++) {
@@ -851,7 +851,7 @@ EnhancedErrorInfo** enhanced_error_system_filter_by_file(EnhancedErrorSystem* sy
     if (!system || !file_name || !count) return NULL;
     
     *count = 0;
-    EnhancedErrorInfo** result = malloc(sizeof(EnhancedErrorInfo*) * system->error_count);
+    EnhancedErrorInfo** result = shared_malloc_safe(sizeof(EnhancedErrorInfo*) * system->error_count, "enhanced_error_system", "enhanced_error_system_get_errors_by_severity", 0);
     if (!result) return NULL;
     
     for (size_t i = 0; i < system->error_count; i++) {
@@ -951,7 +951,7 @@ void enhanced_error_system_export_log(EnhancedErrorSystem* system, const char* f
 // ============================================================================
 
 void* enhanced_safe_malloc(size_t size, EnhancedErrorSystem* system, const char* context) {
-    void* ptr = malloc(size);
+    void* ptr = shared_malloc_safe(size, "enhanced_error_system", "enhanced_safe_malloc", 0);
     if (!ptr && system) {
         enhanced_error_report_simple(system, MYCO_ERROR_OUT_OF_MEMORY, 
                                    "Memory allocation failed", __FILE__, __LINE__, 0);
@@ -968,7 +968,7 @@ char* enhanced_safe_strdup(const char* str, EnhancedErrorSystem* system, const c
         return NULL;
     }
     
-    char* result = strdup(str);
+    char* result = shared_strdup(str);
     if (!result && system) {
         enhanced_error_report_simple(system, MYCO_ERROR_OUT_OF_MEMORY, 
                                    "String duplication failed", __FILE__, __LINE__, 0);
@@ -1023,7 +1023,7 @@ bool enhanced_error_add_recovery_rule(EnhancedErrorSystem* system, const ErrorRe
     
     // Check if recovery rules array needs to be initialized
     if (!system->recovery_rules) {
-        system->recovery_rules = malloc(sizeof(ErrorRecoveryRule) * 100);
+        system->recovery_rules = shared_malloc_safe(sizeof(ErrorRecoveryRule) * 100, "enhanced_error_system", "enhanced_error_system_add_recovery_rule", 0);
         if (!system->recovery_rules) return false;
         system->recovery_rules_capacity = 100;
         system->recovery_rules_count = 0;
@@ -1031,8 +1031,8 @@ bool enhanced_error_add_recovery_rule(EnhancedErrorSystem* system, const ErrorRe
     
     // Check if we need to expand the array
     if (system->recovery_rules_count >= system->recovery_rules_capacity) {
-        ErrorRecoveryRule* new_rules = realloc(system->recovery_rules, 
-                                              sizeof(ErrorRecoveryRule) * system->recovery_rules_capacity * 2);
+        ErrorRecoveryRule* new_rules = shared_realloc_safe(system->recovery_rules, 
+                                              sizeof(ErrorRecoveryRule) * system->recovery_rules_capacity * 2, "enhanced_error_system", "enhanced_error_add_recovery_rule", 0);
         if (!new_rules) return false;
         system->recovery_rules = new_rules;
         system->recovery_rules_capacity *= 2;
@@ -1051,7 +1051,7 @@ bool enhanced_error_remove_recovery_rule(EnhancedErrorSystem* system, MycoErrorC
     for (size_t i = 0; i < system->recovery_rules_count; i++) {
         if (system->recovery_rules[i].error_code == error_code) {
             // Free any allocated strings
-            free(system->recovery_rules[i].fallback_message);
+            shared_free_safe(system->recovery_rules[i].fallback_message, "enhanced_error_system", "enhanced_error_system_remove_recovery_rule", 0);
             
             // Move remaining rules up
             for (size_t j = i; j < system->recovery_rules_count - 1; j++) {
@@ -1130,15 +1130,15 @@ bool enhanced_error_attempt_recovery(EnhancedErrorSystem* system, const Enhanced
 // ============================================================================
 
 EnhancedErrorContext* enhanced_error_context_create(void) {
-    EnhancedErrorContext* context = malloc(sizeof(EnhancedErrorContext));
+    EnhancedErrorContext* context = shared_malloc_safe(sizeof(EnhancedErrorContext), "enhanced_error_system", "enhanced_error_context_create", 0);
     if (!context) return NULL;
     
     memset(context, 0, sizeof(EnhancedErrorContext));
     
     // Initialize arrays
-    context->variables = malloc(sizeof(VariableContext) * 50);
-    context->functions = malloc(sizeof(FunctionContext) * 50);
-    context->files = malloc(sizeof(FileContext) * 10);
+    context->variables = shared_malloc_safe(sizeof(VariableContext) * 50, "enhanced_error_system", "enhanced_error_context_create", 0);
+    context->functions = shared_malloc_safe(sizeof(FunctionContext) * 50, "enhanced_error_system", "enhanced_error_context_create", 0);
+    context->files = shared_malloc_safe(sizeof(FileContext) * 10, "enhanced_error_system", "enhanced_error_context_create", 0);
     
     if (!context->variables || !context->functions || !context->files) {
         enhanced_error_context_free(context);
@@ -1157,40 +1157,40 @@ void enhanced_error_context_free(EnhancedErrorContext* context) {
     
     // Free variables
     for (size_t i = 0; i < context->variable_count; i++) {
-        free(context->variables[i].variable_name);
-        free(context->variables[i].variable_type);
-        free(context->variables[i].variable_value);
-        free(context->variables[i].scope_info);
-        free(context->variables[i].memory_address);
-        free(context->variables[i].last_assignment);
+        shared_free_safe(context->variables[i].variable_name, "enhanced_error_system", "enhanced_error_context_free", 0);
+        shared_free_safe(context->variables[i].variable_type, "enhanced_error_system", "enhanced_error_context_free", 0);
+        shared_free_safe(context->variables[i].variable_value, "enhanced_error_system", "enhanced_error_context_free", 0);
+        shared_free_safe(context->variables[i].scope_info, "enhanced_error_system", "enhanced_error_context_free", 0);
+        shared_free_safe(context->variables[i].memory_address, "enhanced_error_system", "enhanced_error_context_free", 0);
+        shared_free_safe(context->variables[i].last_assignment, "enhanced_error_system", "enhanced_error_context_free", 0);
     }
-    free(context->variables);
+    shared_free_safe(context->variables, "enhanced_error_system", "enhanced_error_context_free", 0);
     
     // Free functions
     for (size_t i = 0; i < context->function_count; i++) {
-        free(context->functions[i].function_name);
-        free(context->functions[i].function_signature);
-        free(context->functions[i].parameter_types);
-        free(context->functions[i].return_type);
-        free(context->functions[i].call_stack);
+        shared_free_safe(context->functions[i].function_name, "enhanced_error_system", "enhanced_error_context_free", 0);
+        shared_free_safe(context->functions[i].function_signature, "enhanced_error_system", "enhanced_error_context_free", 0);
+        shared_free_safe(context->functions[i].parameter_types, "enhanced_error_system", "enhanced_error_context_free", 0);
+        shared_free_safe(context->functions[i].return_type, "enhanced_error_system", "enhanced_error_context_free", 0);
+        shared_free_safe(context->functions[i].call_stack, "enhanced_error_system", "enhanced_error_context_free", 0);
     }
-    free(context->functions);
+    shared_free_safe(context->functions, "enhanced_error_system", "enhanced_error_context_free", 0);
     
     // Free files
     for (size_t i = 0; i < context->file_count; i++) {
-        free(context->files[i].file_path);
-        free(context->files[i].file_content);
-        free(context->files[i].file_encoding);
-        free(context->files[i].file_permissions);
+        shared_free_safe(context->files[i].file_path, "enhanced_error_system", "enhanced_error_context_free", 0);
+        shared_free_safe(context->files[i].file_content, "enhanced_error_system", "enhanced_error_context_free", 0);
+        shared_free_safe(context->files[i].file_encoding, "enhanced_error_system", "enhanced_error_context_free", 0);
+        shared_free_safe(context->files[i].file_permissions, "enhanced_error_system", "enhanced_error_context_free", 0);
     }
-    free(context->files);
+    shared_free_safe(context->files, "enhanced_error_system", "enhanced_error_context_free", 0);
     
     // Free info strings
-    free(context->system_info);
-    free(context->memory_info);
-    free(context->performance_info);
+    shared_free_safe(context->system_info, "enhanced_error_system", "enhanced_error_context_free", 0);
+    shared_free_safe(context->memory_info, "enhanced_error_system", "enhanced_error_context_free", 0);
+    shared_free_safe(context->performance_info, "enhanced_error_system", "enhanced_error_context_free", 0);
     
-    free(context);
+    shared_free_safe(context, "enhanced_error_system", "enhanced_error_context_free", 0);
 }
 
 bool enhanced_error_context_add_variable(EnhancedErrorContext* context, const char* var_name, 
@@ -1200,10 +1200,10 @@ bool enhanced_error_context_add_variable(EnhancedErrorContext* context, const ch
     if (context->variable_count >= 50) return false; // Simple limit
     
     VariableContext* var = &context->variables[context->variable_count];
-    var->variable_name = strdup(var_name);
-    var->variable_type = var_type ? strdup(var_type) : NULL;
-    var->variable_value = var_value ? strdup(var_value) : NULL;
-    var->scope_info = scope_info ? strdup(scope_info) : NULL;
+    var->variable_name = shared_strdup(var_name);
+    var->variable_type = var_type ? shared_strdup(var_type) : NULL;
+    var->variable_value = var_value ? shared_strdup(var_value) : NULL;
+    var->scope_info = scope_info ? shared_strdup(scope_info) : NULL;
     var->memory_address = NULL; // Could be filled in later
     var->last_assignment = NULL; // Could be filled in later
     
@@ -1219,11 +1219,11 @@ bool enhanced_error_context_add_function(EnhancedErrorContext* context, const ch
     if (context->function_count >= 50) return false; // Simple limit
     
     FunctionContext* func = &context->functions[context->function_count];
-    func->function_name = strdup(func_name);
-    func->function_signature = func_signature ? strdup(func_signature) : NULL;
-    func->parameter_types = param_types ? strdup(param_types) : NULL;
-    func->return_type = return_type ? strdup(return_type) : NULL;
-    func->call_stack = call_stack ? strdup(call_stack) : NULL;
+    func->function_name = shared_strdup(func_name);
+    func->function_signature = func_signature ? shared_strdup(func_signature) : NULL;
+    func->parameter_types = param_types ? shared_strdup(param_types) : NULL;
+    func->return_type = return_type ? shared_strdup(return_type) : NULL;
+    func->call_stack = call_stack ? shared_strdup(call_stack) : NULL;
     func->recursion_depth = 0; // Could be calculated
     
     context->function_count++;
@@ -1237,9 +1237,9 @@ bool enhanced_error_context_add_file(EnhancedErrorContext* context, const char* 
     if (context->file_count >= 10) return false; // Simple limit
     
     FileContext* file = &context->files[context->file_count];
-    file->file_path = strdup(file_path);
-    file->file_content = file_content ? strdup(file_content) : NULL;
-    file->file_encoding = file_encoding ? strdup(file_encoding) : NULL;
+    file->file_path = shared_strdup(file_path);
+    file->file_content = file_content ? shared_strdup(file_content) : NULL;
+    file->file_encoding = file_encoding ? shared_strdup(file_encoding) : NULL;
     file->file_size = file_content ? strlen(file_content) : 0;
     file->file_modified = time(NULL);
     file->file_permissions = NULL; // Could be filled in later
@@ -1251,24 +1251,24 @@ bool enhanced_error_context_add_file(EnhancedErrorContext* context, const char* 
 bool enhanced_error_context_set_system_info(EnhancedErrorContext* context, const char* system_info) {
     if (!context) return false;
     
-    free(context->system_info);
-    context->system_info = system_info ? strdup(system_info) : NULL;
+    shared_free_safe(context->system_info, "enhanced_error_system", "enhanced_error_context_set_system_info", 0);
+    context->system_info = system_info ? shared_strdup(system_info) : NULL;
     return true;
 }
 
 bool enhanced_error_context_set_memory_info(EnhancedErrorContext* context, const char* memory_info) {
     if (!context) return false;
     
-    free(context->memory_info);
-    context->memory_info = memory_info ? strdup(memory_info) : NULL;
+    shared_free_safe(context->memory_info, "enhanced_error_system", "enhanced_error_context_set_memory_info", 0);
+    context->memory_info = memory_info ? shared_strdup(memory_info) : NULL;
     return true;
 }
 
 bool enhanced_error_context_set_performance_info(EnhancedErrorContext* context, const char* performance_info) {
     if (!context) return false;
     
-    free(context->performance_info);
-    context->performance_info = performance_info ? strdup(performance_info) : NULL;
+    shared_free_safe(context->performance_info, "enhanced_error_system", "enhanced_error_context_set_performance_info", 0);
+    context->performance_info = performance_info ? shared_strdup(performance_info) : NULL;
     return true;
 }
 
@@ -1290,21 +1290,21 @@ bool enhanced_error_report_with_context(EnhancedErrorSystem* system, MycoErrorCo
     if (context) {
         // Add variable context
         if (context->variable_count > 0) {
-            char* var_info = malloc(1024);
+            char* var_info = shared_malloc_safe(1024, "enhanced_error_system", "enhanced_error_report_with_context", 0);
             if (var_info) {
                 snprintf(var_info, 1024, "Variables in scope: %zu", context->variable_count);
                 enhanced_error_add_context(error, var_info);
-                free(var_info);
+                shared_free_safe(var_info, "enhanced_error_system", "enhanced_error_report_with_context", 0);
             }
         }
         
         // Add function context
         if (context->function_count > 0) {
-            char* func_info = malloc(1024);
+            char* func_info = shared_malloc_safe(1024, "enhanced_error_system", "enhanced_error_report_with_context", 0);
             if (func_info) {
                 snprintf(func_info, 1024, "Functions in call stack: %zu", context->function_count);
                 enhanced_error_add_context(error, func_info);
-                free(func_info);
+                shared_free_safe(func_info, "enhanced_error_system", "enhanced_error_report_with_context", 0);
             }
         }
         
@@ -1327,7 +1327,7 @@ bool enhanced_error_report_with_context(EnhancedErrorSystem* system, MycoErrorCo
 char* enhanced_error_get_detailed_analysis(const EnhancedErrorInfo* error, const EnhancedErrorContext* context) {
     if (!error) return NULL;
     
-    char* analysis = malloc(2048);
+    char* analysis = shared_malloc_safe(2048, "enhanced_error_system", "enhanced_error_get_detailed_analysis", 0);
     if (!analysis) return NULL;
     
     snprintf(analysis, 2048, 
@@ -1346,7 +1346,7 @@ char* enhanced_error_get_detailed_analysis(const EnhancedErrorInfo* error, const
              error->column_number);
     
     if (context) {
-        char* context_info = malloc(1024);
+        char* context_info = shared_malloc_safe(1024, "enhanced_error_system", "enhanced_error_get_detailed_analysis", 0);
         if (context_info) {
             snprintf(context_info, 1024,
                      "Context Information:\n"
@@ -1358,14 +1358,14 @@ char* enhanced_error_get_detailed_analysis(const EnhancedErrorInfo* error, const
                      context->file_count);
             
             // Append context info to analysis
-            char* new_analysis = malloc(strlen(analysis) + strlen(context_info) + 1);
+            char* new_analysis = shared_malloc_safe(strlen(analysis) + strlen(context_info) + 1, "enhanced_error_system", "enhanced_error_get_detailed_analysis", 0);
             if (new_analysis) {
                 strcpy(new_analysis, analysis);
                 strcat(new_analysis, context_info);
-                free(analysis);
+                shared_free_safe(analysis, "enhanced_error_system", "enhanced_error_get_detailed_analysis", 0);
                 analysis = new_analysis;
             }
-            free(context_info);
+            shared_free_safe(context_info, "enhanced_error_system", "enhanced_error_get_detailed_analysis", 0);
         }
     }
     
@@ -1375,7 +1375,7 @@ char* enhanced_error_get_detailed_analysis(const EnhancedErrorInfo* error, const
 char* enhanced_error_get_contextual_suggestions(const EnhancedErrorInfo* error, const EnhancedErrorContext* context) {
     if (!error) return NULL;
     
-    char* suggestions = malloc(1024);
+    char* suggestions = shared_malloc_safe(1024, "enhanced_error_system", "enhanced_error_get_suggestions", 0);
     if (!suggestions) return NULL;
     
     // Basic suggestions based on error code
@@ -1415,7 +1415,7 @@ char* enhanced_error_get_contextual_suggestions(const EnhancedErrorInfo* error, 
     
     // Add context-specific suggestions
     if (context && context->variable_count > 0) {
-        char* context_suggestions = malloc(512);
+        char* context_suggestions = shared_malloc_safe(512, "enhanced_error_system", "enhanced_error_get_contextual_suggestions", 0);
         if (context_suggestions) {
             snprintf(context_suggestions, 512,
                      "\nContext-specific suggestions:\n"
@@ -1425,14 +1425,14 @@ char* enhanced_error_get_contextual_suggestions(const EnhancedErrorInfo* error, 
                      context->function_count);
             
             // Append context suggestions
-            char* new_suggestions = malloc(strlen(suggestions) + strlen(context_suggestions) + 1);
+            char* new_suggestions = shared_malloc_safe(strlen(suggestions) + strlen(context_suggestions) + 1, "enhanced_error_system", "enhanced_error_get_contextual_suggestions", 0);
             if (new_suggestions) {
                 strcpy(new_suggestions, suggestions);
                 strcat(new_suggestions, context_suggestions);
-                free(suggestions);
+                shared_free_safe(suggestions, "enhanced_error_system", "enhanced_error_get_contextual_suggestions", 0);
                 suggestions = new_suggestions;
             }
-            free(context_suggestions);
+            shared_free_safe(context_suggestions, "enhanced_error_system", "enhanced_error_get_contextual_suggestions", 0);
         }
     }
     

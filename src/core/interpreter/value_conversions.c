@@ -324,7 +324,7 @@ int value_matches_type(Value* value, const char* type_name, Interpreter* interpr
     }
     
     // Check for union types like "String | Int"
-    char* type_copy = strdup(type_name);
+    char* type_copy = shared_strdup(type_name);
     if (!type_copy) return 0;
     
     char* token = strtok(type_copy, "|");
@@ -525,7 +525,8 @@ Value value_clone(Value* value) {
         }
         case VALUE_SET: {
             // Deep copy set with all elements
-            Value v = value_create_set(value->data.set_value.count);
+            // Use the original capacity, not count, to preserve space for new elements
+            Value v = value_create_set(value->data.set_value.capacity);
             for (size_t i = 0; i < value->data.set_value.count; i++) {
                 Value* element = (Value*)value->data.set_value.elements[i];
                 if (element) {

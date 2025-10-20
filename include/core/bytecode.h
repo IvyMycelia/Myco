@@ -59,6 +59,7 @@ typedef enum {
     BC_CREATE_ARRAY,   // Create array from stack elements
     BC_ARRAY_CONCAT,   // Concatenate arrays: arr1 + arr2
     BC_CREATE_OBJECT,  // Create object from key-value pairs on stack
+    BC_CREATE_MAP,     // Create hash map from key-value pairs on stack
     BC_IMPORT_LIB,     // Import library: use library_name
     BC_STRING_UPPER,  // Convert string to uppercase
     BC_STRING_LOWER,  // Convert string to lowercase
@@ -89,6 +90,14 @@ typedef enum {
     BC_SET_UNION,     // Set union method
     BC_SET_INTERSECTION, // Set intersection method
     BC_EVAL_AST,      // Fallback: evaluate referenced AST subtree via eval_node()
+    BC_MATCH,         // Pattern matching: match expr with cases
+    BC_MATCH_CASE,    // Match case: case pattern => body
+    BC_PATTERN_LITERAL, // Pattern: literal pattern (string, number, etc.)
+    BC_PATTERN_WILDCARD, // Pattern: wildcard pattern (_)
+    BC_PATTERN_TYPE,  // Pattern: type pattern (e.g., String, Int)
+    BC_CREATE_CLASS,  // Create class definition
+    BC_INSTANTIATE_CLASS, // Instantiate class: ClassName(args...)
+    BC_FOR_LOOP,      // For loop: for i in collection
     BC_POP,
     BC_HALT,
     // Specialized numeric operations (bypass Value boxing)

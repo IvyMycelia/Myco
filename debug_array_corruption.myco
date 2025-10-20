@@ -1,0 +1,25 @@
+// debug_array_corruption.myco
+let arr = ["test1", "test2"];
+print("=== Array Corruption Debug ===");
+print("Initial array:");
+print("  Length: " + arr.length.toString());
+print("  [0]: " + arr[0] + " (type: " + arr[0].type + ")");
+print("  [1]: " + arr[1] + " (type: " + arr[1].type + ")");
+
+// Store references to elements before error
+let elem0 = arr[0];
+let elem1 = arr[1];
+print("Stored references:");
+print("  elem0: " + elem0 + " (type: " + elem0.type + ")");
+print("  elem1: " + elem1 + " (type: " + elem1.type + ")");
+
+print("About to trigger error...");
+let x = undefined_variable;
+
+print("After error:");
+print("  Array length: " + arr.length.toString());
+print("  arr[0]: " + arr[0] + " (type: " + arr[0].type + ")");
+print("  arr[1]: " + arr[1] + " (type: " + arr[1].type + ")");
+print("  elem0: " + elem0 + " (type: " + elem0.type + ")");
+print("  elem1: " + elem1 + " (type: " + elem1.type + ")");
+print("=== End Debug ===");

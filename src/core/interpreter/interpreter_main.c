@@ -77,6 +77,9 @@ Interpreter* interpreter_create(void) {
     interpreter->current_function_return_type = NULL;
     interpreter->self_context = NULL;
     
+    // Test mode - disabled by default
+    interpreter->test_mode = 0;
+    
     // Enhanced error handling initialization
     interpreter->call_stack = NULL;
     interpreter->stack_depth = 0;
@@ -314,6 +317,7 @@ static MycoErrorCode get_error_code(const char* message) {
 void interpreter_set_error(Interpreter* interpreter, const char* message, int line, int column) {
     if (!interpreter) return;
     
+    
     // Initialize global error system if not already done
     if (!global_error_system) {
         global_error_system = enhanced_error_system_create();
@@ -331,9 +335,9 @@ void interpreter_set_error(Interpreter* interpreter, const char* message, int li
     
     // Create new error message
     if (message) {
-        interpreter->error_message = (message ? strdup(message) : NULL);
+        interpreter->error_message = (message ? shared_strdup(message) : NULL);
     } else {
-        interpreter->error_message = strdup("Unknown runtime error");
+        interpreter->error_message = shared_strdup("Unknown runtime error");
     }
     
     // Use enhanced error reporting
@@ -399,6 +403,12 @@ void interpreter_set_error(Interpreter* interpreter, const char* message, int li
         // Fallback to simple error display
         printf("Error: %s at line %d, column %d\n", message, line, column);
     }
+    
+    
+    // Clear error state after reporting if in test mode to allow continued execution
+    if (interpreter->test_mode) {
+        interpreter_clear_error(interpreter);
+    }
 }
 
 void interpreter_clear_error(Interpreter* interpreter) {
@@ -412,6 +422,11 @@ void interpreter_clear_error(Interpreter* interpreter) {
         shared_free_safe(interpreter->error_message, "interpreter", "unknown_function", 5326);
         interpreter->error_message = NULL;
     }
+}
+
+void interpreter_set_test_mode(Interpreter* interpreter, int test_mode) {
+    if (!interpreter) return;
+    interpreter->test_mode = test_mode;
 }
 
 int interpreter_has_error(Interpreter* interpreter) {
@@ -440,8 +455,8 @@ void interpreter_push_call_frame(Interpreter* interpreter, const char* function_
         return;
     }
     
-    frame->function_name = function_name ? strdup(function_name) : strdup("<unknown>");
-    frame->file_name = file_name ? strdup(file_name) : strdup("<unknown>");
+    frame->function_name = function_name ? shared_strdup(function_name) : shared_strdup("<unknown>");
+    frame->file_name = file_name ? shared_strdup(file_name) : shared_strdup("<unknown>");
     frame->line = line;
     frame->column = column;
     

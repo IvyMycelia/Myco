@@ -79,11 +79,11 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 char error_msg[256];
                 // Check if this looks like a library call (e.g., "debug.help", "graphs.isEmpty")
                 if (strchr(name, '.') != NULL) {
-                    char* library_name = strdup(name);
+                    char* library_name = shared_strdup(name);
                     char* dot_pos = strchr(library_name, '.');
                     *dot_pos = '\0';
                     snprintf(error_msg, sizeof(error_msg), "\"%s\" library is not found", library_name);
-                    free(library_name);
+                    shared_free_safe(library_name, "interpreter", "eval_node", 0);
                 } else {
                     snprintf(error_msg, sizeof(error_msg), "\"%s\" is undefined", name);
                 }
@@ -316,7 +316,7 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
             
             // Check for method calls on objects
             if (strchr(func_name, '.') != NULL) {
-                char* method_name = strdup(func_name);
+                char* method_name = shared_strdup(func_name);
                 char* dot_pos = strchr(method_name, '.');
                 *dot_pos = '\0';
                 char* object_name = method_name;
@@ -330,11 +330,11 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 if (object.type != VALUE_NULL) {
                     // This is a method call
                     Value result = handle_method_call(interpreter, node, object);
-                    free(method_name);
+                    shared_free_safe(method_name, "interpreter", "eval_node", 0);
                     return result;
                 }
                 
-                free(method_name);
+                shared_free_safe(method_name, "interpreter", "eval_node", 0);
             }
             
             // Look for user-defined function in current environment
@@ -576,6 +576,15 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 return member;
             }
             
+            // Handle hash map member access
+            if (object.type == VALUE_HASH_MAP) {
+                Value key = value_create_string(member_name);
+                Value member = value_hash_map_get(&object, key);
+                value_free(&key);
+                value_free(&object);
+                return member;
+            }
+            
             // Handle array indexing
             if (object.type == VALUE_ARRAY) {
                 // This should be handled by AST_NODE_ARRAY_ACCESS, but just in case
@@ -592,6 +601,8 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
         }
         case AST_NODE_ARRAY_ACCESS: {
             Value array = eval_node(interpreter, node->data.array_access.array);
+            
+            
             if (array.type != VALUE_ARRAY) {
                 interpreter_set_error(interpreter, "Cannot index non-array", node->line, node->column);
                 return value_create_null();

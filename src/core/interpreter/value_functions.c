@@ -15,7 +15,7 @@ Value value_create_function(ASTNode* body, ASTNode** params, size_t param_count,
     v.type = VALUE_FUNCTION;
     v.data.function_value.body = body;
     v.data.function_value.parameter_count = param_count;
-    v.data.function_value.return_type = return_type ? strdup(return_type) : NULL;
+    v.data.function_value.return_type = return_type ? shared_strdup(return_type) : NULL;
     v.data.function_value.captured_environment = captured_env;
     
     // Copy parameter nodes with proper error handling
@@ -47,7 +47,7 @@ Value value_create_async_function(const char* name, ASTNode** params, size_t par
     v.type = VALUE_ASYNC_FUNCTION;
     v.data.async_function_value.body = body;
     v.data.async_function_value.parameter_count = param_count;
-    v.data.async_function_value.return_type = return_type ? strdup(return_type) : NULL;
+    v.data.async_function_value.return_type = return_type ? shared_strdup(return_type) : NULL;
     v.data.async_function_value.captured_environment = captured_env;
     
     // Copy parameter nodes with proper error handling
@@ -87,11 +87,11 @@ Value value_create_promise(Value resolved_value, int is_resolved, Value error_va
         // Convert resolved value to string representation
         Value str_value = value_to_string(&resolved_value);
         if (str_value.type == VALUE_STRING) {
-            v.data.promise_value.resolved_data = str_value.data.string_value ? strdup(str_value.data.string_value) : NULL;
+            v.data.promise_value.resolved_data = str_value.data.string_value ? shared_strdup(str_value.data.string_value) : NULL;
         }
         value_free(&str_value);
     } else if (error_value.type == VALUE_STRING) {
-        v.data.promise_value.error_message = error_value.data.string_value ? strdup(error_value.data.string_value) : NULL;
+        v.data.promise_value.error_message = error_value.data.string_value ? shared_strdup(error_value.data.string_value) : NULL;
     }
     
     return v;
@@ -158,8 +158,8 @@ Value find_method_in_inheritance_chain(Interpreter* interpreter, Value* class_va
 Value value_create_class(const char* name, const char* parent_name, ASTNode* class_body, Environment* class_env) {
     Value v = {0};
     v.type = VALUE_CLASS;
-    v.data.class_value.class_name = name ? strdup(name) : NULL;
-    v.data.class_value.parent_class_name = parent_name ? strdup(parent_name) : NULL;
+    v.data.class_value.class_name = name ? shared_strdup(name) : NULL;
+    v.data.class_value.parent_class_name = parent_name ? shared_strdup(parent_name) : NULL;
     v.data.class_value.class_body = class_body;
     v.data.class_value.class_environment = class_env;
     return v;
@@ -211,7 +211,7 @@ void collect_inherited_fields(Interpreter* interpreter, Value* class_value, ASTN
 Value value_create_module(const char* name, void* exports) {
     Value v = {0};
     v.type = VALUE_MODULE;
-    v.data.module_value.module_name = name ? strdup(name) : NULL;
+    v.data.module_value.module_name = name ? shared_strdup(name) : NULL;
     v.data.module_value.exports = exports;
     return v;
 }

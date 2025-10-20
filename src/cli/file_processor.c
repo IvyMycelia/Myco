@@ -168,6 +168,11 @@ int interpret_source(const char* source, const char* filename, int debug) {
         return MYCO_ERROR_MEMORY;
     }
     
+    // Enable test mode for test suite files
+    if (strstr(filename, "pass.myco") != NULL || strstr(filename, "test_") != NULL) {
+        interpreter_set_test_mode(interpreter, 1);
+    }
+    
     // Configure JIT if enabled
     // TODO: Re-enable JIT integration once parameter issue is resolved
     // JIT parameters are accepted but not used for now

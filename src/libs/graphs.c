@@ -172,8 +172,8 @@ Value builtin_graph_create(Interpreter* interpreter, Value* args, size_t arg_cou
     
     // Add instance methods
     value_object_set(&graph_obj, "isEmpty", value_create_builtin_function(builtin_graph_is_empty));
-    value_object_set(&graph_obj, "addNode", value_create_builtin_function(builtin_graph_add_node));
-    value_object_set(&graph_obj, "addEdge", value_create_builtin_function(builtin_graph_add_edge));
+    value_object_set(&graph_obj, "add_node", value_create_builtin_function(builtin_graph_add_node));
+    value_object_set(&graph_obj, "add_edge", value_create_builtin_function(builtin_graph_add_edge));
     value_object_set(&graph_obj, "clear", value_create_builtin_function(builtin_graph_clear));
     
     return graph_obj;
@@ -200,8 +200,8 @@ Value builtin_graph_add_node(Interpreter* interpreter, Value* args, size_t arg_c
     
     // Add methods to the new graph
     value_object_set(&result, "isEmpty", value_create_builtin_function(builtin_graph_is_empty));
-    value_object_set(&result, "addNode", value_create_builtin_function(builtin_graph_add_node));
-    value_object_set(&result, "addEdge", value_create_builtin_function(builtin_graph_add_edge));
+    value_object_set(&result, "add_node", value_create_builtin_function(builtin_graph_add_node));
+    value_object_set(&result, "add_edge", value_create_builtin_function(builtin_graph_add_edge));
     value_object_set(&result, "clear", value_create_builtin_function(builtin_graph_clear));
     
     return result;
@@ -229,8 +229,8 @@ Value builtin_graph_add_edge(Interpreter* interpreter, Value* args, size_t arg_c
     
     // Add methods to the new graph
     value_object_set(&result, "isEmpty", value_create_builtin_function(builtin_graph_is_empty));
-    value_object_set(&result, "addNode", value_create_builtin_function(builtin_graph_add_node));
-    value_object_set(&result, "addEdge", value_create_builtin_function(builtin_graph_add_edge));
+    value_object_set(&result, "add_node", value_create_builtin_function(builtin_graph_add_node));
+    value_object_set(&result, "add_edge", value_create_builtin_function(builtin_graph_add_edge));
     value_object_set(&result, "clear", value_create_builtin_function(builtin_graph_clear));
     
     return result;

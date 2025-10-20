@@ -6,6 +6,9 @@
 #include "../../include/core/standardized_errors.h"
 #include "../../include/utils/shared_utilities.h"
 
+// Forward declarations
+void add_tree_methods(Value* tree);
+
 // Tree node structure
 typedef struct TreeNode {
     Value data;
@@ -139,10 +142,7 @@ Value builtin_tree_create(Interpreter* interpreter, Value* args, size_t arg_coun
     value_object_set(&tree_obj, "size", value_create_number(0));
     
     // Add instance methods
-    value_object_set(&tree_obj, "isEmpty", value_create_builtin_function(builtin_tree_is_empty));
-    value_object_set(&tree_obj, "search", value_create_builtin_function(builtin_tree_search));
-    value_object_set(&tree_obj, "insert", value_create_builtin_function(builtin_tree_insert));
-    value_object_set(&tree_obj, "clear", value_create_builtin_function(builtin_tree_clear));
+    add_tree_methods(&tree_obj);
     
     // Set the type field for method call support
     tree_obj.type = VALUE_OBJECT;
@@ -169,7 +169,9 @@ Value builtin_tree_insert(Interpreter* interpreter, Value* args, size_t arg_coun
     
     // For now, just return success
     // TODO: Implement actual tree insertion
-    return value_clone(tree_obj);
+    Value result = value_clone(tree_obj);
+    add_tree_methods(&result);
+    return result;
 }
 
 Value builtin_tree_search(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -215,7 +217,7 @@ Value builtin_tree_size(Interpreter* interpreter, Value* args, size_t arg_count,
 
 Value builtin_tree_is_empty(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
-        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "tree.isEmpty() expects no arguments", line, column);
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "tree.isEmpty() expects exactly 1 argument: self", line, column);
         return value_create_null();
     }
     
@@ -251,7 +253,16 @@ Value builtin_tree_clear(Interpreter* interpreter, Value* args, size_t arg_count
     // Clear the tree by setting size to 0
     value_object_set(tree_obj, "size", value_create_number(0));
     
-    return value_clone(tree_obj);
+    Value result = value_clone(tree_obj);
+    add_tree_methods(&result);
+    return result;
+}
+
+void add_tree_methods(Value* tree) {
+    value_object_set(tree, "isEmpty", value_create_builtin_function(builtin_tree_is_empty));
+    value_object_set(tree, "insert", value_create_builtin_function(builtin_tree_insert));
+    value_object_set(tree, "search", value_create_builtin_function(builtin_tree_search));
+    value_object_set(tree, "clear", value_create_builtin_function(builtin_tree_clear));
 }
 
 // Register the trees library

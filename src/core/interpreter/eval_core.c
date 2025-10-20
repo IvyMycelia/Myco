@@ -7,6 +7,7 @@
 #include "../../include/core/ast.h"
 #include "../../include/core/interpreter/method_handlers.h"
 #include "../../include/core/interpreter/eval_engine.h"
+// Optimization features
 #include "../../include/core/optimization/bytecode_engine.h"
 #include "../../include/core/optimization/hot_spot_tracker.h"
 #include "../../include/core/optimization/micro_jit.h"
@@ -16,6 +17,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+
+// Optimization features are disabled for now
 
 // Forward declarations for pattern matching functions
 static int pattern_matches(Interpreter* interpreter, Value* value, ASTNode* pattern);
@@ -327,46 +330,27 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     }
                 }
                 
-                // Record function call in hot spot tracker
-                if (interpreter && interpreter->hot_spot_tracker) {
-                    uint64_t start_time = get_current_time_ns();
-                    Value result = value_function_call(&function_value, argv, n, interpreter, node->line, node->column);
-                    uint64_t end_time = get_current_time_ns();
-                    uint64_t execution_time = end_time - start_time;
-                    hot_spot_tracker_record_function_call((HotSpotTracker*)interpreter->hot_spot_tracker, node, argv, n, execution_time);
-                    
-                    // Observe types for value specialization
-                    if (interpreter && interpreter->value_specializer) {
-                        ValueSpecializer* specializer = (ValueSpecializer*)interpreter->value_specializer;
-                        for (size_t i = 0; i < n; i++) {
-                            value_specializer_observe_type(specializer, node, i, argv[i].type);
-                        }
-                        value_specializer_observe_return_type(specializer, node, result.type);
-                    }
-                    
-                    // Clean up arguments
-                    for (size_t i = 0; i < n; i++) value_free(&argv[i]);
-                    if (argv) shared_free_safe(argv, "interpreter", "function_call", 0);
-                    
-                    return result;
-                } else {
-                    Value result = value_function_call(&function_value, argv, n, interpreter, node->line, node->column);
-                    
-                    // Observe types for value specialization
-                    if (interpreter && interpreter->value_specializer) {
-                        ValueSpecializer* specializer = (ValueSpecializer*)interpreter->value_specializer;
-                        for (size_t i = 0; i < n; i++) {
-                            value_specializer_observe_type(specializer, node, i, argv[i].type);
-                        }
-                        value_specializer_observe_return_type(specializer, node, result.type);
-                    }
-                    
-                    // Clean up arguments
-                    for (size_t i = 0; i < n; i++) value_free(&argv[i]);
-                    if (argv) shared_free_safe(argv, "interpreter", "function_call", 0);
-                    
-                    return result;
-                }
+                // Record function call for hot spot tracking (JIT compilation disabled for now)
+                // if (interpreter && interpreter->hot_spot_tracker) {
+                //     HotSpotTracker* tracker = (HotSpotTracker*)interpreter->hot_spot_tracker;
+                //     
+                //     // Record function call for hot spot tracking
+                //     hot_spot_tracker_record_function_call(tracker, node, argv, n, 0.0);
+                //     
+                //     // Mark as hot spot if frequently called (for future JIT compilation)
+                //     if (hot_spot_tracker_is_hot(tracker, node)) {
+                //         hot_spot_tracker_mark_hot(tracker, node, HOT_SPOT_FUNCTION);
+                //     }
+                // }
+                
+                // Standard function call (optimization disabled)
+                Value result = value_function_call(&function_value, argv, n, interpreter, node->line, node->column);
+                
+                // Clean up arguments
+                for (size_t i = 0; i < n; i++) value_free(&argv[i]);
+                if (argv) shared_free_safe(argv, "interpreter", "function_call", 0);
+                
+                return result;
             }
             
             // Check for method calls on objects
@@ -889,43 +873,13 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
 Value interpreter_execute(Interpreter* interpreter, ASTNode* node) { 
     // Start timing if benchmark mode is enabled
     if (interpreter && interpreter->benchmark_mode) {
-        interpreter_start_timing(interpreter);
+        if (interpreter->interpreter_start_timing) {
+            interpreter->interpreter_start_timing(interpreter);
+        }
     }
     
-    // Initialize adaptive executor if needed
-    if (interpreter && interpreter->jit_enabled && !interpreter->adaptive_executor) {
-        interpreter->adaptive_executor = adaptive_executor_create(interpreter);
-    }
-    
-    // Initialize hot spot tracker if needed
-    if (interpreter && interpreter->jit_enabled && !interpreter->hot_spot_tracker) {
-        interpreter->hot_spot_tracker = hot_spot_tracker_create();
-    }
-    
-    // Initialize Micro-JIT compiler if needed
-    if (interpreter && interpreter->jit_enabled && !interpreter->micro_jit_context) {
-        interpreter->micro_jit_context = micro_jit_create(JIT_TARGET_AUTO, MICRO_JIT_MODE_MICRO);
-    }
-    
-    // Initialize value specializer if needed
-    if (interpreter && interpreter->jit_enabled && !interpreter->value_specializer) {
-        interpreter->value_specializer = value_specializer_create();
-    }
-    
-    Value result;
-    
-    // Use adaptive executor if available and optimization is enabled
-    if (interpreter && interpreter->jit_enabled && interpreter->adaptive_executor) {
-        result = adaptive_executor_execute((AdaptiveExecutor*)interpreter->adaptive_executor, interpreter, node);
-    } else {
-        // Fallback to AST interpreter
-        result = eval_node(interpreter, node);
-    }
-    
-    // Stop timing if benchmark mode is enabled
-    if (interpreter && interpreter->benchmark_mode) {
-        interpreter_stop_timing(interpreter);
-    }
+    // Optimization features disabled for now - use standard execution
+    Value result = eval_node(interpreter, node);
     
     return result;
 }

@@ -6,6 +6,9 @@
 #include "../../include/core/standardized_errors.h"
 #include "../../include/utils/shared_utilities.h"
 
+// Forward declarations
+void add_graph_methods(Value* graph);
+
 // Graph node structure
 typedef struct GraphNode {
     Value data;
@@ -171,10 +174,7 @@ Value builtin_graph_create(Interpreter* interpreter, Value* args, size_t arg_cou
     value_object_set(&graph_obj, "isDirected", value_create_boolean(is_directed));
     
     // Add instance methods
-    value_object_set(&graph_obj, "isEmpty", value_create_builtin_function(builtin_graph_is_empty));
-    value_object_set(&graph_obj, "add_node", value_create_builtin_function(builtin_graph_add_node));
-    value_object_set(&graph_obj, "add_edge", value_create_builtin_function(builtin_graph_add_edge));
-    value_object_set(&graph_obj, "clear", value_create_builtin_function(builtin_graph_clear));
+    add_graph_methods(&graph_obj);
     
     return graph_obj;
 }
@@ -199,10 +199,7 @@ Value builtin_graph_add_node(Interpreter* interpreter, Value* args, size_t arg_c
     value_object_set_member(&result, "__class_name__", value_create_string(("Graph" ? strdup("Graph") : NULL)));
     
     // Add methods to the new graph
-    value_object_set(&result, "isEmpty", value_create_builtin_function(builtin_graph_is_empty));
-    value_object_set(&result, "add_node", value_create_builtin_function(builtin_graph_add_node));
-    value_object_set(&result, "add_edge", value_create_builtin_function(builtin_graph_add_edge));
-    value_object_set(&result, "clear", value_create_builtin_function(builtin_graph_clear));
+    add_graph_methods(&result);
     
     return result;
 }
@@ -228,10 +225,7 @@ Value builtin_graph_add_edge(Interpreter* interpreter, Value* args, size_t arg_c
     value_object_set_member(&result, "__class_name__", value_create_string(("Graph" ? strdup("Graph") : NULL)));
     
     // Add methods to the new graph
-    value_object_set(&result, "isEmpty", value_create_builtin_function(builtin_graph_is_empty));
-    value_object_set(&result, "add_node", value_create_builtin_function(builtin_graph_add_node));
-    value_object_set(&result, "add_edge", value_create_builtin_function(builtin_graph_add_edge));
-    value_object_set(&result, "clear", value_create_builtin_function(builtin_graph_clear));
+    add_graph_methods(&result);
     
     return result;
 }
@@ -296,7 +290,16 @@ Value builtin_graph_clear(Interpreter* interpreter, Value* args, size_t arg_coun
     // Clear the graph by setting size to 0
     value_object_set(graph_obj, "size", value_create_number(0));
     
-    return value_clone(graph_obj);
+    Value result = value_clone(graph_obj);
+    add_graph_methods(&result);
+    return result;
+}
+
+void add_graph_methods(Value* graph) {
+    value_object_set(graph, "isEmpty", value_create_builtin_function(builtin_graph_is_empty));
+    value_object_set(graph, "add_node", value_create_builtin_function(builtin_graph_add_node));
+    value_object_set(graph, "add_edge", value_create_builtin_function(builtin_graph_add_edge));
+    value_object_set(graph, "clear", value_create_builtin_function(builtin_graph_clear));
 }
 
 // Register the graphs library

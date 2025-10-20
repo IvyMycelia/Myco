@@ -206,6 +206,17 @@ typedef struct Interpreter {
     // Source tracking
     const char* current_source;
     const char* current_file;
+    
+    // Performance optimization features
+    void* adaptive_executor;
+    void* hot_spot_tracker;
+    void* micro_jit_context;
+    void* value_specializer;
+    int benchmark_mode;
+    
+    // Timing functions (forward declarations)
+    void (*interpreter_start_timing)(struct Interpreter*);
+    void (*interpreter_end_timing)(struct Interpreter*);
 } Interpreter;
 
 // ============================================================================

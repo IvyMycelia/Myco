@@ -219,6 +219,12 @@ typedef struct {
     size_t call_stack_size;
     size_t call_stack_capacity;
     
+    // Value pool for fast allocation (performance optimization)
+    Value* value_pool;
+    size_t value_pool_size;
+    size_t value_pool_next;
+    bool value_pool_initialized;
+    
     // Interpreter reference for global variable access
     Interpreter* interpreter;
 } BytecodeProgram;

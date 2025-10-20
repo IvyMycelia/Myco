@@ -10,10 +10,10 @@
 #include "interpreter/value_operations.h"
 #include "interpreter/method_handlers.h"
 #include "interpreter/eval_engine.h"
+#include "optimization/hot_spot_tracker.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include "../../include/core/bytecode.h"
 
 // Forward declarations for pattern matching functions
 static int pattern_matches(Interpreter* interpreter, Value* value, ASTNode* pattern);
@@ -87,8 +87,13 @@ Interpreter* interpreter_create(void) {
     interpreter->recursion_count = 0;
     interpreter->max_recursion_depth = 100;  // Reasonable limit
     
-    // JIT compilation initialization
-    interpreter->jit_context = NULL;
+    // JIT compilation initialization (disabled for now due to conflicts)
+    interpreter->micro_jit_context = NULL;
+    interpreter->hot_spot_tracker = hot_spot_tracker_create();
+    if (!interpreter->hot_spot_tracker) {
+        // If hot spot tracker creation fails, disable it
+        interpreter->hot_spot_tracker = NULL;
+    }
     interpreter->jit_enabled = 0;
     interpreter->jit_mode = 0;
     
@@ -128,9 +133,9 @@ void interpreter_free(Interpreter* interpreter) {
             frame = next;
         }
         
-        // Clean up JIT context
-        if (interpreter->jit_context) {
-            jit_context_free(interpreter->jit_context);
+        // Clean up hot spot tracker
+        if (interpreter->hot_spot_tracker) {
+            hot_spot_tracker_free(interpreter->hot_spot_tracker);
         }
         
         // Clean up macro expander
@@ -193,18 +198,8 @@ Value interpreter_execute_program(Interpreter* interpreter, ASTNode* node) {
         interpreter_clear_error(interpreter);
     }
     
-    // Default: use bytecode VM for interpretation unless explicitly disabled via CLI
-    extern int g_force_ast_only; // defined in CLI layer
-    if (1) { // Enable bytecode execution
-        BytecodeProgram* bc = bytecode_program_create();
-        if (bc && bytecode_compile_program(bc, node, interpreter)) {
-            Value r = bytecode_execute(bc, interpreter, 0); // Debug disabled
-            bytecode_program_free(bc);
-            return r;
-        }
-        if (bc) bytecode_program_free(bc);
-        // Fallback to AST if bytecode failed (safety)
-    }
+    // Use AST execution for now (bytecode conflicts resolved)
+    // Hot spot tracking is still active for future JIT compilation
 
     if (node->type == AST_NODE_BLOCK) {
         for (size_t i = 0; i < node->data.block.statement_count; i++) {

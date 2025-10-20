@@ -2289,6 +2289,9 @@ Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunct
         if (interpreter->has_return) {
             result = interpreter->return_value;
             interpreter->has_return = 0; // Reset return flag
+            fprintf(stderr, "DEBUG: Function returned value of type %d\n", result.type);
+        } else {
+            fprintf(stderr, "DEBUG: Function did not return a value\n");
         }
     }
     

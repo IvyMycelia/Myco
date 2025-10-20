@@ -774,6 +774,7 @@ void http_library_register(Interpreter* interpreter) {
 
     // Mark as Library for .type reporting
     value_object_set(&http_lib, "__type__", value_create_string("Library"));
+    value_object_set(&http_lib, "type", value_create_string("Library"));
 
     // Register the library in global environment
     environment_define(interpreter->global_environment, "http", http_lib);

@@ -135,7 +135,14 @@ Value builtin_tree_create(Interpreter* interpreter, Value* args, size_t arg_coun
     // For now, return a simple object representation
     Value tree_obj = value_create_object(16);
     value_object_set(&tree_obj, "__class_name__", value_create_string("Tree"));
+    value_object_set(&tree_obj, "type", value_create_string("Tree"));
     value_object_set(&tree_obj, "size", value_create_number(0));
+    
+    // Add instance methods
+    value_object_set(&tree_obj, "isEmpty", value_create_builtin_function(builtin_tree_is_empty));
+    value_object_set(&tree_obj, "search", value_create_builtin_function(builtin_tree_search));
+    value_object_set(&tree_obj, "insert", value_create_builtin_function(builtin_tree_insert));
+    value_object_set(&tree_obj, "clear", value_create_builtin_function(builtin_tree_clear));
     
     // Set the type field for method call support
     tree_obj.type = VALUE_OBJECT;
@@ -254,6 +261,7 @@ void trees_library_register(Interpreter* interpreter) {
     // Create trees object with factory functions
     Value trees_obj = value_create_object(16);
     value_object_set(&trees_obj, "__type__", value_create_string("Library"));
+    value_object_set(&trees_obj, "type", value_create_string("Library"));
     value_object_set(&trees_obj, "create", value_create_builtin_function(builtin_tree_create));
     
     // Register the trees object

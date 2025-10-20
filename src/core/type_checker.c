@@ -116,7 +116,7 @@ MycoType* type_create_function(MycoType** parameter_types, size_t parameter_coun
 MycoType* type_create_class(const char* class_name, int line, int column) {
     MycoType* type = type_create(TYPE_CLASS, line, column);
     if (type) {
-        type->data.class_name = (class_name ? strdup(class_name) : NULL);
+        type->data.class_name = (class_name ? shared_strdup(class_name) : NULL);
     }
     return type;
 }
@@ -159,7 +159,7 @@ MycoType* type_clone(MycoType* type) {
             clone->data.function_type.return_type = type_clone(type->data.function_type.return_type);
             break;
         case TYPE_CLASS:
-            clone->data.class_name = (type->data.class_name ? strdup(type->data.class_name) : NULL);
+            clone->data.class_name = (type->data.class_name ? shared_strdup(type->data.class_name) : NULL);
             break;
         case TYPE_UNION:
             clone->data.union_type.type_count = type->data.union_type.type_count;
@@ -287,7 +287,7 @@ int type_environment_add_variable(TypeEnvironment* env, const char* name, MycoTy
     }
     
     // Add variable
-    env->variable_names[env->variable_count] = (name ? strdup(name) : NULL);
+    env->variable_names[env->variable_count] = (name ? shared_strdup(name) : NULL);
     env->variable_types[env->variable_count] = type_clone(type);
     env->variable_count++;
     
@@ -891,7 +891,7 @@ MycoType* type_parse_string(const char* type_string, int line, int column) {
         strncpy(left_type, type_string, left_len);
         left_type[left_len] = '\0';
         
-        char* right_type = (pipe_pos + 3 ? strdup(pipe_pos + 3) : NULL); // Skip " | "
+        char* right_type = (pipe_pos + 3 ? shared_strdup(pipe_pos + 3) : NULL); // Skip " | "
         
         // Parse both types
         MycoType* left = type_parse_string(left_type, line, column);
@@ -1313,7 +1313,7 @@ MycoType* type_create_generic(const char** parameter_names, size_t parameter_cou
         
         // Copy parameter names
         for (size_t i = 0; i < parameter_count; i++) {
-            type->data.generic_type.parameter_names[i] = (parameter_names[i] ? strdup(parameter_names[i]) : NULL);
+            type->data.generic_type.parameter_names[i] = (parameter_names[i] ? shared_strdup(parameter_names[i]) : NULL);
         }
         
         // Allocate constraints if provided
@@ -1346,7 +1346,7 @@ MycoType* type_create_generic_parameter(const char* parameter_name, MycoType* co
     MycoType* type = type_create(TYPE_GENERIC_PARAMETER, line, column);
     if (!type) return NULL;
     
-    type->data.generic_parameter.parameter_name = (parameter_name ? strdup(parameter_name) : NULL);
+    type->data.generic_parameter.parameter_name = (parameter_name ? shared_strdup(parameter_name) : NULL);
     type->data.generic_parameter.constraint = constraint ? type_clone(constraint) : NULL;
     
     return type;
@@ -1684,7 +1684,7 @@ MycoType* generic_create_parameter(const char* name, MycoType* constraint) {
     MycoType* param = type_create(TYPE_GENERIC_PARAMETER, 0, 0);
     if (!param) return NULL;
     
-    param->data.generic_parameter.parameter_name = (name ? strdup(name) : NULL);
+    param->data.generic_parameter.parameter_name = (name ? shared_strdup(name) : NULL);
     param->data.generic_parameter.constraint = constraint;
     
     return param;
@@ -1708,7 +1708,7 @@ MycoType* generic_create_instance(const char* name, MycoType** parameters, size_
         
         if (instance->data.generic_type.parameter_names && instance->data.generic_type.constraints) {
             for (size_t i = 0; i < param_count; i++) {
-                instance->data.generic_type.parameter_names[i] = (name ? strdup(name) : NULL);
+                instance->data.generic_type.parameter_names[i] = (name ? shared_strdup(name) : NULL);
                 instance->data.generic_type.constraints[i] = parameters[i];
             }
         }

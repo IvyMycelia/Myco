@@ -15,4 +15,11 @@ Value builtin_heap_size(Interpreter* interpreter, Value* args, size_t arg_count,
 Value builtin_heap_isEmpty(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_heap_clear(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 
+// Heap method functions (for object method calls)
+Value builtin_heap_insert_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_heap_extract_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_heap_peek_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_heap_isEmpty_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_heap_clear_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+
 #endif // HEAPS_H

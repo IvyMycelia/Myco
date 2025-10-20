@@ -7,6 +7,9 @@
 void maps_library_register(Interpreter* interpreter);
 
 // Map method functions
+Value builtin_map_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_map_set(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_map_get(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_map_has(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_map_size(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_map_keys(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);

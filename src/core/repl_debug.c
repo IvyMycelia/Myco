@@ -1,6 +1,7 @@
 #include "repl_debug.h"
 #include "debug_system.h"
 #include "enhanced_error_system.h"
+#include "shared_utilities.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,7 +59,7 @@ static const ReplCommandInfo command_database[] = {
 // ============================================================================
 
 ReplDebugSession* repl_debug_session_create(void) {
-    ReplDebugSession* session = malloc(sizeof(ReplDebugSession));
+    ReplDebugSession* session = shared_malloc_safe(sizeof(ReplDebugSession), "repl_debug", "repl_debug_session_create", 61);
     if (!session) return NULL;
     
     memset(session, 0, sizeof(ReplDebugSession));
@@ -75,9 +76,9 @@ ReplDebugSession* repl_debug_session_create(void) {
     
     // Initialize command history
     session->history_capacity = 100;
-    session->command_history = malloc(sizeof(char*) * session->history_capacity);
+    session->command_history = shared_malloc_safe(sizeof(char*) * session->history_capacity, "repl_debug", "repl_debug_session_create", 78);
     if (!session->command_history) {
-        free(session);
+        shared_free_safe(session, "repl_debug", "repl_debug_session_create", 80);
         return NULL;
     }
     session->history_count = 0;
@@ -111,16 +112,16 @@ void repl_debug_session_free(ReplDebugSession* session) {
     
     // Free command history
     for (size_t i = 0; i < session->history_count; i++) {
-        free(session->command_history[i]);
+        shared_free_safe(session->command_history[i], "repl_debug", "repl_debug_session_free", 0);
     }
-    free(session->command_history);
+    shared_free_safe(session->command_history, "repl_debug", "repl_debug_session_free", 0);
     
     // Free current context
-    free(session->current_file);
-    free(session->current_function);
-    free(session->last_command);
+    shared_free_safe(session->current_file, "repl_debug", "repl_debug_session_free", 0);
+    shared_free_safe(session->current_function, "repl_debug", "repl_debug_session_free", 0);
+    shared_free_safe(session->last_command, "repl_debug", "repl_debug_session_free", 0);
     
-    free(session);
+    shared_free_safe(session, "repl_debug", "repl_debug_session_free", 0);
 }
 
 void repl_debug_session_start(ReplDebugSession* session) {
@@ -277,7 +278,7 @@ void repl_execute_command(ReplDebugSession* session, const char* input) {
     
     // Free arguments
     repl_free_args(argc, argv);
-    free(args);
+    shared_free_safe(args, "repl_debug", "repl_debug_handle_command", 0);
 }
 
 
@@ -644,9 +645,9 @@ void repl_free_args(int argc, char** argv) {
     if (!argv) return;
     
     for (int i = 0; i < argc; i++) {
-        free(argv[i]);
+        shared_free_safe(argv[i], "repl_debug", "repl_free_args", 0);
     }
-    free(argv);
+    shared_free_safe(argv, "repl_debug", "repl_free_args", 0);
 }
 
 bool repl_parse_bool(const char* str) {
@@ -744,7 +745,7 @@ void repl_clear_history(ReplDebugSession* session) {
     if (!session) return;
     
     for (size_t i = 0; i < session->history_count; i++) {
-        free(session->command_history[i]);
+        shared_free_safe(session->command_history[i], "repl_debug", "repl_clear_history", 0);
     }
     session->history_count = 0;
     session->history_index = 0;
@@ -1033,7 +1034,7 @@ static void repl_add_to_history(ReplDebugSession* session, const char* command) 
     
     // Simple history implementation - just store the last command
     if (session->last_command) {
-        free(session->last_command);
+        shared_free_safe(session->last_command, "repl_debug", "repl_add_to_history", 0);
     }
-    session->last_command = strdup(command);
+    session->last_command = shared_strdup(command);
 }

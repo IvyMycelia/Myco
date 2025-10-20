@@ -79,7 +79,7 @@ int macro_define(MacroExpander* expander, const char* name, char** parameters,
     MacroDefinition* macro = shared_malloc_safe(sizeof(MacroDefinition), "macros", "unknown_function", 0);
     if (!macro) return 0;
     
-    macro->name = strdup(name);
+    macro->name = shared_strdup(name);
     macro->parameters = NULL;
     macro->parameter_count = param_count;
     macro->body = body;

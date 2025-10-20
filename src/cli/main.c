@@ -12,6 +12,8 @@
 MemoryTracker* g_memory_tracker = NULL;
 int g_myco_error_code = MYCO_SUCCESS;
 char* g_myco_error_message = NULL;
+// Controls whether interpreter forces AST-only execution (disables bytecode VM)
+int g_force_ast_only = 0;
 
 // Function prototypes
 static void print_banner(void);
@@ -25,6 +27,9 @@ int main(int argc, char* argv[]) {
         cleanup();
         return result;
     }
+
+    // Apply global execution toggles
+    g_force_ast_only = config.ast_only ? 1 : 0;
     
     if (config.help) {
         print_usage(argv[0]);
@@ -36,6 +41,32 @@ int main(int argc, char* argv[]) {
         print_version();
         cleanup();
         return MYCO_SUCCESS;
+    }
+    
+    if (config.run_tests) {
+        // Force AST-only mode for reliable testing BEFORE any processing
+        g_force_ast_only = 1;
+        
+        // Run the built-in test suite (pass.myco)
+        printf("MYCO COMPREHENSIVE TEST SUITE\n");
+        printf("=====================================\n");
+        printf("Running all tests...\n\n");
+        
+        // Run the test file
+        result = process_file("pass.myco", 1, 0, 0, 0, 0, NULL, NULL, 0, 0, 0);
+        
+        // Print final status
+        printf("\n");
+        printf("=====================================\n");
+        if (result == MYCO_SUCCESS) {
+            printf("✓ ALL TESTS COMPLETED SUCCESSFULLY!\n");
+        } else {
+            printf("X SOME TESTS FAILED (Exit code: %d)\n", result);
+        }
+        printf("=====================================\n");
+        
+        cleanup();
+        return result;
     }
     
     if (config.emit_arduino && config.input_source) {

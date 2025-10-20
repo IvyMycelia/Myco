@@ -42,6 +42,10 @@
 // Utility components - common functions used across the project
 #include "utils/utils.h"
 
+// Global execution mode flags
+extern int g_force_ast_only;      // When 1, forces AST-only execution (disables bytecode VM)
+extern int g_bytecode_enabled;    // When 1, enables bytecode VM execution (optional with --bc/--bytecode flag)
+
 /**
  * @brief Version information for Myco v2.0
  * 

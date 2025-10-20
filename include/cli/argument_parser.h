@@ -15,6 +15,7 @@ typedef struct {
     int jit_enabled;
     int jit_mode;
     int ast_only; // When 1, disable bytecode VM and use pure AST interpreter
+    int bytecode_enabled; // When 1, enable bytecode VM (optional with --bc/--bytecode flag)
     int run_tests; // When 1, run the built-in test suite
     char* input_source;
     char* output_file;

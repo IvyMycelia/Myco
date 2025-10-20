@@ -998,23 +998,23 @@ let create_result = dir.create("test_dir");
 if create_result == Null:
     print("✓ Directory creation successful");
     tests_passed = tests_passed + 1;
-    
-    # Test directory exists
-    total_tests = total_tests + 1;
-    let exists_result = dir.exists("test_dir");
-    if exists_result == True:
-        print("✓ Directory exists check successful");
-        tests_passed = tests_passed + 1;
-    else:
-        print("✗ Directory exists check failed");
-        tests_failed = tests_failed + ["Directory exists"];
-    end
+else:
+    print("✗ Directory creation failed");
+    tests_failed = tests_failed + ["Directory creation"];
+end
+
+# Test directory exists (moved out of conditional)
+total_tests = total_tests + 1;
+let exists_result = dir.exists("test_dir");
+if exists_result == True:
+    print("✓ Directory exists check successful");
+    tests_passed = tests_passed + 1;
     
     # Clean up
     dir.remove("test_dir");
 else:
-    print("✗ Directory creation failed");
-    tests_failed = tests_failed + ["Directory creation"];
+    print("✗ Directory exists check failed");
+    tests_failed = tests_failed + ["Directory exists"];
 end
 
 print("\n16. Maps Library Functions...");
@@ -3140,8 +3140,15 @@ class Bird extends Animal:
     let can_fly = True
     let wing_span: Float
 end
-print("✓ Inheritance with default values");
 total_tests = total_tests + 1;
+let test_bird = Bird("Sparrow");
+if test_bird.type == "Bird" and test_bird.name == "Sparrow" and test_bird.can_fly == True:
+    print("✓ Inheritance with default values");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Inheritance with default values failed");
+    tests_failed = tests_failed + ["Inheritance with default values"];
+end
 
 # 17.9. Multiple inheritance simulation (not supported, but test structure)
 class FlyingAnimal extends Animal:
@@ -3150,8 +3157,15 @@ class FlyingAnimal extends Animal:
         return "Flying high!"
     end
 end
-print("✓ Multiple inheritance simulation");
 total_tests = total_tests + 1;
+let test_flying = FlyingAnimal("Eagle");
+if test_flying.type == "FlyingAnimal" and test_flying.name == "Eagle":
+    print("✓ Multiple inheritance simulation");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Multiple inheritance simulation failed");
+    tests_failed = tests_failed + ["Multiple inheritance simulation"];
+end
 
 # 17.10. Inheritance with mixed field types
 class Fish extends Animal:
@@ -3159,9 +3173,15 @@ class Fish extends Animal:
     let depth = 0
     let is_saltwater: Boolean
 end
-print("✓ Inheritance with mixed field types");
 total_tests = total_tests + 1;
-tests_passed = tests_passed + 1;
+let test_fish = Fish("Nemo");
+if test_fish.type == "Fish" and test_fish.name == "Nemo" and test_fish.depth == 0:
+    print("✓ Inheritance with mixed field types");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Inheritance with mixed field types failed");
+    tests_failed = tests_failed + ["Inheritance with mixed field types"];
+end
 
 # 23. Time Library Functions
 print("\n=== 20. Time Library Functions ===");

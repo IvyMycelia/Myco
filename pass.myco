@@ -3033,14 +3033,13 @@ class Dog extends Animal:
     end
 end
 # Test that inheritance actually works by creating a Dog instance
+total_tests = total_tests + 1;
 let test_dog = Dog("Rex");
 if test_dog.type == "Dog" and test_dog.name == "Rex":
     print("✓ Basic inheritance parsing");
-    total_tests = total_tests + 1;
     tests_passed = tests_passed + 1;
 else:
     print("✗ Basic inheritance parsing failed");
-    total_tests = total_tests + 1;
     tests_failed = tests_failed + ["Basic inheritance parsing"];
 end
 
@@ -3075,14 +3074,13 @@ class Puppy extends Dog:
     end
 end
 # Test that multi-level inheritance actually works
+total_tests = total_tests + 1;
 let test_puppy = Puppy("Max", 6);
 if test_puppy.type == "Puppy" and test_puppy.name == "Max" and test_puppy.age == 6:
     print("✓ Multi-level inheritance parsing");
-    total_tests = total_tests + 1;
     tests_passed = tests_passed + 1;
 else:
     print("✗ Multi-level inheritance parsing failed");
-    total_tests = total_tests + 1;
     tests_failed = tests_failed + ["Multi-level inheritance parsing"];
 end
 
@@ -3102,14 +3100,13 @@ class Cat extends Animal:
     let color: String
 end
 # Test that inheritance without method override works
+total_tests = total_tests + 1;
 let test_cat = Cat("Whiskers", "Orange");
 if test_cat.type == "Cat" and test_cat.name == "Whiskers" and test_cat.color == "Orange":
     print("✓ Inheritance without method override");
-    total_tests = total_tests + 1;
     tests_passed = tests_passed + 1;
 else:
     print("✗ Inheritance without method override failed");
-    total_tests = total_tests + 1;
     tests_failed = tests_failed + ["Inheritance without method override"];
 end
 
@@ -3128,14 +3125,13 @@ class Lion extends WildAnimal:
     end
 end
 # Test that complex inheritance chain works
+total_tests = total_tests + 1;
 let test_lion = Lion("Simba", "Savanna", "Golden");
 if test_lion.type == "Lion" and test_lion.name == "Simba" and test_lion.habitat == "Savanna" and test_lion.mane_color == "Golden":
     print("✓ Complex inheritance chain");
-    total_tests = total_tests + 1;
     tests_passed = tests_passed + 1;
 else:
     print("✗ Complex inheritance chain failed");
-    total_tests = total_tests + 1;
     tests_failed = tests_failed + ["Complex inheritance chain"];
 end
 

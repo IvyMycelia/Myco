@@ -49,3 +49,4 @@ test_output*.txt
 # Development-only planning (ignored)
 dev-planning/
 benchmark/
+optimization_roadmap.md

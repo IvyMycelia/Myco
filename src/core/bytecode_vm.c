@@ -491,21 +491,33 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                     // Set self context and call method
                                     interpreter_set_self_context(interpreter, &object);
                                     
-                                    // For library instances, self is passed separately, so don't count it in arg_count
-                                    // But we need to pass the self object as the first argument
-                                    Value* method_args = shared_malloc_safe((arg_count + 1) * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL", 9);
-                                    method_args[0] = value_clone(&object); // self as first argument
-                                    for (int i = 0; i < arg_count; i++) {
-                                        method_args[i + 1] = value_clone(&args[i]);
+                                    // Check if this is a method that uses self_context (heaps, queues, stacks)
+                                    // vs explicit self argument (trees, graphs)
+                                    bool uses_self_context = (strcmp(class_name.data.string_value, "Heap") == 0 ||
+                                                             strcmp(class_name.data.string_value, "Queue") == 0 ||
+                                                             strcmp(class_name.data.string_value, "Stack") == 0);
+                                    
+                                    Value result;
+                                    if (uses_self_context) {
+                                        // For heaps/queues/stacks, don't pass self as argument
+                                        result = value_function_call(&method, args, arg_count, interpreter, 0, 0);
+                                    } else {
+                                        // For trees/graphs, pass self as first argument
+                                        Value* method_args = shared_malloc_safe((arg_count + 1) * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL", 9);
+                                        method_args[0] = value_clone(&object); // self as first argument
+                                        for (int i = 0; i < arg_count; i++) {
+                                            method_args[i + 1] = value_clone(&args[i]);
+                                        }
+                                        
+                                        result = value_function_call(&method, method_args, arg_count + 1, interpreter, 0, 0);
+                                        
+                                        // Clean up method arguments
+                                        for (int i = 0; i < arg_count + 1; i++) {
+                                            value_free(&method_args[i]);
+                                        }
+                                        shared_free_safe(method_args, "bytecode_vm", "BC_METHOD_CALL", 10);
                                     }
                                     
-                                    Value result = value_function_call(&method, method_args, arg_count + 1, interpreter, 0, 0);
-                                    
-                                    // Clean up method arguments
-                                    for (int i = 0; i < arg_count + 1; i++) {
-                                        value_free(&method_args[i]);
-                                    }
-                                    shared_free_safe(method_args, "bytecode_vm", "BC_METHOD_CALL", 10);
                                     value_stack_push(result);
                                 } else {
                                     value_stack_push(value_create_null());

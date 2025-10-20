@@ -12,6 +12,28 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// Branch prediction hints for better CPU performance
+#ifdef __GNUC__
+#define LIKELY(x)   __builtin_expect(!!(x), 1)
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
+#else
+#define LIKELY(x)   (x)
+#define UNLIKELY(x) (x)
+#endif
+
+// Cache optimization hints
+#ifdef __GNUC__
+#define PREFETCH_READ(addr)  __builtin_prefetch((addr), 0, 3)
+#define PREFETCH_WRITE(addr) __builtin_prefetch((addr), 1, 3)
+#else
+#define PREFETCH_READ(addr)  ((void)0)
+#define PREFETCH_WRITE(addr) ((void)0)
+#endif
+
+// Memory alignment for cache-friendly access
+#define CACHE_LINE_SIZE 64
+#define ALIGN_CACHE __attribute__((aligned(CACHE_LINE_SIZE)))
+
 // Forward declarations
 Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunction* func, Value* args, int arg_count, BytecodeProgram* program);
 static int pattern_matches_value(Value* value, Value* pattern);
@@ -476,6 +498,11 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
     while (pc < program->count) {
         BytecodeInstruction* instr = &program->code[pc];
         
+        // Prefetch next instruction for better cache performance
+        if (LIKELY(pc + 1 < program->count)) {
+            PREFETCH_READ(&program->code[pc + 1]);
+        }
+        
         // Track hot spots for JIT compilation (disabled for now due to crashes)
         // if (interpreter && interpreter->hot_spot_tracker) {
         //     HotSpotTracker* tracker = (HotSpotTracker*)interpreter->hot_spot_tracker;
@@ -524,10 +551,10 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             // Handle regular bytecode operations
             switch (instr->op) {
             case BC_LOAD_CONST: {
-                if (instr->a < program->const_count) {
+                if (LIKELY(instr->a < program->const_count)) {
                     Value const_val = program->constants[instr->a];
                     // Use fast value creation with caching
-                    if (const_val.type == VALUE_NUMBER) {
+                    if (LIKELY(const_val.type == VALUE_NUMBER)) {
                         value_stack_push(fast_create_number(program, const_val.data.number_value));
                     } else if (const_val.type == VALUE_STRING) {
                         value_stack_push(fast_create_string(program, const_val.data.string_value));
@@ -546,7 +573,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             case BC_LOAD_LOCAL: {
-                if (instr->a < program->local_slot_count) {
+                if (LIKELY(instr->a < program->local_slot_count)) {
                     Value local_val = program->locals[instr->a];
                     // Always clone to avoid memory issues
                     value_stack_push(value_clone(&local_val));
@@ -559,9 +586,9 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             
             case BC_LOAD_VAR: {
                 // Load variable from environment
-                if (instr->a < program->const_count) {
+                if (LIKELY(instr->a < program->const_count)) {
                     Value var_name = program->constants[instr->a];
-                    if (var_name.type == VALUE_STRING) {
+                    if (LIKELY(var_name.type == VALUE_STRING)) {
                         Value var_val = environment_get(interpreter->current_environment, var_name.data.string_value);
                         value_stack_push(var_val);
                     } else {
@@ -626,7 +653,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 Value a = value_stack_pop();
                 
                 // Optimize string concatenation
-                if (a.type == VALUE_STRING && b.type == VALUE_STRING) {
+                if (LIKELY(a.type == VALUE_STRING && b.type == VALUE_STRING)) {
                     Value result = fast_string_concat(a.data.string_value, b.data.string_value);
                     value_free(&a);
                     value_free(&b);
@@ -2547,7 +2574,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             
             case BC_ADD_NUM: {
                 // Fast path: direct stack access without function calls
-                if (num_stack_size >= 2) {
+                if (LIKELY(num_stack_size >= 2)) {
                     double b = num_stack[--num_stack_size];
                     double a = num_stack[--num_stack_size];
                     num_stack[num_stack_size++] = a + b;

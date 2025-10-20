@@ -186,7 +186,22 @@ int interpret_source(const char* source, const char* filename, int debug) {
     if (debug) {
     }
     
-    Value result = interpreter_execute_program(interpreter, program);
+    Value result;
+    
+    // Check execution mode flags
+    if (g_force_ast_only) {
+        // Force AST execution (for tests and --ast flag)
+        result = interpreter_execute_program(interpreter, program);
+    } else if (g_bytecode_enabled) {
+        // Try bytecode execution if enabled
+        // TODO: Implement bytecode compilation and execution
+        // For now, fall back to AST execution
+        printf("Bytecode mode enabled (not yet implemented, using AST)\n");
+        result = interpreter_execute_program(interpreter, program);
+    } else {
+        // Default: AST execution
+        result = interpreter_execute_program(interpreter, program);
+    }
     
     if (interpreter_has_error(interpreter)) {
         // Errors are now printed live, so we just need to clean up

@@ -3915,7 +3915,7 @@ print("16.1. Tree Operations...");
 # Test tree creation
 total_tests = total_tests + 1;
 let my_tree = trees.create();
-if my_tree.type == "Object" and my_tree.type == "Tree":
+if my_tree.type == "Tree":
     print("✓ Tree creation works");
     tests_passed = tests_passed + 1;
 else:
@@ -3926,7 +3926,7 @@ end
 # Test tree insertion
 total_tests = total_tests + 1;
 let tree_with_data = my_tree.insert(42);
-if tree_with_data.type == "Object":
+if tree_with_data.type == "Tree":
     print("✓ Tree insertion works");
     tests_passed = tests_passed + 1;
 else:

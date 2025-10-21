@@ -148,6 +148,7 @@ Value builtin_response_header(Interpreter* interpreter, Value* args, size_t arg_
 Value builtin_response_send_file(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_response_set_header(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_next_function(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+void execute_next_middleware(void);
 
 // Request/Response object creation and management
 Value create_request_object(MycoRequest* request);

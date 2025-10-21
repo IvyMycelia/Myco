@@ -2,8 +2,10 @@
 #include <limits.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <strings.h>
 #include "../../include/core/standardized_errors.h"
 #include "../../include/utils/shared_utilities.h"
+#include "../../include/libs/json.h"
 
 // Define inotify constants for compatibility
 #define IN_MODIFY 0x00000002
@@ -490,13 +492,20 @@ Value parse_json_body(const char* body) {
         return value_create_null();
     }
     
-    // For now, return a simple object representation
-    // TODO: Implement proper JSON parsing
-    Value obj = value_create_object(4);
-    value_object_set(&obj, "__class_name__", value_create_string("JSON"));
-    value_object_set(&obj, "raw", value_create_string(body));
+    // Use the JSON library to parse the request body
+    Value json_string = value_create_string(body);
+    Value parsed_json = builtin_json_parse(NULL, &json_string, 1, 0, 0);
+    value_free(&json_string);
     
-    return obj;
+    if (parsed_json.type == VALUE_NULL) {
+        // If JSON parsing fails, return a simple object with the raw body
+        Value obj = value_create_object(4);
+        value_object_set(&obj, "__class_name__", value_create_string("JSON"));
+        value_object_set(&obj, "raw", value_create_string(body));
+        return obj;
+    }
+    
+    return parsed_json;
 }
 
 Value parse_form_body(const char* body) {
@@ -1247,7 +1256,32 @@ Value builtin_request_header(Interpreter* interpreter, Value* args, size_t arg_c
         return value_create_null();
     }
     
-    // For now, return empty string - TODO: implement header parsing
+    // Get the request object's internal MycoRequest structure
+    Value request_ptr_value = value_object_get(&request_obj, "__request_ptr__");
+    if (request_ptr_value.type != VALUE_NUMBER) {
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "Invalid request object", line, column);
+        return value_create_string("");
+    }
+    
+    MycoRequest* request = (MycoRequest*)(uintptr_t)request_ptr_value.data.number_value;
+    if (!request || !request->headers) {
+        return value_create_string("");
+    }
+    
+    // Search for the requested header (case-insensitive)
+    const char* header_name = header_name_val.data.string_value;
+    for (size_t i = 0; i < request->header_count; i++) {
+        size_t key_index = i * 2;
+        size_t value_index = key_index + 1;
+        
+        if (request->headers[key_index] && request->headers[value_index]) {
+            // Case-insensitive comparison
+            if (strcasecmp(request->headers[key_index], header_name) == 0) {
+                return value_create_string(request->headers[value_index]);
+            }
+        }
+    }
+    
     return value_create_string("");
 }
 
@@ -1436,15 +1470,24 @@ Value builtin_response_json(Interpreter* interpreter, Value* args, size_t arg_co
     }
     g_response_content_type = ("application/json" ? strdup("application/json") : NULL);
     
-    // Set the response body (for now, just convert to string - TODO: implement JSON serialization)
-    Value str_val = value_to_string(&data_val);
-    value_object_set(&response_obj, "body", str_val);
+    // Use JSON library to serialize the data
+    Value json_str = builtin_json_stringify(interpreter, &data_val, 1, line, column);
+    if (json_str.type == VALUE_NULL) {
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "Failed to serialize data to JSON", line, column);
+        return value_create_null();
+    }
+    
+    // Set the response body to the JSON string
+    value_object_set(&response_obj, "body", json_str);
     
     // Also set the global response body for the final response
     if (g_response_body) {
         shared_free_safe(g_response_body, "libs", "unknown_function", 1426);
     }
-    g_response_body = (str_val.data.string_value ? strdup(str_val.data.string_value) : NULL);
+    g_response_body = (json_str.data.string_value ? strdup(json_str.data.string_value) : NULL);
+    
+    // Clean up the JSON string value
+    value_free(&json_str);
     
     return response_obj; // Return response object for chaining
 }
@@ -1650,6 +1693,9 @@ Value create_request_object(MycoRequest* request) {
         value_object_set(&req_obj, "body", value_create_string(""));
     }
     
+    // Store internal request pointer for method access
+    value_object_set(&req_obj, "__request_ptr__", value_create_number((double)(uintptr_t)request));
+    
     // Add request methods
     value_object_set(&req_obj, "header", value_create_builtin_function(builtin_request_header));
     value_object_set(&req_obj, "param", value_create_builtin_function(builtin_request_param));
@@ -1694,6 +1740,34 @@ Value create_response_object(MycoResponse* response) {
     return res_obj;
 }
 
+// Structure to hold header parsing context
+typedef struct {
+    char** headers;
+    size_t index;
+    size_t max_count;
+} HeaderContext;
+
+// Callback to count headers
+static enum MHD_Result count_headers_callback(void *cls, enum MHD_ValueKind kind, const char *key, const char *value) {
+    (void)kind; (void)key; (void)value;
+    size_t* count = (size_t*)cls;
+    (*count)++;
+    return MHD_YES;
+}
+
+// Callback to store headers
+static enum MHD_Result store_headers_callback(void *cls, enum MHD_ValueKind kind, const char *key, const char *value) {
+    (void)kind;
+    HeaderContext* ctx = (HeaderContext*)cls;
+    
+    if (key && value && ctx->index < ctx->max_count * 2) {
+        ctx->headers[ctx->index] = strdup(key);
+        ctx->headers[ctx->index + 1] = strdup(value);
+        ctx->index += 2;
+    }
+    return MHD_YES;
+}
+
 // Parse HTTP request from libmicrohttpd connection
 MycoRequest* parse_http_request(struct MHD_Connection* connection, const char* url, const char* method) {
     MycoRequest* request = (MycoRequest*)shared_malloc_safe(sizeof(MycoRequest), "libs", "unknown_function", 1676);
@@ -1724,8 +1798,37 @@ MycoRequest* parse_http_request(struct MHD_Connection* connection, const char* u
     }
     // Set request body from global storage
     request->body = g_request_body ? (g_request_body ? strdup(g_request_body) : NULL) : NULL;
+    
+    // Parse headers using libmicrohttpd
     request->headers = NULL;
     request->header_count = 0;
+    
+    // Get headers from libmicrohttpd
+    if (connection) {
+        // First pass: count headers
+        size_t header_count = 0;
+        MHD_get_connection_values(connection, MHD_HEADER_KIND, 
+            count_headers_callback, &header_count);
+        
+        if (header_count > 0) {
+            // Allocate header storage
+            request->headers = (char**)shared_malloc_safe(header_count * 2 * sizeof(char*), "libs", "unknown_function", 1725);
+            if (request->headers) {
+                HeaderContext ctx = {
+                    .headers = request->headers,
+                    .index = 0,
+                    .max_count = header_count
+                };
+                
+                // Second pass: store headers
+                MHD_get_connection_values(connection, MHD_HEADER_KIND, 
+                    store_headers_callback, &ctx);
+                
+                request->header_count = header_count;
+            }
+        }
+    }
+    
     request->params = NULL;
     request->param_count = 0;
     
@@ -2223,8 +2326,8 @@ void middleware_add(MycoServer* server, Value function) {
 // Next function for middleware
 Value builtin_next_function(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     // This function is called when middleware calls next()
-    // For now, it just returns null - the middleware chain execution
-    // will be handled by the execute_middleware function
+    // Execute the next middleware in the chain
+    execute_next_middleware();
     return value_create_null();
 }
 
@@ -2269,25 +2372,54 @@ Value builtin_route_handler(Interpreter* interpreter, Value* args, size_t arg_co
     return value_create_null();
 }
 
+// Global middleware execution state
+static Middleware* g_current_middleware = NULL;
+static MycoServer* g_current_server = NULL;
+static Value g_current_req;
+static Value g_current_res;
+
 // Execute middleware chain
 void execute_middleware(MycoServer* server, Value req_obj, Value res_obj, Value next_func) {
     if (!server || !server->middleware) return;
     
-    // For now, just execute the first middleware
-    // TODO: Implement proper middleware chain execution with next() function
-    Middleware* current = server->middleware;
-    if (current && current->function.type == VALUE_FUNCTION) {
+    // Initialize global state for middleware execution
+    g_current_server = server;
+    g_current_middleware = server->middleware;
+    g_current_req = value_create_null();
+    g_current_res = value_create_null();
+    
+    // Copy the request and response objects
+    g_current_req = value_clone(&req_obj);
+    g_current_res = value_clone(&res_obj);
+    
+    // Start executing the middleware chain
+    execute_next_middleware();
+}
+
+// Execute the next middleware in the chain
+void execute_next_middleware(void) {
+    if (!g_current_middleware) {
+        // No more middleware to execute
+        return;
+    }
+    
+    Middleware* current = g_current_middleware;
+    
+    // Move to next middleware for the next() call
+    g_current_middleware = current->next;
+    
+    if (current->function.type == VALUE_FUNCTION) {
         // Create next function for middleware
         Value next_func_obj = value_create_builtin_function(builtin_next_function);
         
         // Check if the middleware function has the expected number of parameters
         if (current->function.data.function_value.parameter_count >= 3) {
             // Execute middleware with req, res, and next parameters
-            Value result = execute_myco_function_3(g_interpreter, current->function, &req_obj, &res_obj, &next_func_obj);
+            Value result = execute_myco_function_3(g_interpreter, current->function, &g_current_req, &g_current_res, &next_func_obj);
             value_free(&result);
         } else {
             // Fallback: execute with just req and res if parameter count is wrong
-            Value result = execute_myco_function(g_interpreter, current->function, &req_obj, &res_obj);
+            Value result = execute_myco_function(g_interpreter, current->function, &g_current_req, &g_current_res);
             value_free(&result);
         }
         

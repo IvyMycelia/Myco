@@ -360,20 +360,6 @@ ASTNode* parser_parse_program(Parser* parser) {
             // Create the block node
             ASTNode* block = ast_create_block(statement_array, statement_count, 0, 0);
             if (block) {
-                // TODO: Type checking disabled temporarily - needs proper integration with interpreter
-                // The type checker currently doesn't understand the difference between
-                // declarations and assignments in the interpreter's execution model
-                /*
-                TypeCheckerContext* type_context = type_checker_create_context();
-                if (type_context) {
-                    if (!type_check_ast(type_context, block)) {
-                        // Type checking failed, print errors
-                        type_checker_print_errors(type_context);
-                        // Note: We still return the AST, but type errors are reported
-                    }
-                    type_checker_free_context(type_context);
-                }
-                */
                 return block;
             }
             shared_free_safe(statement_array, "parser", "unknown_function", 374);
@@ -382,6 +368,40 @@ ASTNode* parser_parse_program(Parser* parser) {
     
     // If no statements were parsed, return an empty block
     return ast_create_block(NULL, 0, 0, 0);
+}
+
+/**
+ * @brief Parse a complete program with filename context for type checking
+ * 
+ * This function parses a complete Myco program from the token stream and returns
+ * the root AST node. It also sets the filename context for type checking.
+ * 
+ * @param parser The parser to use
+ * @param filename The filename for error reporting and type checking
+ * @return Root node of the AST, or NULL if parsing failed
+ */
+ASTNode* parser_parse_program_with_filename(Parser* parser, const char* filename) {
+    if (!parser) return NULL;
+    
+    // Parse the program normally
+    ASTNode* result = parser_parse_program(parser);
+    
+    // If parsing succeeded and we have a block, set filename for type checking
+    if (result && result->type == AST_NODE_BLOCK) {
+        // Create type checker context with filename
+        TypeCheckerContext* type_context = type_checker_create_context();
+        if (type_context) {
+            type_checker_set_filename(type_context, filename);
+            if (!type_check_ast(type_context, result)) {
+                // Type checking failed, print errors
+                type_checker_print_errors(type_context);
+                // Note: We still return the AST, but type errors are reported
+            }
+            type_checker_free_context(type_context);
+        }
+    }
+    
+    return result;
 }
 
 /**

@@ -1,0 +1,58 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Install dependencies
+        run: |
+          brew install libmicrohttpd curl readline zlib
+          
+      - name: Build Myco
+        run: |
+          make clean
+          make
+          
+      - name: Run comprehensive tests
+        run: |
+          ./bin/myco pass.myco
+          
+      - name: Test web framework functionality
+        run: |
+          echo 'print("Web framework: " + web.type)' | ./bin/myco
+          echo 'print("Database: " + db.type)' | ./bin/myco
+          
+      - name: Create release archive
+        run: |
+          mkdir -p release
+          cp bin/myco release/
+          cp -r examples/ release/ 2>/dev/null || true
+          cp -r docs/ release/ 2>/dev/null || true
+          cp README.md release/
+          cp LICENSE release/ 2>/dev/null || true
+          cp -r benchmark/ release/ 2>/dev/null || true
+          tar -czf myco-${{ github.ref_name }}-macos.tar.gz -C release .
+          
+      - name: Upload release assets
+        uses: actions/upload-artifact@v3
+        with:
+          name: myco-${{ github.ref_name }}-macos
+          path: myco-${{ github.ref_name }}-macos.tar.gz
+          
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: myco-${{ github.ref_name }}-macos.tar.gz
+          generate_release_notes: true
+          draft: false
+          prerelease: false

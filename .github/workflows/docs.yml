@@ -1,0 +1,46 @@
+name: Build Documentation
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'docs/**' ]
+  workflow_dispatch:
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      - name: Install documentation tools
+        run: |
+          npm install -g @vuepress/core @vuepress/theme-default
+          
+      - name: Build documentation site
+        run: |
+          # Check if docs directory exists and has content
+          if [ -d "docs" ] && [ "$(ls -A docs)" ]; then
+            echo "Building documentation from docs/ directory"
+            # This would generate a static site from docs/
+            # For now, just copy the docs
+            mkdir -p docs-site
+            cp -r docs/* docs-site/ 2>/dev/null || true
+          else
+            echo "No documentation found"
+            mkdir -p docs-site
+            echo "# Myco Documentation" > docs-site/README.md
+          fi
+          
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs-site

@@ -12,17 +12,40 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install libmicrohttpd curl readline zlib
 
       - name: Build Myco project
         run: |
+          make clean
           make
 
-      - name: Run binary to verify
-        run: ./bin/myco ./pass.myco
+      - name: Run test suite
+        run: |
+          ./bin/myco pass.myco
 
-      - name: Create Release
-        uses: ncipollo/release-action@v1
+      - name: Test web framework
+        run: |
+          echo 'print("Web framework: " + web.type)' | ./bin/myco
+
+      - name: Test database
+        run: |
+          echo 'print("Database: " + db.type)' | ./bin/myco
+
+      - name: Create release archive
+        run: |
+          mkdir -p release
+          cp bin/myco release/
+          cp -r examples/ release/ 2>/dev/null || true
+          cp -r docs/ release/ 2>/dev/null || true
+          cp README.md release/
+          tar -czf myco-macos-latest.tar.gz -C release .
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v3
         with:
-          artifacts: myco_binary
-          tag: ${{ github.ref_name }}
+          name: myco-macos-latest
+          path: myco-macos-latest.tar.gz

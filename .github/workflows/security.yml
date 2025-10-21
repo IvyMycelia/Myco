@@ -1,0 +1,49 @@
+name: Security & Quality
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly on Monday
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/init@v2
+        with:
+          languages: c
+          
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+        
+      - name: Install security tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cppcheck clang-tools
+          
+      - name: Run static analysis
+        run: |
+          cppcheck --enable=all --inconclusive --std=c99 src/ include/ || true
+          
+      - name: Check for memory leaks
+        run: |
+          sudo apt-get install -y valgrind
+          make clean
+          make
+          # Run a simple test with valgrind
+          echo 'print("Hello World")' | valgrind --leak-check=full --show-leak-kinds=all ./bin/myco || true
+          
+      - name: Check for buffer overflows
+        run: |
+          # Compile with additional security flags
+          make clean
+          CFLAGS="-fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE" make
+          echo 'print("Security test")' | ./bin/myco

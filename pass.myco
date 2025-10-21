@@ -3888,7 +3888,7 @@ let myco_obj = {
     }
 };
 let json_string = json.stringify(myco_obj);
-if json_string.type == "String" and json_string.length() > 0:
+if json_string.type == "String" and json_string.length > 0:
     print("✓ JSON stringification works");
     tests_passed = tests_passed + 1;
 else:
@@ -3947,8 +3947,8 @@ end
 
 # Test tree size
 total_tests = total_tests + 1;
-let tree_size = my_tree.size();
-if tree_size.type == "Number":
+let tree_size = my_tree.size;
+if tree_size.type == "Int":
     print("✓ Tree size works");
     tests_passed = tests_passed + 1;
 else:
@@ -3973,7 +3973,7 @@ print("17.1. Graph Operations...");
 # Test directed graph creation
 total_tests = total_tests + 1;
 let directed_graph = graphs.create(true);
-if directed_graph.type == "Object" and directed_graph.type == "Graph":
+if directed_graph.type == "Graph":
     print("✓ Directed graph creation works");
     tests_passed = tests_passed + 1;
 else:
@@ -3984,7 +3984,7 @@ end
 # Test undirected graph creation
 total_tests = total_tests + 1;
 let undirected_graph = graphs.create(false);
-if undirected_graph.type == "Object" and undirected_graph.type == "Graph":
+if undirected_graph.type == "Graph":
     print("✓ Undirected graph creation works");
     tests_passed = tests_passed + 1;
 else:
@@ -3995,7 +3995,7 @@ end
 # Test adding nodes
 total_tests = total_tests + 1;
 let graph_with_nodes = directed_graph.addNode("node1");
-if graph_with_nodes.type == "Object":
+if graph_with_nodes.type == "Graph":
     print("✓ Graph addNode works");
     tests_passed = tests_passed + 1;
 else:
@@ -4006,7 +4006,7 @@ end
 # Test adding edges
 total_tests = total_tests + 1;
 let graph_with_edges = directed_graph.addEdge("node1", "node2");
-if graph_with_edges.type == "Object":
+if graph_with_edges.type == "Graph":
     print("✓ Graph addEdge works");
     tests_passed = tests_passed + 1;
 else:
@@ -4016,8 +4016,8 @@ end
 
 # Test graph size
 total_tests = total_tests + 1;
-let graph_size = directed_graph.size();
-if graph_size.type == "Number":
+let graph_size = directed_graph.size;
+if graph_size.type == "Int":
     print("✓ Graph size works");
     tests_passed = tests_passed + 1;
 else:

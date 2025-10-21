@@ -615,6 +615,221 @@ Value builtin_json_parse(Interpreter* interpreter, Value* args, size_t arg_count
     return result;
 }
 
+// Dynamic string builder for JSON
+typedef struct {
+    char* buffer;
+    size_t capacity;
+    size_t length;
+} JsonStringBuilder;
+
+static JsonStringBuilder* json_string_builder_create(size_t initial_capacity) {
+    JsonStringBuilder* builder = shared_malloc_safe(sizeof(JsonStringBuilder), "libs", "json_string_builder_create", 0);
+    if (!builder) return NULL;
+    
+    builder->capacity = initial_capacity > 0 ? initial_capacity : 64;
+    builder->buffer = shared_malloc_safe(builder->capacity, "libs", "json_string_builder_create", 0);
+    if (!builder->buffer) {
+        shared_free_safe(builder, "libs", "json_string_builder_create", 0);
+        return NULL;
+    }
+    builder->length = 0;
+    builder->buffer[0] = '\0';
+    
+    return builder;
+}
+
+static void json_string_builder_append(JsonStringBuilder* builder, const char* str) {
+    if (!builder || !str) return;
+    
+    size_t str_len = strlen(str);
+    if (builder->length + str_len + 1 > builder->capacity) {
+        // Double capacity
+        builder->capacity = (builder->capacity * 2) + str_len + 1;
+        builder->buffer = shared_realloc_safe(builder->buffer, builder->capacity, "libs", "json_string_builder_append", 0);
+    }
+    
+    strcat(builder->buffer, str);
+    builder->length += str_len;
+}
+
+static void json_string_builder_append_char(JsonStringBuilder* builder, char c) {
+    if (!builder) return;
+    
+    if (builder->length + 2 > builder->capacity) {
+        builder->capacity *= 2;
+        builder->buffer = shared_realloc_safe(builder->buffer, builder->capacity, "libs", "json_string_builder_append_char", 0);
+    }
+    
+    builder->buffer[builder->length] = c;
+    builder->buffer[builder->length + 1] = '\0';
+    builder->length++;
+}
+
+static void json_string_builder_free(JsonStringBuilder* builder) {
+    if (!builder) return;
+    shared_free_safe(builder->buffer, "libs", "json_string_builder_free", 0);
+    shared_free_safe(builder, "libs", "json_string_builder_free", 0);
+}
+
+// Escape string for JSON
+static char* json_escape_string(const char* str) {
+    if (!str) return NULL;
+    
+    size_t len = strlen(str);
+    size_t escaped_len = len;
+    
+    // Count characters that need escaping
+    for (size_t i = 0; i < len; i++) {
+        if (str[i] == '"' || str[i] == '\\' || str[i] == '\n' || str[i] == '\r' || str[i] == '\t' || str[i] < 32) {
+            escaped_len += 1; // Will become \x
+        }
+    }
+    
+    char* escaped = shared_malloc_safe(escaped_len + 1, "libs", "json_escape_string", 0);
+    if (!escaped) return NULL;
+    
+    size_t j = 0;
+    for (size_t i = 0; i < len; i++) {
+        switch (str[i]) {
+            case '"':  escaped[j++] = '\\'; escaped[j++] = '"'; break;
+            case '\\': escaped[j++] = '\\'; escaped[j++] = '\\'; break;
+            case '\n': escaped[j++] = '\\'; escaped[j++] = 'n'; break;
+            case '\r': escaped[j++] = '\\'; escaped[j++] = 'r'; break;
+            case '\t': escaped[j++] = '\\'; escaped[j++] = 't'; break;
+            default:
+                if (str[i] < 32) {
+                    char hex[5];
+                    snprintf(hex, sizeof(hex), "\\u%04x", (unsigned char)str[i]);
+                    escaped[j++] = hex[0];
+                    escaped[j++] = hex[1];
+                    escaped[j++] = hex[2];
+                    escaped[j++] = hex[3];
+                    escaped[j++] = hex[4];
+                } else {
+                    escaped[j++] = str[i];
+                }
+                break;
+        }
+    }
+    escaped[j] = '\0';
+    
+    return escaped;
+}
+
+// Recursive JSON stringification
+static void json_stringify_myco_value(JsonStringBuilder* builder, Value* value) {
+    if (!builder || !value) return;
+    
+    switch (value->type) {
+        case VALUE_NULL:
+            json_string_builder_append(builder, "null");
+            break;
+            
+        case VALUE_BOOLEAN:
+            json_string_builder_append(builder, value->data.boolean_value ? "true" : "false");
+            break;
+            
+        case VALUE_NUMBER:
+            {
+                    char num_str[64];
+                snprintf(num_str, sizeof(num_str), "%.15g", value->data.number_value);
+                json_string_builder_append(builder, num_str);
+            }
+            break;
+            
+        case VALUE_STRING:
+            {
+                char* escaped = json_escape_string(value->data.string_value);
+                if (escaped) {
+                    json_string_builder_append_char(builder, '"');
+                    json_string_builder_append(builder, escaped);
+                    json_string_builder_append_char(builder, '"');
+                    shared_free_safe(escaped, "libs", "json_stringify_value", 0);
+                } else {
+                    json_string_builder_append(builder, "\"\"");
+                }
+            }
+            break;
+            
+        case VALUE_ARRAY:
+            json_string_builder_append_char(builder, '[');
+            for (size_t i = 0; i < value->data.array_value.count; i++) {
+                if (i > 0) json_string_builder_append_char(builder, ',');
+                json_stringify_myco_value(builder, (Value*)value->data.array_value.elements[i]);
+            }
+            json_string_builder_append_char(builder, ']');
+            break;
+            
+        case VALUE_OBJECT:
+            json_string_builder_append_char(builder, '{');
+            for (size_t i = 0; i < value->data.object_value.count; i++) {
+                if (i > 0) json_string_builder_append_char(builder, ',');
+                
+                // Add key
+                char* key = value->data.object_value.keys[i];
+                if (key && strlen(key) > 0) {
+                    char* escaped_key = json_escape_string(key);
+                    if (escaped_key) {
+                        json_string_builder_append_char(builder, '"');
+                        json_string_builder_append(builder, escaped_key);
+                        json_string_builder_append_char(builder, '"');
+                        shared_free_safe(escaped_key, "libs", "json_stringify_myco_value", 0);
+    } else {
+                        json_string_builder_append(builder, "\"\"");
+                    }
+                } else {
+                    // Use index as key
+                    char index_key[32];
+                    snprintf(index_key, sizeof(index_key), "\"key_%zu\"", i);
+                    json_string_builder_append(builder, index_key);
+                }
+                
+                json_string_builder_append_char(builder, ':');
+                
+                // Add value
+                json_stringify_myco_value(builder, (Value*)value->data.object_value.values[i]);
+            }
+            json_string_builder_append_char(builder, '}');
+            break;
+            
+        case VALUE_HASH_MAP:
+            json_string_builder_append_char(builder, '{');
+            for (size_t i = 0; i < value->data.hash_map_value.count; i++) {
+                if (i > 0) json_string_builder_append_char(builder, ',');
+                
+                // Add key - hash map keys are Value objects, need to convert to string
+                Value* key_value = (Value*)value->data.hash_map_value.keys[i];
+                if (key_value && key_value->type == VALUE_STRING) {
+                    char* escaped_key = json_escape_string(key_value->data.string_value);
+                    if (escaped_key) {
+                        json_string_builder_append_char(builder, '"');
+                        json_string_builder_append(builder, escaped_key);
+                        json_string_builder_append_char(builder, '"');
+                        shared_free_safe(escaped_key, "libs", "json_stringify_myco_value", 0);
+                    } else {
+                        json_string_builder_append(builder, "\"\"");
+                    }
+                } else {
+                    // Use index as key if key is not a string
+                    char index_key[32];
+                    snprintf(index_key, sizeof(index_key), "\"key_%zu\"", i);
+                    json_string_builder_append(builder, index_key);
+                }
+                
+                json_string_builder_append_char(builder, ':');
+                
+                // Add value
+                json_stringify_myco_value(builder, (Value*)value->data.hash_map_value.values[i]);
+            }
+            json_string_builder_append_char(builder, '}');
+            break;
+            
+        default:
+            json_string_builder_append(builder, "\"unknown\"");
+            break;
+    }
+}
+
 Value builtin_json_stringify(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 1) {
         std_error_report(ERROR_ARGUMENT_COUNT, "json", "unknown_function", "json.stringify() requires exactly 1 argument (value)", line, column);
@@ -623,113 +838,23 @@ Value builtin_json_stringify(Interpreter* interpreter, Value* args, size_t arg_c
     
     Value myco_value = args[0];
     
-    // Handle different Myco value types
-    if (myco_value.type == VALUE_OBJECT || myco_value.type == VALUE_HASH_MAP) {
-        // Convert Myco object to JSON
-        char* result = shared_malloc_safe(1024, "libs", "unknown_function", 609);
-        strcpy(result, "{");
-        
-        // Add object properties
-        if (myco_value.data.object_value.count > 0) {
-            for (size_t i = 0; i < myco_value.data.object_value.count; i++) {
-                if (i > 0) strcat(result, ",");
-                
-                // Add key - check if key exists and is not empty
-                char* key = myco_value.data.object_value.keys[i];
-                if (key && strlen(key) > 0) {
-                    strcat(result, "\"");
-                    strcat(result, key);
-                    strcat(result, "\":");
-                } else {
-                    // Use index as key if no proper key
-                    char index_key[32];
-                    snprintf(index_key, sizeof(index_key), "\"key_%zu\":", i);
-                    strcat(result, index_key);
-                }
-                
-                // Add value
-                Value* val = (Value*)myco_value.data.object_value.values[i];
-                if (val->type == VALUE_STRING) {
-                    strcat(result, "\"");
-                    strcat(result, val->data.string_value);
-                    strcat(result, "\"");
-                } else if (val->type == VALUE_NUMBER) {
-                    char num_str[64];
-                    snprintf(num_str, sizeof(num_str), "%.15g", val->data.number_value);
-                    strcat(result, num_str);
-                } else if (val->type == VALUE_BOOLEAN) {
-                    strcat(result, val->data.boolean_value ? "true" : "false");
-                } else if (val->type == VALUE_NULL) {
-                    strcat(result, "null");
-                } else {
-                    strcat(result, "\"unknown\"");
-                }
-            }
-        }
-        
-        strcat(result, "}");
-        Value json_result = value_create_string(result);
-        shared_free_safe(result, "libs", "unknown_function", 652);
-        return json_result;
-    } else if (myco_value.type == VALUE_ARRAY) {
-        // Convert Myco array to JSON
-        char* result = shared_malloc_safe(1024, "libs", "unknown_function", 656);
-        strcpy(result, "[");
-        
-        // Add array elements
-        if (myco_value.data.array_value.count > 0) {
-            for (size_t i = 0; i < myco_value.data.array_value.count; i++) {
-                if (i > 0) strcat(result, ",");
-                
-                Value* element = (Value*)myco_value.data.array_value.elements[i];
-                if (element->type == VALUE_STRING) {
-                    strcat(result, "\"");
-                    strcat(result, element->data.string_value);
-                    strcat(result, "\"");
-                } else if (element->type == VALUE_NUMBER) {
-                    char num_str[64];
-                    snprintf(num_str, sizeof(num_str), "%.15g", element->data.number_value);
-                    strcat(result, num_str);
-                } else if (element->type == VALUE_BOOLEAN) {
-                    strcat(result, element->data.boolean_value ? "true" : "false");
-                } else if (element->type == VALUE_NULL) {
-                    strcat(result, "null");
-                } else {
-                    strcat(result, "\"unknown\"");
-                }
-            }
-        }
-        
-        strcat(result, "]");
-        Value json_result = value_create_string(result);
-        shared_free_safe(result, "libs", "unknown_function", 685);
-        return json_result;
-    } else if (myco_value.type == VALUE_STRING) {
-        // String values
-        char* result = shared_malloc_safe(strlen(myco_value.data.string_value) + 3, "libs", "unknown_function", 691);
-        snprintf(result, strlen(myco_value.data.string_value) + 3, "\"%s\"", myco_value.data.string_value);
-        Value json_result = value_create_string(result);
-        shared_free_safe(result, "libs", "unknown_function", 692);
-        return json_result;
-    } else if (myco_value.type == VALUE_NUMBER) {
-        // Number values
-        char* result = shared_malloc_safe(64, "libs", "unknown_function", 696);
-        snprintf(result, 64, "%.15g", myco_value.data.number_value);
-        Value json_result = value_create_string(result);
-        shared_free_safe(result, "libs", "unknown_function", 699);
-        return json_result;
-    } else if (myco_value.type == VALUE_BOOLEAN) {
-        // Boolean values - Myco stores booleans as integers (0/1)
-        char* result = shared_malloc_safe(8, "libs", "unknown_function", 703);
-        // Check if the boolean value is non-zero (true) or zero (false)
-        snprintf(result, 8, "%s", myco_value.data.boolean_value != 0 ? "true" : "false");
-        Value json_result = value_create_string(result);
-        shared_free_safe(result, "libs", "unknown_function", 707);
-        return json_result;
-    } else {
-        // Null or unknown types
-        return value_create_string("null");
+    // Create dynamic string builder
+    JsonStringBuilder* builder = json_string_builder_create(256);
+    if (!builder) {
+        std_error_report(ERROR_INTERNAL_ERROR, "json", "unknown_function", "Failed to create JSON string builder", line, column);
+        return value_create_null();
     }
+    
+    // Convert Myco value to JSON string
+    json_stringify_myco_value(builder, &myco_value);
+    
+    // Create result string
+    Value result = value_create_string(builder->buffer);
+    
+    // Clean up
+    json_string_builder_free(builder);
+    
+    return result;
 }
 
 Value builtin_json_validate(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {

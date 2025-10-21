@@ -7,6 +7,8 @@
 #include "../../include/libs/queues.h"
 #include "../../include/libs/stacks.h"
 #include "../../include/libs/server/server.h"
+#include "../../include/libs/web.h"
+#include "../../include/libs/database.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -463,6 +465,96 @@ Value handle_server_library_method_call(Interpreter* interpreter, ASTNode* call_
         value_free(&args[i]);
     }
     shared_free_safe(args, "interpreter", "handle_server_library_method_call", 0);
+    
+    return result;
+}
+
+// Web Framework Method Handler
+Value handle_web_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object) {
+    size_t arg_count = call_node->data.function_call_expr.argument_count;
+    Value* args = (Value*)calloc(arg_count, sizeof(Value));
+    if (!args) {
+        interpreter_set_error(interpreter, "Out of memory", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    for (size_t i = 0; i < arg_count; i++) {
+        args[i] = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[i]);
+    }
+    
+    Value result = value_create_null();
+    
+    // Call the appropriate web method
+    if (strcmp(method_name, "create") == 0) {
+        result = builtin_web_app_create(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "render") == 0) {
+        result = builtin_template_render(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "session_start") == 0) {
+        result = builtin_session_start(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "session_get") == 0) {
+        result = builtin_session_get(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "session_set") == 0) {
+        result = builtin_session_set(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "session_destroy") == 0) {
+        result = builtin_session_destroy(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "session_cleanup") == 0) {
+        result = builtin_session_cleanup(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else {
+        interpreter_set_error(interpreter, "Unknown web method", call_node->line, call_node->column);
+        result = value_create_null();
+    }
+    
+    // Clean up arguments
+    for (size_t i = 0; i < arg_count; i++) {
+        value_free(&args[i]);
+    }
+    shared_free_safe(args, "interpreter", "handle_web_method_call", 0);
+    
+    return result;
+}
+
+// Database Method Handler
+Value handle_db_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object) {
+    size_t arg_count = call_node->data.function_call_expr.argument_count;
+    Value* args = (Value*)calloc(arg_count, sizeof(Value));
+    if (!args) {
+        interpreter_set_error(interpreter, "Out of memory", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    for (size_t i = 0; i < arg_count; i++) {
+        args[i] = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[i]);
+    }
+    
+    Value result = value_create_null();
+    
+    // Call the appropriate database method
+    if (strcmp(method_name, "open") == 0) {
+        result = builtin_db_open(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "close") == 0) {
+        result = builtin_db_close(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "create_table") == 0) {
+        result = builtin_db_create_table(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "drop_table") == 0) {
+        result = builtin_db_drop_table(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "insert") == 0) {
+        result = builtin_db_insert(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "select") == 0) {
+        result = builtin_db_select(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "update") == 0) {
+        result = builtin_db_update(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "delete") == 0) {
+        result = builtin_db_delete(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else {
+        interpreter_set_error(interpreter, "Unknown database method", call_node->line, call_node->column);
+        result = value_create_null();
+    }
+    
+    // Clean up arguments
+    for (size_t i = 0; i < arg_count; i++) {
+        value_free(&args[i]);
+    }
+    shared_free_safe(args, "interpreter", "handle_db_method_call", 0);
     
     return result;
 }

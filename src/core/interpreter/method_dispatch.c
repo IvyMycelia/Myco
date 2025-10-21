@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdio.h>
 
 // Forward declarations for library method handlers
 Value handle_tree_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
@@ -16,6 +17,8 @@ Value handle_request_method_call(Interpreter* interpreter, ASTNode* call_node, c
 Value handle_response_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 Value handle_route_group_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 Value handle_server_library_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
+Value handle_web_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
+Value handle_db_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 
 
 // ============================================================================
@@ -92,6 +95,8 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
     // Get the object and method name from the member access
     ASTNode* member_access = call_node->data.function_call_expr.function;
     const char* method_name = member_access->data.member_access.member_name;
+    
+    printf("DEBUG: handle_method_call called with method: %s, object type: %d\n", method_name, object.type);
     
     // Handle namespace marker method calls (e.g., math.abs(-5))
     if (object.type == VALUE_STRING && strcmp(object.data.string_value, "namespace_marker") == 0) {
@@ -174,6 +179,27 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
     if (strcmp(method_name, "isNumber") == 0) { Value r = value_create_boolean(object.type == VALUE_NUMBER); value_free(&object); return r; }
     if (strcmp(method_name, "isArray") == 0) { Value r = value_create_boolean(object.type == VALUE_ARRAY); value_free(&object); return r; }
     if (strcmp(method_name, "isNumber") == 0) { Value r = value_create_boolean(object.type == VALUE_NUMBER); value_free(&object); return r; }
+    
+    // Library object methods (web, database, etc.)
+    if (object.type == VALUE_OBJECT) {
+        Value object_type = value_object_get(&object, "__type__");
+        if (object_type.type == VALUE_STRING && strcmp(object_type.data.string_value, "Library") == 0) {
+            // This is a library object, try web methods first, then database
+            printf("DEBUG: Calling web method: %s\n", method_name);
+            Value result = handle_web_method_call(interpreter, call_node, method_name, object);
+            if (result.type != VALUE_NULL) {
+                printf("DEBUG: Web method succeeded\n");
+                value_free(&object_type);
+                return result;
+            }
+            printf("DEBUG: Web method failed, trying database\n");
+            // If web method failed, try database
+            result = handle_db_method_call(interpreter, call_node, method_name, object);
+            value_free(&object_type);
+            return result;
+        }
+        value_free(&object_type);
+    }
     
     // String methods
     if (object.type == VALUE_STRING) {

@@ -21,6 +21,8 @@
 #include "json.h"
 #include "http.h"
 #include "server/server.h"
+#include "web.h"
+#include "database.h"
 #include "arduino.h"
 
 // Register all built-in libraries

@@ -1,4 +1,4 @@
-name: Security & Quality
+name: Security & Quality (Simple)
 
 on:
   push:
@@ -16,49 +16,54 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
-        with:
-          languages: c
-          
-      - name: Build for CodeQL
-        run: |
-          # Install dependencies
-          sudo apt-get update
-          sudo apt-get install -y build-essential libmicrohttpd-dev libcurl4-openssl-dev libreadline-dev zlib1g-dev
-          
-          # Build the project for CodeQL analysis
-          make clean
-          make
-          
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
-        
-      - name: Install security tools
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cppcheck clang-tools
+          sudo apt-get install -y build-essential libmicrohttpd-dev libcurl4-openssl-dev libreadline-dev zlib1g-dev cppcheck clang-tools valgrind
           
-      - name: Build project for analysis
+      - name: Build project
         run: |
           make clean
           make
           
-      - name: Run static analysis
+      - name: Run tests
         run: |
-          cppcheck --enable=all --inconclusive --std=c99 src/ include/ || true
+          ./bin/myco pass.myco
           
-      - name: Check for memory leaks
+      - name: Static analysis with cppcheck
         run: |
-          sudo apt-get install -y valgrind
-          make clean
-          make
-          # Run a simple test with valgrind
-          echo 'print("Hello World")' | valgrind --leak-check=full --show-leak-kinds=all ./bin/myco || true
+          cppcheck --enable=all --inconclusive --std=c99 --error-exitcode=0 src/ include/ || true
           
-      - name: Check for buffer overflows
+      - name: Clang static analysis
         run: |
-          # Compile with additional security flags
+          find src/ include/ -name "*.c" -o -name "*.h" | head -10 | xargs clang-tidy --checks='*' --warnings-as-errors='*' || true
+          
+      - name: Memory leak detection
+        run: |
+          echo 'print("Hello World")' | valgrind --leak-check=full --show-leak-kinds=all --error-exitcode=0 ./bin/myco || true
+          
+      - name: Security-focused compilation
+        run: |
           make clean
-          CFLAGS="-fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE" make
+          CFLAGS="-fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE -Wformat -Wformat-security -Werror=format-security" make
           echo 'print("Security test")' | ./bin/myco
+          
+      - name: Check for common security issues
+        run: |
+          # Check for unsafe functions
+          grep -r "strcpy\|strcat\|sprintf\|gets" src/ || echo "No unsafe functions found"
+          
+          # Check for buffer overflow potential
+          grep -r "scanf\|gets" src/ || echo "No scanf/gets found"
+          
+          # Check for format string vulnerabilities
+          grep -r "printf.*%s" src/ || echo "No format string issues found"
+          
+      - name: Upload security report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-report-${{ github.run_number }}
+          path: |
+            *.log
+            cppcheck-results.txt

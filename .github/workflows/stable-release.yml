@@ -16,6 +16,11 @@ on:
 jobs:
   stable-release:
     runs-on: macos-latest
+    permissions:
+      contents: write
+      packages: write
+      issues: write
+      pull-requests: write
     
     steps:
       - name: Checkout code
@@ -42,13 +47,11 @@ jobs:
             echo "Release ${{ github.event.inputs.version }} does not exist"
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Install dependencies
         if: steps.check-release.outputs.exists == 'false'
         run: |
-          brew install libmicrohttpd curl readline zlib
+          brew install libmicrohttpd curl readline zlib gh
           
       - name: Build Myco
         if: steps.check-release.outputs.exists == 'false'

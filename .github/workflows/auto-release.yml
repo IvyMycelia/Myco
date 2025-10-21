@@ -10,13 +10,17 @@ jobs:
   auto-release:
     runs-on: macos-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      packages: write
+      issues: write
+      pull-requests: write
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Generate version number
         id: version
@@ -39,13 +43,11 @@ jobs:
             echo "Release ${{ steps.version.outputs.version }} does not exist, will create"
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Install dependencies
         if: steps.check-release.outputs.exists == 'false'
         run: |
-          brew install libmicrohttpd curl readline zlib
+          brew install libmicrohttpd curl readline zlib gh
           
       - name: Build Myco
         if: steps.check-release.outputs.exists == 'false'

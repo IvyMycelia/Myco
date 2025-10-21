@@ -258,8 +258,32 @@ Value builtin_graph_add_edge(Interpreter* interpreter, Value* args, size_t arg_c
         return value_create_null();
     }
     
-    // For now, just return success (edge addition needs proper node handling)
-    // TODO: Implement proper edge addition with node lookup
+    // Find the nodes in the graph that match the data values
+    GraphNode* from_node_ptr = NULL;
+    GraphNode* to_node_ptr = NULL;
+    
+    // Search through all nodes to find matching data
+    for (size_t i = 0; i < graph->node_count; i++) {
+        if (value_equals(&graph->nodes[i]->data, &from_node)) {
+            from_node_ptr = graph->nodes[i];
+        }
+        if (value_equals(&graph->nodes[i]->data, &to_node)) {
+            to_node_ptr = graph->nodes[i];
+        }
+    }
+    
+    // Check if both nodes were found
+    if (!from_node_ptr || !to_node_ptr) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Could not find nodes in graph for edge creation", line, column);
+        return value_create_null();
+    }
+    
+    // Add the edge between the nodes
+    int success = graph_add_edge(graph, from_node_ptr, to_node_ptr);
+    if (!success) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Failed to add edge to graph", line, column);
+        return value_create_null();
+    }
     
     // Return the updated graph object
     Value result = value_clone(&graph_obj);

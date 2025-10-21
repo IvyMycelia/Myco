@@ -102,13 +102,32 @@ TreeNode* tree_insert(Tree* tree, Value data) {
     return new_node;
 }
 
+// Recursive search helper
+TreeNode* tree_search_recursive(TreeNode* node, Value data) {
+    if (!node) return NULL;
+    
+    // Check if current node matches
+    if (value_equals(&node->data, &data)) {
+        return node;
+    }
+    
+    // Search left subtree
+    TreeNode* left_result = tree_search_recursive(node->left, data);
+    if (left_result) return left_result;
+    
+    // Search right subtree
+    TreeNode* right_result = tree_search_recursive(node->right, data);
+    if (right_result) return right_result;
+    
+    return NULL;
+}
+
 // Search for a value in the tree
 TreeNode* tree_search(Tree* tree, Value data) {
     if (!tree || !tree->root) return NULL;
     
     // Simple depth-first search
-    // TODO: Implement proper tree traversal
-    return NULL; // Placeholder
+    return tree_search_recursive(tree->root, data);
 }
 
 // Get tree size
@@ -159,18 +178,48 @@ Value builtin_tree_insert(Interpreter* interpreter, Value* args, size_t arg_coun
         return value_create_null();
     }
     
-    Value* tree_obj = &args[0];
+    Value tree_obj = args[0];
     Value data = args[1];
     
-    if (tree_obj->type != VALUE_OBJECT) {
+    if (tree_obj.type != VALUE_OBJECT) {
         std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "tree.insert() can only be called on a tree object", line, column);
         return value_create_null();
     }
     
-    // For now, just return success
-    // TODO: Implement actual tree insertion
-    Value result = value_clone(tree_obj);
+    // Extract tree pointer from the tree object
+    Value tree_ptr_value = value_object_get(&tree_obj, "__tree_ptr__");
+    if (tree_ptr_value.type != VALUE_NUMBER) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid tree object", line, column);
+        return value_create_null();
+    }
+    
+    Tree* tree = (Tree*)(uintptr_t)tree_ptr_value.data.number_value;
+    if (!tree) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Tree pointer is null", line, column);
+        return value_create_null();
+    }
+    
+    // Insert the data into the tree
+    TreeNode* inserted_node = tree_insert(tree, data);
+    if (!inserted_node) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Failed to insert data into tree", line, column);
+        return value_create_null();
+    }
+    
+    // Return the updated tree object
+    Value result = value_clone(&tree_obj);
     add_tree_methods(&result);
+    
+    // Update the size field in the result object
+    Value size_value = value_create_number((double)tree->size);
+    value_object_set_member(&result, "size", size_value);
+    value_free(&size_value);
+    
+    // Ensure the tree pointer is preserved in the cloned object
+    Value tree_ptr_new_value = value_create_number((double)(uintptr_t)tree);
+    value_object_set(&result, "__tree_ptr__", tree_ptr_new_value);
+    value_free(&tree_ptr_new_value);
+    
     return result;
 }
 
@@ -188,9 +237,22 @@ Value builtin_tree_search(Interpreter* interpreter, Value* args, size_t arg_coun
         return value_create_null();
     }
     
-    // For now, return false
-    // TODO: Implement actual tree search
-    return value_create_boolean(0);
+    // Extract tree pointer from the tree object
+    Value tree_ptr_value = value_object_get(&tree_obj, "__tree_ptr__");
+    if (tree_ptr_value.type != VALUE_NUMBER) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid tree object", line, column);
+        return value_create_boolean(0);
+    }
+    
+    Tree* tree = (Tree*)(uintptr_t)tree_ptr_value.data.number_value;
+    if (!tree) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Tree pointer is null", line, column);
+        return value_create_boolean(0);
+    }
+    
+    // Search for the data in the tree
+    TreeNode* found_node = tree_search(tree, data);
+    return value_create_boolean(found_node != NULL);
 }
 
 Value builtin_tree_size(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {

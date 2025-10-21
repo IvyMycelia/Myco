@@ -176,6 +176,9 @@ Value builtin_graph_create(Interpreter* interpreter, Value* args, size_t arg_cou
     // Add instance methods
     add_graph_methods(&graph_obj);
     
+    // Store the actual graph pointer for internal use
+    value_object_set(&graph_obj, "__graph_ptr__", value_create_number((double)(uintptr_t)graph));
+    
     return graph_obj;
 }
 
@@ -193,13 +196,36 @@ Value builtin_graph_add_node(Interpreter* interpreter, Value* args, size_t arg_c
         return value_create_null();
     }
     
-    // For now, just return success
-    // TODO: Implement actual node addition
-    Value result = value_clone(&graph_obj);
-    value_object_set_member(&result, "__class_name__", value_create_string(("Graph" ? strdup("Graph") : NULL)));
+    // Extract graph pointer from the graph object
+    Value graph_ptr_value = value_object_get(&graph_obj, "__graph_ptr__");
+    if (graph_ptr_value.type != VALUE_NUMBER) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid graph object", line, column);
+        return value_create_null();
+    }
     
-    // Add methods to the new graph
+    Graph* graph = (Graph*)(uintptr_t)graph_ptr_value.data.number_value;
+    if (!graph) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Graph pointer is null", line, column);
+        return value_create_null();
+    }
+    
+    // Add the node to the graph
+    Value node_data = args[1];
+    graph_add_node(graph, node_data);
+    
+    // Return the updated graph object
+    Value result = value_clone(&graph_obj);
     add_graph_methods(&result);
+    
+    // Update the size field in the result object
+    Value size_value = value_create_number((double)graph->node_count);
+    value_object_set_member(&result, "size", size_value);
+    value_free(&size_value);
+    
+    // Ensure the graph pointer is preserved in the cloned object
+    Value graph_ptr_new_value = value_create_number((double)(uintptr_t)graph);
+    value_object_set(&result, "__graph_ptr__", graph_ptr_new_value);
+    value_free(&graph_ptr_new_value);
     
     return result;
 }
@@ -219,13 +245,30 @@ Value builtin_graph_add_edge(Interpreter* interpreter, Value* args, size_t arg_c
         return value_create_null();
     }
     
-    // For now, just return success
-    // TODO: Implement actual edge addition
-    Value result = value_clone(&graph_obj);
-    value_object_set_member(&result, "__class_name__", value_create_string(("Graph" ? strdup("Graph") : NULL)));
+    // Extract graph pointer from the graph object
+    Value graph_ptr_value = value_object_get(&graph_obj, "__graph_ptr__");
+    if (graph_ptr_value.type != VALUE_NUMBER) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid graph object", line, column);
+        return value_create_null();
+    }
     
-    // Add methods to the new graph
+    Graph* graph = (Graph*)(uintptr_t)graph_ptr_value.data.number_value;
+    if (!graph) {
+        std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Graph pointer is null", line, column);
+        return value_create_null();
+    }
+    
+    // For now, just return success (edge addition needs proper node handling)
+    // TODO: Implement proper edge addition with node lookup
+    
+    // Return the updated graph object
+    Value result = value_clone(&graph_obj);
     add_graph_methods(&result);
+    
+    // Ensure the graph pointer is preserved in the cloned object
+    Value graph_ptr_new_value = value_create_number((double)(uintptr_t)graph);
+    value_object_set(&result, "__graph_ptr__", graph_ptr_new_value);
+    value_free(&graph_ptr_new_value);
     
     return result;
 }
@@ -297,8 +340,9 @@ Value builtin_graph_clear(Interpreter* interpreter, Value* args, size_t arg_coun
 
 void add_graph_methods(Value* graph) {
     value_object_set(graph, "isEmpty", value_create_builtin_function(builtin_graph_is_empty));
-    value_object_set(graph, "add_node", value_create_builtin_function(builtin_graph_add_node));
-    value_object_set(graph, "add_edge", value_create_builtin_function(builtin_graph_add_edge));
+    value_object_set(graph, "addNode", value_create_builtin_function(builtin_graph_add_node));
+    value_object_set(graph, "addEdge", value_create_builtin_function(builtin_graph_add_edge));
+    value_object_set(graph, "size", value_create_builtin_function(builtin_graph_size));
     value_object_set(graph, "clear", value_create_builtin_function(builtin_graph_clear));
 }
 

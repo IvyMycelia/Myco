@@ -233,8 +233,8 @@ static JsonValue* json_parse_array(JsonContext* ctx) {
         
         if (array->data.array_value.count >= array->data.array_value.capacity) {
             array->data.array_value.capacity *= 2;
-            array->data.array_value.elements = realloc(array->data.array_value.elements, 
-                sizeof(JsonValue*) * array->data.array_value.capacity);
+            array->data.array_value.elements = shared_realloc_safe(array->data.array_value.elements, 
+                sizeof(JsonValue*) * array->data.array_value.capacity, "libs", "json_parse_array", 236);
         }
         
         array->data.array_value.elements[array->data.array_value.count] = element;
@@ -285,7 +285,7 @@ static JsonValue* json_parse_object(JsonContext* ctx) {
             return NULL;
         }
         
-        char* key = key_value->data.string_value;
+        char* key = shared_strdup(key_value->data.string_value);
         json_free(key_value);
         
         json_skip_whitespace(ctx);
@@ -306,10 +306,10 @@ static JsonValue* json_parse_object(JsonContext* ctx) {
         
         if (object->data.object_value.count >= object->data.object_value.capacity) {
             object->data.object_value.capacity *= 2;
-            object->data.object_value.keys = realloc(object->data.object_value.keys, 
-                sizeof(char*) * object->data.object_value.capacity);
-            object->data.object_value.values = realloc(object->data.object_value.values, 
-                sizeof(JsonValue*) * object->data.object_value.capacity);
+            object->data.object_value.keys = shared_realloc_safe(object->data.object_value.keys, 
+                sizeof(char*) * object->data.object_value.capacity, "libs", "json_parse_object", 309);
+            object->data.object_value.values = shared_realloc_safe(object->data.object_value.values, 
+                sizeof(JsonValue*) * object->data.object_value.capacity, "libs", "json_parse_object", 311);
         }
         
         object->data.object_value.keys[object->data.object_value.count] = key;
@@ -592,9 +592,27 @@ Value builtin_json_parse(Interpreter* interpreter, Value* args, size_t arg_count
         return value_create_null();
     }
     
-    // For now, return a simple object to avoid memory issues
-    // TODO: Implement full JSON parsing
-    return value_create_object(4);
+    // Use the existing JSON parser infrastructure
+    const char* json_str = json_string.data.string_value;
+    JsonContext context = {0};
+    context.input = json_str;
+    context.position = 0;
+    context.length = strlen(json_str);
+    
+    // Parse the JSON string
+    JsonValue* json_result = json_parse_value(&context);
+    if (!json_result) {
+        std_error_report(ERROR_INVALID_ARGUMENT, "json", "unknown_function", "Invalid JSON format", line, column);
+        return value_create_null();
+    }
+    
+    // Convert JsonValue to Myco Value
+    Value result = json_to_myco_value(json_result);
+    
+    // Clean up the JsonValue
+    json_free(json_result);
+    
+    return result;
 }
 
 Value builtin_json_stringify(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -828,11 +846,10 @@ Value json_to_myco_value(const JsonValue* json_value) {
         case JSON_ARRAY: {
             Value array = value_create_array(json_value->data.array_value.capacity);
             for (size_t i = 0; i < json_value->data.array_value.count; i++) {
-                Value* element = shared_malloc_safe(sizeof(Value), "libs", "unknown_function", 829);
-                *element = json_to_myco_value(json_value->data.array_value.elements[i]);
-                array.data.array_value.elements[i] = element;
+                Value element = json_to_myco_value(json_value->data.array_value.elements[i]);
+                value_array_push(&array, element);
+                // Don't free element - value_array_push takes ownership
             }
-            array.data.array_value.count = json_value->data.array_value.count;
             return array;
         }
         
@@ -840,7 +857,8 @@ Value json_to_myco_value(const JsonValue* json_value) {
             Value object = value_create_object(json_value->data.object_value.capacity);
             for (size_t i = 0; i < json_value->data.object_value.count; i++) {
                 Value val = json_to_myco_value(json_value->data.object_value.values[i]);
-                value_object_set(&object, json_value->data.object_value.keys[i], val);
+                value_object_set_member(&object, json_value->data.object_value.keys[i], val);
+                // Don't free val here - value_object_set_member takes ownership
             }
             return object;
         }

@@ -118,6 +118,7 @@ Value builtin_server_put(Interpreter* interpreter, Value* args, size_t arg_count
 Value builtin_server_delete(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_server_static(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_server_use(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_server_use_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_server_group(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_server_close(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_group_get(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);

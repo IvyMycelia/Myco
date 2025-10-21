@@ -848,7 +848,7 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
     // Add methods to the server object
     value_object_set(&server_obj, "listen", value_create_builtin_function(builtin_server_listen));
     value_object_set(&server_obj, "stop", value_create_builtin_function(builtin_server_stop));
-    value_object_set(&server_obj, "use", value_create_builtin_function(builtin_server_use));
+    value_object_set(&server_obj, "use", value_create_builtin_function(builtin_server_use_method));
     value_object_set(&server_obj, "group", value_create_builtin_function(builtin_server_group));
     value_object_set(&server_obj, "close", value_create_builtin_function(builtin_server_close));
     value_object_set(&server_obj, "get", value_create_builtin_function(builtin_server_get));
@@ -968,7 +968,27 @@ Value builtin_server_get(Interpreter* interpreter, Value* args, size_t arg_count
         route_add(route);
     }
     
-    return value_create_null();
+    // Always return server object for chaining
+    Value server_obj = value_create_object(17);
+    value_object_set(&server_obj, "port", value_create_number(g_server ? g_server->port : 8080));
+    value_object_set(&server_obj, "running", value_create_boolean(g_server ? g_server->running : false));
+    value_object_set(&server_obj, "__class_name__", value_create_string("Server"));
+    
+    // Add methods to the server object
+    value_object_set(&server_obj, "listen", value_create_builtin_function(builtin_server_listen));
+    value_object_set(&server_obj, "stop", value_create_builtin_function(builtin_server_stop));
+    value_object_set(&server_obj, "use", value_create_builtin_function(builtin_server_use_method));
+    value_object_set(&server_obj, "group", value_create_builtin_function(builtin_server_group));
+    value_object_set(&server_obj, "close", value_create_builtin_function(builtin_server_close));
+    value_object_set(&server_obj, "get", value_create_builtin_function(builtin_server_get));
+    value_object_set(&server_obj, "post", value_create_builtin_function(builtin_server_post));
+    value_object_set(&server_obj, "put", value_create_builtin_function(builtin_server_put));
+    value_object_set(&server_obj, "delete", value_create_builtin_function(builtin_server_delete));
+    value_object_set(&server_obj, "static", value_create_builtin_function(builtin_server_static));
+    value_object_set(&server_obj, "watch", value_create_builtin_function(builtin_server_watch));
+    value_object_set(&server_obj, "onSignal", value_create_builtin_function(builtin_server_onSignal));
+    
+    return server_obj;
 }
 
 // Register a POST route
@@ -1583,9 +1603,13 @@ void server_library_register(Interpreter* interpreter) {
     value_object_set(&server_lib, "sleep", value_create_builtin_function(builtin_server_sleep));
     value_object_set(&server_lib, "watch", value_create_builtin_function(builtin_server_watch));
     value_object_set(&server_lib, "onSignal", value_create_builtin_function(builtin_server_onSignal));
+    value_object_set(&server_lib, "use", value_create_builtin_function(builtin_server_use));
     
     // Register the library in global environment
     environment_define(interpreter->global_environment, "server", server_lib);
+    
+    // Register global functions
+    environment_define(interpreter->global_environment, "next", value_create_builtin_function(builtin_next_function));
 }
 
 // Create a Myco Request object from MycoRequest structure
@@ -1945,7 +1969,7 @@ Value execute_myco_function(Interpreter* interpreter, Value function, Value* arg
     return value_create_null();
 }
 
-// Add middleware to server
+// Add middleware to server (global function - 2 args)
 Value builtin_server_use(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (arg_count != 2) {
         std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "app.use() requires exactly 2 arguments (server, middleware_function)", line, column);
@@ -1969,6 +1993,51 @@ Value builtin_server_use(Interpreter* interpreter, Value* args, size_t arg_count
     middleware_add(g_server, middleware_func);
     
     return value_create_null();
+}
+
+// Add middleware to server (method on server object - 1 arg)
+Value builtin_server_use_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 1) {
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "server.use() requires exactly 1 argument (middleware_function)", line, column);
+        return value_create_null();
+    }
+    
+    Value middleware_func = args[0];
+    
+    if (middleware_func.type != VALUE_FUNCTION) {
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "server.use() middleware must be a function", line, column);
+        return value_create_null();
+    }
+    
+    if (!g_server) {
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "No server created. Call server.create() first", line, column);
+        return value_create_null();
+    }
+    
+    // Add middleware to server
+    middleware_add(g_server, middleware_func);
+    
+    // Return the server object for chaining
+    Value server_obj = value_create_object(17);
+    value_object_set(&server_obj, "port", value_create_number(g_server->port));
+    value_object_set(&server_obj, "running", value_create_boolean(g_server->running));
+    value_object_set(&server_obj, "__class_name__", value_create_string("Server"));
+    
+    // Add methods to the server object
+    value_object_set(&server_obj, "listen", value_create_builtin_function(builtin_server_listen));
+    value_object_set(&server_obj, "stop", value_create_builtin_function(builtin_server_stop));
+    value_object_set(&server_obj, "use", value_create_builtin_function(builtin_server_use_method));
+    value_object_set(&server_obj, "group", value_create_builtin_function(builtin_server_group));
+    value_object_set(&server_obj, "close", value_create_builtin_function(builtin_server_close));
+    value_object_set(&server_obj, "get", value_create_builtin_function(builtin_server_get));
+    value_object_set(&server_obj, "post", value_create_builtin_function(builtin_server_post));
+    value_object_set(&server_obj, "put", value_create_builtin_function(builtin_server_put));
+    value_object_set(&server_obj, "delete", value_create_builtin_function(builtin_server_delete));
+    value_object_set(&server_obj, "static", value_create_builtin_function(builtin_server_static));
+    value_object_set(&server_obj, "watch", value_create_builtin_function(builtin_server_watch));
+    value_object_set(&server_obj, "onSignal", value_create_builtin_function(builtin_server_onSignal));
+    
+    return server_obj;
 }
 
 // Create route group
@@ -2150,11 +2219,53 @@ void middleware_add(MycoServer* server, Value function) {
     }
 }
 
+
 // Next function for middleware
 Value builtin_next_function(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     // This function is called when middleware calls next()
     // For now, it just returns null - the middleware chain execution
     // will be handled by the execute_middleware function
+    return value_create_null();
+}
+
+// Middleware function template
+Value builtin_middleware_func(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    // This is a template function for middleware
+    // It expects req, res, next as parameters
+    if (arg_count != 3) {
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "middleware_func expects exactly 3 arguments (req, res, next)", line, column);
+        return value_create_null();
+    }
+    
+    Value req = args[0];
+    Value res = args[1];
+    Value next = args[2];
+    
+    // Simple middleware that just calls next()
+    if (next.type == VALUE_FUNCTION) {
+        Value result = execute_myco_function(interpreter, next, &req, &res);
+        value_free(&result);
+    }
+    
+    return value_create_null();
+}
+
+// Route handler template
+Value builtin_route_handler(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    // This is a template function for route handlers
+    // It expects req, res as parameters
+    if (arg_count != 2) {
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "route_handler expects exactly 2 arguments (req, res)", line, column);
+        return value_create_null();
+    }
+    
+    Value req = args[0];
+    Value res = args[1];
+    
+    // Simple route handler that sets a response
+    value_object_set(&res, "body", value_create_string("Hello from route handler!"));
+    value_object_set(&res, "statusCode", value_create_number(200));
+    
     return value_create_null();
 }
 

@@ -3849,6 +3849,316 @@ else:
     tests_failed = tests_failed + ["HTTP error handling"];
 end
 
+print("\n=== 15. JSON LIBRARY ENHANCED TESTS ===");
+print("15.1. JSON Parsing...");
+
+# Test JSON parsing with complex nested structure
+total_tests = total_tests + 1;
+let complex_json = '{"name": "Myco", "version": 1.0, "features": ["fast", "safe"], "config": {"debug": true, "optimize": false}}';
+let parsed_complex = json.parse(complex_json);
+if parsed_complex.type == "Object":
+    print("✓ JSON parsing complex object works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ JSON parsing complex object failed");
+    tests_failed = tests_failed + ["JSON parsing complex object"];
+end
+
+# Test JSON parsing with arrays
+total_tests = total_tests + 1;
+let array_json = '[1, 2, 3, "hello", true, null]';
+let parsed_array = json.parse(array_json);
+if parsed_array.type == "Array":
+    print("✓ JSON parsing array works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ JSON parsing array failed");
+    tests_failed = tests_failed + ["JSON parsing array"];
+end
+
+# Test JSON stringification with nested objects
+total_tests = total_tests + 1;
+let myco_obj = {
+    "language": "Myco",
+    "version": 1.0,
+    "features": ["AST", "Bytecode", "JIT"],
+    "config": {
+        "debug": true,
+        "optimize": true
+    }
+};
+let json_string = json.stringify(myco_obj);
+if json_string.type == "String" and json_string.length() > 0:
+    print("✓ JSON stringification works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ JSON stringification failed");
+    tests_failed = tests_failed + ["JSON stringification"];
+end
+
+print("\n15.2. JSON Validation...");
+# Test JSON validation
+total_tests = total_tests + 1;
+let valid_json = '{"valid": true}';
+let is_valid = json.validate(valid_json);
+if is_valid.type == "Boolean":
+    print("✓ JSON validation works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ JSON validation failed");
+    tests_failed = tests_failed + ["JSON validation"];
+end
+
+print("\n=== 16. TREE LIBRARY ENHANCED TESTS ===");
+print("16.1. Tree Operations...");
+
+# Test tree creation
+total_tests = total_tests + 1;
+let my_tree = trees.create();
+if my_tree.type == "Object" and my_tree.type == "Tree":
+    print("✓ Tree creation works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Tree creation failed");
+    tests_failed = tests_failed + ["Tree creation"];
+end
+
+# Test tree insertion
+total_tests = total_tests + 1;
+let tree_with_data = my_tree.insert(42);
+if tree_with_data.type == "Object":
+    print("✓ Tree insertion works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Tree insertion failed");
+    tests_failed = tests_failed + ["Tree insertion"];
+end
+
+# Test tree search
+total_tests = total_tests + 1;
+let found = my_tree.search(42);
+if found.type == "Boolean":
+    print("✓ Tree search works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Tree search failed");
+    tests_failed = tests_failed + ["Tree search"];
+end
+
+# Test tree size
+total_tests = total_tests + 1;
+let tree_size = my_tree.size();
+if tree_size.type == "Number":
+    print("✓ Tree size works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Tree size failed");
+    tests_failed = tests_failed + ["Tree size"];
+end
+
+# Test tree isEmpty
+total_tests = total_tests + 1;
+let is_empty = my_tree.isEmpty();
+if is_empty.type == "Boolean":
+    print("✓ Tree isEmpty works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Tree isEmpty failed");
+    tests_failed = tests_failed + ["Tree isEmpty"];
+end
+
+print("\n=== 17. GRAPH LIBRARY ENHANCED TESTS ===");
+print("17.1. Graph Operations...");
+
+# Test directed graph creation
+total_tests = total_tests + 1;
+let directed_graph = graphs.create(true);
+if directed_graph.type == "Object" and directed_graph.type == "Graph":
+    print("✓ Directed graph creation works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Directed graph creation failed");
+    tests_failed = tests_failed + ["Directed graph creation"];
+end
+
+# Test undirected graph creation
+total_tests = total_tests + 1;
+let undirected_graph = graphs.create(false);
+if undirected_graph.type == "Object" and undirected_graph.type == "Graph":
+    print("✓ Undirected graph creation works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Undirected graph creation failed");
+    tests_failed = tests_failed + ["Undirected graph creation"];
+end
+
+# Test adding nodes
+total_tests = total_tests + 1;
+let graph_with_nodes = directed_graph.addNode("node1");
+if graph_with_nodes.type == "Object":
+    print("✓ Graph addNode works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Graph addNode failed");
+    tests_failed = tests_failed + ["Graph addNode"];
+end
+
+# Test adding edges
+total_tests = total_tests + 1;
+let graph_with_edges = directed_graph.addEdge("node1", "node2");
+if graph_with_edges.type == "Object":
+    print("✓ Graph addEdge works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Graph addEdge failed");
+    tests_failed = tests_failed + ["Graph addEdge"];
+end
+
+# Test graph size
+total_tests = total_tests + 1;
+let graph_size = directed_graph.size();
+if graph_size.type == "Number":
+    print("✓ Graph size works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Graph size failed");
+    tests_failed = tests_failed + ["Graph size"];
+end
+
+# Test graph isEmpty
+total_tests = total_tests + 1;
+let graph_is_empty = directed_graph.isEmpty();
+if graph_is_empty.type == "Boolean":
+    print("✓ Graph isEmpty works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Graph isEmpty failed");
+    tests_failed = tests_failed + ["Graph isEmpty"];
+end
+
+print("\n=== 18. SERVER LIBRARY ENHANCED TESTS ===");
+print("18.1. Server Request/Response Features...");
+
+# Test server creation (if available)
+total_tests = total_tests + 1;
+let server = server.create(8080);
+if server.type == "Server":
+    print("✓ Server creation works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Server creation failed");
+    tests_failed = tests_failed + ["Server creation"];
+end
+
+# Test middleware registration (if available)
+total_tests = total_tests + 1;
+func middleware_func(req, res, next):
+    print("Middleware executed");
+    return next();
+end
+let server_with_middleware = server.use(middleware_func);
+if server_with_middleware.type == "Server":
+    print("✓ Server middleware registration works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Server middleware registration failed");
+    tests_failed = tests_failed + ["Server middleware registration"];
+end
+
+# Test route handling (if available)
+total_tests = total_tests + 1;
+func route_handler(req, res):
+    return res.json({"message": "Hello from Myco server"});
+end
+let server_with_routes = server.get("/test", route_handler);
+if server_with_routes.type == "Server":
+    print("✓ Server route handling works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Server route handling failed");
+    tests_failed = tests_failed + ["Server route handling"];
+end
+
+print("\n=== 19. LIBRARY INTEGRATION TESTS ===");
+print("19.1. Cross-Library Functionality...");
+
+# Test JSON with Trees
+total_tests = total_tests + 1;
+let tree_data = {"name": "test_tree", "nodes": [1, 2, 3]};
+let tree_json = json.stringify(tree_data);
+let parsed_tree_data = json.parse(tree_json);
+if parsed_tree_data.type == "Object":
+    print("✓ JSON + Tree integration works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ JSON + Tree integration failed");
+    tests_failed = tests_failed + ["JSON + Tree integration"];
+end
+
+# Test JSON with Graphs
+total_tests = total_tests + 1;
+let graph_data = {"nodes": ["A", "B", "C"], "edges": [["A", "B"], ["B", "C"]]};
+let graph_json = json.stringify(graph_data);
+let parsed_graph_data = json.parse(graph_json);
+if parsed_graph_data.type == "Object":
+    print("✓ JSON + Graph integration works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ JSON + Graph integration failed");
+    tests_failed = tests_failed + ["JSON + Graph integration"];
+end
+
+# Test Time with JSON
+total_tests = total_tests + 1;
+let time_data = {"timestamp": time.now(), "formatted": time.format(time.now(), "%Y-%m-%d")};
+let time_json = json.stringify(time_data);
+if time_json.type == "String":
+    print("✓ Time + JSON integration works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Time + JSON integration failed");
+    tests_failed = tests_failed + ["Time + JSON integration"];
+end
+
+print("\n=== 20. ERROR HANDLING TESTS ===");
+print("20.1. Library Error Handling...");
+
+# Test JSON error handling
+total_tests = total_tests + 1;
+let invalid_json = '{"invalid": json}';
+let json_error = json.parse(invalid_json);
+if json_error == Null or json_error.type == "Null":
+    print("✓ JSON error handling works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ JSON error handling failed");
+    tests_failed = tests_failed + ["JSON error handling"];
+end
+
+# Test Tree error handling
+total_tests = total_tests + 1;
+let null_tree = Null;
+let tree_error = null_tree.search(42);
+if tree_error == Null or tree_error.type == "Null":
+    print("✓ Tree error handling works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Tree error handling failed");
+    tests_failed = tests_failed + ["Tree error handling"];
+end
+
+# Test Graph error handling
+total_tests = total_tests + 1;
+let null_graph = Null;
+let graph_error = null_graph.addNode("test");
+if graph_error == Null or graph_error.type == "Null":
+    print("✓ Graph error handling works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Graph error handling failed");
+    tests_failed = tests_failed + ["Graph error handling"];
+end
+
 # Nothing After This Pointer
 # Below Are The Results, Never Change
 # Put Any Additions Above These Three Lines

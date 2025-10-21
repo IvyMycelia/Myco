@@ -16,10 +16,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         
-      - name: Run CodeQL Analysis
+      - name: Initialize CodeQL
         uses: github/codeql-action/init@v2
         with:
           languages: c
+          
+      - name: Build for CodeQL
+        run: |
+          # Install dependencies
+          sudo apt-get update
+          sudo apt-get install -y build-essential libmicrohttpd-dev libcurl4-openssl-dev libreadline-dev zlib1g-dev
+          
+          # Build the project for CodeQL analysis
+          make clean
+          make
           
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v2
@@ -28,6 +38,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cppcheck clang-tools
+          
+      - name: Build project for analysis
+        run: |
+          make clean
+          make
           
       - name: Run static analysis
         run: |

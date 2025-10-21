@@ -1,0 +1,28 @@
+name: Build Myco macOS Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # manual trigger
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Build Myco project
+        run: |
+          make
+
+      - name: Run binary to verify
+        run: ./bin/myco ./pass.myco
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: myco_binary
+          tag: ${{ github.ref_name }}

@@ -1,61 +1,65 @@
-name: Create Release
+name: Auto Release
 
 on:
-  push:
-    tags:
-      - 'v*'
   push:
     branches:
       - main
   workflow_dispatch:
 
 jobs:
-  release:
+  auto-release:
     runs-on: macos-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Generate version number
         id: version
         run: |
-          if [[ ${{ github.ref }} == refs/tags/* ]]; then
-            # Use tag name for tagged releases
-            VERSION=${GITHUB_REF#refs/tags/}
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
-            echo "is_tag=true" >> $GITHUB_OUTPUT
-          else
-            # Generate version from commit info for main branch
-            COMMIT_COUNT=$(git rev-list --count HEAD)
-            SHORT_SHA=$(git rev-parse --short HEAD)
-            VERSION="v1.0.$COMMIT_COUNT-$SHORT_SHA"
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
-            echo "is_tag=false" >> $GITHUB_OUTPUT
-          fi
+          # Get commit count for versioning
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          VERSION="v1.0.$COMMIT_COUNT-$SHORT_SHA"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Generated version: $VERSION"
-        
+          
+      - name: Check if release exists
+        id: check-release
+        run: |
+          # Check if this version already exists
+          if gh release view ${{ steps.version.outputs.version }} >/dev/null 2>&1; then
+            echo "Release ${{ steps.version.outputs.version }} already exists, skipping"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Release ${{ steps.version.outputs.version }} does not exist, will create"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
       - name: Install dependencies
+        if: steps.check-release.outputs.exists == 'false'
         run: |
           brew install libmicrohttpd curl readline zlib
           
       - name: Build Myco
+        if: steps.check-release.outputs.exists == 'false'
         run: |
           make clean
           make
           
-      - name: Run comprehensive tests
+      - name: Run tests
+        if: steps.check-release.outputs.exists == 'false'
         run: |
           ./bin/myco pass.myco
           
-      - name: Test web framework functionality
-        run: |
-          echo 'print("Web framework: " + web.type)' | ./bin/myco
-          echo 'print("Database: " + db.type)' | ./bin/myco
-          
       - name: Create release archive
+        if: steps.check-release.outputs.exists == 'false'
         run: |
           mkdir -p release
           cp bin/myco release/
@@ -66,13 +70,8 @@ jobs:
           cp -r benchmark/ release/ 2>/dev/null || true
           tar -czf myco-${{ steps.version.outputs.version }}-macos.tar.gz -C release .
           
-      - name: Upload release assets
-        uses: actions/upload-artifact@v4
-        with:
-          name: myco-${{ steps.version.outputs.version }}-macos
-          path: myco-${{ steps.version.outputs.version }}-macos.tar.gz
-          
       - name: Create GitHub Release
+        if: steps.check-release.outputs.exists == 'false'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.version }}
@@ -80,7 +79,7 @@ jobs:
           files: myco-${{ steps.version.outputs.version }}-macos.tar.gz
           generate_release_notes: true
           draft: false
-          prerelease: ${{ steps.version.outputs.is_tag == 'false' }}
+          prerelease: true
           body: |
             ## Myco ${{ steps.version.outputs.version }}
             
@@ -101,3 +100,6 @@ jobs:
             - **Database**: Custom file-based storage with CRUD operations
             - **Performance**: Optimized for speed and memory efficiency
             - **Cross-platform**: macOS and Linux support
+            
+            ### Development Release
+            This is an automated development release. For stable releases, see the [Releases](https://github.com/${{ github.repository }}/releases) page.

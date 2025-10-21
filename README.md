@@ -7,17 +7,17 @@
 
 **Myco** is a modern, high-performance programming language designed for clarity, efficiency, and developer productivity. Built with a focus on developer experience and runtime efficiency, Myco combines the simplicity of modern syntax with the performance of compiled languages.
 
-## 🌟 Key Features
+## Key Features
 
-- **🚀 High Performance**: Bytecode VM with JIT compilation capabilities
-- **🔒 Type Safety**: Static typing with type inference and optional types
-- **📚 Rich Standard Library**: Comprehensive built-in data structures and utilities
-- **🛠️ Developer Experience**: Clear error messages, LSP support, and excellent tooling
-- **🌐 Cross-Platform**: Runs on macOS, Linux, and Windows
-- **💾 Memory Safe**: Automatic memory management with garbage collection
-- **⚡ Optimized**: Advanced optimizations including value pooling and branch prediction
+- **High Performance**: Bytecode VM with JIT compilation capabilities
+- **Type Safety**: Static typing with type inference and optional types
+- **Rich Standard Library**: Comprehensive built-in data structures and utilities
+- **Developer Experience**: Clear error messages, LSP support, and excellent tooling
+- **Cross-Platform**: Runs on macOS, Linux, and Windows
+- **Memory Safe**: Automatic memory management with garbage collection
+- **Optimized**: Advanced optimizations including value pooling and branch prediction
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
@@ -50,7 +50,7 @@ Run it:
 myco hello.myco
 ```
 
-## 📖 Documentation
+## Documentation
 
 - **[Getting Started](docs/getting-started/)** - Installation and quick start guides
 - **[Language Tour](docs/getting-started/language-tour.md)** - Comprehensive language overview
@@ -58,7 +58,7 @@ myco hello.myco
 - **[API Reference](docs/api-reference/)** - Complete standard library documentation
 - **[Language Reference](docs/language-reference/)** - Detailed syntax and semantics
 
-## 💡 Language Highlights
+## Language Highlights
 
 ### Clean, Readable Syntax
 
@@ -145,7 +145,7 @@ func describe(value: String | Int | Boolean) -> String:
 end
 ```
 
-## 🏗️ Architecture
+## Architecture
 
 Myco is built with a modern, modular architecture:
 
@@ -156,7 +156,7 @@ Myco is built with a modern, modular architecture:
 - **Standard Library**: Comprehensive built-in functionality
 - **Memory Manager**: Automatic garbage collection and memory pooling
 
-## 📊 Performance
+## Performance
 
 Myco is designed for performance:
 
@@ -171,7 +171,7 @@ Benchmark results (vs C baseline):
 - **Collection Operations**: ~2-5x slower than C
 - **Overall**: Competitive with other modern VMs
 
-## 🛠️ Development
+## Development
 
 ### Building from Source
 
@@ -197,7 +197,7 @@ myco tests/strings.myco
 
 We welcome contributions! Please see our [Contributing Guide](docs/developer-guide/contributing.md) for details.
 
-## 📚 Examples
+## Examples
 
 Check out our [examples directory](examples/) for more code samples:
 
@@ -206,18 +206,18 @@ Check out our [examples directory](examples/) for more code samples:
 - [Web Examples](examples/web/) - Web development
 - [Data Processing](examples/) - Working with collections
 
-## 🌐 Community
+## Community
 
 - **Website**: [https://mycolang.org](https://mycolang.org)
 - **GitHub**: [https://github.com/ivymycelia/Myco](https://github.com/ivymycelia/Myco)
 - **Discussions**: [GitHub Discussions](https://github.com/ivymycelia/Myco/discussions)
 - **Issues**: [Report bugs](https://github.com/ivymycelia/Myco/issues)
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 Myco is built with inspiration from:
 - **Lua** - For its clean syntax and efficient VM
@@ -226,24 +226,24 @@ Myco is built with inspiration from:
 - **JavaScript** - For its flexibility and ecosystem
 - **Go** - For its simplicity and performance
 
-## 🗺️ Roadmap
+## Roadmap
 
 ### Current Status (v1.0.0)
-- ✅ Complete language implementation
-- ✅ Bytecode VM with JIT optimization
-- ✅ Comprehensive standard library
-- ✅ 100% test coverage
-- ✅ Cross-platform support
+- Complete language implementation
+- Bytecode VM with JIT optimization
+- Comprehensive standard library
+- 100% test coverage
+- Cross-platform support
 
 ### Upcoming Features
-- 🔄 WebAssembly compilation target
-- 🔄 Async/await support
-- 🔄 Package manager
-- 🔄 Enhanced IDE support
-- 🔄 Performance improvements
+- WebAssembly compilation target
+- Async/await support
+- Package manager
+- Enhanced IDE support
+- Performance improvements
 
 ---
 
-**Myco** - *Where simplicity meets performance* 🚀
+**Myco** - *Where simplicity meets performance*
 
 [Get Started](docs/getting-started/installation.md) | [Learn More](docs/getting-started/language-tour.md) | [Examples](examples/) | [Contribute](docs/developer-guide/contributing.md)

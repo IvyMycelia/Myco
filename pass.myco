@@ -1285,6 +1285,16 @@ else:
 end
 
 total_tests = total_tests + 1;
+test_graph = test_graph.add_node("node2");
+if test_graph.type == "Graph" and test_graph != Null:
+    print("✓ graphs.add_node() successful");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ graphs.add_node() failed");
+    tests_failed = tests_failed + ["graphs.add_node()"];
+end
+
+total_tests = total_tests + 1;
 test_graph = test_graph.add_edge("node1", "node2");
 if test_graph.type == "Graph" and test_graph != Null:
     print("✓ graphs.add_edge() successful");
@@ -3996,6 +4006,17 @@ end
 total_tests = total_tests + 1;
 let graph_with_nodes = directed_graph.addNode("node1");
 if graph_with_nodes.type == "Graph":
+    print("✓ Graph addNode works");
+    tests_passed = tests_passed + 1;
+else:
+    print("✗ Graph addNode failed");
+    tests_failed = tests_failed + ["Graph addNode"];
+end
+
+# Test adding second node
+total_tests = total_tests + 1;
+let graph_with_nodes2 = directed_graph.addNode("node2");
+if graph_with_nodes2.type == "Graph":
     print("✓ Graph addNode works");
     tests_passed = tests_passed + 1;
 else:

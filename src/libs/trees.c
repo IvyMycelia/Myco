@@ -44,16 +44,23 @@ void tree_node_free(TreeNode* node) {
     shared_free_safe(node, "libs", "unknown_function", 41);
 }
 
+// Recursive helper to free tree nodes
+static void tree_node_free_recursive(TreeNode* node) {
+    if (!node) return;
+    
+    // Post-order traversal: free left, right, then current node
+    tree_node_free_recursive(node->left);
+    tree_node_free_recursive(node->right);
+    tree_node_free(node);
+}
+
 // Free entire tree
 void tree_free(Tree* tree) {
     if (!tree) return;
     
-    // TODO: Implement tree traversal to free all nodes
-    // For now, just free the root
-    if (tree->root) {
-        tree_node_free(tree->root);
-    }
-    shared_free_safe(tree, "libs", "unknown_function", 53);
+    // Recursively free all nodes in the tree
+    tree_node_free_recursive(tree->root);
+    shared_free_safe(tree, "libs", "tree_free", 53);
 }
 
 // Create a new tree

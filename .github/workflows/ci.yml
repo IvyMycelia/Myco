@@ -1,0 +1,63 @@
+name: Myco CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test Myco
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libmicrohttpd-dev libcurl4-openssl-dev libreadline-dev zlib1g-dev
+          
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install libmicrohttpd curl readline zlib
+          
+      - name: Build Myco
+        run: |
+          make clean
+          make
+          
+      - name: Run test suite
+        run: |
+          ./bin/myco pass.myco
+          
+      - name: Test web framework
+        run: |
+          echo 'print("Web framework test: " + web.type)' | ./bin/myco
+          
+      - name: Test database
+        run: |
+          echo 'print("Database test: " + db.type)' | ./bin/myco
+          
+      - name: Test JSON library
+        run: |
+          echo 'print("JSON test: " + json.type)' | ./bin/myco
+          
+      - name: Test server library
+        run: |
+          echo 'print("Server test: " + server.type)' | ./bin/myco
+          
+      - name: Run performance benchmarks
+        run: |
+          if [ -f "benchmark/run_benchmarks.sh" ]; then
+            chmod +x benchmark/run_benchmarks.sh
+            ./benchmark/run_benchmarks.sh
+          fi

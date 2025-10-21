@@ -47,7 +47,7 @@ jobs:
           echo 'print("Memory usage test")' | /usr/bin/time -v ./bin/myco 2>&1 || true
           
       - name: Upload performance results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: performance-results-${{ github.run_number }}
           path: |

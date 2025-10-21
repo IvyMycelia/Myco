@@ -45,7 +45,7 @@ jobs:
           tar -czf myco-macos-latest.tar.gz -C release .
 
       - name: Upload release assets
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: myco-macos-latest
           path: myco-macos-latest.tar.gz

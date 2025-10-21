@@ -96,7 +96,8 @@ static int detect_x86_64_features(CPUFeatureContext* context) {
     if (ecx & (1 << 20)) features |= CPU_FEATURE_SSE4_2;
     if (ecx & (1 << 28)) features |= CPU_FEATURE_AVX;
     if (ecx & (1 << 12)) features |= CPU_FEATURE_FMA;
-    if (ecx & (1 << 3)) features |= CPU_FEATURE_MONITOR;
+    // Monitor/MWait instructions (not currently used in optimizations)
+    // if (ecx & (1 << 3)) features |= CPU_FEATURE_MONITOR;
     if (ecx & (1 << 23)) features |= CPU_FEATURE_POPCNT;
     
     // Extended features

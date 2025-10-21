@@ -18,6 +18,7 @@ TypeCheckerContext* type_checker_create_context(void) {
     context->error_messages = NULL;
     context->error_capacity = 0;
     context->inference_engine = type_inference_engine_create();
+    context->current_filename = NULL;
     
     return context;
 }
@@ -45,6 +46,11 @@ void type_checker_free_context(TypeCheckerContext* context) {
     type_inference_engine_free(context->inference_engine);
     
     shared_free_safe(context, "core", "unknown_function", 43);
+}
+
+void type_checker_set_filename(TypeCheckerContext* context, const char* filename) {
+    if (!context) return;
+    context->current_filename = filename;
 }
 
 // Type creation and management
@@ -413,7 +419,11 @@ MycoType* type_infer_binary_op(TypeCheckerContext* context, ASTNode* node) {
             } else if ((left_type->kind == TYPE_INT || left_type->kind == TYPE_FLOAT) &&
                       (right_type->kind == TYPE_INT || right_type->kind == TYPE_FLOAT)) {
                 result_type = type_create(TYPE_FLOAT, node->line, node->column);
-            } else if (left_type->kind == TYPE_STRING || right_type->kind == TYPE_STRING) {
+            } else if (left_type->kind == TYPE_STRING && right_type->kind == TYPE_STRING) {
+                result_type = type_create(TYPE_STRING, node->line, node->column);
+            } else if ((left_type->kind == TYPE_STRING && (right_type->kind == TYPE_INT || right_type->kind == TYPE_FLOAT)) ||
+                      (right_type->kind == TYPE_STRING && (left_type->kind == TYPE_INT || left_type->kind == TYPE_FLOAT))) {
+                // Allow string concatenation with numbers (implicit conversion)
                 result_type = type_create(TYPE_STRING, node->line, node->column);
             } else {
                 result_type = type_create(TYPE_ERROR, node->line, node->column);
@@ -765,9 +775,10 @@ void type_checker_add_error(TypeCheckerContext* context, const char* message, in
     }
     
     // Format error message with location
-    char* error_msg = shared_malloc_safe(strlen(message) + 50, "type_checker", "unknown_function", 623);
+    const char* filename = context->current_filename ? context->current_filename : "unknown";
+    char* error_msg = shared_malloc_safe(strlen(message) + strlen(filename) + 100, "type_checker", "unknown_function", 623);
     if (error_msg) {
-        snprintf(error_msg, strlen(message) + 50, "Type error at line %d, column %d: %s", line, column, message);
+        snprintf(error_msg, strlen(message) + strlen(filename) + 100, "Type error in %s at line %d, column %d: %s", filename, line, column, message);
         context->error_messages[context->error_count] = error_msg;
         context->error_count++;
     }
@@ -1011,6 +1022,11 @@ int type_check_variable_declaration(TypeCheckerContext* context, ASTNode* node) 
     } else if (initial_value) {
         // Infer type from initial value
         var_type = type_infer_expression(context, initial_value);
+        if (var_type && var_type->kind == TYPE_ERROR) {
+            type_checker_add_error(context, "Type error in expression", node->line, node->column);
+            type_free(var_type);
+            return 0;
+        }
     } else {
         // No type information available - use Any type
         var_type = type_create(TYPE_ANY, node->line, node->column);
@@ -1032,19 +1048,27 @@ int type_check_variable_declaration(TypeCheckerContext* context, ASTNode* node) 
     if (initial_value && declared_type) {
         MycoType* inferred_type = type_infer_expression(context, initial_value);
         if (inferred_type) {
+            // Check if the inferred type is an error type
+            if (inferred_type->kind == TYPE_ERROR) {
+                type_checker_add_error(context, "Type error in expression", node->line, node->column);
+                type_free(inferred_type);
+                type_free(var_type);
+                return 0;
+            }
+            
             // For explicitly typed variables, use strict type checking
             if (!type_is_strictly_compatible(var_type, inferred_type)) {
                 char error_msg[256];
-                const char* expected = type_to_string(var_type);
-                const char* actual = type_to_string(inferred_type);
+                const char* expected = type_kind_to_string(var_type->kind);
+                const char* actual = type_kind_to_string(inferred_type->kind);
                 snprintf(error_msg, sizeof(error_msg), 
                     "Type mismatch: expected '%s', got '%s'", expected, actual);
                 type_checker_add_error(context, error_msg, node->line, node->column);
+                type_free(inferred_type);
+                type_free(var_type);
+                return 0;
+            }
             type_free(inferred_type);
-            type_free(var_type);
-            return 0;
-        }
-        type_free(inferred_type);
         } else {
             type_checker_add_error(context, "Failed to infer type of initial value", node->line, node->column);
             type_free(var_type);

@@ -117,11 +117,13 @@ typedef struct TypeCheckerContext {
     char** error_messages;
     size_t error_capacity;
     TypeInferenceEngine* inference_engine;
+    const char* current_filename;
 } TypeCheckerContext;
 
 // Type checker functions
 TypeCheckerContext* type_checker_create_context(void);
 void type_checker_free_context(TypeCheckerContext* context);
+void type_checker_set_filename(TypeCheckerContext* context, const char* filename);
 
 // Type creation and management
 MycoType* type_create(MycoTypeKind kind, int line, int column);

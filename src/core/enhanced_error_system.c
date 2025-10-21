@@ -1512,8 +1512,9 @@ void interpreter_report_error_enhanced(struct Interpreter* interpreter, const ch
     }
     
     // Report the error
+    const char* filename = interpreter->current_file ? interpreter->current_file : "unknown";
     enhanced_error_report_simple(system, error_code, message, 
-                               "unknown",  // TODO: Get filename from interpreter context
+                               filename,
                                line, column);
 }
 

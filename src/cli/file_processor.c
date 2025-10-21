@@ -136,10 +136,10 @@ int interpret_source(const char* source, const char* filename, int debug) {
         return MYCO_ERROR_MEMORY;
     }
     
-    // Parse the program
+    // Parse the program with filename context for type checking
     if (debug) {
     }
-    ASTNode* program = parser_parse_program(parser);
+    ASTNode* program = parser_parse_program_with_filename(parser, filename);
     
     if (parser->error_count > 0) {
         printf("Warning: Parse errors detected\n");

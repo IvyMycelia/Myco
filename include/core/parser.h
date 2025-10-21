@@ -88,6 +88,7 @@ void parser_free(Parser* parser);
  * is called. If parsing fails, check parser->error_message for details.
  */
 ASTNode* parser_parse_program(Parser* parser);
+ASTNode* parser_parse_program_with_filename(Parser* parser, const char* filename);
 
 /**
  * @brief Parse a single statement from the token stream

@@ -342,7 +342,7 @@ void add_graph_methods(Value* graph) {
     value_object_set(graph, "isEmpty", value_create_builtin_function(builtin_graph_is_empty));
     value_object_set(graph, "addNode", value_create_builtin_function(builtin_graph_add_node));
     value_object_set(graph, "addEdge", value_create_builtin_function(builtin_graph_add_edge));
-    value_object_set(graph, "size", value_create_builtin_function(builtin_graph_size));
+    // Don't add size as a method - it's a property set during graph creation/updates
     value_object_set(graph, "clear", value_create_builtin_function(builtin_graph_clear));
 }
 

@@ -99,9 +99,7 @@ int interpret_source(const char* source, const char* filename, int debug) {
     }
     
     // Scan all tokens
-    printf("DEBUG: Starting to scan tokens\n");
     int token_count = lexer_scan_all(lexer);
-    printf("DEBUG: Finished scanning tokens, count: %d\n", token_count);
     
     if (token_count < 0) {
         fprintf(stderr, "Error: Failed to scan tokens\n");
@@ -127,20 +125,15 @@ int interpret_source(const char* source, const char* filename, int debug) {
     }
     
     // Create parser and parse tokens
-    printf("DEBUG: Creating parser\n");
     Parser* parser = parser_initialize(lexer);
     if (!parser) {
-        printf("DEBUG: Failed to create parser\n");
         fprintf(stderr, "Error: Failed to create parser\n");
         lexer_free(lexer);
         return MYCO_ERROR_MEMORY;
     }
-    printf("DEBUG: Parser created successfully\n");
     
     // Parse the program with filename context for type checking
-    printf("DEBUG: Starting to parse program\n");
     ASTNode* program = parser_parse_program_with_filename(parser, filename);
-    printf("DEBUG: Finished parsing program, result: %p\n", program);
     
     if (parser->error_count > 0) {
         printf("Warning: Parse errors detected\n");
@@ -179,36 +172,27 @@ int interpret_source(const char* source, const char* filename, int debug) {
     // JIT parameters are accepted but not used for now
     
     // Register built-in libraries
-    printf("DEBUG: Registering built-in libraries\n");
     register_all_builtin_libraries(interpreter);
-    printf("DEBUG: Built-in libraries registered\n");
     
     // Set source for line extraction in error traces
-    printf("DEBUG: Setting interpreter source\n");
     interpreter_set_source(interpreter, source, filename);
-    printf("DEBUG: Interpreter source set\n");
     
     Value result;
     
     // Check execution mode flags
-    printf("DEBUG: Starting program execution\n");
     if (g_force_ast_only) {
         // Force AST execution (for tests and --ast flag)
-        printf("DEBUG: Using AST execution mode\n");
         result = interpreter_execute_program(interpreter, program);
     } else if (g_bytecode_enabled) {
         // Try bytecode execution if enabled
         // TODO: Implement bytecode compilation and execution
         // For now, fall back to AST execution
         printf("Bytecode mode enabled (not yet implemented, using AST)\n");
-        printf("DEBUG: Using AST execution mode (bytecode fallback)\n");
         result = interpreter_execute_program(interpreter, program);
     } else {
         // Default: AST execution
-        printf("DEBUG: Using AST execution mode (default)\n");
         result = interpreter_execute_program(interpreter, program);
     }
-    printf("DEBUG: Program execution completed\n");
     
     if (interpreter_has_error(interpreter)) {
         // Errors are now printed live, so we just need to clean up
@@ -257,9 +241,7 @@ int compile_source(const char* source, int target, int debug) {
     }
     
     // Scan all tokens
-    printf("DEBUG: Starting to scan tokens\n");
     int token_count = lexer_scan_all(lexer);
-    printf("DEBUG: Finished scanning tokens, count: %d\n", token_count);
     
     if (token_count < 0) {
         fprintf(stderr, "Error: Failed to scan tokens\n");
@@ -382,9 +364,7 @@ int build_executable(const char* source, const char* filename, const char* archi
     }
     
     // Scan all tokens
-    printf("DEBUG: Starting to scan tokens\n");
     int token_count = lexer_scan_all(lexer);
-    printf("DEBUG: Finished scanning tokens, count: %d\n", token_count);
     
     if (token_count < 0) {
         fprintf(stderr, "Error: Failed to scan tokens\n");

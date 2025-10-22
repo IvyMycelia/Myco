@@ -414,7 +414,6 @@ Value builtin_heap_isEmpty_method(Interpreter* interpreter, Value* args, size_t 
     
     // Get the heap object from self_context
     Value* self = interpreter_get_self_context(interpreter);
-    fprintf(stderr, "DEBUG: self = %p, self->type = %d\n", (void*)self, self ? self->type : -1);
     if (!self || self->type != VALUE_OBJECT) {
         std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "heap.isEmpty() can only be called on heap objects", line, column);
         return value_create_null();

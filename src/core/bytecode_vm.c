@@ -492,7 +492,6 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
     Value result = value_create_null();
     
     if (debug) {
-        printf("DEBUG: Starting bytecode execution, %zu instructions\n", program->count);
     }
     
     while (pc < program->count) {

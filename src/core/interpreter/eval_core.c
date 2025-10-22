@@ -42,17 +42,14 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
     call_count++;
     
     if (call_count % 1000 == 0) {
-        printf("DEBUG: eval_node called %d times\n", call_count);
     }
     
     if (!node) {
-        printf("DEBUG: eval_node called with NULL node\n");
         return value_create_null();
     }
     
     // Check for existing errors before proceeding
     if (interpreter_has_error(interpreter)) {
-        printf("DEBUG: eval_node called with existing error\n");
         return value_create_null();
     }
     

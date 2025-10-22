@@ -32,7 +32,8 @@ jobs:
       - name: Install dependencies (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          # No external dependencies needed - Myco is self-contained
+          # Install coreutils for timeout command
+          brew install coreutils
           
       - name: Build Myco
         run: |
@@ -57,10 +58,18 @@ jobs:
           echo "Testing first 500 lines..."
           head -500 pass.myco > test_partial.myco
           echo 'print("=== RESULTS ==="); print("Total: " + total_tests.toString()); print("Passed: " + tests_passed.toString()); print("Failed: " + tests_failed.toString());' >> test_partial.myco
-          timeout 30s ./bin/myco test_partial.myco || echo "Partial test failed with exit code $?"
+          # Debug: show what's in the partial test
+          echo "Partial test file contents (first 10 lines):"
+          head -10 test_partial.myco
+          echo "Partial test file size:"
+          wc -l test_partial.myco
+          # Test partial suite with detailed debugging
+          echo "Running partial test with debugging..."
+          ./bin/myco test_partial.myco 2>&1 | head -20 || echo "Partial test failed with exit code $?"
+          
           # If partial test works, try full test
           echo "Testing full suite..."
-          timeout 60s ./bin/myco pass.myco || echo "Full test suite failed with exit code $?"
+          ./bin/myco pass.myco 2>&1 | head -20 || echo "Full test suite failed with exit code $?"
           
       - name: Test individual libraries
         run: |

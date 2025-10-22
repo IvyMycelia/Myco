@@ -99,11 +99,9 @@ int interpret_source(const char* source, const char* filename, int debug) {
     }
     
     // Scan all tokens
-    if (debug) {
-    }
+    printf("DEBUG: Starting to scan tokens\n");
     int token_count = lexer_scan_all(lexer);
-    if (debug) {
-    }
+    printf("DEBUG: Finished scanning tokens, count: %d\n", token_count);
     
     if (token_count < 0) {
         fprintf(stderr, "Error: Failed to scan tokens\n");
@@ -250,11 +248,9 @@ int compile_source(const char* source, int target, int debug) {
     }
     
     // Scan all tokens
-    if (debug) {
-    }
+    printf("DEBUG: Starting to scan tokens\n");
     int token_count = lexer_scan_all(lexer);
-    if (debug) {
-    }
+    printf("DEBUG: Finished scanning tokens, count: %d\n", token_count);
     
     if (token_count < 0) {
         fprintf(stderr, "Error: Failed to scan tokens\n");
@@ -377,11 +373,9 @@ int build_executable(const char* source, const char* filename, const char* archi
     }
     
     // Scan all tokens
-    if (debug) {
-    }
+    printf("DEBUG: Starting to scan tokens\n");
     int token_count = lexer_scan_all(lexer);
-    if (debug) {
-    }
+    printf("DEBUG: Finished scanning tokens, count: %d\n", token_count);
     
     if (token_count < 0) {
         fprintf(stderr, "Error: Failed to scan tokens\n");

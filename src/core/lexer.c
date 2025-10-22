@@ -483,7 +483,7 @@ static void lexer_parse_identifier(Lexer* lexer) {
     static int identifier_count = 0;
     identifier_count++;
     
-    if (identifier_count % 1000 == 0) {
+    if (identifier_count % 100 == 0) {
         printf("DEBUG: lexer_parse_identifier called %d times at position %d\n", identifier_count, lexer->current);
     }
     
@@ -493,20 +493,23 @@ static void lexer_parse_identifier(Lexer* lexer) {
         lexer_advance(lexer);
     }
     
-    if (identifier_count % 1000 == 0) {
+    if (identifier_count % 100 == 0) {
         printf("DEBUG: Finished consuming identifier characters, current pos: %d\n", lexer->current);
     }
     
     // Extract the identifier text
     char* text = lexer_extract_text(lexer);
-    if (identifier_count % 1000 == 0) {
+    if (identifier_count % 100 == 0) {
         printf("DEBUG: Extracted identifier text: %s\n", text ? text : "NULL");
     }
     if (text) {
         // Check if it's a keyword
         TokenType type = TOKEN_IDENTIFIER;
         
-        if (strcmp(text, "if") == 0) type = TOKEN_KEYWORD;
+        if (strcmp(text, "if") == 0) {
+            printf("DEBUG: Found 'if' keyword, setting type to TOKEN_KEYWORD\n");
+            type = TOKEN_KEYWORD;
+        }
         else if (strcmp(text, "else") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "while") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "for") == 0) type = TOKEN_KEYWORD;
@@ -545,9 +548,13 @@ static void lexer_parse_identifier(Lexer* lexer) {
         else if (strcmp(text, "as") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "public") == 0) type = TOKEN_KEYWORD;
         
+        printf("DEBUG: About to add identifier token: type=%d, text='%s', line=%d, column=%d\n", 
+               type, text ? text : "NULL", lexer->line, lexer->column - (text ? strlen(text) : 0));
         lexer_add_token(lexer, type, text, lexer->line, lexer->column - (text ? strlen(text) : 0));
+        printf("DEBUG: Successfully added identifier token\n");
         // printf("DEBUG: lexer_parse_identifier freeing %p\n", text);
         shared_free_safe(text, "core", "unknown_function", 439);
+        printf("DEBUG: Successfully freed identifier text\n");
     }
 }
 

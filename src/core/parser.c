@@ -284,12 +284,19 @@ static void parser_error(Parser* parser, const char* message) {
  * is called. If parsing fails, check parser->error_message for details.
  */
 ASTNode* parser_parse_program(Parser* parser) {
+    printf("DEBUG: parser_parse_program called\n");
+    
     if (!parser || !parser->lexer) {
+        printf("DEBUG: parser_parse_program - invalid parser or lexer\n");
         return NULL;  // Invalid parser or lexer
     }
     
+    printf("DEBUG: parser_parse_program - parser and lexer valid\n");
+    
     // Initialize the parser by getting the first token
+    printf("DEBUG: parser_parse_program - peeking at first token\n");
     parser_peek(parser);
+    printf("DEBUG: parser_parse_program - first token peeked\n");
     
     // Parse statements until we reach the end of the program
     ASTNode* statements = NULL;
@@ -298,7 +305,14 @@ ASTNode* parser_parse_program(Parser* parser) {
     int consecutive_failures = 0;
     const int MAX_CONSECUTIVE_FAILURES = 10;  // Prevent infinite loops
     
+    int statement_count = 0;
+    printf("DEBUG: parser_parse_program - starting statement parsing loop\n");
+    
     while (parser->current_token && parser->current_token->type != TOKEN_EOF) {
+        if (statement_count % 1000 == 0) {
+            printf("DEBUG: parser_parse_program - parsing statement %d\n", statement_count);
+        }
+        statement_count++;
         // Treat stray semicolons as empty statements and skip them
         while (parser->current_token && parser->current_token->type == TOKEN_SEMICOLON) {
             parser_advance(parser);
@@ -390,6 +404,7 @@ ASTNode* parser_parse_program_with_filename(Parser* parser, const char* filename
     
     // Parse the program normally
     printf("DEBUG: Starting to parse program\n");
+    printf("DEBUG: Parser has %d tokens to parse\n", parser->lexer->token_count);
     ASTNode* result = parser_parse_program(parser);
     printf("DEBUG: Finished parsing program, result: %p\n", result);
     

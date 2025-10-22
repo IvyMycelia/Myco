@@ -5,6 +5,11 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   build-and-deploy:
     name: Build and Deploy Documentation
@@ -52,3 +57,5 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs-site
           cname: mycolang.org
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

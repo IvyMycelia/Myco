@@ -248,7 +248,8 @@ static int parse_url(const char* url, char* host, int* port, char* path) {
     
     // Default values
     *port = 80;
-    strcpy(path, "/");
+    strncpy(path, "/", 511); // Safe copy with buffer size
+    path[511] = '\0'; // Ensure null termination
     
     // Skip protocol if present
     const char* start = url;
@@ -266,23 +267,28 @@ static int parse_url(const char* url, char* host, int* port, char* path) {
     if (colon && (!slash || colon < slash)) {
         // Has port number
         size_t host_len = colon - start;
+        if (host_len >= 255) host_len = 254; // Prevent buffer overflow
         strncpy(host, start, host_len);
         host[host_len] = '\0';
         
         if (slash) {
-            strcpy(path, slash);
+            strncpy(path, slash, 511); // Safe copy with buffer size
+            path[511] = '\0'; // Ensure null termination
         }
         
         *port = atoi(colon + 1);
     } else if (slash) {
         // No port, has path
         size_t host_len = slash - start;
+        if (host_len >= 255) host_len = 254; // Prevent buffer overflow
         strncpy(host, start, host_len);
         host[host_len] = '\0';
-        strcpy(path, slash);
+        strncpy(path, slash, 511); // Safe copy with buffer size
+        path[511] = '\0'; // Ensure null termination
     } else {
         // No port, no path
-        strcpy(host, start);
+        strncpy(host, start, 255); // Safe copy with buffer size
+        host[255] = '\0'; // Ensure null termination
     }
     
     return 1;
@@ -308,9 +314,15 @@ static char* create_http_request(const char* method, const char* path, const cha
     
     // Add custom headers
     if (headers) {
-        strcat(request, headers);
-        if (headers[strlen(headers)-1] != '\n') {
-            strcat(request, "\r\n");
+        size_t current_len = strlen(request);
+        size_t remaining = total_len - current_len - 1;
+        if (remaining > 0) {
+            strncat(request, headers, remaining);
+            current_len = strlen(request);
+            remaining = total_len - current_len - 1;
+            if (remaining > 0 && headers[strlen(headers)-1] != '\n') {
+                strncat(request, "\r\n", remaining);
+            }
         }
     }
     
@@ -318,11 +330,28 @@ static char* create_http_request(const char* method, const char* path, const cha
     if (body) {
         char content_length[32];
         snprintf(content_length, sizeof(content_length), "Content-Length: %zu\r\n", strlen(body));
-        strcat(request, content_length);
-        strcat(request, "\r\n");
-        strcat(request, body);
+        
+        size_t current_len = strlen(request);
+        size_t remaining = total_len - current_len - 1;
+        if (remaining > 0) {
+            strncat(request, content_length, remaining);
+            current_len = strlen(request);
+            remaining = total_len - current_len - 1;
+            if (remaining > 0) {
+                strncat(request, "\r\n", remaining);
+                current_len = strlen(request);
+                remaining = total_len - current_len - 1;
+                if (remaining > 0) {
+                    strncat(request, body, remaining);
+                }
+            }
+        }
     } else {
-        strcat(request, "\r\n");
+        size_t current_len = strlen(request);
+        size_t remaining = total_len - current_len - 1;
+        if (remaining > 0) {
+            strncat(request, "\r\n", remaining);
+        }
     }
     
     return request;

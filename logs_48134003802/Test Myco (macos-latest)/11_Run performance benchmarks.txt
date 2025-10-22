@@ -1,0 +1,7 @@
+﻿2025-10-22T05:27:10.6461130Z ##[group]Run if [ -f "benchmark/run_benchmarks.sh" ]; then
+2025-10-22T05:27:10.6461470Z [36;1mif [ -f "benchmark/run_benchmarks.sh" ]; then[0m
+2025-10-22T05:27:10.6461730Z [36;1m  chmod +x benchmark/run_benchmarks.sh[0m
+2025-10-22T05:27:10.6461950Z [36;1m  ./benchmark/run_benchmarks.sh[0m
+2025-10-22T05:27:10.6462130Z [36;1mfi[0m
+2025-10-22T05:27:10.6491980Z shell: /bin/bash -e {0}
+2025-10-22T05:27:10.6492160Z ##[endgroup]

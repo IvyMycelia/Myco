@@ -95,11 +95,22 @@ void lexer_free(Lexer* lexer) {
  * @return 1 if successful, 0 if failed
  */
 static int lexer_add_token(Lexer* lexer, TokenType type, const char* text, int line, int column) {
+    static int add_count = 0;
+    add_count++;
+    
+    if (add_count % 1000 == 0) {
+        printf("DEBUG: lexer_add_token called %d times, current count: %d, capacity: %d\n", add_count, lexer->token_count, lexer->token_capacity);
+    }
+    
     // Expand token array if needed
     if (lexer->token_count >= lexer->token_capacity) {
         int new_capacity = lexer->token_capacity == 0 ? 100 : lexer->token_capacity * 2;
+        if (add_count % 1000 == 0) {
+            printf("DEBUG: Expanding token array from %d to %d\n", lexer->token_capacity, new_capacity);
+        }
         Token* new_tokens = shared_realloc_safe(lexer->tokens, sizeof(Token) * new_capacity, "core", "unknown_function", 101);
         if (!new_tokens) {
+            printf("DEBUG: Failed to reallocate token array at count %d\n", lexer->token_count);
             return 0;  // Memory allocation failed
         }
         lexer->tokens = new_tokens;
@@ -472,6 +483,13 @@ static void lexer_parse_identifier(Lexer* lexer) {
  * @return 1 if a token was successfully scanned, 0 if at end or error
  */
 static int lexer_scan_token(Lexer* lexer) {
+    static int scan_count = 0;
+    scan_count++;
+    
+    if (scan_count % 1000 == 0) {
+        printf("DEBUG: lexer_scan_token called %d times, current pos: %d\n", scan_count, lexer->current);
+    }
+    
     lexer->start = lexer->current;
     
     // Skip whitespace and comments in a loop to handle consecutive comments
@@ -489,10 +507,17 @@ static int lexer_scan_token(Lexer* lexer) {
     lexer->start = lexer->current;
     
     if (lexer_is_at_end(lexer)) {
+        if (scan_count % 1000 == 0) {
+            printf("DEBUG: lexer_scan_token reached end at position %d\n", lexer->current);
+        }
         return 0;  // No more tokens
     }
     
     char c = lexer_current_char(lexer);
+    
+    if (scan_count % 1000 == 0) {
+        printf("DEBUG: lexer_scan_token processing char '%c' at position %d\n", c, lexer->current);
+    }
     
     // Handle single-character tokens
     switch (c) {
@@ -717,6 +742,11 @@ int lexer_scan_all(Lexer* lexer) {
         token_count++;
         if (token_count % 100 == 0) {
             printf("DEBUG: Scanned %d tokens\n", token_count);
+        }
+        // Add safety check for excessive token count
+        if (token_count > 15000) {
+            printf("DEBUG: WARNING - Excessive token count: %d, stopping to prevent crash\n", token_count);
+            break;
         }
     }
     printf("DEBUG: Finished scanning %d tokens\n", token_count);

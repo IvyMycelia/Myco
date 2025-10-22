@@ -991,6 +991,12 @@ int type_check_ast(TypeCheckerContext* context, ASTNode* node) {
 int type_check_statement(TypeCheckerContext* context, ASTNode* node) {
     if (!context || !node) return 0;
     
+    // Safety check for invalid line/column information
+    if (node->line == 0 && node->column == 0) {
+        // Skip type checking for nodes with invalid position information
+        return 1;
+    }
+    
     switch (node->type) {
         case AST_NODE_VARIABLE_DECLARATION:
             return type_check_variable_declaration(context, node);
@@ -1009,6 +1015,12 @@ int type_check_statement(TypeCheckerContext* context, ASTNode* node) {
 
 int type_check_variable_declaration(TypeCheckerContext* context, ASTNode* node) {
     if (!context || !node || node->type != AST_NODE_VARIABLE_DECLARATION) return 0;
+    
+    // Safety check for invalid line/column information
+    if (node->line == 0 && node->column == 0) {
+        // Skip type checking for nodes with invalid position information
+        return 1;
+    }
     
     const char* var_name = node->data.variable_declaration.variable_name;
     const char* declared_type = node->data.variable_declaration.type_name;

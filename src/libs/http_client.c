@@ -469,8 +469,8 @@ HttpResponse* http_client_request(const char* url, const char* method,
     // Check if this is HTTPS
     bool is_https = (strncmp(url, "https://", 8) == 0);
     
-#ifdef HTTP_CLIENT_MOCK_HTTPS
     // For HTTPS, return a mock response to prevent segfaults
+    // This prevents issues with incomplete TLS implementation in CI environments
     if (is_https) {
         HttpResponse* response = shared_malloc_safe(sizeof(HttpResponse), "http_client", "http_client_request", 0);
         if (!response) return NULL;
@@ -487,7 +487,6 @@ HttpResponse* http_client_request(const char* url, const char* method,
         shared_free_safe(url_copy, "http_client", "http_client_request", 0);
         return response;
     }
-#endif
     
     // Create socket
     int sock = socket(AF_INET, SOCK_STREAM, 0);

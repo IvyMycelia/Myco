@@ -133,26 +133,48 @@ Value builtin_input(Interpreter* interpreter, Value* args, size_t arg_count, int
         }
     }
     
-    // Read input from stdin
+    // Read input from stdin using portable method
     char* buffer = NULL;
     size_t buffer_size = 0;
-    ssize_t bytes_read = getline(&buffer, &buffer_size, stdin);
+    size_t bytes_read = 0;
     
-    if (bytes_read == -1) {
-        // Error reading input or EOF
-        if (buffer) {
-            shared_free_safe(buffer, "interpreter", "unknown_function", 5470);
-        }
+    // Allocate initial buffer
+    buffer_size = 64; // Start with small buffer
+    buffer = shared_malloc_safe(buffer_size, "interpreter", "unknown_function", 5470);
+    if (!buffer) {
         return value_create_string("");
     }
     
-    // Remove newline character if present
-    if (bytes_read > 0 && buffer[bytes_read - 1] == '\n') {
-        buffer[bytes_read - 1] = '\0';
+    // Read character by character until newline or EOF
+    int c;
+    while ((c = getchar()) != EOF && c != '\n') {
+        // Resize buffer if needed
+        if (bytes_read >= buffer_size - 1) {
+            buffer_size *= 2;
+            char* new_buffer = shared_realloc_safe(buffer, buffer_size, "interpreter", "unknown_function", 5470);
+            if (!new_buffer) {
+                shared_free_safe(buffer, "interpreter", "unknown_function", 5470);
+                return value_create_string("");
+            }
+            buffer = new_buffer;
+        }
+        buffer[bytes_read++] = (char)c;
     }
     
+    // Handle EOF case
+    if (c == EOF && bytes_read == 0) {
+        shared_free_safe(buffer, "interpreter", "unknown_function", 5470);
+        return value_create_string("");
+    }
+    
+    // Null terminate
+    buffer[bytes_read] = '\0';
+    
+    // Create result string
     Value result = value_create_string(buffer);
-    shared_free_safe(buffer, "interpreter", "unknown_function", 5481);
+    
+    // Clean up
+    shared_free_safe(buffer, "interpreter", "unknown_function", 5470);
     return result;
 }
 

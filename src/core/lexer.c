@@ -98,9 +98,7 @@ static int lexer_add_token(Lexer* lexer, TokenType type, const char* text, int l
     static int add_count = 0;
     add_count++;
     
-    if (add_count % 100 == 0) {
-        printf("DEBUG: lexer_add_token called %d times, current count: %d, capacity: %d\n", add_count, lexer->token_count, lexer->token_capacity);
-    }
+    // Debug output removed for production
     
     // Expand token array if needed
     if (lexer->token_count >= lexer->token_capacity) {
@@ -118,51 +116,38 @@ static int lexer_add_token(Lexer* lexer, TokenType type, const char* text, int l
     }
     
     // Create the new token
-    printf("DEBUG: Creating token at index %d, type=%d, text='%s'\n", lexer->token_count, type, text ? text : "NULL");
-    
     // Safety check for token array bounds
     if (lexer->token_count >= lexer->token_capacity) {
-        printf("DEBUG: ERROR - Token count %d exceeds capacity %d\n", lexer->token_count, lexer->token_capacity);
         return 0;
     }
     
     Token* token = &lexer->tokens[lexer->token_count];
-    printf("DEBUG: Token pointer: %p\n", token);
     
     // Safety check for token pointer
     if (!token) {
-        printf("DEBUG: ERROR - Token pointer is NULL\n");
         return 0;
     }
     
     token->type = type;
     token->line = line;
     token->column = column;
-    printf("DEBUG: Set token basic fields\n");
     
     // Copy the text content
     if (text) {
-        printf("DEBUG: About to duplicate text: '%s'\n", text);
         token->text = shared_strdup(text);
-        printf("DEBUG: Text duplicated, result: %p\n", token->text);
         if (!token->text) {
-            printf("DEBUG: ERROR - Text duplication failed\n");
             return 0;  // Memory allocation failed
         }
     } else {
-        printf("DEBUG: No text to duplicate\n");
         token->text = NULL;
     }
     
     // Initialize the data union based on token type
-    printf("DEBUG: About to initialize data union for type %d\n", type);
-    
     // Initialize data union to zero first for safety
     memset(&token->data, 0, sizeof(token->data));
     
     switch (type) {
         case TOKEN_NUMBER:
-            printf("DEBUG: Initializing TOKEN_NUMBER\n");
             if (text) {
                 token->data.number_value = atof(text);
             } else {
@@ -170,11 +155,9 @@ static int lexer_add_token(Lexer* lexer, TokenType type, const char* text, int l
             }
             break;
         case TOKEN_STRING:
-            printf("DEBUG: Initializing TOKEN_STRING\n");
             if (text) {
                 token->data.string_value = shared_strdup(text);
                 if (!token->data.string_value) {
-                    printf("DEBUG: ERROR - Failed to duplicate string for data union\n");
                     return 0;
                 }
             } else {
@@ -182,7 +165,6 @@ static int lexer_add_token(Lexer* lexer, TokenType type, const char* text, int l
             }
             break;
         case TOKEN_BOOL:
-            printf("DEBUG: Initializing TOKEN_BOOL\n");
             if (text && (strcmp(text, "True") == 0 || strcmp(text, "true") == 0)) {
                 token->data.bool_value = 1;
             } else {
@@ -190,11 +172,9 @@ static int lexer_add_token(Lexer* lexer, TokenType type, const char* text, int l
             }
             break;
         default:
-            printf("DEBUG: Initializing default case for type %d\n", type);
             // For other token types, data is not used - already zeroed
             break;
     }
-    printf("DEBUG: Data union initialized\n");
     
     lexer->token_count++;
     return 1;

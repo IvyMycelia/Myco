@@ -2442,9 +2442,14 @@ Value builtin_group_get(Interpreter* interpreter, Value* args, size_t arg_count,
     }
     
     // Combine prefix with path
-    char* full_path = shared_malloc_safe(strlen(g_current_route_prefix) + strlen(path_val.data.string_value) + 1, "libs", "unknown_function", 2210);
-    strcpy(full_path, g_current_route_prefix);
-    strcat(full_path, path_val.data.string_value);
+    size_t prefix_len = g_current_route_prefix ? strlen(g_current_route_prefix) : 0;
+    char* full_path = shared_malloc_safe(prefix_len + strlen(path_val.data.string_value) + 1, "libs", "unknown_function", 2210);
+    if (g_current_route_prefix) {
+        strcpy(full_path, g_current_route_prefix);
+        strcat(full_path, path_val.data.string_value);
+    } else {
+        strcpy(full_path, path_val.data.string_value);
+    }
     
     // Create route with the full path
     Route* route = route_create("GET", full_path, handler);
@@ -2482,9 +2487,14 @@ Value builtin_group_post(Interpreter* interpreter, Value* args, size_t arg_count
     }
     
     // Combine prefix with path
-    char* full_path = shared_malloc_safe(strlen(g_current_route_prefix) + strlen(path_val.data.string_value) + 1, "libs", "unknown_function", 2250);
-    strcpy(full_path, g_current_route_prefix);
-    strcat(full_path, path_val.data.string_value);
+    size_t prefix_len = g_current_route_prefix ? strlen(g_current_route_prefix) : 0;
+    char* full_path = shared_malloc_safe(prefix_len + strlen(path_val.data.string_value) + 1, "libs", "unknown_function", 2250);
+    if (g_current_route_prefix) {
+        strcpy(full_path, g_current_route_prefix);
+        strcat(full_path, path_val.data.string_value);
+    } else {
+        strcpy(full_path, path_val.data.string_value);
+    }
     
     // Create route with the full path
     Route* route = route_create("POST", full_path, handler);
@@ -2522,9 +2532,14 @@ Value builtin_group_put(Interpreter* interpreter, Value* args, size_t arg_count,
     }
     
     // Combine prefix with path
-    char* full_path = shared_malloc_safe(strlen(g_current_route_prefix) + strlen(path_val.data.string_value) + 1, "libs", "unknown_function", 2290);
-    strcpy(full_path, g_current_route_prefix);
-    strcat(full_path, path_val.data.string_value);
+    size_t prefix_len = g_current_route_prefix ? strlen(g_current_route_prefix) : 0;
+    char* full_path = shared_malloc_safe(prefix_len + strlen(path_val.data.string_value) + 1, "libs", "unknown_function", 2290);
+    if (g_current_route_prefix) {
+        strcpy(full_path, g_current_route_prefix);
+        strcat(full_path, path_val.data.string_value);
+    } else {
+        strcpy(full_path, path_val.data.string_value);
+    }
     
     // Create route with the full path
     Route* route = route_create("PUT", full_path, handler);
@@ -2562,9 +2577,14 @@ Value builtin_group_delete(Interpreter* interpreter, Value* args, size_t arg_cou
     }
     
     // Combine prefix with path
-    char* full_path = shared_malloc_safe(strlen(g_current_route_prefix) + strlen(path_val.data.string_value) + 1, "libs", "unknown_function", 2330);
-    strcpy(full_path, g_current_route_prefix);
-    strcat(full_path, path_val.data.string_value);
+    size_t prefix_len = g_current_route_prefix ? strlen(g_current_route_prefix) : 0;
+    char* full_path = shared_malloc_safe(prefix_len + strlen(path_val.data.string_value) + 1, "libs", "unknown_function", 2330);
+    if (g_current_route_prefix) {
+        strcpy(full_path, g_current_route_prefix);
+        strcat(full_path, path_val.data.string_value);
+    } else {
+        strcpy(full_path, path_val.data.string_value);
+    }
     
     // Create route with the full path
     Route* route = route_create("DELETE", full_path, handler);

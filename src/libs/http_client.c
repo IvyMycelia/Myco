@@ -520,11 +520,13 @@ HttpResponse* http_client_request(const char* url, const char* method,
         }
         
         if (http_start) {
-            strcpy(response_buffer, http_start);
+            strncpy(response_buffer, http_start, 8191);
+            response_buffer[8191] = '\0';
             total_received = strlen(response_buffer);
         } else {
             // Create a mock response for now
-            strcpy(response_buffer, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"message\": \"HTTPS request successful\"}");
+            strncpy(response_buffer, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"message\": \"HTTPS request successful\"}", 8191);
+            response_buffer[8191] = '\0';
             total_received = strlen(response_buffer);
         }
     } else {

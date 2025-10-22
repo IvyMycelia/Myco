@@ -685,14 +685,10 @@ static int lexer_scan_token(Lexer* lexer) {
  * the lexer and will be freed when lexer_free() is called.
  */
 int lexer_scan_all(Lexer* lexer) {
-    #ifdef __linux__
-    printf("DEBUG: lexer_scan_all called on Linux\n");
-    #endif
+    printf("DEBUG: lexer_scan_all called\n");
     
     if (!lexer || !lexer->source) {
-        #ifdef __linux__
-        printf("DEBUG: Invalid lexer or source on Linux\n");
-        #endif
+        printf("DEBUG: Invalid lexer or source\n");
         return -1;  // Invalid lexer or source
     }
     
@@ -716,9 +712,14 @@ int lexer_scan_all(Lexer* lexer) {
     lexer->token_capacity = 0;
     
     // Scan tokens until we reach the end
+    int token_count = 0;
     while (lexer_scan_token(lexer)) {
-        // Continue scanning...
+        token_count++;
+        if (token_count % 100 == 0) {
+            printf("DEBUG: Scanned %d tokens\n", token_count);
+        }
     }
+    printf("DEBUG: Finished scanning %d tokens\n", token_count);
     
     // Add EOF token
     lexer_add_token(lexer, TOKEN_EOF, "EOF", lexer->line, lexer->column);

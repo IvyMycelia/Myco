@@ -71,22 +71,15 @@ static ReplDebugSession* global_repl_session = NULL;
 // }
 
 Interpreter* interpreter_create(void) {
-    // Add platform-specific debugging for Ubuntu
-    #ifdef __linux__
-    printf("DEBUG: Creating interpreter on Linux/Ubuntu\n");
-    #endif
+    printf("DEBUG: Creating interpreter\n");
     
     Interpreter* interpreter = shared_malloc_safe(sizeof(Interpreter), "interpreter", "unknown_function", 28);
     if (!interpreter) {
-        #ifdef __linux__
-        printf("DEBUG: Failed to allocate interpreter on Linux\n");
-        #endif
+        printf("DEBUG: Failed to allocate interpreter\n");
         return NULL;
     }
     
-    #ifdef __linux__
-    printf("DEBUG: Interpreter allocated successfully on Linux\n");
-    #endif
+    printf("DEBUG: Interpreter allocated successfully at %p\n", interpreter);
     
     // Initialize global systems if not already done
     if (!global_error_system) {

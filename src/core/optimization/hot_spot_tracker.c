@@ -1,3 +1,6 @@
+// Define POSIX source before including time.h to ensure clock_gettime and timespec are available
+#define _POSIX_C_SOURCE 200809L
+
 #include "../../include/core/optimization/hot_spot_tracker.h"
 #include "../../include/core/interpreter/interpreter_core.h"
 #include "../../include/core/ast.h"

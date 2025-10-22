@@ -279,15 +279,36 @@ static void lexer_skip_comments(Lexer* lexer) {
  * @return A newly allocated string containing the extracted text
  */
 static char* lexer_extract_text(Lexer* lexer) {
+    static int extract_count = 0;
+    extract_count++;
+    
+    if (extract_count % 1000 == 0) {
+        printf("DEBUG: lexer_extract_text called %d times, start: %d, current: %d\n", extract_count, lexer->start, lexer->current);
+    }
+    
     if (!lexer || !lexer->source) {
+        if (extract_count % 1000 == 0) {
+            printf("DEBUG: lexer_extract_text failed - invalid lexer or source\n");
+        }
         return NULL;
     }
     int length = lexer->current - lexer->start;
+    
+    if (extract_count % 1000 == 0) {
+        printf("DEBUG: lexer_extract_text allocating %d bytes\n", length + 1);
+    }
+    
     char* text = shared_malloc_safe(length + 1, "core", "unknown_function", 257);
     if (text) {
+        if (extract_count % 1000 == 0) {
+            printf("DEBUG: lexer_extract_text allocated successfully at %p\n", text);
+        }
         strncpy(text, lexer->source + lexer->start, length);
         text[length] = '\0';
-        // printf("DEBUG: lexer_extract_text allocated %p (length: %d)\n", text, length);
+    } else {
+        if (extract_count % 1000 == 0) {
+            printf("DEBUG: lexer_extract_text allocation failed\n");
+        }
     }
     return text;
 }
@@ -419,14 +440,28 @@ static void lexer_parse_string(Lexer* lexer) {
  * @param lexer The lexer to parse the identifier in
  */
 static void lexer_parse_identifier(Lexer* lexer) {
+    static int identifier_count = 0;
+    identifier_count++;
+    
+    if (identifier_count % 1000 == 0) {
+        printf("DEBUG: lexer_parse_identifier called %d times at position %d\n", identifier_count, lexer->current);
+    }
+    
     // Consume alphanumeric characters and underscores
     while (!lexer_is_at_end(lexer) && 
            (isalnum(lexer_current_char(lexer)) || lexer_current_char(lexer) == '_')) {
         lexer_advance(lexer);
     }
     
+    if (identifier_count % 1000 == 0) {
+        printf("DEBUG: Finished consuming identifier characters, current pos: %d\n", lexer->current);
+    }
+    
     // Extract the identifier text
     char* text = lexer_extract_text(lexer);
+    if (identifier_count % 1000 == 0) {
+        printf("DEBUG: Extracted identifier text: %s\n", text ? text : "NULL");
+    }
     if (text) {
         // Check if it's a keyword
         TokenType type = TOKEN_IDENTIFIER;
@@ -522,6 +557,9 @@ static int lexer_scan_token(Lexer* lexer) {
     // Handle single-character tokens
     switch (c) {
         case '(':
+            if (scan_count % 1000 == 0) {
+                printf("DEBUG: Processing '(' token at position %d\n", lexer->current);
+            }
             lexer_advance(lexer);
             lexer_add_token(lexer, TOKEN_LEFT_PAREN, "(", lexer->line, lexer->column - 1);
             break;

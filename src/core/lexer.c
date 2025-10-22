@@ -282,7 +282,7 @@ static char* lexer_extract_text(Lexer* lexer) {
     static int extract_count = 0;
     extract_count++;
     
-    if (extract_count % 1000 == 0) {
+    if (extract_count % 100 == 0) {
         printf("DEBUG: lexer_extract_text called %d times, start: %d, current: %d\n", extract_count, lexer->start, lexer->current);
     }
     
@@ -294,19 +294,21 @@ static char* lexer_extract_text(Lexer* lexer) {
     }
     int length = lexer->current - lexer->start;
     
-    if (extract_count % 1000 == 0) {
+    if (extract_count % 100 == 0) {
         printf("DEBUG: lexer_extract_text allocating %d bytes\n", length + 1);
     }
     
     char* text = shared_malloc_safe(length + 1, "core", "unknown_function", 257);
     if (text) {
-        if (extract_count % 1000 == 0) {
+        if (extract_count % 100 == 0) {
             printf("DEBUG: lexer_extract_text allocated successfully at %p\n", text);
         }
+        printf("DEBUG: About to copy %d bytes from position %d\n", length, lexer->start);
         strncpy(text, lexer->source + lexer->start, length);
         text[length] = '\0';
+        printf("DEBUG: Successfully copied text: '%.*s'\n", (int)length, text);
     } else {
-        if (extract_count % 1000 == 0) {
+        if (extract_count % 100 == 0) {
             printf("DEBUG: lexer_extract_text allocation failed\n");
         }
     }

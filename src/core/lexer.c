@@ -561,7 +561,7 @@ static int lexer_scan_token(Lexer* lexer) {
     static int scan_count = 0;
     scan_count++;
     
-    if (scan_count % 1000 == 0) {
+    if (scan_count % 100 == 0) {
         printf("DEBUG: lexer_scan_token called %d times, current pos: %d\n", scan_count, lexer->current);
     }
     
@@ -590,7 +590,7 @@ static int lexer_scan_token(Lexer* lexer) {
     
     char c = lexer_current_char(lexer);
     
-    if (scan_count % 1000 == 0) {
+    if (scan_count % 100 == 0) {
         printf("DEBUG: lexer_scan_token processing char '%c' at position %d\n", c, lexer->current);
     }
     

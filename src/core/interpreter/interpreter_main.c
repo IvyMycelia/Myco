@@ -219,7 +219,14 @@ Value value_create_error(const char* message, int code) { Value v = {0}; return 
 
 // eval_node and interpreter_execute are now defined in eval_core.c
 Value interpreter_execute_program(Interpreter* interpreter, ASTNode* node) {
-    if (!node) return value_create_null();
+    printf("DEBUG: interpreter_execute_program called\n");
+    
+    if (!node) {
+        printf("DEBUG: interpreter_execute_program - NULL node\n");
+        return value_create_null();
+    }
+    
+    printf("DEBUG: interpreter_execute_program - node type: %d\n", node->type);
     
     // Clear any previous errors before starting execution
     if (interpreter) {
@@ -230,13 +237,19 @@ Value interpreter_execute_program(Interpreter* interpreter, ASTNode* node) {
     // Hot spot tracking is still active for future JIT compilation
 
     if (node->type == AST_NODE_BLOCK) {
+        printf("DEBUG: interpreter_execute_program - processing block with %zu statements\n", node->data.block.statement_count);
         for (size_t i = 0; i < node->data.block.statement_count; i++) {
+            if (i % 1000 == 0) {
+                printf("DEBUG: interpreter_execute_program - executing statement %zu\n", i);
+            }
             // Stop execution if there's an error (like Python)
             eval_node(interpreter, node->data.block.statements[i]);
             if (interpreter_has_error(interpreter)) {
+                printf("DEBUG: interpreter_execute_program - error detected at statement %zu\n", i);
                 return value_create_null();
             }
         }
+        printf("DEBUG: interpreter_execute_program - block execution completed\n");
         return value_create_null();
     }
     return eval_node(interpreter, node);

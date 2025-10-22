@@ -78,8 +78,15 @@ void shared_error_report_code(const char* component, const char* function,
 }
 
 void* shared_malloc_safe(size_t size, const char* component, const char* function, int line) {
+    // Aggressive safety checks
     if (size == 0) {
         shared_error_report(component, function, "Attempted to allocate 0 bytes", line, 0);
+        return NULL;
+    }
+    
+    // Check for suspiciously large allocations
+    if (size > 1024 * 1024 * 1024) { // 1GB limit
+        shared_error_report(component, function, "Suspiciously large allocation requested", line, 0);
         return NULL;
     }
     
@@ -87,6 +94,14 @@ void* shared_malloc_safe(size_t size, const char* component, const char* functio
     if (!ptr) {
         shared_error_report(component, function, "Memory allocation failed", line, 0);
         return NULL;
+    }
+    
+    // Initialize memory to detect use-after-free
+    memset(ptr, 0xDEADBEEF, size);
+    
+    // Debug logging for large allocations
+    if (size > 1024) {
+        printf("DEBUG: Large allocation: %zu bytes at %p in %s::%s\n", size, ptr, component, function);
     }
     
     if (shared_config_get_component_debug(component)) {
@@ -143,6 +158,12 @@ void shared_free_safe(void* ptr, const char* component, const char* function, in
         if (shared_config_get_component_debug(component)) {
             shared_debug_printf(component, function, "Freeing memory at %p", ptr);
         }
+        
+        // Double-free detection disabled for now - focusing on fixing the actual issue
+        
+        // Overwrite memory before freeing to detect use-after-free
+        memset(ptr, 0xDEADBEEF, 16); // Only overwrite first 16 bytes for safety
+        
         free(ptr);
     }
 }

@@ -276,6 +276,7 @@ static char* lexer_extract_text(Lexer* lexer) {
     if (text) {
         strncpy(text, lexer->source + lexer->start, length);
         text[length] = '\0';
+        // printf("DEBUG: lexer_extract_text allocated %p (length: %d)\n", text, length);
     }
     return text;
 }
@@ -395,6 +396,7 @@ static void lexer_parse_string(Lexer* lexer) {
     // Null terminate the result
     result[result_len] = '\0';
     lexer_add_token(lexer, TOKEN_STRING, result, lexer->line, lexer->column - result_len - 1);
+    // printf("DEBUG: lexer_parse_string freeing %p\n", result);
     shared_free_safe(result, "core", "unknown_function", 380);
     
     lexer_advance(lexer);  // Consume the closing quote
@@ -458,6 +460,7 @@ static void lexer_parse_identifier(Lexer* lexer) {
         else if (strcmp(text, "public") == 0) type = TOKEN_KEYWORD;
         
         lexer_add_token(lexer, type, text, lexer->line, lexer->column - (text ? strlen(text) : 0));
+        // printf("DEBUG: lexer_parse_identifier freeing %p\n", text);
         shared_free_safe(text, "core", "unknown_function", 439);
     }
 }
@@ -686,12 +689,24 @@ int lexer_scan_all(Lexer* lexer) {
         return -1;  // Invalid lexer or source
     }
     
+    // Free existing tokens before starting fresh scan
+    if (lexer->tokens) {
+        for (int i = 0; i < lexer->token_count; i++) {
+            if (lexer->tokens[i].text) {
+                shared_free_safe(lexer->tokens[i].text, "core", "unknown_function", 73);
+            }
+        }
+        shared_free_safe(lexer->tokens, "core", "unknown_function", 76);
+        lexer->tokens = NULL;
+    }
+    
     // Reset lexer state for fresh scanning
     lexer->start = 0;
     lexer->current = 0;
     lexer->line = 1;
     lexer->column = 1;
     lexer->token_count = 0;
+    lexer->token_capacity = 0;
     
     // Scan tokens until we reach the end
     while (lexer_scan_token(lexer)) {

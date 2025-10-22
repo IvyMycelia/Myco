@@ -67,10 +67,11 @@ void lexer_free(Lexer* lexer) {
     }
     
     // Free all tokens in the array
-    if (lexer->tokens) {
+    if (lexer->tokens && lexer->token_count > 0) {
         for (int i = 0; i < lexer->token_count; i++) {
             if (lexer->tokens[i].text) {
                 shared_free_safe(lexer->tokens[i].text, "core", "unknown_function", 73);
+                lexer->tokens[i].text = NULL;  // Prevent double-free
             }
         }
         shared_free_safe(lexer->tokens, "core", "unknown_function", 76);
@@ -113,10 +114,7 @@ static int lexer_add_token(Lexer* lexer, TokenType type, const char* text, int l
     }
     
     // Create the new token
-    // Safety check for token array bounds
-    if (lexer->token_count >= lexer->token_capacity) {
-        return 0;
-    }
+    // Token array has been expanded if needed above
     
     Token* token = &lexer->tokens[lexer->token_count];
     
@@ -791,10 +789,11 @@ int lexer_scan_all(Lexer* lexer) {
     }
     
     // Free existing tokens before starting fresh scan
-    if (lexer->tokens) {
+    if (lexer->tokens && lexer->token_count > 0) {
         for (int i = 0; i < lexer->token_count; i++) {
             if (lexer->tokens[i].text) {
                 shared_free_safe(lexer->tokens[i].text, "core", "unknown_function", 73);
+                lexer->tokens[i].text = NULL;  // Prevent double-free
             }
         }
         shared_free_safe(lexer->tokens, "core", "unknown_function", 76);

@@ -96,13 +96,13 @@ void* shared_malloc_safe(size_t size, const char* component, const char* functio
         return NULL;
     }
     
-    // Initialize memory to detect use-after-free
-    memset(ptr, 0xDEADBEEF, size);
+    // Initialize memory to detect use-after-free (disabled for performance)
+    // memset(ptr, 0xDEADBEEF, size);
     
-    // Debug logging for large allocations
-    if (size > 1024) {
-        printf("DEBUG: Large allocation: %zu bytes at %p in %s::%s\n", size, ptr, component, function);
-    }
+    // Debug logging for large allocations (disabled for performance)
+    // if (size > 1024) {
+    //     printf("DEBUG: Large allocation: %zu bytes at %p in %s::%s\n", size, ptr, component, function);
+    // }
     
     if (shared_config_get_component_debug(component)) {
         shared_debug_printf(component, function, "Allocated %zu bytes at %p", size, ptr);
@@ -161,8 +161,8 @@ void shared_free_safe(void* ptr, const char* component, const char* function, in
         
         // Double-free detection disabled for now - focusing on fixing the actual issue
         
-        // Overwrite memory before freeing to detect use-after-free
-        memset(ptr, 0xDEADBEEF, 16); // Only overwrite first 16 bytes for safety
+        // Overwrite memory before freeing to detect use-after-free (disabled for performance)
+        // memset(ptr, 0xDEADBEEF, 16); // Only overwrite first 16 bytes for safety
         
         free(ptr);
     }

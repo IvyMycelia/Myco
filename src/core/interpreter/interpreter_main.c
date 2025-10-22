@@ -51,38 +51,30 @@ static ReplDebugSession* global_repl_session = NULL;
 // Placeholder interpreter implementation
 // This will be replaced with the full implementation
 
-// Signal handler for debugging segfaults
-void segfault_handler(int sig) {
-    printf("DEBUG: Segmentation fault detected!\n");
-    printf("DEBUG: Signal: %d\n", sig);
-    
-    // Print backtrace
-    void *array[10];
-    size_t size = backtrace(array, 10);
-    char **strings = backtrace_symbols(array, size);
-    
-    printf("DEBUG: Backtrace:\n");
-    for (size_t i = 0; i < size; i++) {
-        printf("DEBUG: %s\n", strings[i]);
-    }
-    
-    free(strings);
-    exit(1);
-}
+// Signal handler for debugging segfaults (disabled for performance)
+// void segfault_handler(int sig) {
+//     printf("DEBUG: Segmentation fault detected!\n");
+//     printf("DEBUG: Signal: %d\n", sig);
+//     
+//     // Print backtrace
+//     void *array[10];
+//     size_t size = backtrace(array, 10);
+//     char **strings = backtrace_symbols(array, size);
+//     
+//     printf("DEBUG: Backtrace:\n");
+//     for (size_t i = 0; i < size; i++) {
+//         printf("DEBUG: %s\n", strings[i]);
+//     }
+//     
+//     free(strings);
+//     exit(1);
+// }
 
 Interpreter* interpreter_create(void) {
-    printf("DEBUG: Creating interpreter...\n");
-    
-    // Register signal handler for debugging
-    signal(SIGSEGV, segfault_handler);
-    signal(SIGABRT, segfault_handler);
-    
     Interpreter* interpreter = shared_malloc_safe(sizeof(Interpreter), "interpreter", "unknown_function", 28);
     if (!interpreter) {
-        printf("DEBUG: Failed to allocate interpreter\n");
         return NULL;
     }
-    printf("DEBUG: Interpreter allocated at %p\n", interpreter);
     
     // Initialize global systems if not already done
     if (!global_error_system) {

@@ -107,18 +107,18 @@ MAIN_EXECUTABLE = $(BIN_DIR)/myco
 TEST_EXECUTABLE = $(BIN_DIR)/myco_test
 LSP_EXECUTABLE = $(BIN_DIR)/myco-lsp
 
-# Libraries - Platform-specific library paths
+# Libraries - No external dependencies (using custom implementations)
 ifeq ($(PLATFORM),macos)
-    LIBS = -lm -lcurl -lz -lreadline -L/opt/homebrew/opt/libmicrohttpd/lib -lmicrohttpd
-    INCLUDE_FLAGS = -I/opt/homebrew/opt/libmicrohttpd/include
+    LIBS = -lm
+    INCLUDE_FLAGS = 
 else ifeq ($(PLATFORM),linux)
-    LIBS = -lm -lcurl -lz -lreadline -lmicrohttpd
+    LIBS = -lm
     INCLUDE_FLAGS = 
 else ifeq ($(PLATFORM),windows)
-    LIBS = -lm -lcurl -lz -lreadline -lmicrohttpd
+    LIBS = -lm
     INCLUDE_FLAGS = 
 else
-    LIBS = -lm -lcurl -lz -lreadline -lmicrohttpd
+    LIBS = -lm
     INCLUDE_FLAGS = 
 endif
 

@@ -491,8 +491,8 @@ Value builtin_template_render(Interpreter* interpreter, Value* args, size_t arg_
         return value_create_null();
     }
     
-    if (args[1].type != VALUE_OBJECT) {
-        printf("Error: template.render() context must be an object\n");
+    if (args[1].type != VALUE_OBJECT && args[1].type != VALUE_HASH_MAP) {
+        printf("Error: template.render() context must be an object or map\n");
         return value_create_null();
     }
     
@@ -699,10 +699,11 @@ void web_library_register(Interpreter* interpreter) {
     if (!interpreter || !interpreter->global_environment) return;
     
     // Create web namespace
-    Value web_namespace = value_create_object(2);
+    Value web_namespace = value_create_object(10);
     // Mark as Library for .type reporting
     value_object_set(&web_namespace, "__type__", value_create_string("Library"));
     value_object_set(&web_namespace, "type", value_create_string("Library"));
+    value_object_set(&web_namespace, "__library_name__", value_create_string("web"));
     
     // Add web functions
     value_object_set(&web_namespace, "create", value_create_builtin_function(builtin_web_app_create));
@@ -1123,9 +1124,13 @@ TemplateNode* template_parse_node(const char* content, size_t* pos) {
                         if (strncmp(tag_content, "if ", 3) == 0) {
                             node->type = TEMPLATE_IF;
                             node->condition = shared_strdup(tag_content + 3);
+                            // Parse children until {% endif %}
+                            node->children = template_parse_until(content, pos, "endif");
                         } else if (strncmp(tag_content, "for ", 4) == 0) {
                             node->type = TEMPLATE_FOR;
                             node->condition = shared_strdup(tag_content + 4);
+                            // Parse children until {% endfor %}
+                            node->children = template_parse_until(content, pos, "endfor");
                         } else if (strncmp(tag_content, "include ", 8) == 0) {
                             node->type = TEMPLATE_INCLUDE;
                             node->condition = shared_strdup(tag_content + 8);
@@ -1161,6 +1166,120 @@ TemplateNode* template_parse_node(const char* content, size_t* pos) {
                 node->type = TEMPLATE_TEXT;
                 size_t text_len = *pos - text_start;
                 node->content = shared_malloc_safe(text_len + 1, "web", "template_parse_node", 1070);
+                if (node->content) {
+                    strncpy(node->content, content + text_start, text_len);
+                    node->content[text_len] = '\0';
+                }
+                node->children = NULL;
+                node->next = NULL;
+                
+                if (!head) {
+                    head = current = node;
+                } else {
+                    current->next = node;
+                    current = node;
+                }
+            }
+        }
+    }
+    
+    return head;
+}
+
+// Parse template content until a specific closing tag is found
+TemplateNode* template_parse_until(const char* content, size_t* pos, const char* end_tag) {
+    if (!content || !pos || !end_tag) return NULL;
+    
+    TemplateNode* head = NULL;
+    TemplateNode* current = NULL;
+    
+    while (content[*pos] != '\0') {
+        // Look for closing tag
+        if (content[*pos] == '{' && content[*pos + 1] == '%') {
+            size_t start = *pos + 2;
+            size_t end = start;
+            while (content[end] != '%' || content[end + 1] != '}') {
+                end++;
+                if (content[end] == '\0') break;
+            }
+            
+            if (content[end] == '%' && content[end + 1] == '}') {
+                size_t tag_len = end - start;
+                char* tag_content = shared_malloc_safe(tag_len + 1, "web", "template_parse_until", 1080);
+                if (tag_content) {
+                    strncpy(tag_content, content + start, tag_len);
+                    tag_content[tag_len] = '\0';
+                    
+                    // Check if this is the closing tag we're looking for
+                    if (strcmp(tag_content, end_tag) == 0) {
+                        shared_free_safe(tag_content, "web", "template_parse_until", 1090);
+                        *pos = end + 2;
+                        return head;
+                    }
+                    
+                    shared_free_safe(tag_content, "web", "template_parse_until", 1100);
+                }
+            }
+        }
+        
+        // Look for template tags
+        if (content[*pos] == '{' && content[*pos + 1] == '{') {
+            // Variable substitution: {{variable}}
+            if (content[*pos + 2] != '{') {
+                TemplateNode* node = shared_malloc_safe(sizeof(TemplateNode), "web", "template_parse_until", 1110);
+                if (!node) break;
+                
+                node->type = TEMPLATE_VAR;
+                node->content = NULL;
+                node->children = NULL;
+                node->next = NULL;
+                
+                // Extract variable name
+                size_t start = *pos + 2;
+                size_t end = start;
+                while (content[end] != '}' || content[end + 1] != '}') {
+                    end++;
+                    if (content[end] == '\0') break;
+                }
+                
+                if (content[end] == '}' && content[end + 1] == '}') {
+                    size_t var_len = end - start;
+                    node->variable = shared_malloc_safe(var_len + 1, "web", "template_parse_until", 1120);
+                    if (node->variable) {
+                        strncpy(node->variable, content + start, var_len);
+                        node->variable[var_len] = '\0';
+                    }
+                    *pos = end + 2;
+                } else {
+                    // Malformed tag, treat as text
+                    node->type = TEMPLATE_TEXT;
+                    node->content = shared_strdup("{{");
+                    *pos += 2;
+                }
+                
+                if (!head) {
+                    head = current = node;
+                } else {
+                    current->next = node;
+                    current = node;
+                }
+                continue;
+            }
+        }
+        
+        // Regular text
+        size_t text_start = *pos;
+        while (content[*pos] != '\0' && 
+               !(content[*pos] == '{' && (content[*pos + 1] == '{' || content[*pos + 1] == '%'))) {
+            (*pos)++;
+        }
+        
+        if (*pos > text_start) {
+            TemplateNode* node = shared_malloc_safe(sizeof(TemplateNode), "web", "template_parse_until", 1130);
+            if (node) {
+                node->type = TEMPLATE_TEXT;
+                size_t text_len = *pos - text_start;
+                node->content = shared_malloc_safe(text_len + 1, "web", "template_parse_until", 1140);
                 if (node->content) {
                     strncpy(node->content, content + text_start, text_len);
                     node->content[text_len] = '\0';
@@ -1337,11 +1456,20 @@ char* template_render_node(TemplateNode* node, Value* context) {
 }
 
 Value template_get_variable(const char* var_name, Value* context) {
-    if (!var_name || !context || context->type != VALUE_OBJECT) {
+    if (!var_name || !context || (context->type != VALUE_OBJECT && context->type != VALUE_HASH_MAP)) {
         return value_create_null();
     }
     
-    return value_object_get(context, var_name);
+    if (context->type == VALUE_OBJECT) {
+        return value_object_get(context, var_name);
+    } else if (context->type == VALUE_HASH_MAP) {
+        Value key = value_create_string(var_name);
+        Value result = value_hash_map_get(context, key);
+        value_free(&key);
+        return result;
+    }
+    
+    return value_create_null();
 }
 
 void template_free(Template* tmpl) {

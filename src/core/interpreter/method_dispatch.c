@@ -18,6 +18,7 @@ Value handle_response_method_call(Interpreter* interpreter, ASTNode* call_node, 
 Value handle_route_group_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 Value handle_server_library_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 Value handle_web_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
+Value handle_http_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 Value handle_db_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 
 
@@ -96,7 +97,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
     ASTNode* member_access = call_node->data.function_call_expr.function;
     const char* method_name = member_access->data.member_access.member_name;
     
-    printf("DEBUG: handle_method_call called with method: %s, object type: %d\n", method_name, object.type);
+    // printf("DEBUG: handle_method_call called with method: %s, object type: %d\n", method_name, object.type);
     
     // Handle namespace marker method calls (e.g., math.abs(-5))
     if (object.type == VALUE_STRING && strcmp(object.data.string_value, "namespace_marker") == 0) {
@@ -180,23 +181,31 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
     if (strcmp(method_name, "isArray") == 0) { Value r = value_create_boolean(object.type == VALUE_ARRAY); value_free(&object); return r; }
     if (strcmp(method_name, "isNumber") == 0) { Value r = value_create_boolean(object.type == VALUE_NUMBER); value_free(&object); return r; }
     
-    // Library object methods (web, database, etc.)
+    // Library object methods - check for specific library types first
     if (object.type == VALUE_OBJECT) {
         Value object_type = value_object_get(&object, "__type__");
         if (object_type.type == VALUE_STRING && strcmp(object_type.data.string_value, "Library") == 0) {
-            // This is a library object, try web methods first, then database
-            printf("DEBUG: Calling web method: %s\n", method_name);
-            Value result = handle_web_method_call(interpreter, call_node, method_name, object);
-            if (result.type != VALUE_NULL) {
-                printf("DEBUG: Web method succeeded\n");
-                value_free(&object_type);
-                return result;
+            // Check if this is a web or database library specifically
+            Value library_name = value_object_get(&object, "__library_name__");
+            if (library_name.type == VALUE_STRING) {
+                if (strcmp(library_name.data.string_value, "web") == 0) {
+                    printf("DEBUG: Calling web method: %s\n", method_name);
+                    Value result = handle_web_method_call(interpreter, call_node, method_name, object);
+                    value_free(&object_type);
+                    value_free(&library_name);
+                    return result;
+                } else if (strcmp(library_name.data.string_value, "database") == 0) {
+                    printf("DEBUG: Calling database method: %s\n", method_name);
+                    Value result = handle_db_method_call(interpreter, call_node, method_name, object);
+                    value_free(&object_type);
+                    value_free(&library_name);
+                    return result;
+                }
+                // HTTP library methods are called through generic object method handling
             }
-            printf("DEBUG: Web method failed, trying database\n");
-            // If web method failed, try database
-            result = handle_db_method_call(interpreter, call_node, method_name, object);
-            value_free(&object_type);
-            return result;
+            value_free(&library_name);
+            
+            // For other libraries (math, json, etc.), fall through to generic object method handling
         }
         value_free(&object_type);
     }
@@ -541,6 +550,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
     // Generic object method on library-like objects: look up member and call if function
     if (object.type == VALUE_OBJECT) {
         Value member = value_object_get(&object, method_name);
+        // printf("DEBUG: Found member %s with type %d\n", method_name, member.type);
         if (member.type == VALUE_FUNCTION) {
             // Check if this is a library instance (has __class_name__)
             Value class_name = value_object_get(&object, "__class_name__");
@@ -551,63 +561,19 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                  strcmp(class_name.data.string_value, "Queue") == 0 ||
                  strcmp(class_name.data.string_value, "Stack") == 0));
             
-            // Determine which calling pattern to use
-            bool uses_self_context = false;
-            if (is_library_instance) {
-                uses_self_context = (strcmp(class_name.data.string_value, "Heap") == 0 ||
-                                   strcmp(class_name.data.string_value, "Queue") == 0 ||
-                                   strcmp(class_name.data.string_value, "Stack") == 0);
-            }
             value_free(&class_name);
             
-            // Set self context for method calls
-            interpreter_set_self_context(interpreter, &object);
-            
-            size_t arg_count = call_node->data.function_call_expr.argument_count;
-            Value result;
-            
+            // Skip library instances - they will be handled by specific handlers below
             if (is_library_instance) {
-                if (uses_self_context) {
-                    // For heaps/queues/stacks, use self context (no self argument)
-                    if (arg_count == 0) {
-                        result = value_function_call_with_self(&member, NULL, 0, interpreter, &object, call_node->line, call_node->column);
-                    } else {
-                        Value* args = (Value*)shared_malloc_safe(arg_count * sizeof(Value), "interpreter", "handle_method_call", 0);
-                        if (!args) { 
-                            value_free(&member); 
-                            value_free(&object); 
-                            interpreter_set_self_context(interpreter, NULL);
-                            return value_create_null(); 
-                        }
-                        for (size_t i = 0; i < arg_count; i++) {
-                            args[i] = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[i]);
-                        }
-                        result = value_function_call_with_self(&member, args, arg_count, interpreter, &object, call_node->line, call_node->column);
-                        for (size_t i = 0; i < arg_count; i++) value_free(&args[i]);
-                        shared_free_safe(args, "interpreter", "handle_method_call", 0);
-                    }
-                } else {
-                    // For trees/graphs, pass self as first argument
-                    Value* method_args = shared_malloc_safe((arg_count + 1) * sizeof(Value), "interpreter", "handle_method_call", 0);
-                    if (!method_args) { 
-                        value_free(&member); 
-                        value_free(&object); 
-                        interpreter_set_self_context(interpreter, NULL);
-                        return value_create_null(); 
-                    }
-                    
-                    method_args[0] = value_clone(&object); // self as first argument
-                    for (size_t i = 0; i < arg_count; i++) {
-                        method_args[i + 1] = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[i]);
-                    }
-                    
-                    result = value_function_call(&member, method_args, arg_count + 1, interpreter, call_node->line, call_node->column);
-                    
-                    for (size_t i = 0; i < arg_count + 1; i++) value_free(&method_args[i]);
-                    shared_free_safe(method_args, "interpreter", "handle_method_call", 0);
-                }
+                value_free(&member);
+                // Fall through to specific class handlers
             } else {
-                // For regular objects, use self context
+                // For regular objects (like math library), use self context
+                interpreter_set_self_context(interpreter, &object);
+                
+                size_t arg_count = call_node->data.function_call_expr.argument_count;
+                Value result;
+                
                 if (arg_count == 0) {
                     result = value_function_call_with_self(&member, NULL, 0, interpreter, &object, call_node->line, call_node->column);
                 } else {
@@ -625,14 +591,14 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                     for (size_t i = 0; i < arg_count; i++) value_free(&args[i]);
                     shared_free_safe(args, "interpreter", "handle_method_call", 0);
                 }
+                
+                // Clear self context
+                interpreter_set_self_context(interpreter, NULL);
+                
+                value_free(&member);
+                value_free(&object);
+                return result;
             }
-            
-            // Clear self context
-            interpreter_set_self_context(interpreter, NULL);
-            
-            value_free(&member);
-            value_free(&object);
-            return result;
         }
         value_free(&member);
     }
@@ -643,6 +609,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
         if (class_name.type == VALUE_STRING) {
             if (strcmp(class_name.data.string_value, "Tree") == 0) {
                 // Handle tree method calls
+                // printf("DEBUG: Calling tree method: %s\n", method_name);
                 value_free(&class_name);
                 return handle_tree_method_call(interpreter, call_node, method_name, object);
             } else if (strcmp(class_name.data.string_value, "Graph") == 0) {

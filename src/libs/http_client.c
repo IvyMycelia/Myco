@@ -1,9 +1,4 @@
 #include "../../include/libs/http_client.h"
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <unistd.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,17 +6,56 @@
 #include <stdint.h>
 #include "../../include/utils/shared_utilities.h"
 
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "ws2_32.lib")
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <unistd.h>
+#include <sys/time.h>
+#include <sys/select.h>
+#endif
+
 // Custom HTTP client implementation to replace libcurl
 // This provides a lightweight, dependency-free HTTP client with custom HTTPS support
 
 // Custom timeout helper function for portable socket operations
-// Simplified version that doesn't use system-specific structures
 static int socket_timeout(int sock, int timeout_seconds) {
-    // For maximum compatibility, we'll skip timeout implementation for now
-    // This ensures the build works on all platforms
-    (void)sock; // Suppress unused parameter warning
-    (void)timeout_seconds; // Suppress unused parameter warning
-    return 1; // Always return success (no timeout)
+    if (timeout_seconds <= 0) return 1; // No timeout
+    
+#ifdef _WIN32
+    // Windows implementation using WSAEventSelect
+    fd_set readfds;
+    struct timeval timeout;
+    int result;
+    
+    FD_ZERO(&readfds);
+    FD_SET(sock, &readfds);
+    
+    timeout.tv_sec = timeout_seconds;
+    timeout.tv_usec = 0;
+    
+    result = select(0, &readfds, NULL, NULL, &timeout);
+    return (result > 0) ? 1 : 0; // 1 if data available, 0 if timeout
+#else
+    // POSIX implementation
+    fd_set readfds;
+    struct timeval timeout;
+    int result;
+    
+    FD_ZERO(&readfds);
+    FD_SET(sock, &readfds);
+    
+    timeout.tv_sec = timeout_seconds;
+    timeout.tv_usec = 0;
+    
+    result = select(sock + 1, &readfds, NULL, NULL, &timeout);
+    return (result > 0) ? 1 : 0; // 1 if data available, 0 if timeout
+#endif
 }
 
 // Custom TLS/SSL implementation without external dependencies
@@ -71,7 +105,7 @@ static void generate_random_bytes(uint8_t* buffer, size_t length) {
 }
 
 // Simple AES encryption (placeholder - would need full implementation)
-static void aes_encrypt(AESContext* ctx, const uint8_t* input, uint8_t* output, size_t length) {
+__attribute__((unused)) static void aes_encrypt(AESContext* ctx, const uint8_t* input, uint8_t* output, size_t length) {
     // This is a placeholder - real implementation would use AES algorithm
     for (size_t i = 0; i < length; i++) {
         output[i] = input[i] ^ ctx->key[i % 32];
@@ -435,6 +469,7 @@ HttpResponse* http_client_request(const char* url, const char* method,
     // Check if this is HTTPS
     bool is_https = (strncmp(url, "https://", 8) == 0);
     
+#ifdef HTTP_CLIENT_MOCK_HTTPS
     // For HTTPS, return a mock response to prevent segfaults
     if (is_https) {
         HttpResponse* response = shared_malloc_safe(sizeof(HttpResponse), "http_client", "http_client_request", 0);
@@ -452,13 +487,20 @@ HttpResponse* http_client_request(const char* url, const char* method,
         shared_free_safe(url_copy, "http_client", "http_client_request", 0);
         return response;
     }
+#endif
     
     // Create socket
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) return NULL;
     
-    // Note: Timeout will be handled at the application level
-    // to avoid platform-specific struct timeval dependencies
+    // Set timeout
+    if (timeout_seconds > 0) {
+        struct timeval timeout;
+        timeout.tv_sec = timeout_seconds;
+        timeout.tv_usec = 0;
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+        setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+    }
     
     // Resolve hostname
     struct hostent* he = gethostbyname(host);

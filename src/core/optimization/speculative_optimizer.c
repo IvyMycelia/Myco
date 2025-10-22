@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
+#include <inttypes.h>
 
 // ============================================================================
 // SPECULATIVE OPTIMIZER IMPLEMENTATION
@@ -547,10 +548,10 @@ void speculative_optimizer_print_all_speculations(SpeculativeOptimizerContext* c
     
     printf("SpeculativeOptimizerContext:\n");
     printf("  Active Speculations: %u\n", context->speculation_count);
-    printf("  Total Speculations: %llu\n", context->total_speculations);
-    printf("  Successful: %llu\n", context->successful_speculations);
-    printf("  Failed: %llu\n", context->failed_speculations);
-    printf("  Deoptimized: %llu\n", context->deoptimized_speculations);
+    printf("  Total Speculations: %" PRIu64 "\n", context->total_speculations);
+    printf("  Successful: %" PRIu64 "\n", context->successful_speculations);
+    printf("  Failed: %" PRIu64 "\n", context->failed_speculations);
+    printf("  Deoptimized: %" PRIu64 "\n", context->deoptimized_speculations);
     printf("  Overall Success Rate: %.2f\n", context->overall_success_rate);
     printf("  Average Speedup: %.2fx\n", context->average_speedup);
     printf("  Average Overhead: %.2f\n", context->average_overhead);

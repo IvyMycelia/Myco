@@ -1,0 +1,70 @@
+﻿2025-10-22T05:26:52.8732970Z ##[group]Run actions/checkout@v4
+2025-10-22T05:26:52.8733850Z with:
+2025-10-22T05:26:52.8734140Z   repository: IvyMycelia/Myco
+2025-10-22T05:26:52.8734670Z   token: ***
+2025-10-22T05:26:52.8734960Z   ssh-strict: true
+2025-10-22T05:26:52.8735240Z   ssh-user: git
+2025-10-22T05:26:52.8735530Z   persist-credentials: true
+2025-10-22T05:26:52.8735840Z   clean: true
+2025-10-22T05:26:52.8736130Z   sparse-checkout-cone-mode: true
+2025-10-22T05:26:52.8736460Z   fetch-depth: 1
+2025-10-22T05:26:52.8736740Z   fetch-tags: false
+2025-10-22T05:26:52.8737020Z   show-progress: true
+2025-10-22T05:26:52.8737310Z   lfs: false
+2025-10-22T05:26:52.8737570Z   submodules: false
+2025-10-22T05:26:52.8737860Z   set-safe-directory: true
+2025-10-22T05:26:52.8738290Z ##[endgroup]
+2025-10-22T05:26:53.3271000Z Syncing repository: IvyMycelia/Myco
+2025-10-22T05:26:53.3272930Z ##[group]Getting Git version info
+2025-10-22T05:26:53.3273450Z Working directory is '/Users/runner/work/Myco/Myco'
+2025-10-22T05:26:53.3274100Z [command]/opt/homebrew/bin/git version
+2025-10-22T05:26:53.3859940Z git version 2.50.1
+2025-10-22T05:26:53.4034850Z ##[endgroup]
+2025-10-22T05:26:53.4044940Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/1dff40e4-7842-403d-9ce2-3829b0eab917/.gitconfig'
+2025-10-22T05:26:53.4046570Z Temporarily overriding HOME='/Users/runner/work/_temp/1dff40e4-7842-403d-9ce2-3829b0eab917' before making global git config changes
+2025-10-22T05:26:53.4048710Z Adding repository directory to the temporary git global config as a safe directory
+2025-10-22T05:26:53.4049880Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/Myco/Myco
+2025-10-22T05:26:53.4095930Z Deleting the contents of '/Users/runner/work/Myco/Myco'
+2025-10-22T05:26:53.4099110Z ##[group]Initializing the repository
+2025-10-22T05:26:53.4103290Z [command]/opt/homebrew/bin/git init /Users/runner/work/Myco/Myco
+2025-10-22T05:26:53.4336550Z hint: Using 'master' as the name for the initial branch. This default branch name
+2025-10-22T05:26:53.4344140Z hint: is subject to change. To configure the initial branch name to use in all
+2025-10-22T05:26:53.4347660Z hint: of your new repositories, which will suppress this warning, call:
+2025-10-22T05:26:53.4349430Z hint:
+2025-10-22T05:26:53.4350380Z hint: 	git config --global init.defaultBranch <name>
+2025-10-22T05:26:53.4351190Z hint:
+2025-10-22T05:26:53.4351840Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2025-10-22T05:26:53.4352750Z hint: 'development'. The just-created branch can be renamed via this command:
+2025-10-22T05:26:53.4353410Z hint:
+2025-10-22T05:26:53.4353780Z hint: 	git branch -m <name>
+2025-10-22T05:26:53.4354260Z hint:
+2025-10-22T05:26:53.4354810Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2025-10-22T05:26:53.4358330Z Initialized empty Git repository in /Users/runner/work/Myco/Myco/.git/
+2025-10-22T05:26:53.4363530Z [command]/opt/homebrew/bin/git remote add origin https://github.com/IvyMycelia/Myco
+2025-10-22T05:26:53.4464810Z ##[endgroup]
+2025-10-22T05:26:53.4465480Z ##[group]Disabling automatic garbage collection
+2025-10-22T05:26:53.4468000Z [command]/opt/homebrew/bin/git config --local gc.auto 0
+2025-10-22T05:26:53.4546210Z ##[endgroup]
+2025-10-22T05:26:53.4546870Z ##[group]Setting up auth
+2025-10-22T05:26:53.4550080Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+2025-10-22T05:26:53.4626050Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2025-10-22T05:26:53.5753640Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2025-10-22T05:26:53.5810660Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2025-10-22T05:26:53.6646910Z [command]/opt/homebrew/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2025-10-22T05:26:53.6723230Z ##[endgroup]
+2025-10-22T05:26:53.6724790Z ##[group]Fetching the repository
+2025-10-22T05:26:53.6731660Z [command]/opt/homebrew/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +92efa60311ceb99e0c27eb0e758acd032b743523:refs/remotes/origin/main
+2025-10-22T05:26:54.5454630Z From https://github.com/IvyMycelia/Myco
+2025-10-22T05:26:54.5482600Z  * [new ref]         92efa60311ceb99e0c27eb0e758acd032b743523 -> origin/main
+2025-10-22T05:26:54.5563130Z ##[endgroup]
+2025-10-22T05:26:54.5564020Z ##[group]Determining the checkout info
+2025-10-22T05:26:54.5564840Z ##[endgroup]
+2025-10-22T05:26:54.5565420Z [command]/opt/homebrew/bin/git sparse-checkout disable
+2025-10-22T05:26:54.5650220Z [command]/opt/homebrew/bin/git config --local --unset-all extensions.worktreeConfig
+2025-10-22T05:26:54.5729380Z ##[group]Checking out the ref
+2025-10-22T05:26:54.5730670Z [command]/opt/homebrew/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2025-10-22T05:26:54.6753960Z Switched to a new branch 'main'
+2025-10-22T05:26:54.6960100Z branch 'main' set up to track 'origin/main'.
+2025-10-22T05:26:54.7058780Z ##[endgroup]
+2025-10-22T05:26:54.7127000Z [command]/opt/homebrew/bin/git log -1 --format=%H
+2025-10-22T05:26:54.7129360Z 92efa60311ceb99e0c27eb0e758acd032b743523

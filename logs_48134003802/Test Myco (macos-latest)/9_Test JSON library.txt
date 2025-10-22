@@ -1,0 +1,102 @@
+﻿2025-10-22T05:27:10.5588480Z ##[group]Run echo 'print("JSON test: " + json.type)' | ./bin/myco
+2025-10-22T05:27:10.5588680Z [36;1mecho 'print("JSON test: " + json.type)' | ./bin/myco[0m
+2025-10-22T05:27:10.5619660Z shell: /bin/bash -e {0}
+2025-10-22T05:27:10.5619750Z ##[endgroup]
+2025-10-22T05:27:10.5957190Z DEBUG: Creating interpreter
+2025-10-22T05:27:10.5969730Z DEBUG: Interpreter allocated successfully at 0x13d6044a0
+2025-10-22T05:27:10.5970190Z myco> DEBUG: lexer_scan_all called
+2025-10-22T05:27:10.5970650Z DEBUG: About to copy 5 bytes from position 0
+2025-10-22T05:27:10.5970970Z DEBUG: Successfully copied text: 'print'
+2025-10-22T05:27:10.5971380Z DEBUG: About to add identifier token: type=4, text='print', line=1, column=1
+2025-10-22T05:27:10.5971800Z DEBUG: Creating token at index 0, type=4, text='print'
+2025-10-22T05:27:10.5972140Z DEBUG: Token pointer: 0x13d812000
+2025-10-22T05:27:10.5972430Z DEBUG: Set token basic fields
+2025-10-22T05:27:10.5972720Z DEBUG: About to duplicate text: 'print'
+2025-10-22T05:27:10.5973040Z DEBUG: Text duplicated, result: 0x60000217de30
+2025-10-22T05:27:10.5973420Z DEBUG: About to initialize data union for type 4
+2025-10-22T05:27:10.5973870Z DEBUG: Initializing default case for type 4
+2025-10-22T05:27:10.5974190Z DEBUG: Data union initialized
+2025-10-22T05:27:10.5974480Z DEBUG: Successfully added identifier token
+2025-10-22T05:27:10.5974810Z DEBUG: Successfully freed identifier text
+2025-10-22T05:27:10.5975140Z DEBUG: Creating token at index 1, type=26, text='('
+2025-10-22T05:27:10.5975460Z DEBUG: Token pointer: 0x13d812020
+2025-10-22T05:27:10.5975750Z DEBUG: Set token basic fields
+2025-10-22T05:27:10.5976030Z DEBUG: About to duplicate text: '('
+2025-10-22T05:27:10.5976350Z DEBUG: Text duplicated, result: 0x60000217de40
+2025-10-22T05:27:10.5976920Z DEBUG: About to initialize data union for type 26
+2025-10-22T05:27:10.5977250Z DEBUG: Initializing default case for type 26
+2025-10-22T05:27:10.5977550Z DEBUG: Data union initialized
+2025-10-22T05:27:10.5977890Z DEBUG: Creating token at index 2, type=2, text='JSON test: '
+2025-10-22T05:27:10.5978440Z DEBUG: Token pointer: 0x13d812040
+2025-10-22T05:27:10.5978740Z DEBUG: Set token basic fields
+2025-10-22T05:27:10.5979060Z DEBUG: About to duplicate text: 'JSON test: '
+2025-10-22T05:27:10.5979380Z DEBUG: Text duplicated, result: 0x60000217de20
+2025-10-22T05:27:10.5979710Z DEBUG: About to initialize data union for type 2
+2025-10-22T05:27:10.5980040Z DEBUG: Initializing TOKEN_STRING
+2025-10-22T05:27:10.5980320Z DEBUG: Data union initialized
+2025-10-22T05:27:10.5980610Z DEBUG: Creating token at index 3, type=6, text='+'
+2025-10-22T05:27:10.5980920Z DEBUG: Token pointer: 0x13d812060
+2025-10-22T05:27:10.5981210Z DEBUG: Set token basic fields
+2025-10-22T05:27:10.5981490Z DEBUG: About to duplicate text: '+'
+2025-10-22T05:27:10.5981800Z DEBUG: Text duplicated, result: 0x60000217de00
+2025-10-22T05:27:10.5982140Z DEBUG: About to initialize data union for type 6
+2025-10-22T05:27:10.5982470Z DEBUG: Initializing default case for type 6
+2025-10-22T05:27:10.5982770Z DEBUG: Data union initialized
+2025-10-22T05:27:10.5983070Z DEBUG: About to copy 4 bytes from position 22
+2025-10-22T05:27:10.5983400Z DEBUG: Successfully copied text: 'json'
+2025-10-22T05:27:10.5983780Z DEBUG: About to add identifier token: type=4, text='json', line=1, column=23
+2025-10-22T05:27:10.5984200Z DEBUG: Creating token at index 4, type=4, text='json'
+2025-10-22T05:27:10.5984550Z DEBUG: Token pointer: 0x13d812080
+2025-10-22T05:27:10.5984830Z DEBUG: Set token basic fields
+2025-10-22T05:27:10.5985110Z DEBUG: About to duplicate text: 'json'
+2025-10-22T05:27:10.5985440Z DEBUG: Text duplicated, result: 0x60000217dde0
+2025-10-22T05:27:10.5985780Z DEBUG: About to initialize data union for type 4
+2025-10-22T05:27:10.5986110Z DEBUG: Initializing default case for type 4
+2025-10-22T05:27:10.5986450Z DEBUG: Data union initialized
+2025-10-22T05:27:10.5986740Z DEBUG: Successfully added identifier token
+2025-10-22T05:27:10.5987850Z DEBUG: Successfully freed identifier text
+2025-10-22T05:27:10.5988210Z DEBUG: Creating token at index 5, type=35, text='.'
+2025-10-22T05:27:10.5988940Z DEBUG: Token pointer: 0x13d8120a0
+2025-10-22T05:27:10.5989350Z DEBUG: Set token basic fields
+2025-10-22T05:27:10.5989650Z DEBUG: About to duplicate text: '.'
+2025-10-22T05:27:10.5989960Z DEBUG: Text duplicated, result: 0x60000217ddf0
+2025-10-22T05:27:10.5990300Z DEBUG: About to initialize data union for type 35
+2025-10-22T05:27:10.5990620Z DEBUG: Initializing default case for type 35
+2025-10-22T05:27:10.5990940Z DEBUG: Data union initialized
+2025-10-22T05:27:10.6001550Z DEBUG: About to copy 4 bytes from position 27
+2025-10-22T05:27:10.6001910Z DEBUG: Successfully copied text: 'type'
+2025-10-22T05:27:10.6002310Z DEBUG: About to add identifier token: type=4, text='type', line=1, column=28
+2025-10-22T05:27:10.6002740Z DEBUG: Creating token at index 6, type=4, text='type'
+2025-10-22T05:27:10.6003100Z DEBUG: Token pointer: 0x13d8120c0
+2025-10-22T05:27:10.6003390Z DEBUG: Set token basic fields
+2025-10-22T05:27:10.6003680Z DEBUG: About to duplicate text: 'type'
+2025-10-22T05:27:10.6004020Z DEBUG: Text duplicated, result: 0x60000217ddc0
+2025-10-22T05:27:10.6004350Z DEBUG: About to initialize data union for type 4
+2025-10-22T05:27:10.6004680Z DEBUG: Initializing default case for type 4
+2025-10-22T05:27:10.6005010Z DEBUG: Data union initialized
+2025-10-22T05:27:10.6005310Z DEBUG: Successfully added identifier token
+2025-10-22T05:27:10.6005630Z DEBUG: Successfully freed identifier text
+2025-10-22T05:27:10.6005960Z DEBUG: Creating token at index 7, type=27, text=')'
+2025-10-22T05:27:10.6006300Z DEBUG: Token pointer: 0x13d8120e0
+2025-10-22T05:27:10.6006580Z DEBUG: Set token basic fields
+2025-10-22T05:27:10.6006860Z DEBUG: About to duplicate text: ')'
+2025-10-22T05:27:10.6007390Z DEBUG: Text duplicated, result: 0x60000217ddd0
+2025-10-22T05:27:10.6007720Z DEBUG: About to initialize data union for type 27
+2025-10-22T05:27:10.6008050Z DEBUG: Initializing default case for type 27
+2025-10-22T05:27:10.6008350Z DEBUG: Data union initialized
+2025-10-22T05:27:10.6008660Z DEBUG: Finished scanning 8 tokens
+2025-10-22T05:27:10.6009010Z DEBUG: Creating token at index 8, type=0, text='EOF'
+2025-10-22T05:27:10.6009330Z DEBUG: Token pointer: 0x13d812100
+2025-10-22T05:27:10.6009630Z DEBUG: Set token basic fields
+2025-10-22T05:27:10.6009900Z DEBUG: About to duplicate text: 'EOF'
+2025-10-22T05:27:10.6010210Z DEBUG: Text duplicated, result: 0x60000217ddb0
+2025-10-22T05:27:10.6010560Z DEBUG: About to initialize data union for type 0
+2025-10-22T05:27:10.6010880Z DEBUG: Initializing default case for type 0
+2025-10-22T05:27:10.6011180Z DEBUG: Data union initialized
+2025-10-22T05:27:10.6011470Z DEBUG: interpreter_execute_program called
+2025-10-22T05:27:10.6011810Z DEBUG: interpreter_execute_program - node type: 14
+2025-10-22T05:27:10.6012230Z DEBUG: interpreter_execute_program - processing block with 1 statements
+2025-10-22T05:27:10.6012660Z DEBUG: interpreter_execute_program - executing statement 0
+2025-10-22T05:27:10.6013000Z JSON test: Library
+2025-10-22T05:27:10.6013300Z DEBUG: interpreter_execute_program - block execution completed
+2025-10-22T05:27:10.6013670Z myco> 

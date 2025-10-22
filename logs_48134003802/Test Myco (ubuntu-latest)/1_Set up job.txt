@@ -1,0 +1,30 @@
+﻿2025-10-22T05:26:58.4898260Z Current runner version: '2.329.0'
+2025-10-22T05:26:58.4922266Z ##[group]Runner Image Provisioner
+2025-10-22T05:26:58.4923135Z Hosted Compute Agent
+2025-10-22T05:26:58.4923698Z Version: 20250912.392
+2025-10-22T05:26:58.4924359Z Commit: d921fda672a98b64f4f82364647e2f10b2267d0b
+2025-10-22T05:26:58.4925041Z Build Date: 2025-09-12T15:23:14Z
+2025-10-22T05:26:58.4925631Z ##[endgroup]
+2025-10-22T05:26:58.4926205Z ##[group]Operating System
+2025-10-22T05:26:58.4926728Z Ubuntu
+2025-10-22T05:26:58.4927235Z 24.04.3
+2025-10-22T05:26:58.4927685Z LTS
+2025-10-22T05:26:58.4928130Z ##[endgroup]
+2025-10-22T05:26:58.4928735Z ##[group]Runner Image
+2025-10-22T05:26:58.4929410Z Image: ubuntu-24.04
+2025-10-22T05:26:58.4929918Z Version: 20250929.60.1
+2025-10-22T05:26:58.4930865Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20250929.60/images/ubuntu/Ubuntu2404-Readme.md
+2025-10-22T05:26:58.4932277Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20250929.60
+2025-10-22T05:26:58.4933428Z ##[endgroup]
+2025-10-22T05:26:58.4934504Z ##[group]GITHUB_TOKEN Permissions
+2025-10-22T05:26:58.4936238Z Contents: read
+2025-10-22T05:26:58.4936866Z Metadata: read
+2025-10-22T05:26:58.4937363Z Packages: read
+2025-10-22T05:26:58.4937816Z ##[endgroup]
+2025-10-22T05:26:58.4940142Z Secret source: Actions
+2025-10-22T05:26:58.4940811Z Prepare workflow directory
+2025-10-22T05:26:58.5252478Z Prepare all required actions
+2025-10-22T05:26:58.5289295Z Getting action download info
+2025-10-22T05:26:58.9911540Z Download action repository 'actions/checkout@v4' (SHA:08eba0b27e820071cde6df949e0beb9ba4906955)
+2025-10-22T05:26:59.1621419Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2025-10-22T05:26:59.3483263Z Complete job name: Test Myco (ubuntu-latest)

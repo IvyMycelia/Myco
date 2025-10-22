@@ -881,6 +881,11 @@ Token* lexer_scan_next(Lexer* lexer) {
         return NULL;
     }
     
+    // Check if we've already reached the end of the source
+    if (lexer->current >= strlen(lexer->source)) {
+        return NULL;
+    }
+    
     // Scan a single token
     if (lexer_scan_token(lexer)) {
         // Return the last token that was added

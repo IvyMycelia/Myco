@@ -123,4 +123,4 @@ jobs:
             ./release-assets/*
           prerelease: ${{ github.event.inputs.prerelease == 'true' }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.MYCO_RELEASE }}

@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <time.h>
 #include <sys/time.h>
+#include <time.h>
+#include <sys/time.h>
 
 // Forward declarations
 static BottleneckAnalysis* add_bottleneck(PerformanceProfiler* profiler);

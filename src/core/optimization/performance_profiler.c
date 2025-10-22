@@ -3,15 +3,15 @@
  * @brief Real-time performance monitoring implementation
  */
 
+// Define POSIX source before including time.h to ensure clock_gettime and timespec are available
+#define _POSIX_C_SOURCE 200809L
+
 #include "../../include/core/optimization/performance_profiler.h"
 #include "../../include/core/ast.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
-#include <sys/time.h>
-#include <time.h>
-#include <sys/time.h>
 
 // Forward declarations
 static BottleneckAnalysis* add_bottleneck(PerformanceProfiler* profiler);

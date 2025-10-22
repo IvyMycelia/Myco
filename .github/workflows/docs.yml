@@ -51,11 +51,15 @@ jobs:
           echo "- JSON, Trees, Graphs libraries" >> docs-site/README.md
           echo "- 100% test success rate" >> docs-site/README.md
           
+      - name: Setup Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs-site
           cname: mycolang.org
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          force_orphan: true

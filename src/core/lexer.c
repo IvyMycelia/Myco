@@ -103,12 +103,9 @@ static int lexer_add_token(Lexer* lexer, TokenType type, const char* text, int l
     // Expand token array if needed
     if (lexer->token_count >= lexer->token_capacity) {
         int new_capacity = lexer->token_capacity == 0 ? 100 : lexer->token_capacity * 2;
-        if (add_count % 100 == 0) {
-            printf("DEBUG: Expanding token array from %d to %d\n", lexer->token_capacity, new_capacity);
-        }
+    // Debug output removed for production
         Token* new_tokens = shared_realloc_safe(lexer->tokens, sizeof(Token) * new_capacity, "core", "unknown_function", 101);
         if (!new_tokens) {
-            printf("DEBUG: Failed to reallocate token array at count %d\n", lexer->token_count);
             return 0;  // Memory allocation failed
         }
         lexer->tokens = new_tokens;
@@ -306,33 +303,26 @@ static char* lexer_extract_text(Lexer* lexer) {
     extract_count++;
     
     if (extract_count % 100 == 0) {
-        printf("DEBUG: lexer_extract_text called %d times, start: %d, current: %d\n", extract_count, lexer->start, lexer->current);
     }
     
     if (!lexer || !lexer->source) {
         if (extract_count % 1000 == 0) {
-            printf("DEBUG: lexer_extract_text failed - invalid lexer or source\n");
         }
         return NULL;
     }
     int length = lexer->current - lexer->start;
     
     if (extract_count % 100 == 0) {
-        printf("DEBUG: lexer_extract_text allocating %d bytes\n", length + 1);
     }
     
     char* text = shared_malloc_safe(length + 1, "core", "unknown_function", 257);
     if (text) {
         if (extract_count % 100 == 0) {
-            printf("DEBUG: lexer_extract_text allocated successfully at %p\n", text);
         }
-        printf("DEBUG: About to copy %d bytes from position %d\n", length, lexer->start);
         strncpy(text, lexer->source + lexer->start, length);
         text[length] = '\0';
-        printf("DEBUG: Successfully copied text: '%.*s'\n", (int)length, text);
     } else {
         if (extract_count % 100 == 0) {
-            printf("DEBUG: lexer_extract_text allocation failed\n");
         }
     }
     return text;
@@ -348,7 +338,6 @@ static void lexer_parse_number(Lexer* lexer) {
     number_count++;
     
     if (number_count % 1000 == 0) {
-        printf("DEBUG: lexer_parse_number called %d times at position %d\n", number_count, lexer->current);
     }
     
     // Consume digits and underscores
@@ -357,14 +346,12 @@ static void lexer_parse_number(Lexer* lexer) {
     }
     
     if (number_count % 1000 == 0) {
-        printf("DEBUG: Finished consuming number digits, current pos: %d\n", lexer->current);
     }
     
     // Look for decimal point
     if (!lexer_is_at_end(lexer) && lexer_current_char(lexer) == '.' && 
         !lexer_is_at_end(lexer) && isdigit(lexer_next_char(lexer))) {
         if (number_count % 1000 == 0) {
-            printf("DEBUG: Found decimal point, processing decimal part\n");
         }
         lexer_advance(lexer);  // Consume the decimal point
         
@@ -375,24 +362,20 @@ static void lexer_parse_number(Lexer* lexer) {
     }
     
     if (number_count % 1000 == 0) {
-        printf("DEBUG: About to extract number text\n");
     }
     
     // Extract the number text
     char* text = lexer_extract_text(lexer);
     if (number_count % 1000 == 0) {
-        printf("DEBUG: Extracted number text: %s\n", text ? text : "NULL");
     }
     if (text) {
         if (number_count % 1000 == 0) {
-            printf("DEBUG: Processing number text, length: %zu\n", strlen(text));
         }
         
         // Remove underscores from the number text before converting to double
         char* clean_text = shared_malloc_safe((text ? strlen(text) : 0) + 1, "core", "unknown_function", 291);
         if (clean_text) {
             if (number_count % 1000 == 0) {
-                printf("DEBUG: Allocated clean_text successfully\n");
             }
             size_t j = 0;
             for (size_t i = 0; text[i] != '\0'; i++) {
@@ -403,23 +386,19 @@ static void lexer_parse_number(Lexer* lexer) {
             clean_text[j] = '\0';
             
             if (number_count % 1000 == 0) {
-                printf("DEBUG: About to add number token\n");
             }
             lexer_add_token(lexer, TOKEN_NUMBER, clean_text, lexer->line, lexer->column - (text ? strlen(text) : 0));
             shared_free_safe(clean_text, "core", "unknown_function", 302);
             if (number_count % 1000 == 0) {
-                printf("DEBUG: Freed clean_text\n");
             }
         } else {
             if (number_count % 1000 == 0) {
-                printf("DEBUG: Clean text allocation failed, using original text\n");
             }
             // Fallback to original text if memory allocation fails
             lexer_add_token(lexer, TOKEN_NUMBER, text, lexer->line, lexer->column - (text ? strlen(text) : 0));
         }
         shared_free_safe(text, "core", "unknown_function", 307);
         if (number_count % 1000 == 0) {
-            printf("DEBUG: Freed original text\n");
         }
     }
 }
@@ -493,7 +472,6 @@ static void lexer_parse_string(Lexer* lexer) {
     // Null terminate the result
     result[result_len] = '\0';
     lexer_add_token(lexer, TOKEN_STRING, result, lexer->line, lexer->column - result_len - 1);
-    // printf("DEBUG: lexer_parse_string freeing %p\n", result);
     shared_free_safe(result, "core", "unknown_function", 380);
     
     lexer_advance(lexer);  // Consume the closing quote
@@ -509,7 +487,6 @@ static void lexer_parse_identifier(Lexer* lexer) {
     identifier_count++;
     
     if (identifier_count % 100 == 0) {
-        printf("DEBUG: lexer_parse_identifier called %d times at position %d\n", identifier_count, lexer->current);
     }
     
     // Consume alphanumeric characters and underscores
@@ -519,20 +496,17 @@ static void lexer_parse_identifier(Lexer* lexer) {
     }
     
     if (identifier_count % 100 == 0) {
-        printf("DEBUG: Finished consuming identifier characters, current pos: %d\n", lexer->current);
     }
     
     // Extract the identifier text
     char* text = lexer_extract_text(lexer);
     if (identifier_count % 100 == 0) {
-        printf("DEBUG: Extracted identifier text: %s\n", text ? text : "NULL");
     }
     if (text) {
         // Check if it's a keyword
         TokenType type = TOKEN_IDENTIFIER;
         
         if (strcmp(text, "if") == 0) {
-            printf("DEBUG: Found 'if' keyword, setting type to TOKEN_KEYWORD\n");
             type = TOKEN_KEYWORD;
         }
         else if (strcmp(text, "else") == 0) type = TOKEN_KEYWORD;
@@ -573,13 +547,8 @@ static void lexer_parse_identifier(Lexer* lexer) {
         else if (strcmp(text, "as") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "public") == 0) type = TOKEN_KEYWORD;
         
-        printf("DEBUG: About to add identifier token: type=%d, text='%s', line=%d, column=%d\n", 
-               type, text ? text : "NULL", lexer->line, lexer->column - (text ? strlen(text) : 0));
         lexer_add_token(lexer, type, text, lexer->line, lexer->column - (text ? strlen(text) : 0));
-        printf("DEBUG: Successfully added identifier token\n");
-        // printf("DEBUG: lexer_parse_identifier freeing %p\n", text);
         shared_free_safe(text, "core", "unknown_function", 439);
-        printf("DEBUG: Successfully freed identifier text\n");
     }
 }
 
@@ -594,7 +563,6 @@ static int lexer_scan_token(Lexer* lexer) {
     scan_count++;
     
     if (scan_count % 100 == 0) {
-        printf("DEBUG: lexer_scan_token called %d times, current pos: %d\n", scan_count, lexer->current);
     }
     
     lexer->start = lexer->current;
@@ -615,7 +583,6 @@ static int lexer_scan_token(Lexer* lexer) {
     
     if (lexer_is_at_end(lexer)) {
         if (scan_count % 1000 == 0) {
-            printf("DEBUG: lexer_scan_token reached end at position %d\n", lexer->current);
         }
         return 0;  // No more tokens
     }
@@ -623,14 +590,12 @@ static int lexer_scan_token(Lexer* lexer) {
     char c = lexer_current_char(lexer);
     
     if (scan_count % 100 == 0) {
-        printf("DEBUG: lexer_scan_token processing char '%c' at position %d\n", c, lexer->current);
     }
     
     // Handle single-character tokens
     switch (c) {
         case '(':
             if (scan_count % 1000 == 0) {
-                printf("DEBUG: Processing '(' token at position %d\n", lexer->current);
             }
             lexer_advance(lexer);
             lexer_add_token(lexer, TOKEN_LEFT_PAREN, "(", lexer->line, lexer->column - 1);
@@ -820,10 +785,8 @@ static int lexer_scan_token(Lexer* lexer) {
  * the lexer and will be freed when lexer_free() is called.
  */
 int lexer_scan_all(Lexer* lexer) {
-    printf("DEBUG: lexer_scan_all called\n");
     
     if (!lexer || !lexer->source) {
-        printf("DEBUG: Invalid lexer or source\n");
         return -1;  // Invalid lexer or source
     }
     
@@ -851,11 +814,9 @@ int lexer_scan_all(Lexer* lexer) {
     while (lexer_scan_token(lexer)) {
         token_count++;
         if (token_count % 100 == 0) {
-            printf("DEBUG: Scanned %d tokens\n", token_count);
         }
         // Remove safety check to allow full token scanning
     }
-    printf("DEBUG: Finished scanning %d tokens\n", token_count);
     
     // Add EOF token
     lexer_add_token(lexer, TOKEN_EOF, "EOF", lexer->line, lexer->column);

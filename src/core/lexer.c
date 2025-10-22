@@ -843,11 +843,7 @@ int lexer_scan_all(Lexer* lexer) {
         if (token_count % 100 == 0) {
             printf("DEBUG: Scanned %d tokens\n", token_count);
         }
-        // Add safety check for excessive token count
-        if (token_count > 15000) {
-            printf("DEBUG: WARNING - Excessive token count: %d, stopping to prevent crash\n", token_count);
-            break;
-        }
+        // Remove safety check to allow full token scanning
     }
     printf("DEBUG: Finished scanning %d tokens\n", token_count);
     

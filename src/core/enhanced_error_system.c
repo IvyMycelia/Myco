@@ -1,3 +1,6 @@
+// Define POSIX source before including time.h to ensure clock_gettime and timespec are available
+#define _POSIX_C_SOURCE 200809L
+
 #include "enhanced_error_system.h"
 #include "shared_utilities.h"
 #include "interpreter.h"

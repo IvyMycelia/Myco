@@ -39,19 +39,12 @@ extern EnhancedErrorSystem* global_error_system;
 
 Value eval_node(Interpreter* interpreter, ASTNode* node) {
     if (!node) {
-        printf("DEBUG: eval_node called with NULL node\n");
         return value_create_null();
     }
     
     // Check for existing errors before proceeding
     if (interpreter_has_error(interpreter)) {
-        printf("DEBUG: eval_node called with existing error\n");
         return value_create_null();
-    }
-    
-    // Debug logging for critical operations
-    if (node->type == AST_NODE_FUNCTION_CALL) {
-        printf("DEBUG: Evaluating function call at line %d\n", node->line);
     }
     
     switch (node->type) {

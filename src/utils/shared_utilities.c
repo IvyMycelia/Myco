@@ -101,7 +101,6 @@ void* shared_malloc_safe(size_t size, const char* component, const char* functio
     
     // Debug logging for large allocations (disabled for performance)
     // if (size > 1024) {
-    //     printf("DEBUG: Large allocation: %zu bytes at %p in %s::%s\n", size, ptr, component, function);
     // }
     
     if (shared_config_get_component_debug(component)) {
@@ -364,13 +363,11 @@ bool shared_validate_array_bounds(size_t index, size_t array_size, const char* c
 
 void shared_debug_print(const char* component, const char* function, const char* message) {
     if (shared_config_get_component_debug(component)) {
-        fprintf(stderr, "[DEBUG %s::%s] %s\n", component, function, message);
     }
 }
 
 void shared_debug_printf(const char* component, const char* function, const char* format, ...) {
     if (shared_config_get_component_debug(component)) {
-        fprintf(stderr, "[DEBUG %s::%s] ", component, function);
         va_list args;
         va_start(args, format);
         vfprintf(stderr, format, args);

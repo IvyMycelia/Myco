@@ -455,10 +455,8 @@ static HttpResponse* parse_http_response(const char* response_data, size_t data_
 // Perform HTTP request using raw sockets
 HttpResponse* http_client_request(const char* url, const char* method, 
                                 const char* headers, const char* body, int timeout_seconds) {
-    printf("DEBUG: http_client_request called with URL: %s, method: %s\n", url ? url : "NULL", method ? method : "NULL");
     
     if (!url || !method) {
-        printf("DEBUG: Invalid URL or method\n");
         return NULL;
     }
     
@@ -477,10 +475,8 @@ HttpResponse* http_client_request(const char* url, const char* method,
     // For HTTPS, return a mock response to prevent segfaults
     // This prevents issues with incomplete TLS implementation in CI environments
     if (is_https) {
-        printf("DEBUG: Using HTTPS mock response for URL: %s\n", url);
         HttpResponse* response = shared_malloc_safe(sizeof(HttpResponse), "http_client", "http_client_request", 0);
         if (!response) {
-            printf("DEBUG: Failed to allocate HTTPS mock response\n");
             return NULL;
         }
         
@@ -489,7 +485,6 @@ HttpResponse* http_client_request(const char* url, const char* method,
         response->body = shared_strdup("{\"message\": \"HTTPS request successful (mock response)\", \"url\": \"https://httpbin.org/get\"}");
         response->success = true;
         
-        printf("DEBUG: HTTPS mock response created successfully\n");
         return response;
     }
     

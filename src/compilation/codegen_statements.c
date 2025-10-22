@@ -93,7 +93,6 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
     
     // Determine C type
     char* c_type = NULL;
-    printf("DEBUG: Variable declaration: %s, initializer type: %d\n", var_name, initializer ? initializer->type : -1);
     if (type_annotation) {
         c_type = myco_type_to_c_type(type_annotation);
     } else if (initializer) {
@@ -129,19 +128,16 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                 c_type = ("void*" ? strdup("void*") : NULL);
             }
         } else if (initializer->type == AST_NODE_FUNCTION_CALL_EXPR) {
-            printf("DEBUG: AST_NODE_FUNCTION_CALL_EXPR detected\n");
             // Check if this is a member access function call (e.g., time.add())
             if (initializer->data.function_call_expr.function &&
                 initializer->data.function_call_expr.function->type == AST_NODE_MEMBER_ACCESS) {
                 const char* member_name = initializer->data.function_call_expr.function->data.member_access.member_name;
-                printf("DEBUG: Member access function call: %s\n", member_name);
                 if (strcmp(member_name, "increment") == 0 || strcmp(member_name, "getValue") == 0 || 
                     strcmp(member_name, "process") == 0 || strcmp(member_name, "calculate") == 0) {
                     c_type = ("double" ? strdup("double") : NULL);
                 } else if (strcmp(member_name, "add") == 0 || strcmp(member_name, "subtract") == 0 ||
                            strcmp(member_name, "now") == 0 || strcmp(member_name, "create") == 0) {
                     c_type = ("void*" ? strdup("void*") : NULL);
-                    printf("DEBUG: Type inference for %s: void*\n", member_name);
                 } else if (strcmp(member_name, "speak") == 0 || strcmp(member_name, "match") == 0 || 
                            strcmp(member_name, "stringify") == 0 || strcmp(member_name, "join") == 0 ||
                            strcmp(member_name, "toString") == 0) {
@@ -150,7 +146,6 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                     c_type = ("void*" ? strdup("void*") : NULL);
                 }
             } else {
-                printf("DEBUG: Not a member access function call, using void*\n");
                 c_type = ("void*" ? strdup("void*") : NULL);
             }
         } else if (initializer->type == AST_NODE_ARRAY_LITERAL) {

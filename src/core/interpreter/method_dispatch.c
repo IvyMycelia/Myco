@@ -97,7 +97,6 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
     ASTNode* member_access = call_node->data.function_call_expr.function;
     const char* method_name = member_access->data.member_access.member_name;
     
-    // printf("DEBUG: handle_method_call called with method: %s, object type: %d\n", method_name, object.type);
     
     // Handle namespace marker method calls (e.g., math.abs(-5))
     if (object.type == VALUE_STRING && strcmp(object.data.string_value, "namespace_marker") == 0) {
@@ -189,13 +188,11 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
             Value library_name = value_object_get(&object, "__library_name__");
             if (library_name.type == VALUE_STRING) {
                 if (strcmp(library_name.data.string_value, "web") == 0) {
-                    printf("DEBUG: Calling web method: %s\n", method_name);
                     Value result = handle_web_method_call(interpreter, call_node, method_name, object);
                     value_free(&object_type);
                     value_free(&library_name);
                     return result;
                 } else if (strcmp(library_name.data.string_value, "database") == 0) {
-                    printf("DEBUG: Calling database method: %s\n", method_name);
                     Value result = handle_db_method_call(interpreter, call_node, method_name, object);
                     value_free(&object_type);
                     value_free(&library_name);
@@ -550,7 +547,6 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
     // Generic object method on library-like objects: look up member and call if function
     if (object.type == VALUE_OBJECT) {
         Value member = value_object_get(&object, method_name);
-        // printf("DEBUG: Found member %s with type %d\n", method_name, member.type);
         if (member.type == VALUE_FUNCTION) {
             // Check if this is a library instance (has __class_name__)
             Value class_name = value_object_get(&object, "__class_name__");
@@ -609,7 +605,6 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
         if (class_name.type == VALUE_STRING) {
             if (strcmp(class_name.data.string_value, "Tree") == 0) {
                 // Handle tree method calls
-                // printf("DEBUG: Calling tree method: %s\n", method_name);
                 value_free(&class_name);
                 return handle_tree_method_call(interpreter, call_node, method_name, object);
             } else if (strcmp(class_name.data.string_value, "Graph") == 0) {

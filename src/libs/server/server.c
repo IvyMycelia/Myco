@@ -179,9 +179,7 @@ Route* route_match(Route* routes, const char* method, const char* path) {
         if (strcmp(current->method, method) == 0) {
             // Check if this route matches the path (with parameter extraction)
             RouteParam* extracted_params = NULL;
-            // printf("DEBUG: Checking route pattern '%s' against path '%s'\n", current->pattern, path);
             if (route_path_matches(current->pattern, path, &extracted_params)) {
-                // printf("DEBUG: Route matched! Pattern: '%s', Path: '%s'\n", current->pattern, path);
                 // Clear any existing parameters
                 route_params_free(current->params);
                 // Set the extracted parameters

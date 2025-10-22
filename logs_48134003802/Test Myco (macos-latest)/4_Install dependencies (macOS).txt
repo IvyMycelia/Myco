@@ -1,4 +1,0 @@
-﻿2025-10-22T05:26:54.7423100Z ##[group]Run # No external dependencies needed - Myco is self-contained
-2025-10-22T05:26:54.7426700Z [36;1m# No external dependencies needed - Myco is self-contained[0m
-2025-10-22T05:26:54.7492110Z shell: /bin/bash -e {0}
-2025-10-22T05:26:54.7492880Z ##[endgroup]

@@ -167,13 +167,11 @@ int variable_scope_is_declared(VariableScopeStack* scope, const char* original_n
 char* myco_type_to_c_type(const char* myco_type) {
     if (!myco_type) return ("void" ? strdup("void") : NULL);
 
-    // printf("DEBUG: myco_type_to_c_type called with: '%s'\n", myco_type);
 
     // Handle optional types (e.g., "String?" -> "void*")
     size_t len = strlen(myco_type);
     if (len > 0 && myco_type[len - 1] == '?') {
         // Optional types are represented as void* in C
-        // printf("DEBUG: Detected optional type, returning void*\n");
         return ("void*" ? strdup("void*") : NULL);
     }
     
@@ -393,9 +391,7 @@ void codegen_context_reset(CodeGenContext* context) {
 }
 
 int compiler_generate_c(CompilerConfig* config, ASTNode* ast, const char* output_file) {
-    // printf("DEBUG: compiler_generate_c called with output_file: %s\n", output_file);
     if (!config || !ast || !output_file) {
-        // printf("DEBUG: compiler_generate_c failed - invalid parameters\n");
         return 0;
     }
     
@@ -422,14 +418,11 @@ int compiler_generate_c(CompilerConfig* config, ASTNode* ast, const char* output
     }
     
     // Open output file
-    // printf("DEBUG: Opening output file: %s\n", output_file);
     FILE* output = fopen(output_file, "w");
     if (!output) {
         fprintf(stderr, "Error: Cannot open output file '%s'\n", output_file);
-        // printf("DEBUG: Failed to open output file\n");
         return 0;
     }
-    // printf("DEBUG: Output file opened successfully\n");
     
     // Create code generation context
     CodeGenContext* context = codegen_context_create(config, output);
@@ -450,14 +443,11 @@ int compiler_generate_c(CompilerConfig* config, ASTNode* ast, const char* output
     }
     
     // Generate main program
-    // printf("DEBUG: About to call codegen_generate_c_program\n");
     if (!codegen_generate_c_program(context, ast)) {
-        // printf("DEBUG: codegen_generate_c_program failed\n");
         codegen_context_free(context);
         fclose(output);
         return 0;
     }
-    // printf("DEBUG: codegen_generate_c_program completed successfully\n");
     
     // Cleanup
     codegen_context_free(context);
@@ -570,19 +560,14 @@ int compiler_compile_to_binary(CompilerConfig* config, const char* c_file, const
 }
 
 int codegen_generate_c_program(CodeGenContext* context, ASTNode* node) {
-    // printf("DEBUG: codegen_generate_c_program called\n");
     if (!context || !node) {
-        // printf("DEBUG: codegen_generate_c_program failed - invalid parameters\n");
         return 0;
     }
     
     // Generate library functions first
-    // printf("DEBUG: About to call codegen_generate_c_library_functions\n");
     if (!codegen_generate_c_library_functions(context)) {
-        // printf("DEBUG: codegen_generate_c_library_functions failed\n");
         return 0;
     }
-    // printf("DEBUG: codegen_generate_c_library_functions completed successfully\n");
     
     // Generate user-defined functions first
     if (node->type == AST_NODE_BLOCK && node->data.block.statements) {
@@ -603,18 +588,14 @@ int codegen_generate_c_program(CodeGenContext* context, ASTNode* node) {
     
     // Generate non-function statements
     if (node->type == AST_NODE_BLOCK && node->data.block.statements) {
-        // printf("DEBUG: About to generate %zu statements\n", node->data.block.statement_count);
         for (size_t i = 0; i < node->data.block.statement_count; i++) {
-        // printf("DEBUG: Generating statement %zu (type: %d)\n", i, node->data.block.statements[i]->type);
             ASTNode* stmt = node->data.block.statements[i];
             if (stmt->type != AST_NODE_FUNCTION) {
                 if (!codegen_generate_c_statement(context, stmt)) {
-                    // printf("DEBUG: Failed to generate statement %zu (type: %d)\n", i, node->data.block.statements[i]->type);
                 return 0;
             }
         }
         }
-        // printf("DEBUG: All statements generated successfully\n");
     }
     
     codegen_unindent(context);
@@ -627,16 +608,12 @@ int codegen_generate_c_program(CodeGenContext* context, ASTNode* node) {
 int codegen_generate_c_statement(CodeGenContext* context, ASTNode* node) {
     if (!context || !node) return 0;
     
-    // printf("DEBUG: codegen_generate_c_statement called with type: %d\n", node->type);
     switch (node->type) {
         case AST_NODE_VARIABLE_DECLARATION:
-            // printf("DEBUG: Handling VARIABLE_DECLARATION\n");
             if (!codegen_generate_c_variable_declaration(context, node)) {
-                // printf("DEBUG: VARIABLE_DECLARATION generation failed\n");
                 return 0;
             }
             codegen_write_line(context, ";");
-            // printf("DEBUG: VARIABLE_DECLARATION generated successfully\n");
             return 1;
         case AST_NODE_ASSIGNMENT:
             if (!codegen_generate_c_assignment(context, node)) return 0;
@@ -731,16 +708,12 @@ int codegen_generate_c_statement(CodeGenContext* context, ASTNode* node) {
 
 
 int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* node) {
-    // printf("DEBUG: codegen_generate_c_variable_declaration called\n");
     if (!context || !node || node->type != AST_NODE_VARIABLE_DECLARATION) {
-        // printf("DEBUG: codegen_generate_c_variable_declaration failed - invalid parameters\n");
             return 0;
     }
     
     
     // Generate type (default to double for numbers, char* for strings)
-    // printf("DEBUG: Variable name: %s\n", node->data.variable_declaration.variable_name);
-    // printf("DEBUG: Variable %s, Type name: %s\n", node->data.variable_declaration.variable_name, node->data.variable_declaration.type_name);
     if (node->data.variable_declaration.type_name) {
         // Convert Myco type to C type
         char* c_type = myco_type_to_c_type(node->data.variable_declaration.type_name);
@@ -748,9 +721,7 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
         shared_free_safe(c_type, "unknown", "unknown_function", 718);
     } else {
         // Infer type from initial value if available
-        // printf("DEBUG: Inferring type from initial value\n");
     if (node->data.variable_declaration.initial_value) {
-            // printf("DEBUG: Initial value type: %d\n", node->data.variable_declaration.initial_value->type);
         switch (node->data.variable_declaration.initial_value->type) {
         case AST_NODE_NUMBER:
                     codegen_write(context, "double ");
@@ -765,7 +736,6 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                     codegen_write(context, "char* ");
             break;
             case AST_NODE_ARRAY_LITERAL:
-                    // printf("DEBUG: Handling ARRAY_LITERAL for type inference\n");
                     // For array literals, we need to determine the appropriate type based on contents
                     if (node->data.variable_declaration.initial_value->data.array_literal.elements && 
                         node->data.variable_declaration.initial_value->data.array_literal.element_count > 0) {
@@ -810,23 +780,18 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                     }
                 break;
             case AST_NODE_HASH_MAP_LITERAL:
-                    // printf("DEBUG: Handling HASH_MAP_LITERAL for type inference\n");
                     codegen_write(context, "void* ");
                 break;
             case AST_NODE_SET_LITERAL:
-                    // printf("DEBUG: Handling SET_LITERAL for type inference\n");
                     codegen_write(context, "void* ");
                 break;
             case AST_NODE_LAMBDA:
-                    // printf("DEBUG: Handling LAMBDA for type inference\n");
                     codegen_write(context, "void* ");
                 break;
             case AST_NODE_FUNCTION_CALL:
-                    // printf("DEBUG: Handling FUNCTION_CALL for type inference\n");
                     // For function calls, we need to determine the return type
                     // Check if it's a known function with specific return type
                     const char* func_name = node->data.variable_declaration.initial_value->data.function_call.function_name;
-                    // printf("DEBUG: Function name in type inference: %s\n", func_name);
                     if (strstr(func_name, "Class") != NULL || 
                         strcmp(func_name, "Dog") == 0 ||
                         strcmp(func_name, "Puppy") == 0 ||
@@ -834,7 +799,6 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                         strcmp(func_name, "Lion") == 0 ||
                         strcmp(func_name, "Animal") == 0) {
                         // This is a class instantiation, use the class name as the type
-                        // printf("DEBUG: Type inference for class instantiation: %s\n", func_name);
                         codegen_write(context, "%s ", func_name);
                     } else if (strcmp(func_name, "return_five") == 0) {
                         // return_five returns Number (double)
@@ -851,7 +815,6 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                     } else if (strstr(func_name, "placeholder_") != NULL) {
                         // This is a placeholder function call, get its return type
                         const char* return_type = get_placeholder_function_return_type(func_name);
-                        // printf("DEBUG: Type inference for placeholder function %s: %s\n", func_name, return_type);
                         codegen_write(context, "%s ", return_type);
                     } else if (strcmp(func_name, "now") == 0 || strcmp(func_name, "create") == 0 || 
                                strcmp(func_name, "add") == 0 || strcmp(func_name, "subtract") == 0) {
@@ -875,7 +838,6 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                     }
                 break;
             case AST_NODE_FUNCTION_CALL_EXPR:
-                    // printf("DEBUG: Handling FUNCTION_CALL_EXPR for type inference\n");
                     // For function calls, we need to determine the return type
                     // Check if it's a member access function call (like .length())
         if (node->data.variable_declaration.initial_value->data.function_call_expr.function->type == AST_NODE_MEMBER_ACCESS) {
@@ -1030,7 +992,6 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
         }
                 break;
             case AST_NODE_UNARY_OP:
-                    // printf("DEBUG: Handling UNARY_OP for type inference\n");
                     // For unary operations, infer type based on the operand
                     // For now, assume numeric type for unary operations
                     codegen_write(context, "double ");
@@ -1144,7 +1105,6 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
     
     // Generate initial value if present
     if (node->data.variable_declaration.initial_value) {
-            // printf("DEBUG: About to generate initial value\n");
         // Set current variable name for context-aware code generation
         context->current_variable_name = node->data.variable_declaration.variable_name;
         codegen_write(context, " = ");
@@ -1190,7 +1150,6 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
         }
         
         if (!codegen_generate_c_expression(context, node->data.variable_declaration.initial_value)) {
-            // printf("DEBUG: Failed to generate initial value expression\n");
             context->current_variable_name = NULL;
             return 0;
         }
@@ -1390,10 +1349,6 @@ int codegen_generate_c_continue(CodeGenContext* context, ASTNode* node) {
 int codegen_generate_c_function_declaration(CodeGenContext* context, ASTNode* node) {
     if (!context || !node || node->type != AST_NODE_FUNCTION) return 0;
     
-    // printf("DEBUG: codegen_generate_c_function_declaration called\n");
-    // printf("DEBUG: Function name: %s\n", node->data.function_definition.function_name);
-    // printf("DEBUG: Return type: %s\n", node->data.function_definition.return_type ? node->data.function_definition.return_type : "NULL");
-    // printf("DEBUG: Parameter count: %zu\n", node->data.function_definition.parameter_count);
     
     // Generate return type
     if (node->data.function_definition.return_type) {
@@ -1410,9 +1365,7 @@ int codegen_generate_c_function_declaration(CodeGenContext* context, ASTNode* no
     // Generate parameters
     if (node->data.function_definition.parameters) {
         for (size_t i = 0; i < node->data.function_definition.parameter_count; i++) {
-                    // printf("DEBUG: Processing parameter %zu\n", i);
             if (i > 0) codegen_write(context, ", ");
-                    // printf("DEBUG: Parameter type: %d\n", node->data.function_definition.parameters[i]->type);
             
             ASTNode* param = node->data.function_definition.parameters[i];
             if (param->type == AST_NODE_TYPED_PARAMETER) {
@@ -1444,7 +1397,6 @@ int codegen_generate_c_function_declaration(CodeGenContext* context, ASTNode* no
             } else {
                 // Fallback for other parameter types
                 if (!codegen_generate_c_expression(context, param)) {
-                    // printf("DEBUG: Failed to generate parameter %zu\n", i);
                     return 0;
                 }
             }

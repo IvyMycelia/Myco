@@ -144,6 +144,7 @@ Template* template_parse(const char* content);
 char* template_render(Template* tmpl, Value* context);
 void template_free(Template* tmpl);
 TemplateNode* template_parse_node(const char* content, size_t* pos);
+TemplateNode* template_parse_until(const char* content, size_t* pos, const char* end_tag);
 char* template_eval_expression(const char* expr, Value* context);
 Value template_get_variable(const char* var_name, Value* context);
 char* template_render_node(TemplateNode* node, Value* context);

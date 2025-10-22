@@ -10,9 +10,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <dirent.h>
-#include <zlib.h>
 #include <signal.h>
-#include <microhttpd.h>
 #include "../core/interpreter.h"
 
 // Server configuration structure
@@ -50,7 +48,7 @@ typedef struct SignalHandler {
 typedef struct {
     int port;
     bool running;
-    struct MHD_Daemon* daemon;
+    void* daemon; // Custom HTTP server daemon
     Interpreter* interpreter;
     ServerConfig* config;
     Middleware* middleware;
@@ -153,7 +151,7 @@ void execute_next_middleware(void);
 // Request/Response object creation and management
 Value create_request_object(MycoRequest* request);
 Value create_response_object(MycoResponse* response);
-MycoRequest* parse_http_request(struct MHD_Connection* connection, const char* url, const char* method);
+MycoRequest* parse_http_request(void* connection, const char* url, const char* method);
 MycoResponse* create_http_response(void);
 void free_request_object(MycoRequest* request);
 void free_response_object(MycoResponse* response);
@@ -169,7 +167,7 @@ Middleware* middleware_create(Value function);
 void middleware_free(Middleware* middleware);
 void middleware_add(MycoServer* server, Value function);
 void execute_middleware(MycoServer* server, Value req_obj, Value res_obj, Value next_func);
-enum MHD_Result server_handle_request(void* cls, struct MHD_Connection* connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls);
+int server_handle_request(void* cls, void* connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls);
 Route* route_create(const char* method, const char* path, Value handler);
 void route_free(Route* route);
 Route* route_match(Route* routes, const char* method, const char* path);

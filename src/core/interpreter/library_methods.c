@@ -83,9 +83,9 @@ Value handle_graph_method_call(Interpreter* interpreter, ASTNode* call_node, con
     Value result = value_create_null();
     
     // Call the appropriate graph method
-    if (strcmp(method_name, "add_node") == 0) {
+    if (strcmp(method_name, "add_node") == 0 || strcmp(method_name, "addNode") == 0) {
         result = builtin_graph_add_node(interpreter, args, arg_count + 1, call_node->line, call_node->column);
-    } else if (strcmp(method_name, "add_edge") == 0) {
+    } else if (strcmp(method_name, "add_edge") == 0 || strcmp(method_name, "addEdge") == 0) {
         result = builtin_graph_add_edge(interpreter, args, arg_count + 1, call_node->line, call_node->column);
     } else if (strcmp(method_name, "size") == 0) {
         result = builtin_graph_size(interpreter, args, arg_count + 1, call_node->line, call_node->column);
@@ -514,6 +514,13 @@ Value handle_web_method_call(Interpreter* interpreter, ASTNode* call_node, const
 }
 
 // Database Method Handler
+Value handle_http_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object) {
+    // HTTP library methods are called directly through the generic object method handling
+    // This function is a placeholder for consistency with other library handlers
+    // The actual HTTP methods are called through the generic object method dispatch
+    return value_create_null();
+}
+
 Value handle_db_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object) {
     size_t arg_count = call_node->data.function_call_expr.argument_count;
     Value* args = (Value*)calloc(arg_count, sizeof(Value));

@@ -2,8 +2,7 @@
 #include "enhanced_error_system.h"
 #include "debug_system.h"
 #include "repl_debug.h"
-#include <readline/readline.h>
-#include <readline/history.h>
+#include "repl_input.h"
 #include <signal.h>
 #include <errno.h>
 #include <unistd.h>
@@ -705,34 +704,16 @@ char* repl_read_line(REPLState* state) {
         return NULL;
     }
     
-    char* input = readline("myco> ");
-    if (input && strlen(input) > 0) {
-        add_history(input);
-        return input;
-    }
-    
-    // Fallback to standard input if readline fails
-    if (!input) {
-        printf("myco> ");
-        fflush(stdout);
-        
-        char buffer[1024];
-        if (fgets(buffer, sizeof(buffer), stdin)) {
-            // Remove newline
-            size_t len = strlen(buffer);
-            if (len > 0 && buffer[len-1] == '\n') {
-                buffer[len-1] = '\0';
-            }
-            
-            if (strlen(buffer) > 0) {
-                input = shared_malloc_safe(strlen(buffer) + 1, "repl", "unknown_function", 667);
-                strcpy(input, buffer);
-                add_history(input);
-            }
+    // Use our custom REPL input system
+    static ReplInput* input_state = NULL;
+    if (!input_state) {
+        input_state = repl_input_create();
+        if (!input_state) {
+            return NULL;
         }
     }
     
-    return input;
+    return repl_input_read_line(input_state, "myco> ");
 }
 
 /**

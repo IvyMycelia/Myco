@@ -1005,8 +1005,8 @@ end
 
 # Test directory exists (moved out of conditional)
 total_tests = total_tests + 1;
-let exists_result = dir.exists("test_dir");
-if exists_result == True:
+let dir_exists_result = dir.exists("test_dir");
+if dir_exists_result == True:
     print("✓ Directory exists check successful");
     tests_passed = tests_passed + 1;
     

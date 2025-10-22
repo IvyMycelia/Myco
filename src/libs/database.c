@@ -864,6 +864,7 @@ void database_library_register(Interpreter* interpreter) {
     Value db_namespace = value_create_object(8);
     value_object_set(&db_namespace, "__type__", value_create_string("Library"));
     value_object_set(&db_namespace, "type", value_create_string("Library"));
+    value_object_set(&db_namespace, "__library_name__", value_create_string("database"));
     
     // Add database functions
     value_object_set(&db_namespace, "open", value_create_builtin_function(builtin_db_open));

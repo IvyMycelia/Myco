@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <curl/curl.h>
+#include "http_client.h"
 #include "../core/interpreter.h"
 
 // HTTP method types
@@ -19,18 +19,7 @@ typedef enum {
     HTTP_OPTIONS
 } HttpMethod;
 
-// HTTP response structure
-typedef struct {
-    int status_code;
-    char* status_text;
-    char* body;
-    char** headers;
-    size_t header_count;
-    char* content_type;
-    long content_length;
-    bool success;
-    char* error_message;
-} HttpResponse;
+// HTTP response structure is defined in http_client.h
 
 // HTTP request structure
 typedef struct {
@@ -46,10 +35,10 @@ typedef struct {
 
 // Core HTTP functions
 HttpResponse* http_request(HttpRequest* request);
-HttpResponse* http_get(const char* url, char** headers, size_t header_count);
-HttpResponse* http_post(const char* url, const char* data, char** headers, size_t header_count);
-HttpResponse* http_put(const char* url, const char* data, char** headers, size_t header_count);
-HttpResponse* http_delete(const char* url, char** headers, size_t header_count);
+HttpResponse* http_get(const char* url, const char* headers, int timeout);
+HttpResponse* http_post(const char* url, const char* body, const char* headers, int timeout);
+HttpResponse* http_put(const char* url, const char* body, const char* headers, int timeout);
+HttpResponse* http_delete(const char* url, const char* headers, int timeout);
 
 // Utility functions
 void http_free_response(HttpResponse* response);

@@ -381,7 +381,16 @@ ASTNode* parser_parse_program(Parser* parser) {
  * @return Root node of the AST, or NULL if parsing failed
  */
 ASTNode* parser_parse_program_with_filename(Parser* parser, const char* filename) {
-    if (!parser) return NULL;
+    #ifdef __linux__
+    printf("DEBUG: parser_parse_program_with_filename called on Linux\n");
+    #endif
+    
+    if (!parser) {
+        #ifdef __linux__
+        printf("DEBUG: Invalid parser on Linux\n");
+        #endif
+        return NULL;
+    }
     
     // Parse the program normally
     ASTNode* result = parser_parse_program(parser);

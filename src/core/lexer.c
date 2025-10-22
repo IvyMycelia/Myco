@@ -685,7 +685,14 @@ static int lexer_scan_token(Lexer* lexer) {
  * the lexer and will be freed when lexer_free() is called.
  */
 int lexer_scan_all(Lexer* lexer) {
+    #ifdef __linux__
+    printf("DEBUG: lexer_scan_all called on Linux\n");
+    #endif
+    
     if (!lexer || !lexer->source) {
+        #ifdef __linux__
+        printf("DEBUG: Invalid lexer or source on Linux\n");
+        #endif
         return -1;  // Invalid lexer or source
     }
     

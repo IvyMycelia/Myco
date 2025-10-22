@@ -319,14 +319,28 @@ static char* lexer_extract_text(Lexer* lexer) {
  * @param lexer The lexer to parse the number in
  */
 static void lexer_parse_number(Lexer* lexer) {
+    static int number_count = 0;
+    number_count++;
+    
+    if (number_count % 1000 == 0) {
+        printf("DEBUG: lexer_parse_number called %d times at position %d\n", number_count, lexer->current);
+    }
+    
     // Consume digits and underscores
     while (!lexer_is_at_end(lexer) && (isdigit(lexer_current_char(lexer)) || lexer_current_char(lexer) == '_')) {
         lexer_advance(lexer);
     }
     
+    if (number_count % 1000 == 0) {
+        printf("DEBUG: Finished consuming number digits, current pos: %d\n", lexer->current);
+    }
+    
     // Look for decimal point
     if (!lexer_is_at_end(lexer) && lexer_current_char(lexer) == '.' && 
         !lexer_is_at_end(lexer) && isdigit(lexer_next_char(lexer))) {
+        if (number_count % 1000 == 0) {
+            printf("DEBUG: Found decimal point, processing decimal part\n");
+        }
         lexer_advance(lexer);  // Consume the decimal point
         
         // Consume digits and underscores after decimal point
@@ -335,12 +349,26 @@ static void lexer_parse_number(Lexer* lexer) {
         }
     }
     
+    if (number_count % 1000 == 0) {
+        printf("DEBUG: About to extract number text\n");
+    }
+    
     // Extract the number text
     char* text = lexer_extract_text(lexer);
+    if (number_count % 1000 == 0) {
+        printf("DEBUG: Extracted number text: %s\n", text ? text : "NULL");
+    }
     if (text) {
+        if (number_count % 1000 == 0) {
+            printf("DEBUG: Processing number text, length: %zu\n", strlen(text));
+        }
+        
         // Remove underscores from the number text before converting to double
         char* clean_text = shared_malloc_safe((text ? strlen(text) : 0) + 1, "core", "unknown_function", 291);
         if (clean_text) {
+            if (number_count % 1000 == 0) {
+                printf("DEBUG: Allocated clean_text successfully\n");
+            }
             size_t j = 0;
             for (size_t i = 0; text[i] != '\0'; i++) {
                 if (text[i] != '_') {
@@ -349,13 +377,25 @@ static void lexer_parse_number(Lexer* lexer) {
             }
             clean_text[j] = '\0';
             
+            if (number_count % 1000 == 0) {
+                printf("DEBUG: About to add number token\n");
+            }
             lexer_add_token(lexer, TOKEN_NUMBER, clean_text, lexer->line, lexer->column - (text ? strlen(text) : 0));
             shared_free_safe(clean_text, "core", "unknown_function", 302);
+            if (number_count % 1000 == 0) {
+                printf("DEBUG: Freed clean_text\n");
+            }
         } else {
+            if (number_count % 1000 == 0) {
+                printf("DEBUG: Clean text allocation failed, using original text\n");
+            }
             // Fallback to original text if memory allocation fails
             lexer_add_token(lexer, TOKEN_NUMBER, text, lexer->line, lexer->column - (text ? strlen(text) : 0));
         }
         shared_free_safe(text, "core", "unknown_function", 307);
+        if (number_count % 1000 == 0) {
+            printf("DEBUG: Freed original text\n");
+        }
     }
 }
 

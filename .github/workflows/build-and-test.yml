@@ -1,4 +1,4 @@
-name: Myco CI/CD Pipeline
+name: Build and Test
 
 on:
   push:
@@ -8,12 +8,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
-    name: Test Myco
+  build-and-test:
+    name: Build and Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest]
+        os: [ubuntu-latest, macos-latest]
     
     steps:
       - name: Checkout code
@@ -42,20 +42,11 @@ jobs:
           # Run with timeout to prevent hanging
           timeout 60s ./bin/myco pass.myco || echo "Test suite failed with exit code $?"
           
-      - name: Test web framework
+      - name: Test individual libraries
         run: |
           echo 'print("Web framework test: " + web.type)' | ./bin/myco
-          
-      - name: Test database
-        run: |
           echo 'print("Database test: " + db.type)' | ./bin/myco
-          
-      - name: Test JSON library
-        run: |
           echo 'print("JSON test: " + json.type)' | ./bin/myco
-          
-      - name: Test server library
-        run: |
           echo 'print("Server test: " + server.type)' | ./bin/myco
           
       - name: Run performance benchmarks
@@ -65,11 +56,12 @@ jobs:
             ./benchmark/run_benchmarks.sh
           fi
           
-      - name: Upload benchmark results
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
-        if: always()
+        if: success()
         with:
-          name: benchmark-results-${{ matrix.os }}-${{ github.run_number }}
+          name: myco-binary-${{ matrix.os }}
           path: |
+            bin/myco
             benchmark/results/
-            *.log
+          retention-days: 7

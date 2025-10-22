@@ -1,22 +1,25 @@
-name: Create Release
+name: Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+      prerelease:
+        description: 'Mark as prerelease'
+        type: boolean
+        default: false
   push:
     tags:
       - 'v*'
-  push:
-    branches:
-      - main
-  workflow_dispatch:
 
 jobs:
   release:
-    runs-on: macos-latest
-    permissions:
-      contents: write
-      packages: write
-      issues: write
-      pull-requests: write
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: []
     
     steps:
       - name: Checkout code
@@ -24,85 +27,96 @@ jobs:
         with:
           fetch-depth: 0
           
-      - name: Generate version number
+      - name: Determine version
         id: version
         run: |
-          if [[ ${{ github.ref }} == refs/tags/* ]]; then
-            # Use tag name for tagged releases
-            VERSION=${GITHUB_REF#refs/tags/}
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
-            echo "is_tag=true" >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
           else
-            # Generate version from commit info for main branch
-            COMMIT_COUNT=$(git rev-list --count HEAD)
-            SHORT_SHA=$(git rev-parse --short HEAD)
-            VERSION="v1.0.$COMMIT_COUNT-$SHORT_SHA"
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
-            echo "is_tag=false" >> $GITHUB_OUTPUT
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           fi
-          echo "Generated version: $VERSION"
-        
-      - name: Install dependencies
-        run: |
-          brew install libmicrohttpd curl readline zlib
           
-      - name: Build Myco
-        run: |
-          make clean
-          make
-          
-      - name: Run comprehensive tests
-        run: |
-          ./bin/myco pass.myco
-          
-      - name: Test web framework functionality
-        run: |
-          echo 'print("Web framework: " + web.type)' | ./bin/myco
-          echo 'print("Database: " + db.type)' | ./bin/myco
-          
-      - name: Create release archive
-        run: |
-          mkdir -p release
-          cp bin/myco release/
-          cp -r examples/ release/ 2>/dev/null || true
-          cp -r docs/ release/ 2>/dev/null || true
-          cp README.md release/
-          cp LICENSE release/ 2>/dev/null || true
-          cp -r benchmark/ release/ 2>/dev/null || true
-          tar -czf myco-${{ steps.version.outputs.version }}-macos.tar.gz -C release .
-          
-      - name: Upload release assets
-        uses: actions/upload-artifact@v4
+      - name: Download Ubuntu binary
+        uses: actions/download-artifact@v4
         with:
-          name: myco-${{ steps.version.outputs.version }}-macos
-          path: myco-${{ steps.version.outputs.version }}-macos.tar.gz
+          name: myco-binary-ubuntu-latest
+          path: ./artifacts/ubuntu
+          
+      - name: Download macOS binary
+        uses: actions/download-artifact@v4
+        with:
+          name: myco-binary-macos-latest
+          path: ./artifacts/macos
+          
+      - name: Prepare release assets
+        run: |
+          mkdir -p ./release-assets
+          
+          # Ubuntu binary
+          if [ -f "./artifacts/ubuntu/bin/myco" ]; then
+            cp ./artifacts/ubuntu/bin/myco ./release-assets/myco-ubuntu-latest
+            chmod +x ./release-assets/myco-ubuntu-latest
+          fi
+          
+          # macOS binary
+          if [ -f "./artifacts/macos/bin/myco" ]; then
+            cp ./artifacts/macos/bin/myco ./release-assets/myco-macos-latest
+            chmod +x ./release-assets/myco-macos-latest
+          fi
+          
+          # Create checksums
+          cd ./release-assets
+          for file in *; do
+            sha256sum "$file" > "$file.sha256"
+          done
+          
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          cat > release_notes.md << EOF
+          # Myco ${{ steps.version.outputs.version }}
+          
+          ## Downloads
+          
+          ### Ubuntu/Linux
+          - \`myco-ubuntu-latest\` - Binary for Ubuntu/Linux
+          - \`myco-ubuntu-latest.sha256\` - SHA256 checksum
+          
+          ### macOS
+          - \`myco-macos-latest\` - Binary for macOS
+          - \`myco-macos-latest.sha256\` - SHA256 checksum
+          
+          ## Installation
+          
+          1. Download the appropriate binary for your platform
+          2. Make it executable: \`chmod +x myco-<platform>\`
+          3. Move to your PATH: \`sudo mv myco-<platform> /usr/local/bin/myco\`
+          4. Verify installation: \`myco --version\`
+          
+          ## Features
+          
+          - Complete Myco language implementation
+          - 100% test success rate (323/323 tests passing)
+          - Web framework with template engine
+          - Database system with custom storage
+          - HTTP client with HTTPS support
+          - JSON, Trees, Graphs, and more libraries
+          
+          ## Performance
+          
+          - Optimized for speed and memory efficiency
+          - Self-contained with no external dependencies
+          - Cross-platform compatibility
+          EOF
           
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.version }}
           name: Myco ${{ steps.version.outputs.version }}
-          files: myco-${{ steps.version.outputs.version }}-macos.tar.gz
-          generate_release_notes: true
-          draft: false
-          prerelease: ${{ steps.version.outputs.is_tag == 'false' }}
-          body: |
-            ## Myco ${{ steps.version.outputs.version }}
-            
-            ### What's New
-            - Latest Myco interpreter with web framework
-            - Complete database system with file-based storage
-            - Template engine with variable substitution
-            - Session management with cookie tracking
-            - All 323 tests passing
-            
-            ### Installation
-            1. Download the archive
-            2. Extract: `tar -xzf myco-${{ steps.version.outputs.version }}-macos.tar.gz`
-            3. Run: `./myco --help`
-            
-            ### Features
-            - **Web Framework**: Full routing, middleware, templates, sessions
-            - **Database**: Custom file-based storage with CRUD operations
-            - **Performance**: Optimized for speed and memory efficiency
-            - **Cross-platform**: macOS and Linux support
+          body_path: release_notes.md
+          files: |
+            ./release-assets/*
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -38,13 +38,29 @@ jobs:
         run: |
           make clean
           make
+          # Check if binary was created successfully
+          ls -la bin/myco
+          # Test basic functionality immediately after build
+          echo "Testing binary immediately after build..."
+          echo 'print("Build test");' | ./bin/myco || echo "Immediate test failed"
           
       - name: Run test suite
         run: |
           # Add ulimit to increase stack size for Ubuntu
           ulimit -s unlimited || true
-          # Run with timeout to prevent hanging
-          timeout 60s ./bin/myco pass.myco || echo "Test suite failed with exit code $?"
+          # Run with core dumps enabled for debugging
+          ulimit -c unlimited || true
+          # Try running a smaller test first
+          echo "Testing basic functionality..."
+          echo 'print("Hello World");' | ./bin/myco || echo "Basic test failed"
+          # Try running first part of test suite
+          echo "Testing first 500 lines..."
+          head -500 pass.myco > test_partial.myco
+          echo 'print("=== RESULTS ==="); print("Total: " + total_tests.toString()); print("Passed: " + tests_passed.toString()); print("Failed: " + tests_failed.toString());' >> test_partial.myco
+          timeout 30s ./bin/myco test_partial.myco || echo "Partial test failed with exit code $?"
+          # If partial test works, try full test
+          echo "Testing full suite..."
+          timeout 60s ./bin/myco pass.myco || echo "Full test suite failed with exit code $?"
           
       - name: Test individual libraries
         run: |

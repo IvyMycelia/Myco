@@ -948,6 +948,7 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
     environment_define(interpreter->global_environment, "set_response_status", value_create_builtin_function(builtin_set_response_status));
 
     // Register json library in server context
+    // Register json library in server context
     json_library_register(interpreter);
 
     printf("DEBUG: Registered all global variables\n");

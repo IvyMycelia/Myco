@@ -1,5 +1,6 @@
 #include "../../include/libs/http_server.h"
 #include "../../include/libs/server/server.h"
+#include "../../include/libs/json.h"
 #include "../../include/utils/shared_utilities.h"
 #include "../../include/core/interpreter.h"
 #include <pthread.h>
@@ -251,8 +252,7 @@ static void myco_route_handler(HttpRequest* request, HttpResponse* response) {
     }
     g_response_status_code = 200;
     
-    printf("DEBUG: Before executing handler, g_response_body: %p\n", (void*)g_response_body);
-    fflush(stdout);
+    // Clear previous response data
     
     // Execute the handler function directly without complex parameter passing
     if (myco_route->handler.type == VALUE_FUNCTION && myco_route->handler.data.function_value.body) {
@@ -262,40 +262,15 @@ static void myco_route_handler(HttpRequest* request, HttpResponse* response) {
         // Use the global environment directly to ensure access to global functions
         g_interpreter->current_environment = g_interpreter->global_environment;
         
-        // Debug: Check if set_response_body is accessible
-        if (g_interpreter->global_environment) {
-            Value set_response_body_value = environment_get(g_interpreter->global_environment, "set_response_body");
-            printf("DEBUG: set_response_body lookup result type: %d\n", set_response_body_value.type);
-        } else {
-            printf("DEBUG: global_environment is NULL, cannot lookup set_response_body\n");
-        }
-        fflush(stdout);
+        // Ensure json library is available in server context
+        // json_library_register(g_interpreter); // Commented out due to segfault
         
-        // Debug: Check if the global environment is the same as when we registered
-        printf("DEBUG: g_interpreter pointer: %p\n", (void*)g_interpreter);
-        fflush(stdout);
-        if (g_interpreter) {
-            printf("DEBUG: Global environment pointer: %p\n", (void*)g_interpreter->global_environment);
-        } else {
-            printf("DEBUG: g_interpreter is NULL!\n");
-        }
-        fflush(stdout);
+        // Execute the handler function
         
-        printf("DEBUG: Executing handler with captured environment\n");
-        printf("DEBUG: Function body type: %d\n", myco_route->handler.data.function_value.body ? myco_route->handler.data.function_value.body->type : -1);
-        if (myco_route->handler.data.function_value.body && myco_route->handler.data.function_value.body->type == 0) {
-            printf("DEBUG: Block has %zu statements\n", myco_route->handler.data.function_value.body->data.block.statement_count);
-        }
-        fflush(stdout);
+        // Execute the handler function
         
         // Execute function body
         handler_result = interpreter_execute(g_interpreter, myco_route->handler.data.function_value.body);
-        
-        printf("DEBUG: Handler result type: %d\n", handler_result.type);
-        if (handler_result.type == VALUE_ERROR) {
-            printf("DEBUG: Handler returned error\n");
-        }
-        fflush(stdout);
         
         // Restore environment
         g_interpreter->current_environment = old_env;
@@ -303,13 +278,6 @@ static void myco_route_handler(HttpRequest* request, HttpResponse* response) {
         // Free handler result
         value_free(&handler_result);
     }
-    
-    printf("DEBUG: Handler executed successfully\n");
-    printf("DEBUG: After executing handler, g_response_body: %p\n", (void*)g_response_body);
-    if (g_response_body) {
-        printf("DEBUG: g_response_body content: %s\n", g_response_body);
-    }
-    fflush(stdout);
     
     // Get response data from globals
     response->status_code = g_response_status_code;

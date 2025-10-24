@@ -848,11 +848,11 @@ Value builtin_json_stringify(Interpreter* interpreter, Value* args, size_t arg_c
     // Convert Myco value to JSON string
     json_stringify_myco_value(builder, &myco_value);
     
-    // Create result string
+    // Create result string (takes ownership of buffer)
     Value result = value_create_string(builder->buffer);
     
-    // Clean up
-    json_string_builder_free(builder);
+    // Clean up builder structure but not the buffer (transferred to Value)
+    shared_free_safe(builder, "libs", "builtin_json_stringify", 0);
     
     return result;
 }

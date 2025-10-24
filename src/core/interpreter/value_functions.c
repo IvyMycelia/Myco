@@ -13,7 +13,7 @@
 Value value_create_function(ASTNode* body, ASTNode** params, size_t param_count, const char* return_type, Environment* captured_env) {
     Value v = {0};
     v.type = VALUE_FUNCTION;
-    v.data.function_value.body = body;
+    v.data.function_value.body = body ? ast_clone(body) : NULL;
     v.data.function_value.parameter_count = param_count;
     v.data.function_value.return_type = return_type ? shared_strdup(return_type) : NULL;
     v.data.function_value.captured_environment = captured_env;

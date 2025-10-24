@@ -240,6 +240,26 @@ Value value_to_string(Value* value) {
             shared_free_safe(result, "interpreter", "value_to_string", 0);
             return result_value;
         }
+        case VALUE_OBJECT: {
+            // Handle special object types
+            Value type_val = value_object_get(value, "type");
+            if (type_val.type == VALUE_STRING && strcmp(type_val.data.string_value, "time") == 0) {
+                // This is a time object - return the timestamp as a string
+                Value timestamp_val = value_object_get(value, "timestamp");
+                if (timestamp_val.type == VALUE_NUMBER) {
+                    char timestamp_str[32];
+                    snprintf(timestamp_str, sizeof(timestamp_str), "%.0f", timestamp_val.data.number_value);
+                    value_free(&type_val);
+                    value_free(&timestamp_val);
+                    return value_create_string(timestamp_str);
+                }
+                value_free(&timestamp_val);
+            }
+            value_free(&type_val);
+            
+            // For other objects, return a generic representation
+            return value_create_string("<Object>");
+        }
         default: return value_create_string("<Value>"); 
     } 
 }
@@ -460,15 +480,29 @@ Value value_clone(Value* value) {
             return v;
         }
         case VALUE_FUNCTION: {
-            // Clone function with all its data
-            Value v = value_create_function(
-                value->data.function_value.body,
-                value->data.function_value.parameters,
-                value->data.function_value.parameter_count,
-                value->data.function_value.return_type,
-                value->data.function_value.captured_environment
-            );
-            return v;
+            // Check if this is a built-in function
+            if (value->flags & VALUE_FLAG_CACHED) {
+                // This is a built-in function - just copy the pointer
+                Value v = {0};
+                v.type = VALUE_FUNCTION;
+                v.data.function_value.body = value->data.function_value.body;
+                v.data.function_value.parameters = NULL;
+                v.data.function_value.parameter_count = 0;
+                v.data.function_value.return_type = NULL;
+                v.data.function_value.captured_environment = NULL;
+                v.flags = value->flags;
+                return v;
+            } else {
+                // Clone function with all its data
+                Value v = value_create_function(
+                    value->data.function_value.body,
+                    value->data.function_value.parameters,
+                    value->data.function_value.parameter_count,
+                    value->data.function_value.return_type,
+                    value->data.function_value.captured_environment
+                );
+                return v;
+            }
         }
         case VALUE_ASYNC_FUNCTION: {
             // Clone async function with all its data

@@ -7,6 +7,14 @@
 // Custom HTTP server to replace libmicrohttpd dependency
 // Provides lightweight, dependency-free HTTP server functionality
 
+// HTTP Server Error Codes
+#define HTTP_SERVER_SUCCESS 0
+#define HTTP_SERVER_ERROR_SOCKET_CREATE -1
+#define HTTP_SERVER_ERROR_BIND -2
+#define HTTP_SERVER_ERROR_LISTEN -3
+#define HTTP_SERVER_ERROR_FCNTL -4
+#define HTTP_SERVER_ERROR_ALREADY_RUNNING -5
+
 // Forward declarations
 typedef struct HttpRequest HttpRequest;
 typedef struct HttpResponse HttpResponse;
@@ -54,7 +62,10 @@ HttpServer* http_server_create(int port);
 int http_server_add_route(HttpServer* server, const char* method, const char* path, 
                          HttpRouteHandler handler);
 int http_server_start(HttpServer* server);
+int http_server_handle_requests(HttpServer* server);
+void http_server_register_myco_routes(HttpServer* server, void* myco_routes);
 void http_server_stop(HttpServer* server);
 void http_server_free(HttpServer* server);
+void* http_server_background_loop(void* arg);
 
 #endif // HTTP_SERVER_H

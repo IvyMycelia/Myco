@@ -183,26 +183,33 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
     // Library object methods - check for specific library types first
     if (object.type == VALUE_OBJECT) {
         Value object_type = value_object_get(&object, "__type__");
-        if (object_type.type == VALUE_STRING && strcmp(object_type.data.string_value, "Library") == 0) {
-            // Check if this is a web or database library specifically
-            Value library_name = value_object_get(&object, "__library_name__");
-            if (library_name.type == VALUE_STRING) {
-                if (strcmp(library_name.data.string_value, "web") == 0) {
-                    Value result = handle_web_method_call(interpreter, call_node, method_name, object);
-                    value_free(&object_type);
-                    value_free(&library_name);
-                    return result;
-                } else if (strcmp(library_name.data.string_value, "database") == 0) {
-                    Value result = handle_db_method_call(interpreter, call_node, method_name, object);
-                    value_free(&object_type);
-                    value_free(&library_name);
-                    return result;
+        if (object_type.type == VALUE_STRING) {
+            if (strcmp(object_type.data.string_value, "Database") == 0) {
+                // This is a database collection object
+                Value result = handle_database_collection_method_call(interpreter, call_node, method_name, object);
+                value_free(&object_type);
+                return result;
+            } else if (strcmp(object_type.data.string_value, "Library") == 0) {
+                // Check if this is a web or database library specifically
+                Value library_name = value_object_get(&object, "__library_name__");
+                if (library_name.type == VALUE_STRING) {
+                    if (strcmp(library_name.data.string_value, "web") == 0) {
+                        Value result = handle_web_method_call(interpreter, call_node, method_name, object);
+                        value_free(&object_type);
+                        value_free(&library_name);
+                        return result;
+                    } else if (strcmp(library_name.data.string_value, "database") == 0) {
+                        Value result = handle_db_method_call(interpreter, call_node, method_name, object);
+                        value_free(&object_type);
+                        value_free(&library_name);
+                        return result;
+                    }
+                    // HTTP library methods are called through generic object method handling
                 }
-                // HTTP library methods are called through generic object method handling
+                value_free(&library_name);
+                
+                // For other libraries (math, json, etc.), fall through to generic object method handling
             }
-            value_free(&library_name);
-            
-            // For other libraries (math, json, etc.), fall through to generic object method handling
         }
         value_free(&object_type);
     }
@@ -555,7 +562,11 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                  strcmp(class_name.data.string_value, "Graph") == 0 ||
                  strcmp(class_name.data.string_value, "Heap") == 0 ||
                  strcmp(class_name.data.string_value, "Queue") == 0 ||
-                 strcmp(class_name.data.string_value, "Stack") == 0));
+                 strcmp(class_name.data.string_value, "Stack") == 0 ||
+                 strcmp(class_name.data.string_value, "Server") == 0 ||
+                 strcmp(class_name.data.string_value, "Request") == 0 ||
+                 strcmp(class_name.data.string_value, "Response") == 0 ||
+                 strcmp(class_name.data.string_value, "Database") == 0));
             
             value_free(&class_name);
             

@@ -206,7 +206,15 @@ int interpret_source(const char* source, const char* filename, int debug) {
     if (debug) {
     }
     
-    // Clean up
+    // Check if servers are running and keep script alive like JavaScript
+    extern bool g_servers_running;
+    if (g_servers_running) {
+        while (g_servers_running) {
+            usleep(100000); // 100ms delay to prevent busy waiting
+        }
+    }
+    
+    // Clean up (after servers have stopped)
     interpreter_free(interpreter);
     ast_free(program);
     parser_free(parser);

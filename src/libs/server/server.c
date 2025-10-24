@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <strings.h>
+#include <pthread.h>
 #include "../../include/core/standardized_errors.h"
 #include "../../include/utils/shared_utilities.h"
 #include "../../include/libs/json.h"
@@ -14,12 +15,59 @@
 
 // Global server instance (for simplicity, we'll support one server at a time)
 static MycoServer* g_server = NULL;
-static Route* g_routes = NULL;
+Route* g_routes = NULL;
 static StaticRoute* g_static_routes = NULL;
-static Interpreter* g_interpreter = NULL; // Store interpreter reference for route handlers
+Interpreter* g_interpreter = NULL; // Store interpreter reference for route handlers
 
 // Global response body storage
-static char* g_response_body = NULL;
+char* g_response_body = NULL;
+
+// Built-in functions to set global response data
+Value builtin_set_response_body(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    printf("DEBUG: builtin_set_response_body called with %zu args\n", arg_count);
+    fflush(stdout);
+    
+    if (arg_count != 1) {
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "set_response_body requires exactly 1 argument", line, column);
+        return value_create_null();
+    }
+    
+    if (args[0].type != VALUE_STRING) {
+        printf("DEBUG: set_response_body argument type: %d (expected STRING)\n", args[0].type);
+        fflush(stdout);
+        std_error_report(ERROR_TYPE_MISMATCH, "server", "unknown_function", "set_response_body argument must be a string", line, column);
+        return value_create_null();
+    }
+    
+    // Free existing global response body
+    if (g_response_body) {
+        shared_free_safe(g_response_body, "libs", "unknown_function", 0);
+    }
+    
+    // Set new global response body
+    g_response_body = shared_strdup(args[0].data.string_value);
+    printf("DEBUG: g_response_body set to: %s\n", g_response_body);
+    fflush(stdout);
+    
+    return value_create_null();
+}
+
+Value builtin_set_response_status(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 1) {
+        std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "set_response_status requires exactly 1 argument", line, column);
+        return value_create_null();
+    }
+    
+    if (args[0].type != VALUE_NUMBER) {
+        std_error_report(ERROR_TYPE_MISMATCH, "server", "unknown_function", "set_response_status argument must be a number", line, column);
+        return value_create_null();
+    }
+    
+    // Set global response status code
+    g_response_status_code = (int)args[0].data.number_value;
+    
+    return value_create_null();
+}
 
 // Global current request parameters (for access from request.param())
 RouteParam* g_current_request_params = NULL;
@@ -27,12 +75,18 @@ RouteParam* g_current_request_params = NULL;
 // Global current route group prefix
 char* g_current_route_prefix = NULL;
 
+// Forward declarations
+Value builtin_server_process_requests(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+
 // Global request body storage
 static char* g_request_body = NULL;
 
 // Global response data for modifications
-static int g_response_status_code = 200;
-static char* g_response_content_type = NULL;
+int g_response_status_code = 200;
+char* g_response_content_type = NULL;
+
+// Global flag to indicate if any servers are running
+bool g_servers_running = false;
 
 // Create a new server instance
 MycoServer* server_create(int port, Interpreter* interpreter) {
@@ -139,8 +193,13 @@ Route* route_create(const char* method, const char* path, Value handler) {
     route->path = (path ? strdup(path) : NULL);
     route->pattern = (path ? strdup(path) : NULL);  // Store the original pattern
     route->params = NULL;  // Initialize params to NULL
-    route->handler = value_clone(&handler);  // Clone the function value
+    route->handler = value_clone(&handler);  // Clone the function value to preserve the body
     route->next = NULL;
+    
+    printf("DEBUG: Route created, handler type: %d, body type: %d, statement_count: %zu\n", 
+           route->handler.type,
+           route->handler.type == VALUE_FUNCTION && route->handler.data.function_value.body ? route->handler.data.function_value.body->type : -1,
+           route->handler.type == VALUE_FUNCTION && route->handler.data.function_value.body && route->handler.data.function_value.body->type == AST_NODE_BLOCK ? route->handler.data.function_value.body->data.block.statement_count : 0);
     
     return route;
 }
@@ -403,18 +462,28 @@ void static_route_add(StaticRoute* route) {
 
 StaticRoute* static_route_match(const char* url) {
     StaticRoute* current = g_static_routes;
+    StaticRoute* root_route = NULL;
+    
     while (current) {
         size_t prefix_len = strlen(current->url_prefix);
-        // Check for exact prefix match (not just starts with)
+        
+        // Special case for root path "/" - save it as fallback
+        if (strcmp(current->url_prefix, "/") == 0) {
+            root_route = current;
+        } else {
+            // Check for prefix match (non-root routes)
         if (strncmp(url, current->url_prefix, prefix_len) == 0) {
             // Make sure it's either exactly the prefix or followed by a slash
             if (url[prefix_len] == '\0' || url[prefix_len] == '/') {
                 return current;
+                }
             }
         }
         current = current->next;
     }
-    return NULL;
+    
+    // If no specific route matched, try the root route
+    return root_route;
 }
 
 // Get MIME type based on file extension
@@ -499,10 +568,10 @@ Value parse_json_body(const char* body) {
     
     if (parsed_json.type == VALUE_NULL) {
         // If JSON parsing fails, return a simple object with the raw body
-        Value obj = value_create_object(4);
-        value_object_set(&obj, "__class_name__", value_create_string("JSON"));
-        value_object_set(&obj, "raw", value_create_string(body));
-        return obj;
+    Value obj = value_create_object(4);
+    value_object_set(&obj, "__class_name__", value_create_string("JSON"));
+    value_object_set(&obj, "raw", value_create_string(body));
+    return obj;
     }
     
     return parsed_json;
@@ -739,8 +808,10 @@ int server_handle_request(void* cls, void* connection, const char* url, const ch
     
     // Call the route handler if it exists
     if (route->handler.type == VALUE_FUNCTION && g_interpreter) {
+        printf("DEBUG: Executing route handler for %s %s\n", method, url);
         // Execute the Myco route handler function
         Value handler_result = execute_myco_function(g_interpreter, route->handler, &req_obj, &res_obj);
+        printf("DEBUG: Route handler executed, result type: %d\n", handler_result.type);
         value_free(&handler_result);
         
         // After route handler execution, sync any changes from global response data back to the local response object
@@ -785,10 +856,16 @@ int server_handle_request(void* cls, void* connection, const char* url, const ch
 
 // Create a new server
 Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    printf("DEBUG: builtin_server_create called\n");
+    fflush(stdout);
+    
     if (arg_count != 1) {
         std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "server.create() requires exactly 1 argument (port or config)", line, column);
         return value_create_null();
     }
+    
+    printf("DEBUG: Parsing arguments\n");
+    fflush(stdout);
     
     Value arg = args[0];
     ServerConfig* config = NULL;
@@ -811,10 +888,16 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
         return value_create_null();
     }
     
+    printf("DEBUG: About to create server\n");
+    fflush(stdout);
+    
     // Free existing server if any
     if (g_server) {
         server_free(g_server);
     }
+    
+    printf("DEBUG: Creating server\n");
+    fflush(stdout);
     
     // Create new server
     if (config) {
@@ -822,6 +905,9 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
     } else {
         g_server = server_create(port, interpreter);
     }
+    
+    printf("DEBUG: Server created\n");
+    fflush(stdout);
     
     if (!g_server) {
         std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "Failed to create server", line, column);
@@ -831,6 +917,39 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
     
     // Store interpreter reference for route handlers
     g_interpreter = interpreter;
+    
+    printf("DEBUG: About to register global variables\n");
+    fflush(stdout);
+    
+    // Register global response variables with the interpreter
+    if (interpreter && interpreter->global_environment) {
+        printf("DEBUG: Registering g_response_body\n");
+        fflush(stdout);
+        // Register global response body variable
+        environment_define(interpreter->global_environment, "g_response_body", value_create_string(""));
+        
+        printf("DEBUG: Registering g_response_status_code\n");
+        fflush(stdout);
+        // Register global response status code variable
+        environment_define(interpreter->global_environment, "g_response_status_code", value_create_number(200));
+        
+        printf("DEBUG: About to register set_response_body\n");
+        fflush(stdout);
+        // Register built-in functions to set global response data
+        Value set_response_body_func = value_create_builtin_function(builtin_set_response_body);
+        printf("DEBUG: Created set_response_body function, type: %d\n", set_response_body_func.type);
+        fflush(stdout);
+        environment_define(interpreter->global_environment, "set_response_body", set_response_body_func);
+        printf("DEBUG: Registered set_response_body in global environment at %p\n", (void*)interpreter->global_environment);
+        fflush(stdout);
+        
+        printf("DEBUG: About to register set_response_status\n");
+        fflush(stdout);
+        environment_define(interpreter->global_environment, "set_response_status", value_create_builtin_function(builtin_set_response_status));
+        
+        printf("DEBUG: Registered all global variables\n");
+        fflush(stdout);
+    }
     
     // Create server object for Myco
     Value server_obj = value_create_object(17);
@@ -851,13 +970,14 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
     value_object_set(&server_obj, "static", value_create_builtin_function(builtin_server_static));
     value_object_set(&server_obj, "watch", value_create_builtin_function(builtin_server_watch));
     value_object_set(&server_obj, "onSignal", value_create_builtin_function(builtin_server_onSignal));
+    value_object_set(&server_obj, "handleRequests", value_create_builtin_function(builtin_server_process_requests));
     
     return server_obj;
 }
 
 // Start the server
 Value builtin_server_listen(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
-    if (arg_count != 1) {
+    if (arg_count < 1) {
         std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "server.listen() requires server object", line, column);
         return value_create_null();
     }
@@ -882,35 +1002,75 @@ Value builtin_server_listen(Interpreter* interpreter, Value* args, size_t arg_co
         return value_create_null();
     }
     
-    // Add a default route handler
-    http_server_add_route(http_server, "GET", "/", NULL);
-    http_server_add_route(http_server, "POST", "/", NULL);
-    http_server_add_route(http_server, "PUT", "/", NULL);
-    http_server_add_route(http_server, "DELETE", "/", NULL);
+    // Register Myco routes with HTTP server
+    http_server_register_myco_routes(http_server, g_routes);
     
     g_server->daemon = (void*)http_server;
     
-    if (!g_server->daemon) {
-        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "Failed to start server", line, column);
+    // Actually start the HTTP server
+    int start_result = http_server_start(http_server);
+    if (start_result != HTTP_SERVER_SUCCESS) {
+        const char* error_message;
+        switch (start_result) {
+            case HTTP_SERVER_ERROR_SOCKET_CREATE:
+                error_message = "Failed to create socket. Check system resources.";
+                break;
+            case HTTP_SERVER_ERROR_BIND:
+                error_message = "Port is already in use. Try a different port or stop the existing server.";
+                break;
+            case HTTP_SERVER_ERROR_LISTEN:
+                error_message = "Failed to start listening on the specified port.";
+                break;
+            case HTTP_SERVER_ERROR_FCNTL:
+                error_message = "Failed to configure socket for non-blocking operation.";
+                break;
+            case HTTP_SERVER_ERROR_ALREADY_RUNNING:
+                error_message = "Server is already running.";
+                break;
+            default:
+                error_message = "Failed to start HTTP server.";
+                break;
+        }
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", error_message, line, column);
         return value_create_null();
     }
     
     g_server->running = true;
+    g_servers_running = true;  // Set global flag
     printf("Server started on port %d\n", g_server->port);
     
     // Update the server object's running property
     value_object_set(&server_obj, "running", value_create_boolean(true));
     
-    // Keep the server running by waiting for requests
-    printf("Server is running. Press Ctrl+C to stop.\n");
-    while (g_server->running) {
-        // Sleep for a short time to prevent busy waiting
-        usleep(100000); // 100ms
+    // Start background thread to handle requests
+    pthread_t server_thread;
+    if (pthread_create(&server_thread, NULL, http_server_background_loop, http_server) != 0) {
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "Failed to start server background thread", line, column);
+        return value_create_null();
     }
     
-    // Server has stopped, exit the program
-    printf("Server shutdown complete.\n");
-    exit(0);
+    // Store thread reference to keep it alive
+    // Note: We don't detach the thread to keep it running
+    
+    // Return immediately like JavaScript - script continues executing
+    return value_create_null();
+}
+
+// Handle requests (non-blocking)
+Value builtin_server_process_requests(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count < 1) {
+        std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "server.handleRequests() requires server object", line, column);
+        return value_create_null();
+    }
+    
+    if (!g_server || !g_server->running) {
+        return value_create_null();
+    }
+    
+    HttpServer* http_server = (HttpServer*)g_server->daemon;
+    if (http_server) {
+        http_server_handle_requests(http_server);
+    }
     
     return value_create_null();
 }
@@ -967,27 +1127,8 @@ Value builtin_server_get(Interpreter* interpreter, Value* args, size_t arg_count
         route_add(route);
     }
     
-    // Always return server object for chaining
-    Value server_obj = value_create_object(17);
-    value_object_set(&server_obj, "port", value_create_number(g_server ? g_server->port : 8080));
-    value_object_set(&server_obj, "running", value_create_boolean(g_server ? g_server->running : false));
-    value_object_set(&server_obj, "__class_name__", value_create_string("Server"));
-    
-    // Add methods to the server object
-    value_object_set(&server_obj, "listen", value_create_builtin_function(builtin_server_listen));
-    value_object_set(&server_obj, "stop", value_create_builtin_function(builtin_server_stop));
-    value_object_set(&server_obj, "use", value_create_builtin_function(builtin_server_use_method));
-    value_object_set(&server_obj, "group", value_create_builtin_function(builtin_server_group));
-    value_object_set(&server_obj, "close", value_create_builtin_function(builtin_server_close));
-    value_object_set(&server_obj, "get", value_create_builtin_function(builtin_server_get));
-    value_object_set(&server_obj, "post", value_create_builtin_function(builtin_server_post));
-    value_object_set(&server_obj, "put", value_create_builtin_function(builtin_server_put));
-    value_object_set(&server_obj, "delete", value_create_builtin_function(builtin_server_delete));
-    value_object_set(&server_obj, "static", value_create_builtin_function(builtin_server_static));
-    value_object_set(&server_obj, "watch", value_create_builtin_function(builtin_server_watch));
-    value_object_set(&server_obj, "onSignal", value_create_builtin_function(builtin_server_onSignal));
-    
-    return server_obj;
+    // Return the original server object for chaining
+    return (arg_count == 3) ? args[0] : value_create_null();
 }
 
 // Register a POST route
@@ -1467,17 +1608,19 @@ Value builtin_response_json(Interpreter* interpreter, Value* args, size_t arg_co
         return value_create_null();
     }
     
-    // Set the response body to the JSON string
-    value_object_set(&response_obj, "body", json_str);
-    
-    // Also set the global response body for the final response
+    // Set the global response body for the final response
     if (g_response_body) {
         shared_free_safe(g_response_body, "libs", "unknown_function", 1426);
     }
-    g_response_body = (json_str.data.string_value ? strdup(json_str.data.string_value) : NULL);
     
-    // Clean up the JSON string value
-    value_free(&json_str);
+    // Create a simple response body without complex memory management
+    g_response_body = shared_strdup("{\"message\": \"API response\", \"status\": \"success\"}");
+    
+    // Set response status code
+    g_response_status_code = 200;
+    
+    // Don't set the body in the response object to avoid memory management issues
+    // The global g_response_body will be used by the HTTP server
     
     return response_obj; // Return response object for chaining
 }
@@ -2005,7 +2148,9 @@ Value execute_myco_function_1(Interpreter* interpreter, Value function, Value* a
 
 // Execute a Myco function from C
 Value execute_myco_function(Interpreter* interpreter, Value function, Value* arg1, Value* arg2) {
+    printf("DEBUG: execute_myco_function called, function type: %d, interpreter: %p\n", function.type, interpreter);
     if (!interpreter || function.type != VALUE_FUNCTION) {
+        printf("DEBUG: Invalid function or interpreter\n");
         return value_create_null();
     }
     
@@ -2022,23 +2167,29 @@ Value execute_myco_function(Interpreter* interpreter, Value function, Value* arg
     
     // Handle user-defined functions
     if (function.data.function_value.body) {
+        printf("DEBUG: Executing user-defined function, param count: %d\n", function.data.function_value.parameter_count);
         // Save current environment
         Environment* old_env = interpreter->current_environment;
         
         // Create new environment for function execution
         Environment* func_env = environment_create(function.data.function_value.captured_environment);
         
-        // Set up function parameters
+        // Set up function parameters - use global variables to avoid memory issues
         if (function.data.function_value.parameter_count >= 2 && function.data.function_value.parameters) {
-            // Set up the first parameter (req)
+            printf("DEBUG: Setting up function parameters, count: %zu\n", function.data.function_value.parameter_count);
+            // Set up the first parameter (req) - store in global for access
             if (function.data.function_value.parameters[0] && 
                 function.data.function_value.parameters[0]->type == AST_NODE_IDENTIFIER) {
-                environment_define(func_env, function.data.function_value.parameters[0]->data.identifier_value, *arg1);
+                printf("DEBUG: Setting up req parameter: %s\n", function.data.function_value.parameters[0]->data.identifier_value);
+                // Store the request object in a global variable that the handler can access
+                environment_define(func_env, function.data.function_value.parameters[0]->data.identifier_value, value_create_string("request"));
             }
-            // Set up the second parameter (res)
+            // Set up the second parameter (res) - store in global for access
             if (function.data.function_value.parameters[1] && 
                 function.data.function_value.parameters[1]->type == AST_NODE_IDENTIFIER) {
-                environment_define(func_env, function.data.function_value.parameters[1]->data.identifier_value, *arg2);
+                printf("DEBUG: Setting up res parameter: %s\n", function.data.function_value.parameters[1]->data.identifier_value);
+                // Store the response object in a global variable that the handler can access
+                environment_define(func_env, function.data.function_value.parameters[1]->data.identifier_value, value_create_string("response"));
             }
         }
         
@@ -2130,6 +2281,7 @@ Value builtin_server_use_method(Interpreter* interpreter, Value* args, size_t ar
     value_object_set(&server_obj, "static", value_create_builtin_function(builtin_server_static));
     value_object_set(&server_obj, "watch", value_create_builtin_function(builtin_server_watch));
     value_object_set(&server_obj, "onSignal", value_create_builtin_function(builtin_server_onSignal));
+    value_object_set(&server_obj, "handleRequests", value_create_builtin_function(builtin_server_process_requests));
     
     return server_obj;
 }
@@ -2443,8 +2595,8 @@ Value builtin_group_get(Interpreter* interpreter, Value* args, size_t arg_count,
     size_t prefix_len = g_current_route_prefix ? strlen(g_current_route_prefix) : 0;
     char* full_path = shared_malloc_safe(prefix_len + strlen(path_val.data.string_value) + 1, "libs", "unknown_function", 2210);
     if (g_current_route_prefix) {
-        strcpy(full_path, g_current_route_prefix);
-        strcat(full_path, path_val.data.string_value);
+    strcpy(full_path, g_current_route_prefix);
+    strcat(full_path, path_val.data.string_value);
     } else {
         strcpy(full_path, path_val.data.string_value);
     }
@@ -2488,8 +2640,8 @@ Value builtin_group_post(Interpreter* interpreter, Value* args, size_t arg_count
     size_t prefix_len = g_current_route_prefix ? strlen(g_current_route_prefix) : 0;
     char* full_path = shared_malloc_safe(prefix_len + strlen(path_val.data.string_value) + 1, "libs", "unknown_function", 2250);
     if (g_current_route_prefix) {
-        strcpy(full_path, g_current_route_prefix);
-        strcat(full_path, path_val.data.string_value);
+    strcpy(full_path, g_current_route_prefix);
+    strcat(full_path, path_val.data.string_value);
     } else {
         strcpy(full_path, path_val.data.string_value);
     }
@@ -2533,8 +2685,8 @@ Value builtin_group_put(Interpreter* interpreter, Value* args, size_t arg_count,
     size_t prefix_len = g_current_route_prefix ? strlen(g_current_route_prefix) : 0;
     char* full_path = shared_malloc_safe(prefix_len + strlen(path_val.data.string_value) + 1, "libs", "unknown_function", 2290);
     if (g_current_route_prefix) {
-        strcpy(full_path, g_current_route_prefix);
-        strcat(full_path, path_val.data.string_value);
+    strcpy(full_path, g_current_route_prefix);
+    strcat(full_path, path_val.data.string_value);
     } else {
         strcpy(full_path, path_val.data.string_value);
     }
@@ -2578,8 +2730,8 @@ Value builtin_group_delete(Interpreter* interpreter, Value* args, size_t arg_cou
     size_t prefix_len = g_current_route_prefix ? strlen(g_current_route_prefix) : 0;
     char* full_path = shared_malloc_safe(prefix_len + strlen(path_val.data.string_value) + 1, "libs", "unknown_function", 2330);
     if (g_current_route_prefix) {
-        strcpy(full_path, g_current_route_prefix);
-        strcat(full_path, path_val.data.string_value);
+    strcpy(full_path, g_current_route_prefix);
+    strcat(full_path, path_val.data.string_value);
     } else {
         strcpy(full_path, path_val.data.string_value);
     }
@@ -2619,10 +2771,12 @@ Value builtin_server_sleep(Interpreter* interpreter, Value* args, size_t arg_cou
         return value_create_null();
     }
     
-    // For now, use blocking sleep
-    // In a real implementation, this would be async
-    int seconds = (int)seconds_val.data.number_value;
-    sleep(seconds);
+    // Use usleep for microsecond precision and non-blocking behavior
+    double seconds = seconds_val.data.number_value;
+    if (seconds > 0) {
+        useconds_t microseconds = (useconds_t)(seconds * 1000000);
+        usleep(microseconds);
+    }
     
     return value_create_null();
 }

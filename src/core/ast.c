@@ -1068,6 +1068,22 @@ ASTNode* ast_clone(ASTNode* node) {
             clone->data.variable_declaration.is_mutable = node->data.variable_declaration.is_mutable;
             break;
             
+        case AST_NODE_FUNCTION:
+            clone->data.function_definition.function_name = (node->data.function_definition.function_name ? shared_strdup(node->data.function_definition.function_name) : NULL);
+            clone->data.function_definition.return_type = (node->data.function_definition.return_type ? shared_strdup(node->data.function_definition.return_type) : NULL);
+            clone->data.function_definition.body = ast_clone(node->data.function_definition.body);
+            clone->data.function_definition.parameter_count = node->data.function_definition.parameter_count;
+            clone->data.function_definition.parameters = shared_malloc_safe(node->data.function_definition.parameter_count * sizeof(ASTNode*), "ast", "unknown_function", 920);
+            for (size_t i = 0; i < node->data.function_definition.parameter_count; i++) {
+                clone->data.function_definition.parameters[i] = ast_clone(node->data.function_definition.parameters[i]);
+            }
+            clone->data.function_definition.generic_parameter_count = node->data.function_definition.generic_parameter_count;
+            clone->data.function_definition.generic_parameters = shared_malloc_safe(node->data.function_definition.generic_parameter_count * sizeof(char*), "ast", "unknown_function", 925);
+            for (size_t i = 0; i < node->data.function_definition.generic_parameter_count; i++) {
+                clone->data.function_definition.generic_parameters[i] = (node->data.function_definition.generic_parameters[i] ? shared_strdup(node->data.function_definition.generic_parameters[i]) : NULL);
+            }
+            break;
+            
         // Add other cases as needed...
         default:
             // For now, just copy the basic structure

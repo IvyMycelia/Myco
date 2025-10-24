@@ -127,6 +127,7 @@ Value builtin_server_now(Interpreter* interpreter, Value* args, size_t arg_count
 Value builtin_server_sleep(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_server_watch(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_server_onSignal(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_server_process_requests(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 
 // Request/Response object methods
 Value builtin_request_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
@@ -211,5 +212,13 @@ char* url_decode(const char* str);
 
 // Library registration function
 void server_library_register(Interpreter* interpreter);
+
+// Global variables for route execution
+extern Route* g_routes;
+extern Interpreter* g_interpreter;
+extern char* g_response_body;
+extern int g_response_status_code;
+extern char* g_response_content_type;
+extern bool g_servers_running;
 
 #endif // MYCO_SERVER_H

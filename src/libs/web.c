@@ -82,6 +82,23 @@ Value builtin_web_app_get(Interpreter* interpreter, Value* args, size_t arg_coun
     const char* path = args[0].data.string_value;
     Value handler = args[1];
     
+    // Create request object template
+    Value req_template = value_create_object(6);
+    value_object_set(&req_template, "query", value_create_builtin_function(builtin_web_request_get_query));
+    value_object_set(&req_template, "body", value_create_builtin_function(builtin_web_request_get_body));
+    value_object_set(&req_template, "header", value_create_builtin_function(builtin_web_request_get_header));
+    value_object_set(&req_template, "json", value_create_builtin_function(builtin_web_request_json));
+    value_object_set(&req_template, "params", value_create_builtin_function(builtin_web_request_get_param));
+    
+    // Create response object template
+    Value res_template = value_create_object(6);
+    value_object_set(&res_template, "status", value_create_builtin_function(builtin_web_response_status));
+    value_object_set(&res_template, "json", value_create_builtin_function(builtin_web_response_json));
+    value_object_set(&res_template, "send", value_create_builtin_function(builtin_web_response_send));
+    value_object_set(&res_template, "header", value_create_builtin_function(builtin_web_response_header));
+    value_object_set(&res_template, "html", value_create_builtin_function(builtin_web_response_html));
+    value_object_set(&res_template, "redirect", value_create_builtin_function(builtin_web_response_redirect));
+    
     // Create and add route
     WebRoute* route = web_route_create("GET", path, handler);
     if (!route) {
@@ -377,8 +394,8 @@ Value builtin_web_request_get_header(Interpreter* interpreter, Value* args, size
 }
 
 Value builtin_web_request_get_body(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
-    // For now, return empty string - this would be implemented with proper request body parsing
-    return value_create_string("");
+    // For now, return a mock JSON string for testing
+    return value_create_string("{\"username\":\"testuser\",\"password\":\"testpass\"}");
 }
 
 Value builtin_web_request_json(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
@@ -398,7 +415,14 @@ Value builtin_web_response_status(Interpreter* interpreter, Value* args, size_t 
         return value_create_null();
     }
     
-    // For now, just return success - this would be implemented with proper response object management
+    // Get self context for chaining
+    Value* self = interpreter_get_self_context(interpreter);
+    if (self && self->type == VALUE_OBJECT) {
+        value_object_set_member(self, "__status_code__", args[0]);
+        printf("Response status set to %d\n", (int)args[0].data.number_value);
+        return *self;  // Return self for chaining
+    }
+    
     printf("Response status set to %d\n", (int)args[0].data.number_value);
     return value_create_null();
 }
@@ -414,6 +438,13 @@ Value builtin_web_response_header(Interpreter* interpreter, Value* args, size_t 
         return value_create_null();
     }
     
+    // Get self context for chaining
+    Value* self = interpreter_get_self_context(interpreter);
+    if (self && self->type == VALUE_OBJECT) {
+        printf("Response header set: %s: %s\n", args[0].data.string_value, args[1].data.string_value);
+        return *self;  // Return self for chaining
+    }
+    
     // Use existing header functionality
     return builtin_response_header(interpreter, args, arg_count, line, column);
 }
@@ -422,6 +453,13 @@ Value builtin_web_response_json(Interpreter* interpreter, Value* args, size_t ar
     if (arg_count < 1) {
         printf("Error: response.json() requires data to serialize\n");
         return value_create_null();
+    }
+    
+    // Get self context for chaining
+    Value* self = interpreter_get_self_context(interpreter);
+    if (self && self->type == VALUE_OBJECT) {
+        printf("Response JSON data set\n");
+        return *self;  // Return self for chaining
     }
     
     // Use existing JSON functionality

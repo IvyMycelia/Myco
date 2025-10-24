@@ -194,21 +194,15 @@ static char* create_http_response_string(int status_code, const char* content_ty
 
 // Bridge function to call Myco route handlers
 static void myco_route_handler(HttpRequest* request, HttpResponse* response) {
-    printf("DEBUG: myco_route_handler called for %s %s\n", request->method, request->path);
-    fflush(stdout);
     
     // Find the matching Myco route
     Route* myco_route = route_match(g_routes, request->method, request->path);
     if (!myco_route) {
-        printf("DEBUG: No matching route found\n");
-        fflush(stdout);
         response->status_code = 404;
         response->body = shared_strdup("404 Not Found");
         return;
     }
     
-    printf("DEBUG: Found matching route, handler type: %d\n", myco_route->handler.type);
-    fflush(stdout);
     
     // Check if we have an interpreter and the route has a handler
     if (!g_interpreter || myco_route->handler.type != VALUE_FUNCTION) {
@@ -241,10 +235,9 @@ static void myco_route_handler(HttpRequest* request, HttpResponse* response) {
     value_object_set(&res_obj, "contentType", value_create_string("application/json"));
     value_object_set(&res_obj, "json", value_create_builtin_function(builtin_response_json));
     value_object_set(&res_obj, "status", value_create_builtin_function(builtin_response_status));
+    value_object_set(&res_obj, "send", value_create_builtin_function(builtin_response_send));
     
     // Execute the Myco handler - use a simpler approach to avoid memory issues
-    printf("DEBUG: About to execute Myco handler\n");
-    fflush(stdout);
     
     // Instead of passing complex objects, just execute the handler without parameters
     // and let it use global variables for request/response data
@@ -267,14 +260,22 @@ static void myco_route_handler(HttpRequest* request, HttpResponse* response) {
         // Use the global environment directly to ensure access to global functions
         g_interpreter->current_environment = g_interpreter->global_environment;
         
-        // JSON library is already registered in builtin_server_create, no need to register again
+        // Execute the handler function with proper environment setup
+        // Use the function's captured environment directly to ensure access to global libraries
+        Environment* func_captured_env = myco_route->handler.data.function_value.captured_environment;
+        Environment* original_env = g_interpreter->current_environment;
         
-        // Execute the handler function
+        // Set the current environment to the function's captured environment (which should be global)
+        g_interpreter->current_environment = func_captured_env ? func_captured_env : g_interpreter->global_environment;
         
-        // Execute the handler function
+        // Call the route handler function with req and res parameters
+        Value args[2];
+        args[0] = req_obj;
+        args[1] = res_obj;
+        handler_result = value_function_call(&myco_route->handler, args, 2, g_interpreter, 0, 0);
         
-        // Execute function body
-        handler_result = interpreter_execute(g_interpreter, myco_route->handler.data.function_value.body);
+        // Restore original environment
+        g_interpreter->current_environment = original_env;
         
         // Restore environment
         g_interpreter->current_environment = old_env;
@@ -375,7 +376,6 @@ static void handle_client_connection(int client_fd, HttpServer* server) {
     
     // Handle CORS preflight requests (OPTIONS)
     if (strcmp(request->method, "OPTIONS") == 0) {
-        printf("DEBUG: Handling CORS preflight request for %s\n", request->path);
         size_t response_len;
         char* http_response = create_http_response_string(200, "text/plain", "", &response_len);
         if (http_response) {
@@ -392,22 +392,17 @@ static void handle_client_connection(int client_fd, HttpServer* server) {
     }
     
     // Find matching route
-    printf("DEBUG: Looking for route match: %s %s\n", request->method, request->path);
-    printf("DEBUG: Server has %zu routes\n", server->route_count);
     HttpRouteHandler handler = NULL;
     for (size_t i = 0; i < server->route_count; i++) {
         HttpRoute* route = &server->routes[i];
-        printf("DEBUG: Checking route %zu: %s %s\n", i, route->method, route->path);
         if (strcmp(route->method, request->method) == 0 && 
             strcmp(route->path, request->path) == 0) {
-            printf("DEBUG: Found exact match!\n");
             handler = route->handler;
             break;
         }
     }
     
     if (!handler) {
-        printf("DEBUG: No route handler found, using fallback\n");
     }
     
     // If no exact match, try to find a route with parameters
@@ -467,20 +462,16 @@ static void handle_client_connection(int client_fd, HttpServer* server) {
 
 // Register Myco routes with HTTP server
 void http_server_register_myco_routes(HttpServer* server, void* myco_routes) {
-    printf("DEBUG: http_server_register_myco_routes called\n");
     if (!server || !myco_routes) {
-        printf("DEBUG: server or myco_routes is NULL\n");
         return;
     }
     
     Route* current = (Route*)myco_routes;
     int count = 0;
     
-    printf("DEBUG: Starting to register routes\n");
     // Process routes
     while (current && server->route_count < MAX_ROUTES) {
         count++;
-        printf("DEBUG: Registering route %d: %s %s\n", count, current->method, current->path);
         
         // Add route to HTTP server
         HttpRoute* http_route = &server->routes[server->route_count];
@@ -491,7 +482,6 @@ void http_server_register_myco_routes(HttpServer* server, void* myco_routes) {
         
         current = current->next;
     }
-    printf("DEBUG: Registered %d routes, total routes: %d\n", count, server->route_count);
 }
 
 // Create HTTP server
@@ -569,11 +559,9 @@ int http_server_start(HttpServer* server) {
     }
     int result = fcntl(server->socket_fd, F_SETFL, flags | O_NONBLOCK);
     if (result < 0) {
-        printf("DEBUG: Failed to set socket non-blocking: %s\n", strerror(errno));
         close(server->socket_fd);
         return HTTP_SERVER_ERROR_FCNTL;
     }
-    printf("DEBUG: Socket configured for non-blocking operation\n");
     
     server->running = true;
     g_http_server = server;
@@ -592,8 +580,6 @@ int http_server_handle_requests(HttpServer* server) {
     // Use non-blocking accept
     int client_fd = accept(server->socket_fd, (struct sockaddr*)&client_addr, &client_len);
     if (client_fd >= 0) {
-        printf("DEBUG: Accepted connection, client_fd: %d\n", client_fd);
-        fflush(stdout);
         handle_client_connection(client_fd, server);
         return 1; // Request handled
     } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -601,7 +587,6 @@ int http_server_handle_requests(HttpServer* server) {
         return 0; // No request
     } else {
         // Error occurred
-        printf("DEBUG: Accept error: %s\n", strerror(errno));
         return -1;
     }
 }
@@ -639,17 +624,13 @@ void* http_server_background_loop(void* arg) {
         int result = http_server_handle_requests(server);
         if (result < 0) {
             // Error occurred, break the loop
-            printf("ERROR: http_server_handle_requests returned %d\n", result);
             break;
-        } else if (result > 0) {
-            printf("DEBUG: Handled %d requests\n", result);
         }
         
         // Small delay to prevent busy waiting
         usleep(1000); // 1ms delay
     }
     
-    printf("DEBUG: Background thread exiting\n");
     
     printf("HTTP server background thread stopped\n");
     return NULL;

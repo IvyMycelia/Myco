@@ -48,6 +48,7 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
         return value_create_null();
     }
     
+    
     // Check for existing errors before proceeding
     if (interpreter_has_error(interpreter)) {
         return value_create_null();
@@ -61,10 +62,12 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
         case AST_NODE_IDENTIFIER: {
             const char* name = node->data.identifier_value;
             
+            
+            
             // Handle 'self' specially for method calls
             if (strcmp(name, "self") == 0) {
                 if (interpreter->self_context) {
-                    // Clone the self object to avoid double-free issues
+                    // Create a safe copy of self to avoid memory issues
                     return value_clone(interpreter->self_context);
                 } else {
                     interpreter_set_error(interpreter, "self is not available outside of method calls", node->line, node->column);
@@ -309,6 +312,7 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 function_value = environment_get(interpreter->global_environment, func_name);
             }
             
+            
             if (function_value.type == VALUE_FUNCTION || function_value.type == VALUE_ASYNC_FUNCTION) {
                 // This is a user-defined function - evaluate arguments and call
                 size_t n = node->data.function_call.argument_count;
@@ -464,9 +468,6 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
             return array;
         }
         case AST_NODE_HASH_MAP_LITERAL: {
-            printf("DEBUG: AST_NODE_HASH_MAP_LITERAL being evaluated, pair_count: %zu\n", node->data.hash_map_literal.pair_count);
-            fflush(stdout);
-            
             // Create hash map value
             Value map = value_create_hash_map(node->data.hash_map_literal.pair_count);
             
@@ -474,17 +475,11 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 Value key_value = eval_node(interpreter, node->data.hash_map_literal.keys[i]);
                 Value val = eval_node(interpreter, node->data.hash_map_literal.values[i]);
                 
-                printf("DEBUG: Key %zu: type=%d, value=%s\n", i, key_value.type, key_value.type == VALUE_STRING ? key_value.data.string_value : "not string");
-                fflush(stdout);
-                
                 if (key_value.type == VALUE_STRING) {
                     value_hash_map_set(&map, key_value, val);
                 }
                 value_free(&key_value);
             }
-            
-            printf("DEBUG: Hash map created successfully, type: %d\n", map.type);
-            fflush(stdout);
             
             return map;
         }
@@ -503,6 +498,8 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
         case AST_NODE_MEMBER_ACCESS: {
             Value object = eval_node(interpreter, node->data.member_access.object);
             const char* member_name = node->data.member_access.member_name;
+            
+            
             
             // Allow reading `.type` even on Null to satisfy tests
             if (strcmp(member_name, "type") == 0) {
@@ -687,8 +684,27 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
             ASTNode* callee = node->data.function_call_expr.function;
             if (callee && callee->type == AST_NODE_MEMBER_ACCESS) {
                 Value object = eval_node(interpreter, callee->data.member_access.object);
+                const char* method_name = callee->data.member_access.member_name;
+                
                 // Allow method dispatch even on Null (e.g., Null.toString(), (Null).isNull())
                 Value result = handle_method_call(interpreter, node, object);
+                
+                // For mutating methods like push(), update the original variable
+                if (method_name && strcmp(method_name, "push") == 0) {
+                    // Check if the object is a simple identifier (variable)
+                    ASTNode* obj_node = callee->data.member_access.object;
+                    if (obj_node && obj_node->type == AST_NODE_IDENTIFIER) {
+                        const char* var_name = obj_node->data.identifier_value;
+                        
+                        // Update the variable in the environment
+                        if (environment_exists(interpreter->current_environment, var_name)) {
+                            environment_define(interpreter->current_environment, var_name, result);
+                        } else if (environment_exists(interpreter->global_environment, var_name)) {
+                            environment_define(interpreter->global_environment, var_name, result);
+                        }
+                    }
+                }
+                
                 return result;
             }
 
@@ -716,12 +732,15 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
         }
         case AST_NODE_FUNCTION: {
             const char* func_name = node->data.function_definition.function_name;
+            // For top-level functions, always capture the global environment to ensure access to libraries
+            Environment* captured_env = interpreter->global_environment;
+            
             Value function_value = value_create_function(
                 node->data.function_definition.body,
                 node->data.function_definition.parameters,
                 node->data.function_definition.parameter_count,
                 node->data.function_definition.return_type,
-                interpreter->current_environment
+                captured_env
             );
             // Store function in global environment so it can be called from anywhere
             environment_define(interpreter->global_environment, func_name, function_value);

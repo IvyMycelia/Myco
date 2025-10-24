@@ -126,7 +126,7 @@ Value find_method_in_inheritance_chain(Interpreter* interpreter, Value* class_va
             if (stmt && stmt->type == AST_NODE_FUNCTION && 
                 stmt->data.function_definition.function_name &&
                 strcmp(stmt->data.function_definition.function_name, method_name) == 0) {
-                // Found the method! Return it
+                // Found the method! Return it without cloning to avoid issues
                 return value_create_function(
                     stmt->data.function_definition.body,
                     stmt->data.function_definition.parameters,
@@ -160,6 +160,7 @@ Value value_create_class(const char* name, const char* parent_name, ASTNode* cla
     v.type = VALUE_CLASS;
     v.data.class_value.class_name = name ? shared_strdup(name) : NULL;
     v.data.class_value.parent_class_name = parent_name ? shared_strdup(parent_name) : NULL;
+    // Store the class body directly without cloning
     v.data.class_value.class_body = class_body;
     v.data.class_value.class_environment = class_env;
     return v;
@@ -350,16 +351,19 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
         return value_create_null();
     }
     
-    // Create new environment for function execution
-    Environment* func_env = environment_create(interpreter->current_environment);
+    // Create new environment for function execution using the function's captured environment
+    Environment* captured_env = func->data.function_value.captured_environment;
+    Environment* func_env = environment_create(captured_env ? captured_env : interpreter->current_environment);
+    
     if (!func_env) {
         interpreter_set_error(interpreter, "Failed to create function environment", line, column);
         return value_create_null();
     }
     
-    // If this is a method call, add 'self' to the environment
+    // If this is a method call, add 'self' to the environment and set self context
     if (self) {
         environment_define(func_env, "self", *self);
+        interpreter_set_self_context(interpreter, self);
     }
     
     // Bind parameters to arguments
@@ -393,6 +397,11 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
     
     // Restore environment
     interpreter->current_environment = old_env;
+    
+    // Clear self context if it was set
+    if (self) {
+        interpreter_set_self_context(interpreter, NULL);
+    }
     
     // Clean up function environment
     environment_free(func_env);

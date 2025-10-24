@@ -13,7 +13,13 @@ Value value_to_string(Value* value) {
     if (!value) return value_create_string(""); 
     char buf[64]; 
     switch (value->type) { 
-        case VALUE_STRING: return value_clone(value); 
+        case VALUE_STRING: {
+            // Safety check: if the string value is NULL, return empty string
+            if (!value->data.string_value) {
+                return value_create_string("");
+            }
+            return value_clone(value);
+        } 
         case VALUE_NUMBER: {
             // Check if it's an integer or float
             if (value->data.number_value == (long long)value->data.number_value) {

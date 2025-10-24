@@ -98,6 +98,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
     const char* method_name = member_access->data.member_access.member_name;
     
     
+    
     // Handle namespace marker method calls (e.g., math.abs(-5))
     if (object.type == VALUE_STRING && strcmp(object.data.string_value, "namespace_marker") == 0) {
         // This is a namespace marker, try to look up the prefixed function
@@ -401,6 +402,21 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
             }
             value_free(&object);
             return out;
+        }
+        // push(element) - modify array in place
+        if (strcmp(method_name, "push") == 0) {
+            if (call_node->data.function_call_expr.argument_count >= 1) {
+                Value element = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[0]);
+                
+                // Add the new element directly to the existing array
+                value_array_push(&object, element);
+                
+                // For push method, we need to update the original variable
+                // This is a special case that requires updating the environment
+                // We'll return the modified array and let the caller handle assignment
+                return object;
+            }
+            return object;
         }
     }
 

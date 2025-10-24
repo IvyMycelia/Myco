@@ -855,8 +855,6 @@ Value builtin_json_stringify(Interpreter* interpreter, Value* args, size_t arg_c
         return value_create_null();
     }
     Value result = value_create_string(json_string);
-    printf("DEBUG: json.stringify result type: %d, content: %s\n", result.type, result.data.string_value);
-    fflush(stdout);
     shared_free_safe(json_string, "libs", "builtin_json_stringify", 0);
     
     // Clean up builder structure and buffer

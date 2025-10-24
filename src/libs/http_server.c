@@ -3,6 +3,11 @@
 #include "../../include/libs/json.h"
 #include "../../include/utils/shared_utilities.h"
 #include "../../include/core/interpreter.h"
+
+// Forward declarations for JSON functions
+extern Value builtin_json_stringify(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+extern Value builtin_json_parse(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+extern Value builtin_json_validate(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 #include <pthread.h>
 
 // Forward declarations for static file serving
@@ -262,8 +267,7 @@ static void myco_route_handler(HttpRequest* request, HttpResponse* response) {
         // Use the global environment directly to ensure access to global functions
         g_interpreter->current_environment = g_interpreter->global_environment;
         
-        // Ensure json library is available in server context
-        // json_library_register(g_interpreter); // Commented out due to segfault
+        // JSON library is already registered in builtin_server_create, no need to register again
         
         // Execute the handler function
         

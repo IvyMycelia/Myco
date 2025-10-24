@@ -1084,6 +1084,24 @@ ASTNode* ast_clone(ASTNode* node) {
             }
             break;
             
+        case AST_NODE_HASH_MAP_LITERAL:
+            clone->data.hash_map_literal.pair_count = node->data.hash_map_literal.pair_count;
+            clone->data.hash_map_literal.keys = shared_malloc_safe(node->data.hash_map_literal.pair_count * sizeof(ASTNode*), "ast", "unknown_function", 0);
+            clone->data.hash_map_literal.values = shared_malloc_safe(node->data.hash_map_literal.pair_count * sizeof(ASTNode*), "ast", "unknown_function", 0);
+            for (size_t i = 0; i < node->data.hash_map_literal.pair_count; i++) {
+                clone->data.hash_map_literal.keys[i] = ast_clone(node->data.hash_map_literal.keys[i]);
+                clone->data.hash_map_literal.values[i] = ast_clone(node->data.hash_map_literal.values[i]);
+            }
+            break;
+            
+        case AST_NODE_ARRAY_LITERAL:
+            clone->data.array_literal.element_count = node->data.array_literal.element_count;
+            clone->data.array_literal.elements = shared_malloc_safe(node->data.array_literal.element_count * sizeof(ASTNode*), "ast", "unknown_function", 0);
+            for (size_t i = 0; i < node->data.array_literal.element_count; i++) {
+                clone->data.array_literal.elements[i] = ast_clone(node->data.array_literal.elements[i]);
+            }
+            break;
+            
         // Add other cases as needed...
         default:
             // For now, just copy the basic structure

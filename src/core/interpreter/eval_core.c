@@ -464,6 +464,9 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
             return array;
         }
         case AST_NODE_HASH_MAP_LITERAL: {
+            printf("DEBUG: AST_NODE_HASH_MAP_LITERAL being evaluated, pair_count: %zu\n", node->data.hash_map_literal.pair_count);
+            fflush(stdout);
+            
             // Create hash map value
             Value map = value_create_hash_map(node->data.hash_map_literal.pair_count);
             
@@ -471,11 +474,17 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 Value key_value = eval_node(interpreter, node->data.hash_map_literal.keys[i]);
                 Value val = eval_node(interpreter, node->data.hash_map_literal.values[i]);
                 
+                printf("DEBUG: Key %zu: type=%d, value=%s\n", i, key_value.type, key_value.type == VALUE_STRING ? key_value.data.string_value : "not string");
+                fflush(stdout);
+                
                 if (key_value.type == VALUE_STRING) {
                     value_hash_map_set(&map, key_value, val);
                 }
                 value_free(&key_value);
             }
+            
+            printf("DEBUG: Hash map created successfully, type: %d\n", map.type);
+            fflush(stdout);
             
             return map;
         }

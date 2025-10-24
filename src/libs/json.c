@@ -774,7 +774,7 @@ static void json_stringify_myco_value(JsonStringBuilder* builder, Value* value) 
                         json_string_builder_append(builder, escaped_key);
                         json_string_builder_append_char(builder, '"');
                         shared_free_safe(escaped_key, "libs", "json_stringify_myco_value", 0);
-                } else {
+    } else {
                         json_string_builder_append(builder, "\"\"");
                     }
                 } else {

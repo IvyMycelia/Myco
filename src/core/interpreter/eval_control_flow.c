@@ -78,10 +78,13 @@ Value eval_while_loop(Interpreter* interpreter, ASTNode* node) {
         value_free(&cond);
         if (!truthy) break;
         if (node->data.while_loop.body) {
-            interpreter_execute(interpreter, node->data.while_loop.body);
+            Value body_result = interpreter_execute(interpreter, node->data.while_loop.body);
             if (interpreter_has_error(interpreter)) {
+                value_free(&body_result);
                 return value_create_null();
             }
+            // CRITICAL: Free the body result to prevent memory leak
+            value_free(&body_result);
         }
     }
     return value_create_null();
@@ -111,7 +114,17 @@ Value eval_for_loop(Interpreter* interpreter, ASTNode* node) {
             
             // Execute the loop body
             if (node->data.for_loop.body) {
-                interpreter_execute(interpreter, node->data.for_loop.body);
+                Value body_result = interpreter_execute(interpreter, node->data.for_loop.body);
+                if (interpreter_has_error(interpreter)) {
+                    value_free(&body_result);
+                    // Restore environment before returning
+                    interpreter->current_environment = old_env;
+                    environment_free(loop_env);
+                    value_free(&collection);
+                    return value_create_null();
+                }
+                // CRITICAL: Free the body result to prevent memory leak
+                value_free(&body_result);
             }
         }
         
@@ -140,7 +153,17 @@ Value eval_for_loop(Interpreter* interpreter, ASTNode* node) {
                 
                 // Execute the loop body
                 if (node->data.for_loop.body) {
-                    interpreter_execute(interpreter, node->data.for_loop.body);
+                    Value body_result = interpreter_execute(interpreter, node->data.for_loop.body);
+                    if (interpreter_has_error(interpreter)) {
+                        value_free(&body_result);
+                        // Restore environment before returning
+                        interpreter->current_environment = old_env;
+                        environment_free(loop_env);
+                        value_free(&collection);
+                        return value_create_null();
+                    }
+                    // CRITICAL: Free the body result to prevent memory leak
+                    value_free(&body_result);
                 }
             }
         }
@@ -305,7 +328,13 @@ Value eval_try_catch(Interpreter* interpreter, ASTNode* node) {
 Value eval_block(Interpreter* interpreter, ASTNode* node) {
     // Execute all statements in the block
     for (size_t i = 0; i < node->data.block.statement_count; i++) {
-        interpreter_execute(interpreter, node->data.block.statements[i]);
+        Value stmt_result = interpreter_execute(interpreter, node->data.block.statements[i]);
+        if (interpreter_has_error(interpreter)) {
+            value_free(&stmt_result);
+            return value_create_null();
+        }
+        // CRITICAL: Free the statement result to prevent memory leak
+        value_free(&stmt_result);
         // If a return was set, stop executing and preserve it
         if (interpreter->has_return) {
             return value_create_null(); // Block returns null, but return value is preserved in interpreter

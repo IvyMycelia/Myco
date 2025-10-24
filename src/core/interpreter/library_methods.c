@@ -284,6 +284,20 @@ Value handle_server_method_call(Interpreter* interpreter, ASTNode* call_node, co
         result = builtin_server_delete(interpreter, args, arg_count + 1, call_node->line, call_node->column);
     } else if (strcmp(method_name, "listen") == 0) {
         result = builtin_server_listen(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "static") == 0) {
+        result = builtin_server_static(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "use") == 0) {
+        result = builtin_server_use_method(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "close") == 0) {
+        result = builtin_server_close(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "group") == 0) {
+        result = builtin_server_group(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "watch") == 0) {
+        result = builtin_server_watch(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "onSignal") == 0) {
+        result = builtin_server_onSignal(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "handleRequests") == 0) {
+        result = builtin_server_process_requests(interpreter, args, arg_count + 1, call_node->line, call_node->column);
     } else {
         interpreter_set_error(interpreter, "Unknown server method", call_node->line, call_node->column);
         result = value_create_null();
@@ -513,6 +527,55 @@ Value handle_web_method_call(Interpreter* interpreter, ASTNode* call_node, const
     return result;
 }
 
+// Database Collection Method Handler
+Value handle_database_collection_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object) {
+    // Set self context for database collection method calls
+    interpreter_set_self_context(interpreter, &object);
+    
+    size_t arg_count = call_node->data.function_call_expr.argument_count;
+    Value* args = (Value*)calloc(arg_count, sizeof(Value));
+    if (!args) {
+        interpreter_set_self_context(interpreter, NULL);
+        return value_create_null();
+    }
+    
+    // Evaluate all arguments
+    for (size_t i = 0; i < arg_count; i++) {
+        args[i] = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[i]);
+    }
+    
+    Value result = value_create_null();
+    
+    // Dispatch to appropriate database collection method
+    if (strcmp(method_name, "insert") == 0) {
+        result = builtin_db_collection_insert(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "find") == 0) {
+        result = builtin_db_collection_find(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "find_all") == 0) {
+        result = builtin_db_collection_find_all(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "update") == 0) {
+        result = builtin_db_collection_update(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "delete") == 0) {
+        result = builtin_db_collection_delete(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "select") == 0) {
+        result = builtin_db_collection_find(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else {
+        interpreter_set_error(interpreter, "Unknown database collection method", call_node->line, call_node->column);
+        result = value_create_null();
+    }
+    
+    // Clean up arguments
+    for (size_t i = 0; i < arg_count; i++) {
+        value_free(&args[i]);
+    }
+    shared_free_safe(args, "interpreter", "handle_database_collection_method_call", 0);
+    
+    // Clear self context
+    interpreter_set_self_context(interpreter, NULL);
+    
+    return result;
+}
+
 // Database Method Handler
 Value handle_http_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object) {
     // HTTP library methods are called directly through the generic object method handling
@@ -552,6 +615,8 @@ Value handle_db_method_call(Interpreter* interpreter, ASTNode* call_node, const 
         result = builtin_db_update(interpreter, args, arg_count, call_node->line, call_node->column);
     } else if (strcmp(method_name, "delete") == 0) {
         result = builtin_db_delete(interpreter, args, arg_count, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "create") == 0) {
+        result = builtin_db_create(interpreter, args, arg_count, call_node->line, call_node->column);
     } else {
         interpreter_set_error(interpreter, "Unknown database method", call_node->line, call_node->column);
         result = value_create_null();

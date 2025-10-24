@@ -32,6 +32,9 @@ Value handle_response_method_call(Interpreter* interpreter, ASTNode* call_node, 
 Value handle_route_group_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 Value handle_server_library_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 
+// Database method handlers
+Value handle_database_collection_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
+
 // ============================================================================
 // BUILT-IN FUNCTIONS
 // ============================================================================

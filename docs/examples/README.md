@@ -76,9 +76,9 @@ This directory contains examples demonstrating various features and use cases of
 ## Platform-Specific
 
 ### Web Development
-- **[web_app.myco](web_app.myco)** - Simple web application
-- **[api_server.myco](api_server.myco)** - REST API server
-- **[static_site.myco](static_site.myco)** - Static site generator
+- **[web/modern_server.myco](web/modern_server.myco)** - Modern web server with REST API, CORS, and static file serving
+- **[web/test_server.myco](web/test_server.myco)** - Basic web server example
+- **[web/index.html](web/index.html)** - Interactive frontend for testing the server
 
 ### Embedded Systems
 - **[arduino_blink.myco](arduino_blink.myco)** - Arduino LED blinking

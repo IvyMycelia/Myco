@@ -81,6 +81,14 @@ Value builtin_db_select(Interpreter* interpreter, Value* args, size_t arg_count,
 Value builtin_db_update(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_db_delete(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 
+// Simplified Database API
+Value builtin_db_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_db_collection_insert(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_db_collection_find(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_db_collection_find_all(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_db_collection_update(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_db_collection_delete(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+
 // Internal Helper Functions
 DBColumn* db_column_create(const char* name, DBColumnType type, bool is_primary_key, bool is_nullable);
 void db_column_free(DBColumn* column);

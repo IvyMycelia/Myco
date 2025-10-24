@@ -3,16 +3,121 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Myco Web Server</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <title>Myco Web Server Example</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        .api-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+        .api-section h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .endpoint {
+            font-family: 'Monaco', 'Menlo', monospace;
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin: 5px 0;
+            display: inline-block;
+        }
+        .method {
+            font-weight: bold;
+            color: #e74c3c;
+        }
+        .path {
+            color: #3498db;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        #output {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            white-space: pre-wrap;
+            margin-top: 20px;
+            min-height: 100px;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
-        <h1>Welcome to Myco Web Server!</h1>
-        <p>This is a static HTML file served by the Myco HTTP server.</p>
-        <button onclick="showMessage()">Click me!</button>
-        <div id="message"></div>
+        <h1>🚀 Myco Web Server Example</h1>
+        <p>This demonstrates a modern Myco web server with REST API endpoints, static file serving, and CORS support.</p>
+        
+        <div class="api-section">
+            <h3>📡 Available API Endpoints</h3>
+            <div class="endpoint"><span class="method">GET</span> <span class="path">/api/events</span></div>
+            <div class="endpoint"><span class="method">GET</span> <span class="path">/api/events/:id</span></div>
+            <div class="endpoint"><span class="method">POST</span> <span class="path">/api/auth/register</span></div>
+            <div class="endpoint"><span class="method">POST</span> <span class="path">/api/auth/login</span></div>
+            <div class="endpoint"><span class="method">POST</span> <span class="path">/api/events</span></div>
+            <div class="endpoint"><span class="method">POST</span> <span class="path">/api/events/:id/register</span></div>
+        </div>
+
+        <div class="api-section">
+            <h3>🧪 Test the API</h3>
+            <button onclick="testAPI('/api/events')">Get Events</button>
+            <button onclick="testAPI('/api/auth/register', 'POST')">Register User</button>
+            <button onclick="testAPI('/api/events', 'POST')">Create Event</button>
+            <button onclick="testAPI('/api/events/123')">Get Event by ID</button>
+        </div>
+
+        <div id="output">Click a button above to test the API endpoints...</div>
     </div>
-    <script src="/static/app.js"></script>
+
+    <script>
+        async function testAPI(endpoint, method = 'GET') {
+            const output = document.getElementById('output');
+            output.textContent = `Testing ${method} ${endpoint}...\n`;
+            
+            try {
+                const response = await fetch(endpoint, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                output.textContent = `${method} ${endpoint}\nStatus: ${response.status}\nResponse:\n${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                output.textContent = `Error: ${error.message}`;
+            }
+        }
+    </script>
 </body>
 </html>

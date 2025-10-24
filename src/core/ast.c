@@ -1041,18 +1041,26 @@ ASTNode* ast_clone(ASTNode* node) {
             
         case AST_NODE_BLOCK:
             clone->data.block.statement_count = node->data.block.statement_count;
+            if (node->data.block.statement_count > 0) {
             clone->data.block.statements = shared_malloc_safe(node->data.block.statement_count * sizeof(ASTNode*), "ast", "unknown_function", 892);
             for (size_t i = 0; i < node->data.block.statement_count; i++) {
                 clone->data.block.statements[i] = ast_clone(node->data.block.statements[i]);
+                }
+            } else {
+                clone->data.block.statements = NULL;
             }
             break;
             
         case AST_NODE_FUNCTION_CALL:
             clone->data.function_call.function_name = (node->data.function_call.function_name ? shared_strdup(node->data.function_call.function_name) : NULL);
             clone->data.function_call.argument_count = node->data.function_call.argument_count;
+            if (node->data.function_call.argument_count > 0) {
             clone->data.function_call.arguments = shared_malloc_safe(node->data.function_call.argument_count * sizeof(ASTNode*), "ast", "unknown_function", 901);
             for (size_t i = 0; i < node->data.function_call.argument_count; i++) {
                 clone->data.function_call.arguments[i] = ast_clone(node->data.function_call.arguments[i]);
+                }
+            } else {
+                clone->data.function_call.arguments = NULL;
             }
             break;
             
@@ -1073,14 +1081,22 @@ ASTNode* ast_clone(ASTNode* node) {
             clone->data.function_definition.return_type = (node->data.function_definition.return_type ? shared_strdup(node->data.function_definition.return_type) : NULL);
             clone->data.function_definition.body = ast_clone(node->data.function_definition.body);
             clone->data.function_definition.parameter_count = node->data.function_definition.parameter_count;
-            clone->data.function_definition.parameters = shared_malloc_safe(node->data.function_definition.parameter_count * sizeof(ASTNode*), "ast", "unknown_function", 920);
-            for (size_t i = 0; i < node->data.function_definition.parameter_count; i++) {
-                clone->data.function_definition.parameters[i] = ast_clone(node->data.function_definition.parameters[i]);
+            if (node->data.function_definition.parameter_count > 0) {
+                clone->data.function_definition.parameters = shared_malloc_safe(node->data.function_definition.parameter_count * sizeof(ASTNode*), "ast", "unknown_function", 920);
+                for (size_t i = 0; i < node->data.function_definition.parameter_count; i++) {
+                    clone->data.function_definition.parameters[i] = ast_clone(node->data.function_definition.parameters[i]);
+                }
+            } else {
+                clone->data.function_definition.parameters = NULL;
             }
             clone->data.function_definition.generic_parameter_count = node->data.function_definition.generic_parameter_count;
-            clone->data.function_definition.generic_parameters = shared_malloc_safe(node->data.function_definition.generic_parameter_count * sizeof(char*), "ast", "unknown_function", 925);
-            for (size_t i = 0; i < node->data.function_definition.generic_parameter_count; i++) {
-                clone->data.function_definition.generic_parameters[i] = (node->data.function_definition.generic_parameters[i] ? shared_strdup(node->data.function_definition.generic_parameters[i]) : NULL);
+            if (node->data.function_definition.generic_parameter_count > 0) {
+                clone->data.function_definition.generic_parameters = shared_malloc_safe(node->data.function_definition.generic_parameter_count * sizeof(char*), "ast", "unknown_function", 925);
+                for (size_t i = 0; i < node->data.function_definition.generic_parameter_count; i++) {
+                    clone->data.function_definition.generic_parameters[i] = (node->data.function_definition.generic_parameters[i] ? shared_strdup(node->data.function_definition.generic_parameters[i]) : NULL);
+                }
+            } else {
+                clone->data.function_definition.generic_parameters = NULL;
             }
             break;
             
@@ -1099,6 +1115,42 @@ ASTNode* ast_clone(ASTNode* node) {
             clone->data.array_literal.elements = shared_malloc_safe(node->data.array_literal.element_count * sizeof(ASTNode*), "ast", "unknown_function", 0);
             for (size_t i = 0; i < node->data.array_literal.element_count; i++) {
                 clone->data.array_literal.elements[i] = ast_clone(node->data.array_literal.elements[i]);
+            }
+            break;
+            
+        case AST_NODE_MEMBER_ACCESS:
+            clone->data.member_access.object = ast_clone(node->data.member_access.object);
+            clone->data.member_access.member_name = (node->data.member_access.member_name ? shared_strdup(node->data.member_access.member_name) : NULL);
+            break;
+            
+        case AST_NODE_IF_STATEMENT:
+            clone->data.if_statement.condition = ast_clone(node->data.if_statement.condition);
+            clone->data.if_statement.then_block = ast_clone(node->data.if_statement.then_block);
+            clone->data.if_statement.else_block = ast_clone(node->data.if_statement.else_block);
+            clone->data.if_statement.else_if_chain = ast_clone(node->data.if_statement.else_if_chain);
+            break;
+            
+        case AST_NODE_WHILE_LOOP:
+            clone->data.while_loop.condition = ast_clone(node->data.while_loop.condition);
+            clone->data.while_loop.body = ast_clone(node->data.while_loop.body);
+            break;
+            
+        case AST_NODE_FOR_LOOP:
+            clone->data.for_loop.iterator_name = (node->data.for_loop.iterator_name ? shared_strdup(node->data.for_loop.iterator_name) : NULL);
+            clone->data.for_loop.collection = ast_clone(node->data.for_loop.collection);
+            clone->data.for_loop.body = ast_clone(node->data.for_loop.body);
+            break;
+            
+        case AST_NODE_FUNCTION_CALL_EXPR:
+            clone->data.function_call_expr.function = ast_clone(node->data.function_call_expr.function);
+            clone->data.function_call_expr.argument_count = node->data.function_call_expr.argument_count;
+            if (node->data.function_call_expr.argument_count > 0) {
+                clone->data.function_call_expr.arguments = shared_malloc_safe(node->data.function_call_expr.argument_count * sizeof(ASTNode*), "ast", "unknown_function", 0);
+                for (size_t i = 0; i < node->data.function_call_expr.argument_count; i++) {
+                    clone->data.function_call_expr.arguments[i] = ast_clone(node->data.function_call_expr.arguments[i]);
+                }
+            } else {
+                clone->data.function_call_expr.arguments = NULL;
             }
             break;
             

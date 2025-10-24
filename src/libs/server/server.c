@@ -960,6 +960,7 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
     value_object_set(&server_obj, "port", value_create_number(port));
     value_object_set(&server_obj, "running", value_create_boolean(false));
     value_object_set(&server_obj, "__class_name__", value_create_string("Server"));
+    value_object_set(&server_obj, "__type__", value_create_string("Server"));
     
     // Add methods to the server object
     value_object_set(&server_obj, "listen", value_create_builtin_function(builtin_server_listen));
@@ -1131,8 +1132,37 @@ Value builtin_server_get(Interpreter* interpreter, Value* args, size_t arg_count
         route_add(route);
     }
     
-    // Return the original server object for chaining
-    return (arg_count == 3) ? args[0] : value_create_null();
+    // Return the server object for chaining
+    if (arg_count == 3) {
+        // Called as a method, return a server object
+        if (!g_server) {
+            return value_create_null();
+        }
+        Value server_obj = value_create_object(17);
+        value_object_set(&server_obj, "port", value_create_number(g_server->port));
+        value_object_set(&server_obj, "running", value_create_boolean(g_server->running));
+        value_object_set(&server_obj, "__class_name__", value_create_string("Server"));
+        value_object_set(&server_obj, "__type__", value_create_string("Server"));
+        
+        // Add methods to the server object
+        value_object_set(&server_obj, "listen", value_create_builtin_function(builtin_server_listen));
+        value_object_set(&server_obj, "stop", value_create_builtin_function(builtin_server_stop));
+        value_object_set(&server_obj, "use", value_create_builtin_function(builtin_server_use_method));
+        value_object_set(&server_obj, "group", value_create_builtin_function(builtin_server_group));
+        value_object_set(&server_obj, "close", value_create_builtin_function(builtin_server_close));
+        value_object_set(&server_obj, "get", value_create_builtin_function(builtin_server_get));
+        value_object_set(&server_obj, "post", value_create_builtin_function(builtin_server_post));
+        value_object_set(&server_obj, "put", value_create_builtin_function(builtin_server_put));
+        value_object_set(&server_obj, "delete", value_create_builtin_function(builtin_server_delete));
+        value_object_set(&server_obj, "static", value_create_builtin_function(builtin_server_static));
+        value_object_set(&server_obj, "watch", value_create_builtin_function(builtin_server_watch));
+        value_object_set(&server_obj, "onSignal", value_create_builtin_function(builtin_server_onSignal));
+        value_object_set(&server_obj, "handleRequests", value_create_builtin_function(builtin_server_process_requests));
+        
+        return server_obj;
+    }
+    
+    return value_create_null();
 }
 
 // Register a POST route
@@ -2244,14 +2274,16 @@ Value builtin_server_use(Interpreter* interpreter, Value* args, size_t arg_count
     return value_create_null();
 }
 
-// Add middleware to server (method on server object - 1 arg)
+// Add middleware to server (method on server object)
 Value builtin_server_use_method(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
-    if (arg_count != 1) {
+    // When called as a method, the server object is passed as the first argument
+    // So we expect 2 arguments: server object and middleware function
+    if (arg_count != 1 && arg_count != 2) {
         std_error_report(ERROR_ARGUMENT_COUNT, "server", "unknown_function", "server.use() requires exactly 1 argument (middleware_function)", line, column);
         return value_create_null();
     }
     
-    Value middleware_func = args[0];
+    Value middleware_func = (arg_count == 2) ? args[1] : args[0];
     
     if (middleware_func.type != VALUE_FUNCTION) {
         std_error_report(ERROR_INTERNAL_ERROR, "server", "unknown_function", "server.use() middleware must be a function", line, column);
@@ -2271,6 +2303,7 @@ Value builtin_server_use_method(Interpreter* interpreter, Value* args, size_t ar
     value_object_set(&server_obj, "port", value_create_number(g_server->port));
     value_object_set(&server_obj, "running", value_create_boolean(g_server->running));
     value_object_set(&server_obj, "__class_name__", value_create_string("Server"));
+    value_object_set(&server_obj, "__type__", value_create_string("Server"));
     
     // Add methods to the server object
     value_object_set(&server_obj, "listen", value_create_builtin_function(builtin_server_listen));

@@ -4642,12 +4642,7 @@ static ASTNode* parser_parse_hash_map_literal(Parser* parser) {
         return NULL;
     }
     
-    printf("DEBUG: Creating hash map literal with %zu pairs\n", pair_count);
-    fflush(stdout);
-    ASTNode* result = ast_create_hash_map_literal(keys, values, pair_count, parser->previous_token->line, parser->previous_token->column);
-    printf("DEBUG: Hash map literal created, pair_count: %zu\n", result ? result->data.hash_map_literal.pair_count : 0);
-    fflush(stdout);
-    return result;
+    return ast_create_hash_map_literal(keys, values, pair_count, parser->previous_token->line, parser->previous_token->column);
 }
 
 /**

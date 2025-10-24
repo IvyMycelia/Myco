@@ -831,28 +831,49 @@ static void json_stringify_myco_value(JsonStringBuilder* builder, Value* value) 
 }
 
 Value builtin_json_stringify(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    printf("DEBUG: builtin_json_stringify called with %zu args\n", arg_count);
+    fflush(stdout);
+    
     if (arg_count != 1) {
         std_error_report(ERROR_ARGUMENT_COUNT, "json", "unknown_function", "json.stringify() requires exactly 1 argument (value)", line, column);
         return value_create_null();
     }
     
     Value myco_value = args[0];
+    printf("DEBUG: myco_value type: %d\n", myco_value.type);
+    fflush(stdout);
     
     // Create dynamic string builder
+    printf("DEBUG: Creating JSON string builder...\n");
+    fflush(stdout);
     JsonStringBuilder* builder = json_string_builder_create(256);
     if (!builder) {
+        printf("DEBUG: Failed to create JSON string builder\n");
+        fflush(stdout);
         std_error_report(ERROR_INTERNAL_ERROR, "json", "unknown_function", "Failed to create JSON string builder", line, column);
         return value_create_null();
     }
+    printf("DEBUG: JSON string builder created successfully\n");
+    fflush(stdout);
     
     // Convert Myco value to JSON string
+    printf("DEBUG: About to call json_stringify_myco_value\n");
+    fflush(stdout);
     json_stringify_myco_value(builder, &myco_value);
+    printf("DEBUG: json_stringify_myco_value completed\n");
+    fflush(stdout);
     
     // Create result string (takes ownership of buffer)
+    printf("DEBUG: Creating result string...\n");
+    fflush(stdout);
     Value result = value_create_string(builder->buffer);
+    printf("DEBUG: Result string created\n");
+    fflush(stdout);
     
     // Clean up builder structure but not the buffer (transferred to Value)
     shared_free_safe(builder, "libs", "builtin_json_stringify", 0);
+    printf("DEBUG: builtin_json_stringify completed\n");
+    fflush(stdout);
     
     return result;
 }

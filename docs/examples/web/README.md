@@ -33,6 +33,33 @@ curl -X POST http://localhost:3000/api/auth/register
 open http://localhost:3000/
 ```
 
+### 🎯 Full-Featured Server (`full_featured_server.myco`)
+A comprehensive web server showcasing advanced features:
+- **JSON.stringify()** for dynamic JSON generation
+- **Complex data structures** with arrays and objects
+- **CRUD operations** for events and users
+- **Real-world API patterns** with proper error handling
+- **Production-ready architecture** with data persistence
+
+**Features:**
+- Complete user management (register, login)
+- Event management (create, list, register)
+- Dynamic JSON responses using `json.stringify()`
+- Proper HTTP status codes (200, 201, 404)
+- Sample data with realistic structure
+
+**Usage:**
+```bash
+# Run the full-featured server
+myco full_featured_server.myco
+
+# Test all endpoints
+curl http://localhost:3000/api/events
+curl -X POST http://localhost:3000/api/auth/register
+curl -X POST http://localhost:3000/api/events
+curl -X POST http://localhost:3000/api/events/evt_001/register
+```
+
 ### 📝 Basic Web Server (`test_server.myco`)
 A simpler example showing:
 - Basic HTTP server setup

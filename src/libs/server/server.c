@@ -943,12 +943,15 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
         printf("DEBUG: Registered set_response_body in global environment at %p\n", (void*)interpreter->global_environment);
         fflush(stdout);
         
-        printf("DEBUG: About to register set_response_status\n");
-        fflush(stdout);
-        environment_define(interpreter->global_environment, "set_response_status", value_create_builtin_function(builtin_set_response_status));
-        
-        printf("DEBUG: Registered all global variables\n");
-        fflush(stdout);
+    printf("DEBUG: About to register set_response_status\n");
+    fflush(stdout);
+    environment_define(interpreter->global_environment, "set_response_status", value_create_builtin_function(builtin_set_response_status));
+
+    // Register json library in server context
+    json_library_register(interpreter);
+
+    printf("DEBUG: Registered all global variables\n");
+    fflush(stdout);
     }
     
     // Create server object for Myco

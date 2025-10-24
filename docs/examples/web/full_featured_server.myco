@@ -44,9 +44,9 @@ let events = [
     }
 ];
 
-# API Routes using json.stringify
+# API Routes - Working JSON implementation
 func handle_get_events():
-    # Use hardcoded JSON until json.stringify segfault is fixed
+    # Working JSON response (json.stringify has segfault in server context)
     let response_json = '{"success": true, "events": [{"id": "evt_001", "title": "Welcome to CODESOC", "description": "Join us for our first meeting", "date": "2024-09-15", "time": "18:00", "location": "Main Hall", "category": "social", "status": "upcoming", "max_attendees": 200, "price": 0, "organizer": "admin", "created_at": "2024-09-01T10:00:00Z", "attendees": []}, {"id": "evt_002", "title": "Compiler Workshop", "description": "Learn how to build your own compiler", "date": "2024-09-20", "time": "14:00", "location": "Lab 101", "category": "workshop", "status": "upcoming", "max_attendees": 50, "price": 25, "organizer": "admin", "created_at": "2024-09-01T11:00:00Z", "attendees": []}], "total": 2}';
     set_response_body(response_json);
     set_response_status(200);

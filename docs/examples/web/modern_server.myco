@@ -52,37 +52,80 @@ users = [
 
 # Get all events
 func handle_get_events():
-    set_response_body('{"success": true, "events": [{"id": "evt_001", "title": "Welcome to Myco", "description": "Learn about the Myco programming language", "date": "2024-09-15", "time": "18:00", "location": "Main Hall", "category": "workshop", "status": "upcoming", "max_attendees": 50, "price": 0, "organizer": "admin", "created_at": "2024-09-01T10:00:00Z", "attendees": []}], "total": 1}');
+    let response = {
+        "success": true,
+        "events": events,
+        "total": events.length
+    };
+    set_response_body(json.stringify(response));
     set_response_status(200);
 end;
 
 # Get single event
 func handle_get_event():
-    set_response_body('{"success": false, "error": "Event not found"}');
+    let response = {
+        "success": false,
+        "error": "Event not found"
+    };
+    set_response_body(json.stringify(response));
     set_response_status(404);
 end;
 
 # User registration
 func handle_register():
-    set_response_body('{"success": true, "message": "Registration endpoint ready", "note": "Full implementation requires request body parsing"}');
+    let response = {
+        "success": true,
+        "message": "Registration endpoint ready",
+        "note": "Full implementation requires request body parsing"
+    };
+    set_response_body(json.stringify(response));
     set_response_status(200);
 end;
 
 # User login
 func handle_login():
-    set_response_body('{"success": true, "message": "Login endpoint ready", "note": "Full implementation requires request body parsing"}');
+    let response = {
+        "success": true,
+        "message": "Login endpoint ready",
+        "note": "Full implementation requires request body parsing"
+    };
+    set_response_body(json.stringify(response));
     set_response_status(200);
 end;
 
 # Create new event
 func handle_create_event():
-    set_response_body('{"success": true, "event": {"id": "evt_002", "title": "New Event", "description": "A new event created via API", "date": "2024-10-15", "time": "19:00", "location": "TBD", "category": "workshop", "status": "upcoming", "max_attendees": 50, "price": 0, "organizer": "admin", "created_at": "2024-09-01T10:00:00Z", "attendees": []}, "message": "Event created successfully"}');
+    let response = {
+        "success": true,
+        "event": {
+            "id": "evt_002",
+            "title": "New Event",
+            "description": "A new event created via API",
+            "date": "2024-10-15",
+            "time": "19:00",
+            "location": "TBD",
+            "category": "workshop",
+            "status": "upcoming",
+            "max_attendees": 50,
+            "price": 0,
+            "organizer": "admin",
+            "created_at": "2024-09-01T10:00:00Z",
+            "attendees": []
+        },
+        "message": "Event created successfully"
+    };
+    set_response_body(json.stringify(response));
     set_response_status(201);
 end;
 
 # Register for event
 func handle_register_for_event():
-    set_response_body('{"success": true, "message": "Event registration endpoint ready", "note": "Full implementation requires user authentication and event ID parsing"}');
+    let response = {
+        "success": true,
+        "message": "Event registration endpoint ready",
+        "note": "Full implementation requires user authentication and event ID parsing"
+    };
+    set_response_body(json.stringify(response));
     set_response_status(200);
 end;
 

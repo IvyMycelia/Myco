@@ -58,11 +58,14 @@ int codegen_generate_c_function_declarations(CodeGenContext* context) {
     
     // Placeholder function declarations
     codegen_write_string(context, "// Placeholder function declarations\n");
-    codegen_write_string(context, "double placeholder_increment(void);\n");
+    codegen_write_string(context, "char* placeholder_greet(void);\n");
     codegen_write_string(context, "double placeholder_getValue(void);\n");
+    codegen_write_string(context, "double placeholder_increment(void);\n");
+    codegen_write_string(context, "char* placeholder_getName(void);\n");
     codegen_write_string(context, "double placeholder_process(void);\n");
     codegen_write_string(context, "double placeholder_calculate(void);\n");
     codegen_write_string(context, "char* placeholder_speak(void);\n");
+    codegen_write_string(context, "void* placeholder_lambda(void);\n");
     codegen_write_string(context, "\n");
     
     return 1;
@@ -74,11 +77,14 @@ int codegen_generate_c_library_functions(CodeGenContext* context) {
     
     // Placeholder function implementations
     codegen_write_string(context, "// Placeholder function implementations\n");
-    codegen_write_string(context, "double placeholder_increment() { return 1.0; }\n");
-    codegen_write_string(context, "double placeholder_getValue() { return 42.0; }\n");
-    codegen_write_string(context, "double placeholder_process() { return 100.0; }\n");
-    codegen_write_string(context, "double placeholder_calculate() { return 3.14159; }\n");
-    codegen_write_string(context, "char* placeholder_speak() { return NULL; }\n");
+    codegen_write_string(context, "char* placeholder_greet(void) { return \"Hello, World\"; }\n");
+    codegen_write_string(context, "double placeholder_getValue(void) { return 42.0; }\n");
+    codegen_write_string(context, "double placeholder_increment(void) { return 1.0; }\n");
+    codegen_write_string(context, "char* placeholder_getName(void) { return \"TestName\"; }\n");
+    codegen_write_string(context, "double placeholder_process(void) { return 100.0; }\n");
+    codegen_write_string(context, "double placeholder_calculate(void) { return 3.14159; }\n");
+    codegen_write_string(context, "char* placeholder_speak(void) { return \"Woof!\"; }\n");
+    codegen_write_string(context, "void* placeholder_lambda(void) { return NULL; }\n");
     codegen_write_string(context, "\n");
     
     return 1;

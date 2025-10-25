@@ -198,7 +198,16 @@ int codegen_generate_c_binary_op(CodeGenContext* context, ASTNode* node) {
             codegen_write(context, "myco_string_concat(");
             if (!codegen_generate_c_expression(context, node->data.binary.left)) return 0;
             codegen_write(context, ", ");
-            if (!codegen_generate_c_expression(context, node->data.binary.right)) return 0;
+            
+            // Check if right operand is .length - convert to string
+            if (node->data.binary.right->type == AST_NODE_MEMBER_ACCESS &&
+                strcmp(node->data.binary.right->data.member_access.member_name, "length") == 0) {
+                codegen_write(context, "myco_number_to_string(");
+                if (!codegen_generate_c_expression(context, node->data.binary.right)) return 0;
+                codegen_write(context, ")");
+            } else {
+                if (!codegen_generate_c_expression(context, node->data.binary.right)) return 0;
+            }
             codegen_write(context, ")");
             return 1;
         }

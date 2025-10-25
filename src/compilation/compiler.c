@@ -1077,6 +1077,10 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                                (strstr(right->data.identifier_value, "str") != NULL ||
                                 strcmp(right->data.identifier_value, "name") == 0)) {
                         is_string_concat = 1;
+                    } else if (right->type == AST_NODE_MEMBER_ACCESS &&
+                               strcmp(right->data.member_access.member_name, "length") == 0) {
+                        // .length in string concatenation should be converted to string
+                        is_string_concat = 1;
                     }
                     
                     if (is_string_concat) {

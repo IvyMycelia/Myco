@@ -2226,16 +2226,25 @@ int codegen_generate_c_member_access(CodeGenContext* context, ASTNode* node) {
     if (node->data.member_access.object->type == AST_NODE_IDENTIFIER) {
         const char* var_name = node->data.member_access.object->data.identifier_value;
         
-        // Check for library objects - don't generate the object, just the method name
+        // Check for library objects - handle property access vs method calls differently
         if (strcmp(var_name, "regex") == 0 || strcmp(var_name, "json") == 0 || 
             strcmp(var_name, "http") == 0 || strcmp(var_name, "time") == 0 ||
             strcmp(var_name, "file") == 0 || strcmp(var_name, "dir") == 0 ||
             strcmp(var_name, "math") == 0 || strcmp(var_name, "trees") == 0 ||
             strcmp(var_name, "graphs") == 0) {
-            // For library method calls, just generate the method name
-            // The actual method call will be handled by the function call generation
-            codegen_write(context, "%s", member_name);
-            return 1;
+            
+            // Check if this is a property access (like math.type) or method call (like math.sin)
+            // For property access, generate a hardcoded value since library objects are placeholders
+            // For method calls, just generate the method name
+            if (strcmp(member_name, "type") == 0) {
+                // Property access - generate a hardcoded "Library" string
+                codegen_write(context, "\"Library\"");
+                return 1;
+            } else {
+                // Method call - just generate the method name
+                codegen_write(context, "%s", member_name);
+                return 1;
+            }
         }
         
         // Check for server parameter method calls

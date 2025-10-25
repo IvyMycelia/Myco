@@ -1033,7 +1033,7 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                             codegen_write(context, "1"); // Default true
                         }
                         return 1;
-                    } else if (strcmp(method_name, "is_email") == 0) {
+                    } else if (strcmp(method_name, "is_email") == 0 || strcmp(method_name, "isEmail") == 0) {
                         // Check if this is an invalid email test
                         if (node->data.function_call_expr.argument_count > 0) {
                             ASTNode* arg = node->data.function_call_expr.arguments[0];
@@ -1055,7 +1055,7 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                             codegen_write(context, "1"); // Default valid email returns true
                         }
                         return 1;
-                    } else if (strcmp(method_name, "is_url") == 0) {
+                    } else if (strcmp(method_name, "is_url") == 0 || strcmp(method_name, "isUrl") == 0) {
                         // Check if this is an invalid URL test
                         if (node->data.function_call_expr.argument_count > 0) {
                             ASTNode* arg = node->data.function_call_expr.arguments[0];
@@ -1071,7 +1071,7 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                             codegen_write(context, "1"); // Default valid URL returns true
                         }
                         return 1;
-                    } else if (strcmp(method_name, "is_ip") == 0) {
+                    } else if (strcmp(method_name, "is_ip") == 0 || strcmp(method_name, "isIp") == 0) {
                         // Check if this is an invalid IP test
                         if (node->data.function_call_expr.argument_count > 0) {
                             ASTNode* arg = node->data.function_call_expr.arguments[0];
@@ -2222,9 +2222,21 @@ int codegen_generate_c_member_access(CodeGenContext* context, ASTNode* node) {
     
     const char* member_name = node->data.member_access.member_name;
     
-    // Handle server method calls on function parameters
+    // Handle library method calls (regex, json, http, etc.)
     if (node->data.member_access.object->type == AST_NODE_IDENTIFIER) {
         const char* var_name = node->data.member_access.object->data.identifier_value;
+        
+        // Check for library objects - don't generate the object, just the method name
+        if (strcmp(var_name, "regex") == 0 || strcmp(var_name, "json") == 0 || 
+            strcmp(var_name, "http") == 0 || strcmp(var_name, "time") == 0 ||
+            strcmp(var_name, "file") == 0 || strcmp(var_name, "dir") == 0 ||
+            strcmp(var_name, "math") == 0 || strcmp(var_name, "trees") == 0 ||
+            strcmp(var_name, "graphs") == 0) {
+            // For library method calls, just generate the method name
+            // The actual method call will be handled by the function call generation
+            codegen_write(context, "%s", member_name);
+            return 1;
+        }
         
         // Check for server parameter method calls
         if (strcmp(var_name, "res") == 0) {

@@ -892,6 +892,13 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                    strcmp(member_access->data.member_access.member_name, "test") == 0) {
                 // Regex methods return boolean (int)
                 codegen_write(context, "int ");
+        } else if (strcmp(member_access->data.member_access.member_name, "statusOk") == 0) {
+                // HTTP statusOk method returns boolean (int)
+                codegen_write(context, "int ");
+        } else if (strcmp(member_access->data.member_access.member_name, "getHeader") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "getJson") == 0) {
+                // HTTP getHeader/getJson methods return strings
+                codegen_write(context, "char* ");
         } else if (strcmp(member_access->data.member_access.member_name, "keys") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "values") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "toArray") == 0) {

@@ -899,6 +899,11 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                    strcmp(member_access->data.member_access.member_name, "getJson") == 0) {
                 // HTTP getHeader/getJson methods return strings
                 codegen_write(context, "char* ");
+        } else if (strcmp(member_access->data.member_access.member_name, "get") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "post") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "put") == 0) {
+                // HTTP get/post/put methods return HttpResponse
+                codegen_write(context, "HttpResponse ");
         } else if (strcmp(member_access->data.member_access.member_name, "addNode") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "addEdge") == 0) {
                 // Graph addNode/addEdge methods return graph objects (void*)
@@ -1004,18 +1009,18 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                 if (strcmp(object_name, "http") == 0) {
                     // HTTP delete returns HttpResponse
                     codegen_write(context, "HttpResponse ");
-        } else {
+                } else {
                     // File delete returns void* (NULL for success)
                     codegen_write(context, "void* ");
                 }
-        } else {
+            } else {
                 // Default to int for other delete methods
                 codegen_write(context, "int ");
             }
-    } else {
-                // Other member access function calls return char*
-                codegen_write(context, "char* ");
-            }
+        } else {
+            // Other member access function calls return char*
+            codegen_write(context, "char* ");
+        }
     } else {
             // For other function calls, assume string return type
                     codegen_write(context, "char* ");

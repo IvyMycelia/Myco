@@ -41,6 +41,26 @@ void myco_value_free(MycoValue value) {
     }
 }
 
+// Get type name as string
+const char* myco_get_type(MycoValue value) {
+    switch (value.type) {
+        case MYCO_TYPE_NUMBER:
+            return "Number";
+        case MYCO_TYPE_STRING:
+            return "String";
+        case MYCO_TYPE_BOOL:
+            return "Boolean";
+        case MYCO_TYPE_NULL:
+            return "Null";
+        case MYCO_TYPE_ARRAY:
+            return "Array";
+        case MYCO_TYPE_OBJECT:
+            return "Object";
+        default:
+            return "Unknown";
+    }
+}
+
 // Convert Myco value to string
 char* myco_value_to_string(MycoValue value) {
     switch (value.type) {

@@ -11,7 +11,9 @@ typedef enum {
     MYCO_TYPE_NUMBER,
     MYCO_TYPE_STRING,
     MYCO_TYPE_BOOL,
-    MYCO_TYPE_NULL
+    MYCO_TYPE_NULL,
+    MYCO_TYPE_ARRAY,
+    MYCO_TYPE_OBJECT
 } MycoType;
 
 typedef struct {
@@ -48,6 +50,7 @@ void myco_print_bool(int bool_value);
 int isString(void* value);
 int isInt(void* value);
 int isFloat(void* value);
+const char* myco_get_type(MycoValue value);
 int isBool(void* value);
 int isArray(void* value);
 int isNull(void* value);

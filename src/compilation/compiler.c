@@ -1361,7 +1361,7 @@ int codegen_generate_c_function_declaration(CodeGenContext* context, ASTNode* no
     codegen_write(context, "%s(", node->data.function_definition.function_name);
     
     // Generate parameters
-    if (node->data.function_definition.parameters) {
+    if (node->data.function_definition.parameters && node->data.function_definition.parameter_count > 0) {
         for (size_t i = 0; i < node->data.function_definition.parameter_count; i++) {
             if (i > 0) codegen_write(context, ", ");
             
@@ -1399,6 +1399,9 @@ int codegen_generate_c_function_declaration(CodeGenContext* context, ASTNode* no
                 }
             }
         }
+    } else {
+        // No parameters - add void
+        codegen_write(context, "void");
     }
     
     codegen_write_line(context, ") {");

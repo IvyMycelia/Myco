@@ -886,6 +886,12 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                    strcmp(member_access->data.member_access.member_name, "is_empty") == 0) {
                 // isEmpty/is_empty methods return boolean (int)
                 codegen_write(context, "int ");
+        } else if (strcmp(member_access->data.member_access.member_name, "isEmail") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "isUrl") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "isIp") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "test") == 0) {
+                // Regex methods return boolean (int)
+                codegen_write(context, "int ");
         } else if (strcmp(member_access->data.member_access.member_name, "keys") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "values") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "toArray") == 0) {

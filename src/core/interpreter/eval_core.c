@@ -655,7 +655,6 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
         case AST_NODE_ARRAY_ACCESS: {
             Value array = eval_node(interpreter, node->data.array_access.array);
             
-            
             if (array.type != VALUE_ARRAY) {
                 interpreter_set_error(interpreter, "Cannot index non-array", node->line, node->column);
                 return value_create_null();

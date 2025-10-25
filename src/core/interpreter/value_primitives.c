@@ -3,6 +3,7 @@
 #include "../../include/utils/shared_utilities.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 // ============================================================================
 // HELPER FUNCTIONS

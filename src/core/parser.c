@@ -1222,7 +1222,7 @@ ASTNode* parser_parse_primary(Parser* parser) {
         parser_advance(parser);
         
         // Create proper boolean AST node
-        int bool_value = (strcmp(token->text, "True") == 0) ? 1 : 0;
+        int bool_value = (strcmp(token->text, "True") == 0 || strcmp(token->text, "true") == 0) ? 1 : 0;
         ASTNode* literal = ast_create_bool(bool_value, token->line, token->column);
         if (literal) {
             // Check for member access: True.method

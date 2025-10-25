@@ -462,12 +462,22 @@ Value value_clone(Value* value) {
         case VALUE_ARRAY: {
             // Deep copy array with all elements
             Value v = value_create_array(value->data.array_value.count);
+            
+            
             for (size_t i = 0; i < value->data.array_value.count; i++) {
                 Value* element = (Value*)value->data.array_value.elements[i];
                 if (element) {
                     Value cloned_element = value_clone(element);
-                    value_array_push(&v, cloned_element);
-                    // Don't free the cloned element - it's now owned by the array
+                    // Store the element directly without using value_array_push
+                    // to avoid the memory management issues
+                    if (v.data.array_value.count < v.data.array_value.capacity) {
+                        Value* stored_element = shared_malloc_safe(sizeof(Value), "interpreter", "value_clone", 0);
+                        if (stored_element) {
+                            *stored_element = cloned_element;
+                            v.data.array_value.elements[v.data.array_value.count] = stored_element;
+                            v.data.array_value.count++;
+                        }
+                    }
                 }
             }
             return v;
@@ -480,7 +490,16 @@ Value value_clone(Value* value) {
                 Value* member_value = (Value*)value->data.object_value.values[i];
                 if (key && member_value) {
                     Value cloned_member = value_clone(member_value);
-                    value_object_set_member(&v, key, cloned_member);
+                    // Store the member directly to avoid memory sharing issues
+                    if (v.data.object_value.count < v.data.object_value.capacity) {
+                        v.data.object_value.keys[v.data.object_value.count] = shared_strdup(key);
+                        v.data.object_value.values[v.data.object_value.count] = shared_malloc_safe(sizeof(Value), "interpreter", "value_clone", 0);
+                        if (v.data.object_value.values[v.data.object_value.count]) {
+                            Value* stored_value = (Value*)v.data.object_value.values[v.data.object_value.count];
+                            *stored_value = cloned_member;
+                            v.data.object_value.count++;
+                        }
+                    }
                 }
             }
             return v;

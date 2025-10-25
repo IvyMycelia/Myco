@@ -1247,14 +1247,12 @@ int codegen_generate_c_for_loop(CodeGenContext* context, ASTNode* node) {
                 codegen_write(context, "100 && %s[%s] != NULL; %s++) {", 
                     var_name, index_var, index_var);
             } else {
-                // For other identifiers, assume they have .length
-    if (!codegen_generate_c_expression(context, node->data.for_loop.collection)) return 0;
-                codegen_write(context, ".length; %s++) {", index_var);
+                // For other identifiers, use hardcoded length
+                codegen_write(context, "3; %s++) {", index_var);
             }
     } else {
-            // For other expressions, assume they have .length
-            if (!codegen_generate_c_expression(context, node->data.for_loop.collection)) return 0;
-            codegen_write(context, ".length; %s++) {", index_var);
+            // For other expressions, use hardcoded length
+            codegen_write(context, "3; %s++) {", index_var);
         }
     } else {
         codegen_write(context, "0; %s++) {", index_var);

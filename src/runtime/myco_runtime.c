@@ -61,6 +61,36 @@ const char* myco_get_type(MycoValue value) {
     }
 }
 
+// Wrapper functions for primitive types
+const char* myco_get_type_number(double value) {
+    MycoValue v = myco_value_number(value);
+    return myco_get_type(v);
+}
+
+const char* myco_get_type_string(const char* value) {
+    MycoValue v = myco_value_string(value);
+    const char* result = myco_get_type(v);
+    myco_value_free(v);
+    return result;
+}
+
+const char* myco_get_type_bool(int value) {
+    MycoValue v = myco_value_bool(value);
+    const char* result = myco_get_type(v);
+    myco_value_free(v);
+    return result;
+}
+
+const char* myco_get_type_null(void) {
+    MycoValue v = myco_value_null();
+    return myco_get_type(v);
+}
+
+const char* myco_get_type_array(void* value) {
+    // For arrays, we'll return "Array" for now
+    return "Array";
+}
+
 // Convert Myco value to string
 char* myco_value_to_string(MycoValue value) {
     switch (value.type) {

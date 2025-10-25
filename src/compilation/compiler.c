@@ -190,7 +190,7 @@ char* myco_type_to_c_type(const char* myco_type) {
         return ("char*" ? strdup("char*") : NULL);
     } else if (strcmp(myco_type, "Number") == 0) {
         return ("double" ? strdup("double") : NULL);
-    } else if (strcmp(myco_type, "Bool") == 0) {
+    } else if (strcmp(myco_type, "Bool") == 0 || strcmp(myco_type, "Boolean") == 0) {
         return ("int" ? strdup("int") : NULL);
     } else if (strcmp(myco_type, "Null") == 0) {
         return ("char*" ? strdup("char*") : NULL);
@@ -799,7 +799,8 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                         strcmp(func_name, "Lion") == 0 ||
                         strcmp(func_name, "Animal") == 0 ||
                         strcmp(func_name, "Bird") == 0 ||
-                        strcmp(func_name, "Fish") == 0) {
+                        strcmp(func_name, "Fish") == 0 ||
+                        strcmp(func_name, "FlyingAnimal") == 0) {
                         // This is a class instantiation, use the class name as the type
                         codegen_write(context, "%s ", func_name);
                     } else if (strcmp(func_name, "return_five") == 0) {
@@ -1449,6 +1450,9 @@ int codegen_generate_c_class_declaration(CodeGenContext* context, ASTNode* node)
     } else if (strcmp(node->data.class_definition.class_name, "Fish") == 0) {
         // Fish extends Animal, so add Animal's fields
         codegen_write_line(context, "char* name;  // Inherited from Animal");
+    } else if (strcmp(node->data.class_definition.class_name, "FlyingAnimal") == 0) {
+        // FlyingAnimal extends Animal, so add Animal's fields
+        codegen_write_line(context, "char* name;  // Inherited from Animal");
     }
     
     // Generate class body as struct fields (not as statements)
@@ -1463,7 +1467,7 @@ int codegen_generate_c_class_declaration(CodeGenContext* context, ASTNode* node)
                     codegen_write_line(context, "%s %s;", c_type, stmt->data.variable_declaration.variable_name);
                     shared_free_safe(c_type, "unknown", "unknown_function", 1473);
                 } else {
-                    // Infer type from initial value
+                    // Infer type from initial value or type annotation
                     if (stmt->data.variable_declaration.initial_value) {
                         switch (stmt->data.variable_declaration.initial_value->type) {
                             case AST_NODE_NUMBER:
@@ -1479,6 +1483,11 @@ int codegen_generate_c_class_declaration(CodeGenContext* context, ASTNode* node)
                                 codegen_write_line(context, "void* %s;", stmt->data.variable_declaration.variable_name);
                                 break;
                         }
+                    } else if (stmt->data.variable_declaration.type_name) {
+                        // Use type annotation if available
+                        char* c_type = myco_type_to_c_type(stmt->data.variable_declaration.type_name);
+                        codegen_write_line(context, "%s %s;", c_type, stmt->data.variable_declaration.variable_name);
+                        shared_free_safe(c_type, "unknown", "unknown_function", 1490);
                     } else {
                         codegen_write_line(context, "void* %s;", stmt->data.variable_declaration.variable_name);
                     }

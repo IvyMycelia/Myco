@@ -930,6 +930,12 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                    strcmp(member_access->data.member_access.member_name, "listen") == 0) {
                 // Server methods return server objects (void*)
                 codegen_write(context, "void* ");
+        } else if (strstr(member_access->data.member_access.object->data.identifier_value, "null_") != NULL ||
+                   strcmp(member_access->data.member_access.object->data.identifier_value, "null_graph") == 0 ||
+                   strcmp(member_access->data.member_access.object->data.identifier_value, "null_tree") == 0 ||
+                   strcmp(member_access->data.member_access.object->data.identifier_value, "null_set") == 0) {
+                // Null object method calls return void* (NULL)
+                codegen_write(context, "void* ");
         } else if (strcmp(member_access->data.member_access.member_name, "keys") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "values") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "toArray") == 0) {

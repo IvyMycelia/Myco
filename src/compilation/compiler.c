@@ -902,8 +902,20 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
         } else if (strcmp(member_access->data.member_access.member_name, "get") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "post") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "put") == 0) {
-                // HTTP get/post/put methods return HttpResponse
-                codegen_write(context, "HttpResponse ");
+                // Check if this is HTTP method or server method
+                if (member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
+                    const char* object_name = member_access->data.member_access.object->data.identifier_value;
+                    if (strcmp(object_name, "http") == 0) {
+                        // HTTP methods return HttpResponse
+                        codegen_write(context, "HttpResponse ");
+                    } else {
+                        // Server methods return void* (server object)
+                        codegen_write(context, "void* ");
+                    }
+                } else {
+                    // Default to HttpResponse
+                    codegen_write(context, "HttpResponse ");
+                }
         } else if (strcmp(member_access->data.member_access.member_name, "addNode") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "addEdge") == 0) {
                 // Graph addNode/addEdge methods return graph objects (void*)

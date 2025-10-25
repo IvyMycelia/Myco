@@ -312,9 +312,10 @@ int compile_source(const char* source, int target, int debug) {
     const char* output_file = "output.c";
     compiler_config_set_output(config, output_file);
     
-    // Generate C code
+    // Generate code based on target
     if (target == TARGET_C) {
         if (debug) {
+            printf("Generating C code...\n");
         }
         
         if (!compiler_generate_c(config, program, output_file)) {
@@ -327,6 +328,81 @@ int compile_source(const char* source, int target, int debug) {
         }
         
         printf("Successfully compiled to C: %s\n", output_file);
+    } else if (target == TARGET_X86_64 || target == TARGET_ARM64) {
+        // For native targets, generate C code and then compile to binary
+        if (debug) {
+            printf("Generating C code for native target...\n");
+        }
+        
+        if (!compiler_generate_c(config, program, output_file)) {
+            fprintf(stderr, "Error: Failed to generate C code\n");
+            compiler_config_free(config);
+            ast_free(program);
+            parser_free(parser);
+            lexer_free(lexer);
+            return MYCO_ERROR_COMPILER;
+        }
+        
+        // Compile C code to binary
+        const char* binary_file = "compiled_output";
+        if (!compiler_compile_to_binary(config, output_file, binary_file)) {
+            fprintf(stderr, "Error: Failed to compile to binary\n");
+            compiler_config_free(config);
+            ast_free(program);
+            parser_free(parser);
+            lexer_free(lexer);
+            return MYCO_ERROR_COMPILER;
+        }
+        
+        printf("Successfully compiled to binary: %s\n", binary_file);
+    } else if (target == TARGET_WASM) {
+        // WebAssembly target - generate C code first, then use Emscripten
+        if (debug) {
+            printf("Generating C code for WebAssembly...\n");
+        }
+        
+        if (!compiler_generate_c(config, program, output_file)) {
+            fprintf(stderr, "Error: Failed to generate C code\n");
+            compiler_config_free(config);
+            ast_free(program);
+            parser_free(parser);
+            lexer_free(lexer);
+            return MYCO_ERROR_COMPILER;
+        }
+        
+        // Use Emscripten to compile to WebAssembly
+        char wasm_command[1024];
+        snprintf(wasm_command, sizeof(wasm_command), 
+                "emcc %s build/runtime/myco_runtime.o build/runtime/shared_utilities.o -o compiled_output.wasm", 
+                output_file);
+        
+        if (system(wasm_command) != 0) {
+            fprintf(stderr, "Error: Failed to compile to WebAssembly (Emscripten not found)\n");
+            compiler_config_free(config);
+            ast_free(program);
+            parser_free(parser);
+            lexer_free(lexer);
+            return MYCO_ERROR_COMPILER;
+        }
+        
+        printf("Successfully compiled to WebAssembly: compiled_output.wasm\n");
+    } else if (target == TARGET_BYTECODE) {
+        // Bytecode target - generate bytecode representation
+        if (debug) {
+            printf("Generating bytecode...\n");
+        }
+        
+        // For now, generate C code as bytecode is not fully implemented
+        if (!compiler_generate_c(config, program, output_file)) {
+            fprintf(stderr, "Error: Failed to generate bytecode\n");
+            compiler_config_free(config);
+            ast_free(program);
+            parser_free(parser);
+            lexer_free(lexer);
+            return MYCO_ERROR_COMPILER;
+        }
+        
+        printf("Successfully compiled to bytecode: %s\n", output_file);
     } else {
         fprintf(stderr, "Error: Target architecture %d not yet supported\n", target);
         compiler_config_free(config);

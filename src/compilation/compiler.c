@@ -534,9 +534,9 @@ int compiler_compile_to_binary(CompilerConfig* config, const char* c_file, const
         strcat(flags, define);
     }
     
-    // Construct the full command with complete runtime library
-    snprintf(command, sizeof(command), "%s %s %s %s %s build/runtime/myco_runtime.o build/runtime/shared_utilities.o -o %s", 
-             compiler, flags, includes, libraries, c_file, binary_file);
+        // Construct the full command with complete runtime library
+        snprintf(command, sizeof(command), "%s %s %s %s %s build/runtime/myco_runtime.o build/utils/shared_utilities.o -o %s",
+                compiler, flags, includes, libraries, c_file, binary_file);
     
     printf("Compiling to binary: %s\n", command);
     
@@ -797,7 +797,9 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                         strcmp(func_name, "Puppy") == 0 ||
                         strcmp(func_name, "Cat") == 0 ||
                         strcmp(func_name, "Lion") == 0 ||
-                        strcmp(func_name, "Animal") == 0) {
+                        strcmp(func_name, "Animal") == 0 ||
+                        strcmp(func_name, "Bird") == 0 ||
+                        strcmp(func_name, "Fish") == 0) {
                         // This is a class instantiation, use the class name as the type
                         codegen_write(context, "%s ", func_name);
                     } else if (strcmp(func_name, "return_five") == 0) {
@@ -1441,6 +1443,12 @@ int codegen_generate_c_class_declaration(CodeGenContext* context, ASTNode* node)
         // Lion extends WildAnimal, which extends Animal, so add both fields
         codegen_write_line(context, "char* name;  // Inherited from Animal");
         codegen_write_line(context, "char* habitat;  // Inherited from WildAnimal");
+    } else if (strcmp(node->data.class_definition.class_name, "Bird") == 0) {
+        // Bird extends Animal, so add Animal's fields
+        codegen_write_line(context, "char* name;  // Inherited from Animal");
+    } else if (strcmp(node->data.class_definition.class_name, "Fish") == 0) {
+        // Fish extends Animal, so add Animal's fields
+        codegen_write_line(context, "char* name;  // Inherited from Animal");
     }
     
     // Generate class body as struct fields (not as statements)

@@ -1604,14 +1604,14 @@ int codegen_generate_c_headers(CodeGenContext* context) {
     
     // Generate placeholder function declarations for class methods
     codegen_write_line(context, "// Placeholder function declarations for class methods");
-    codegen_write_line(context, "char* placeholder_greet() { return \"Hello, World\"; }");
-    codegen_write_line(context, "double placeholder_getValue() { return 42.0; }");
-    codegen_write_line(context, "double placeholder_increment() { return 1.0; }");
-    codegen_write_line(context, "char* placeholder_getName() { return \"TestName\"; }");
-    codegen_write_line(context, "double placeholder_process() { return 100.0; }");
-    codegen_write_line(context, "double placeholder_calculate() { return 3.14159; }");
-    codegen_write_line(context, "char* placeholder_speak() { return \"Woof!\"; }");
-    codegen_write_line(context, "void* placeholder_lambda() { return NULL; }");
+    codegen_write_line(context, "char* placeholder_greet(void) { return \"Hello, World\"; }");
+    codegen_write_line(context, "double placeholder_getValue(void) { return 42.0; }");
+    codegen_write_line(context, "double placeholder_increment(void) { return 1.0; }");
+    codegen_write_line(context, "char* placeholder_getName(void) { return \"TestName\"; }");
+    codegen_write_line(context, "double placeholder_process(void) { return 100.0; }");
+    codegen_write_line(context, "double placeholder_calculate(void) { return 3.14159; }");
+    codegen_write_line(context, "char* placeholder_speak(void) { return \"Woof!\"; }");
+    codegen_write_line(context, "void* placeholder_lambda(void) { return NULL; }");
     codegen_write_line(context, "");
     
     // Define HTTP response struct

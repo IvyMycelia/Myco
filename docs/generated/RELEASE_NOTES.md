@@ -1,0 +1,292 @@
+### Added
+
+- File I/O implemented
+- Directory I/O implemented
+- Stable hash maps and sets implemented
+- Maps and sets implemented
+- Advanced maps and sets functions implemented
+- Graphs and trees implemented
+- Advanced array functions implemented
+- Heaps, queues, and stacks implemented
+- Implement comprehensive time library with date/time operations
+- Regex library implemented
+- JSON library implemented
+- HTTP library implemented
+- Full stack web apps and api development implemented
+- Adding more server functionality
+- Implement async/await support and complete major language features
+- Implement comprehensive static type checking system
+- Implement file handles/streams system for efficient file I/O
+- Implement Union Types
+- Add comprehensive Union Type tests to pass.myco
+- WIP: Add AST_NODE_USE support and improve type inference for library objects
+- WIP: Fix major segfault issues - math.type() and .create() method calls
+- Implement class method call generation
+- Attempt to implement library method generation
+- Implement proper library method generation
+- Attempt to fix time.add() and time.subtract() methods
+- Fix time.add() and time.subtract() to return time objects
+- Work in progress: Attempting to fix type inference for time.add()
+- Progress: Fixed type inference for time.add() and time.subtract()
+- ✅ Fixed time.add() and time.subtract() methods - Success rate: 90.85%
+- ✅ Implemented context-aware logic for regex methods - Success rate: 93.22%
+- ✅ Implemented JSON and HTTP library methods - Success rate: 96.95%
+- Implement accurate type inference for .type() method calls
+- Implement comprehensive type support with implicit and strict typing
+- Add property access syntax without parentheses
+- Implement Generic Type System Support
+- Implement Async/Await Programming Support
+- Implement Semantic Versioning System (v2.0.0)
+- Implement Automated Version Management System
+- Implement Enhanced Pattern Matching AST Structures
+- Implement Enhanced Pattern Matching Parser and Interpreter
+- Add Arduino support with universal compatibility
+- Add missing time.h include for Debian compatibility
+- Add POSIX feature test macro for Debian struct timespec
+- Add Debian compatibility and segfault fixes
+- Fix Debian segfault: Add null pointer checks to lexer functions
+- Fix Debian segfault: Add null pointer checks to value system
+- Fix remaining Debian segfault: Add null checks to all strlen() calls in lexer
+- MASSIVE SECURITY FIX: Add null pointer safety to all 257 strdup() calls
+- Add error checking to math and time library registration
+- Implement enhanced type inference engine with confidence scoring
+- Implement complete generic type system with full type parameter support
+- Add property access syntax (.length, .type without parentheses)
+- Implement camelCase standard for all built-in APIs
+- Implement macro system foundation
+- Implement macro system and compile-time evaluation
+- Implement hygenic expansion for macro system
+- Implement macro system with compile-time code generation
+- Update .gitignore to exclude additional files
+- Phase 2 Complete: Bytecode Engine Implementation
+- Phase 3 Complete: Hot Spot Detection Implementation
+- Phase 4 Complete: Micro-JIT Compiler Implementation
+- Phase 5 Complete: Value Specialization Implementation
+- Phase 6 Complete: Adaptive Executor Coordinator Implementation
+- Implement Multi-Tier Adaptive Execution Engine
+- Phase 1: Implement production-quality register VM optimizations
+- Cleanup: remove build artifacts and stray scripts; consolidate docs; update .gitignore; add .clang-format and .editorconfig; rebuild verified 295/295 passing; no functional changes
+- Implement optimized bytecode VM with numeric operations
+- Implement math, string, and array method bytecode instructions
+- Fix crash by implementing Map and Set bytecode instructions correctly
+- Implement library method dispatch in bytecode
+- Implement type guard bytecode instructions
+- Implement user-defined function execution with parameter binding
+- Fix library method return values by attaching methods to new objects
+- Fix queue.back() method by adding missing wrapper function
+- Clean up debug output and finalize bytecode VM implementation
+- Achieve 97.64% test pass rate with comprehensive bytecode VM implementation
+- MAJOR: Complete bytecode VM implementation with 97.64% test pass rate
+- Add comprehensive optimization plan for Phase 2
+- Complete Phase 2 Optimization Implementation
+- Fix phantom failing tests: Add proper pass/fail tracking
+- Implement bytecode as optional flag with AST as default
+- 🌳 Complete Tree Library Implementation - Phase 2 Complete
+- 📊 Complete Graph Library Implementation - Phase 3 Complete
+- Complete Server Library Implementation - Phase 4 Complete
+- Add GitHub Actions workflow for Myco macOS release
+- Implement complete web framework and database system
+- Add comprehensive GitHub workflows for Myco
+- Add automatic release workflows
+- Fix CodeQL security scanning and add comprehensive security checks
+- Fix segmentation fault and implement clean HTTPS support
+- Fix segmentation fault in Ubuntu CI by adding type checker safety checks
+- Add Ubuntu-specific debugging to identify segfault location
+- Add comprehensive debugging to identify Ubuntu segfault location
+- Add enhanced lexer debugging to pinpoint segfault location
+- Add identifier parsing debugging to pinpoint segfault
+- Add number parsing debugging to pinpoint segfault
+- Add aggressive debugging to pinpoint exact segfault location
+- Add enhanced identifier debugging to pinpoint segfault
+- Add enhanced extract_text debugging to pinpoint segfault
+- Add enhanced add_token debugging to pinpoint segfault
+- Add enhanced parser debugging to pinpoint segfault
+- Add stack size increase for Ubuntu CI
+- Add comprehensive debugging for Ubuntu CI segfault
+- Fix macOS timeout and add detailed Ubuntu debugging
+- Add CORS support and modernize web server examples
+- Implement working web server examples with JSON support
+- Add ast_clone support for hash map and array literals
+
+### Changed
+
+- Update next_steps.md to reflect completed work
+- Change pattern matching syntax from spore to match
+- Refactor compiler.c: Extract expressions module
+- Clean up repository: remove debug script and update gitignore
+- 🎉 ACHIEVE 100% PASS RATE! Complete interpreter refactoring success!
+- Update BC_METHOD_CALL to use args array consistently
+- Changes to security workflow
+- Update CI workflow to remove external dependencies
+
+### Fixed
+
+- Fixes
+- Two issues remaining
+- Fix undefined variable error and clean up debug output
+- Debug method call undefined.
+- Fixed toString issues
+- Fix output naming, string spacing, function formatting, and placeholder functions
+- Fix identifier pattern matching to use exact string comparison instead of substring matching
+- Fix .toString() method calls and string concatenation
+- Major progress on compiler fixes
+- Major compiler fixes - extensive method handling
+- Fix null comparison type mismatches in code generator
+- Fix execution issues and remove debug output
+- Fix string generation and segmentation fault
+- Major compiler improvements: Fixed class method calls, runtime function linking, and segmentation faults
+- Delete pass_debug
+- Fix compiler segmentation faults: integer-to-string conversion, union types, and NULL string comparisons
+- Fix class constructor argument handling
+- Fix array iteration bounds in for-loops
+- Fix string arguments in print function
+- Fix array append operations
+- Fix for-loop execution with empty arrays
+- WIP: Attempted fixes for regex and class type methods
+- ✅ Fixed JSON validation edge cases - Success rate: 97.29%
+- 🔧 FIX: For-Loop Code Generation
+- Fix parser infinite loop issues with complex syntax
+- Fix array type inference to show proper typed array syntax
+- Fix memory management standardization and segmentation fault
+- Fix cross-platform compatibility issues for Linux/Debian compilation
+- Enhanced Type System and REPL Debugging Features
+- Fix version manager output
+- Fix Debian Compatibility Issues
+- Achieve 100% test success - Fix library registration and object creation
+- Clean up debug files
+- Fix remaining double null checks in strdup() calls
+- Fix hardcoded include path in Makefile for Debian compatibility
+- Fix ALL remaining double null checks in strdup() calls
+- Fix build system and remove build artifacts from git tracking
+- Fix value_clone function to handle builtin functions properly
+- Enhance error handling system with comprehensive edge case coverage
+- Comprehensive error handling and memory safety improvements
+- Remove reference to non-existent should_stop field
+- Disable incomplete type checker to resolve false positive errors
+- Fix graphs.isEmpty() method call support
+- Fix Class with typed methods test failure
+- Fix try-catch block execution
+- Fix graphs library and remove library rejection errors
+- Major progress: Fix built-in functions, library registration, and most test cases
+- Major breakthrough: Fix function calls and achieve 95%+ pass rate
+- WIP: Debugging function call arguments issue
+- MAJOR FIX: Function calls with parameters now working! 🎉
+- Fix library type system - library objects now have .type == "Library"
+- Fix BC_METHOD_CALL stack pop order - library methods now work correctly
+- Remove debug output from BC_METHOD_CALL
+- Fix library method calls to use pre-populated args array
+- Fix segmentation fault in set operations (value_set_remove bug)
+- Fix function definitions and library method calls
+- Fix library method calls for heaps, queues, and stacks
+- Fix graph method names to use snake_case instead of camelCase
+- Merge bytecode-working-fix: Achieve 98.99% test pass rate
+- Fix test counting bug: Remove double-counting of total_tests
+- Fix JSON library memory issues and server middleware/routing
+- Fix graph size and isEmpty() methods - 97.2% test success rate
+- Fix tree creation and insertion tests - 97.8% success rate
+- Fix deprecated GitHub Actions
+- Fix GitHub release permissions and dependencies
+- Fix CPU features compilation error
+- Fix performance profiler compilation error
+- Fix HTTP client buffer overflow issues
+- Fix comprehensive memory safety issues
+- Fix HTTPS segmentation fault with mock response
+- Fix Ubuntu compilation error in performance_profiler.c
+- Fix Ubuntu compilation with proper POSIX_C_SOURCE definition
+- Fix all POSIX timing compilation errors across codebase
+- Fix all compilation errors and warnings for cross-platform compatibility
+- Fix segmentation fault in CI by enabling HTTPS mock by default
+- Fix double-free errors in lexer by resetting token state before each scan
+- Optimize performance by removing debug output
+- Fix Ubuntu segfault by simplifying HTTPS mock response
+- Fix unsafe pointer usage in token creation
+- Clean up debug output after fixing segfaults
+- Fix lexer_scan_next to prevent segfault after EOF
+- Remove all debug output from lexer to fix Ubuntu CI segfault
+- Remove all debug output from entire codebase
+- Fix memory safety issues in lexer
+- Fix GitHub Actions permissions for all workflows
+- Resolve json.stringify() segfault with working solution
+- Resolve json.stringify() segfault with working solution
+- Fix all critical bugs: array.push(), AST cloning, server methods
+- Fix server JSON stringify - replace hardcoded JSON with proper json.stringify()
+
+### Removed
+
+- Removed the use of string as string;
+- Delete remove_expressions.sh
+- Delete output.c
+- Delete pass.myco
+- Delete temp_output.c
+- Remove expressions from compiler.c
+- Remove emoji from section headers in README
+- Remove struct timeval dependency for absolute compatibility
+
+### Security
+
+- Safety Commit
+
+### Performance
+
+- 🚀 PERFORMANCE OPTIMIZATION: Advanced Compiler Optimizations
+- 🚀 PERFORMANCE OPTIMIZATION: Achieve C-level performance
+- Optimize numeric operations for 24% performance improvement
+- Optimize test suite for memory efficiency
+
+### Other
+
+- Initial
+- Start of v2.0
+- Completed nested array support
+- Working state
+- Stable
+- Stable
+- Success rate: 99.152542%
+- Stable
+- Stable
+- 100% stable
+- Type enforcement
+- Classes
+- Classes Stable
+- Pre stable
+- 100% pass
+- Stable classes
+- Complete modularization: Split main.c and interpreter.c into focused modules
+- Compilation first steps
+- Method calls are now var.method() instead of library.method(var, ...)
+- Literal string methods are now var.method() instead of library.method(var, ...)
+- Sets methods now work as expected.
+- Stable method calls.
+- Servers now work.
+- Servers now support Route parameters.
+- Server functionality
+- WIP: Program now runs through 134 lines of output before segfault
+- Restore pass.myco comprehensive test suite
+- 🎉 ACHIEVE 100% COMPILER SUCCESS RATE!
+- Clean up version display and feature names
+- Phase 5: Extract Function/Class Values
+- Phase 6: Extract Arithmetic Operations
+- Phase 7: Extract Conversions and Utilities
+- Phase 8: Extract Method Handlers
+- Phase 9: Extract Built-in Functions
+- Phase 10: Extract Expression Evaluation
+- Phase 11: Extract Control Flow
+- Phase 11: Extract Control Flow
+- 🎉 ACHIEVE 98.98% PASS RATE! Class method calls now working!
+- Phase 1 Complete: Benchmark Suite and Baseline Established
+- Phase 4: Zero-Copy Memory Architecture
+- Phase 4: Zero-Copy Memory Architecture
+- Phase 5: Advanced Loop Optimization
+- Phase 8: Comprehensive Testing and Validation
+- Phase 9: Final Validation and Production Commit
+- Complete Phase 3: Runtime Optimizations
+- Ppro
+- 🎉 ACHIEVE 100% TEST SUCCESS - Complete Myco Interpreter
+- ✅ Complete JSON Library Enhancement - Phase 1 Complete
+- Complete Phase 5: Type Checker Integration - Final Phase Complete
+- Merge branch 'main' of https://github.com/IvyMycelia/Myco
+- Replace getline/ssize_t with portable input solution
+- Streamline GitHub workflows to 3 core workflows
+- Improve GitHub Pages deployment configuration
+- Use custom MYCO_RELEASE token for GitHub Actions
+- Simplify workflow to just run pass.myco test suite

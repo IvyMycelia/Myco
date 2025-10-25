@@ -1015,6 +1015,14 @@ ASTNode* ast_clone(ASTNode* node) {
             clone->data.string_value = (node->data.string_value ? shared_strdup(node->data.string_value) : NULL);
             break;
             
+        case AST_NODE_BOOL:
+            clone->data.bool_value = node->data.bool_value;
+            break;
+            
+        case AST_NODE_NULL:
+            // Null nodes don't need any data copying
+            break;
+            
         case AST_NODE_IDENTIFIER:
             clone->data.identifier_value = (node->data.identifier_value ? shared_strdup(node->data.identifier_value) : NULL);
             break;
@@ -1152,6 +1160,11 @@ ASTNode* ast_clone(ASTNode* node) {
             } else {
                 clone->data.function_call_expr.arguments = NULL;
             }
+            break;
+            
+        case AST_NODE_ARRAY_ACCESS:
+            clone->data.array_access.array = ast_clone(node->data.array_access.array);
+            clone->data.array_access.index = ast_clone(node->data.array_access.index);
             break;
             
         // Add other cases as needed...

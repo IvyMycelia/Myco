@@ -1,0 +1,1649 @@
+{
+  "Added": [
+    {
+      "hash": "a02d7db42b52bf4e7e1af482563e5c42e21986c7",
+      "date": "2025-09-04",
+      "author": "Ivy Banana",
+      "message": "File I/O implemented"
+    },
+    {
+      "hash": "bc03069d8f5a7c06580ed5dbc6f002de7e67d63a",
+      "date": "2025-09-04",
+      "author": "Ivy Banana",
+      "message": "Directory I/O implemented"
+    },
+    {
+      "hash": "12907bf8cd6d7b20544c8235fb177d09b3422928",
+      "date": "2025-09-04",
+      "author": "Ivy Banana",
+      "message": "Stable hash maps and sets implemented"
+    },
+    {
+      "hash": "e2595b0156ee0f9814c96a1f1479df123e30882c",
+      "date": "2025-09-04",
+      "author": "Ivy Banana",
+      "message": "Maps and sets implemented"
+    },
+    {
+      "hash": "ae1f5255aadc9b6d9d4cd3e0e9d8fb67a336926c",
+      "date": "2025-09-04",
+      "author": "Ivy Banana",
+      "message": "Advanced maps and sets functions implemented"
+    },
+    {
+      "hash": "e804a28c34c157b48060d0ce9ef41893f03ad47c",
+      "date": "2025-09-04",
+      "author": "Ivy Banana",
+      "message": "Graphs and trees implemented"
+    },
+    {
+      "hash": "f3a7f5181ec8d2616f4318c5c115167df7397cc1",
+      "date": "2025-09-04",
+      "author": "Ivy Banana",
+      "message": "Advanced array functions implemented"
+    },
+    {
+      "hash": "c9be70f98b09cbb3c5d55ba3b8927dd6c3509ce9",
+      "date": "2025-09-04",
+      "author": "Ivy Banana",
+      "message": "Heaps, queues, and stacks implemented"
+    },
+    {
+      "hash": "59d7c0736de9cccf2aacd7106484f0218cecc951",
+      "date": "2025-09-04",
+      "author": "Ivy Banana",
+      "message": "Implement comprehensive time library with date/time operations"
+    },
+    {
+      "hash": "debe3cd9b11b1eb716592fbcc89b533f9d559fd2",
+      "date": "2025-09-04",
+      "author": "Ivy Banana",
+      "message": "Regex library implemented"
+    },
+    {
+      "hash": "b6a2a9a1552b37806bdf58b4e4f1050b52f5dbee",
+      "date": "2025-09-05",
+      "author": "Ivy Banana",
+      "message": "JSON library implemented"
+    },
+    {
+      "hash": "69f492efc6ecf318665dcbadb74263aa6a4b70f9",
+      "date": "2025-09-05",
+      "author": "Ivy Banana",
+      "message": "HTTP library implemented"
+    },
+    {
+      "hash": "29323e3ce1d3863419ff68dd335bb11eb2088bf1",
+      "date": "2025-09-08",
+      "author": "Ivy Banana",
+      "message": "full stack web apps and api development implemented"
+    },
+    {
+      "hash": "e5ee455bc78045c0e96faf0c27a7c4b8235dc116",
+      "date": "2025-09-08",
+      "author": "Ivy Banana",
+      "message": "Adding more server functionality"
+    },
+    {
+      "hash": "ff8f58e59868790aa2e95b0e7e21c5c8cca6ec95",
+      "date": "2025-09-08",
+      "author": "Ivy Banana",
+      "message": "Implement async/await support and complete major language features"
+    },
+    {
+      "hash": "4ec33de1a2b9b448c9299efb46a1260d90cc97ac",
+      "date": "2025-09-08",
+      "author": "Ivy Banana",
+      "message": "Implement comprehensive static type checking system"
+    },
+    {
+      "hash": "26a395d67d5cfdd93d2d98ee0848af2e94997071",
+      "date": "2025-09-08",
+      "author": "Ivy Banana",
+      "message": "Implement file handles/streams system for efficient file I/O"
+    },
+    {
+      "hash": "c8e9d001debfb99a9628b4ff40e130448b83b444",
+      "date": "2025-09-09",
+      "author": "Ivy Banana",
+      "message": "Implement Union Types"
+    },
+    {
+      "hash": "95aa58ba22fbf70422c333a5ffa354ffde6f7dce",
+      "date": "2025-09-09",
+      "author": "Ivy Banana",
+      "message": "Add comprehensive Union Type tests to pass.myco"
+    },
+    {
+      "hash": "ee4cd109bd6bb5220b377c9ea7cbc0811a70836b",
+      "date": "2025-09-30",
+      "author": "Ivy Banana",
+      "message": "WIP: Add AST_NODE_USE support and improve type inference for library objects"
+    },
+    {
+      "hash": "962fec651ae579128df4b08ed191deaded43da90",
+      "date": "2025-09-30",
+      "author": "Ivy Banana",
+      "message": "WIP: Fix major segfault issues - math.type() and .create() method calls"
+    },
+    {
+      "hash": "1aa557916ed704e542d9cbf34f964500d42abf30",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "Implement class method call generation"
+    },
+    {
+      "hash": "73993e2b0ba85a6790fd0112e472e84fb7629f5f",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "Attempt to implement library method generation"
+    },
+    {
+      "hash": "dee7b3c3f558ea0ede0ae1727f30cbcbdafaa5f7",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "Implement proper library method generation"
+    },
+    {
+      "hash": "c4aff275191026427fb5de0fb486d5869c9e6ff7",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "Attempt to fix time.add() and time.subtract() methods"
+    },
+    {
+      "hash": "586ab34d90a537a4cfb600eb819aefd2fd63a117",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "Fix time.add() and time.subtract() to return time objects"
+    },
+    {
+      "hash": "1c061d15d55c303ce5f49daeca7e5bcffe90ade0",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "Work in progress: Attempting to fix type inference for time.add()"
+    },
+    {
+      "hash": "5be0808d638a63cd0a58ee01c984a26957f6cd5b",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "Progress: Fixed type inference for time.add() and time.subtract()"
+    },
+    {
+      "hash": "2b30dc4ebb916e5d09fc06d69013f61bfc55180e",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "\u2705 Fixed time.add() and time.subtract() methods - Success rate: 90.85%"
+    },
+    {
+      "hash": "656961e9ae724d7e9514428594cc847d21e8bdc1",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "\u2705 Implemented context-aware logic for regex methods - Success rate: 93.22%"
+    },
+    {
+      "hash": "cde8bfada99a34607406bfbbda4a545fd32eb411",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "\u2705 Implemented JSON and HTTP library methods - Success rate: 96.95%"
+    },
+    {
+      "hash": "3a7653467638e8fc20b1defd3f94e42b21d8cde9",
+      "date": "2025-10-06",
+      "author": "Ivy Banana",
+      "message": "Implement accurate type inference for .type() method calls"
+    },
+    {
+      "hash": "8308531950c819784b8769b224a9cd9ab3778bed",
+      "date": "2025-10-06",
+      "author": "Ivy Banana",
+      "message": "Implement comprehensive type support with implicit and strict typing"
+    },
+    {
+      "hash": "7c17321166a212bcf22ee921cb52a5fb054da0f2",
+      "date": "2025-10-06",
+      "author": "Ivy Banana",
+      "message": "Add property access syntax without parentheses"
+    },
+    {
+      "hash": "c7feaa8c6f18de1ad1171e2afc2e5debbb266566",
+      "date": "2025-10-07",
+      "author": "Ivy Banana",
+      "message": "Implement Generic Type System Support"
+    },
+    {
+      "hash": "92fc5ea75f61b5751770263dfb165d19839f5d26",
+      "date": "2025-10-07",
+      "author": "Ivy Banana",
+      "message": "Implement Async/Await Programming Support"
+    },
+    {
+      "hash": "ac18b221d918c2b48d6cd2fc0a6b2b8ff2001458",
+      "date": "2025-10-07",
+      "author": "Ivy Banana",
+      "message": "Implement Semantic Versioning System (v2.0.0)"
+    },
+    {
+      "hash": "de1cd77827ea51a1d909939fa65cdfb88eba9767",
+      "date": "2025-10-07",
+      "author": "Ivy Banana",
+      "message": "Implement Automated Version Management System"
+    },
+    {
+      "hash": "ead0917d64ed1aa19749f34af03692d05b005ebe",
+      "date": "2025-10-07",
+      "author": "Ivy Banana",
+      "message": "Implement Enhanced Pattern Matching AST Structures"
+    },
+    {
+      "hash": "cb1849276cba2a0aa24568350685ff63d8332f6d",
+      "date": "2025-10-07",
+      "author": "Ivy Banana",
+      "message": "Implement Enhanced Pattern Matching Parser and Interpreter"
+    },
+    {
+      "hash": "a75dc86c3ddcbf59fe62a1e3dc1f12623b730585",
+      "date": "2025-10-08",
+      "author": "Ivy Banana",
+      "message": "feat: Add Arduino support with universal compatibility"
+    },
+    {
+      "hash": "ec55d5e38e6c2c4a93349fc9ed2885f91138846d",
+      "date": "2025-10-08",
+      "author": "Ivy Banana",
+      "message": "fix: Add missing time.h include for Debian compatibility"
+    },
+    {
+      "hash": "6c058576f1c7b802bc05be592b660b45c45de43a",
+      "date": "2025-10-08",
+      "author": "Ivy Banana",
+      "message": "fix: Add POSIX feature test macro for Debian struct timespec"
+    },
+    {
+      "hash": "e33d8900c54f528159fa90e21203556b49105dbc",
+      "date": "2025-10-08",
+      "author": "Ivy Banana",
+      "message": "fix: Add Debian compatibility and segfault fixes"
+    },
+    {
+      "hash": "8cd0acc262415b9338063d05fc0c97897ee77044",
+      "date": "2025-10-08",
+      "author": "Ivy Banana",
+      "message": "Fix Debian segfault: Add null pointer checks to lexer functions"
+    },
+    {
+      "hash": "4db5696131f5ffcd6a99ee766bcba70e2383af45",
+      "date": "2025-10-08",
+      "author": "Ivy Banana",
+      "message": "Fix Debian segfault: Add null pointer checks to value system"
+    },
+    {
+      "hash": "c2aadc673b1a674bd91fc4399f438b240113eb85",
+      "date": "2025-10-08",
+      "author": "Ivy Banana",
+      "message": "Fix remaining Debian segfault: Add null checks to all strlen() calls in lexer"
+    },
+    {
+      "hash": "47fd5401449b89c8e58f3d9a2c537ee54f27e832",
+      "date": "2025-10-08",
+      "author": "Ivy Banana",
+      "message": "MASSIVE SECURITY FIX: Add null pointer safety to all 257 strdup() calls"
+    },
+    {
+      "hash": "d285f1322a617fcb5bb2de3ea90797c2eb9afdd0",
+      "date": "2025-10-08",
+      "author": "cnnorwood14",
+      "message": "Add error checking to math and time library registration"
+    },
+    {
+      "hash": "a0e3a820fdefe16c3377f1418892604f48597cf6",
+      "date": "2025-10-09",
+      "author": "Ivy Banana",
+      "message": "feat: Implement enhanced type inference engine with confidence scoring"
+    },
+    {
+      "hash": "1ae31eebeb97ccfc8dd724b8620a4d1bcdfdf92d",
+      "date": "2025-10-09",
+      "author": "Ivy Banana",
+      "message": "feat: Implement complete generic type system with full type parameter support"
+    },
+    {
+      "hash": "eb6d63d0c8f6b78799172cc11d3a8ad524c28952",
+      "date": "2025-10-09",
+      "author": "Ivy Banana",
+      "message": "Add property access syntax (.length, .type without parentheses)"
+    },
+    {
+      "hash": "752874d53567c88ecdb6dcb6d1bd21d1a549ac71",
+      "date": "2025-10-09",
+      "author": "Ivy Banana",
+      "message": "Implement camelCase standard for all built-in APIs"
+    },
+    {
+      "hash": "1123cc7b422c807de6f72caf7451480a36aaeb36",
+      "date": "2025-10-09",
+      "author": "Ivy Banana",
+      "message": "Implement macro system foundation"
+    },
+    {
+      "hash": "f00a043fa2210fb837394fa720542a39cf437052",
+      "date": "2025-10-09",
+      "author": "Ivy Banana",
+      "message": "Implement macro system and compile-time evaluation"
+    },
+    {
+      "hash": "afd7344fc8e15c2f10b96f122e8d0b33aa54fa3f",
+      "date": "2025-10-09",
+      "author": "Ivy Banana",
+      "message": "Implement hygenic expansion for macro system"
+    },
+    {
+      "hash": "1a0520283b7f148cf855e36210fff8b950c03623",
+      "date": "2025-10-09",
+      "author": "Ivy Banana",
+      "message": "Implement macro system with compile-time code generation"
+    },
+    {
+      "hash": "20ea7af40d267df63783ab794eb1f850daeed8b3",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "Update .gitignore to exclude additional files"
+    },
+    {
+      "hash": "9bfbfbbe89d7dbd6947c32bf97de1597c7b711f7",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "Phase 2 Complete: Bytecode Engine Implementation"
+    },
+    {
+      "hash": "e5b4a51958d21b1823ec3f6ee0a6d3818745be26",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "Phase 3 Complete: Hot Spot Detection Implementation"
+    },
+    {
+      "hash": "87a534c18ef772be07c3aecfdc77e8bcfc70c39d",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "Phase 4 Complete: Micro-JIT Compiler Implementation"
+    },
+    {
+      "hash": "c0664d50ca3853a7030873aed55038623054409e",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "Phase 5 Complete: Value Specialization Implementation"
+    },
+    {
+      "hash": "a5e7d08d46fe5e23d4c1c59b67eeb9aee4570345",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "Phase 6 Complete: Adaptive Executor Coordinator Implementation"
+    },
+    {
+      "hash": "26f84e08bf66c8caf31d021d931146c51fd1fc51",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "feat: Implement Multi-Tier Adaptive Execution Engine"
+    },
+    {
+      "hash": "1d3a806de3c34a9f0db35f02d0184f6d09fcef08",
+      "date": "2025-10-13",
+      "author": "Ivy Banana",
+      "message": "Phase 1: Implement production-quality register VM optimizations"
+    },
+    {
+      "hash": "089bafe9b70eb1a18e5b511bac6d01bd7311137b",
+      "date": "2025-10-13",
+      "author": "Ivy Banana",
+      "message": "Cleanup: remove build artifacts and stray scripts; consolidate docs; update .gitignore; add .clang-format and .editorconfig; rebuild verified 295/295 passing; no functional changes"
+    },
+    {
+      "hash": "f42ab8f7f958500393c37fa53431cbd2ffc539bc",
+      "date": "2025-10-15",
+      "author": "Ivy Banana",
+      "message": "Implement optimized bytecode VM with numeric operations"
+    },
+    {
+      "hash": "3a8248b835fed20ecb97de374f26f28e0bf509ff",
+      "date": "2025-10-16",
+      "author": "Ivy Banana",
+      "message": "Implement math, string, and array method bytecode instructions"
+    },
+    {
+      "hash": "64a48705fd0ff82c3ce52c7de4b6d1039218ce94",
+      "date": "2025-10-18",
+      "author": "Ivy Banana",
+      "message": "Fix crash by implementing Map and Set bytecode instructions correctly"
+    },
+    {
+      "hash": "a6bb374172cf57af35796605b93353ab4c1f9b5b",
+      "date": "2025-10-18",
+      "author": "Ivy Banana",
+      "message": "Implement library method dispatch in bytecode"
+    },
+    {
+      "hash": "11edc2326e4b04e8855a6f1a6f9ded515333fae7",
+      "date": "2025-10-18",
+      "author": "Ivy Banana",
+      "message": "Implement type guard bytecode instructions"
+    },
+    {
+      "hash": "bee60b6770807bb3381348cd0da482e0962b5398",
+      "date": "2025-10-19",
+      "author": "Ivy Banana",
+      "message": "Implement user-defined function execution with parameter binding"
+    },
+    {
+      "hash": "a1d45035d1ccc4bc021ece99063ad92dd8799623",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "Fix library method return values by attaching methods to new objects"
+    },
+    {
+      "hash": "2b15d28bacde2168014008e1358c921de50f0fdd",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "Fix queue.back() method by adding missing wrapper function"
+    },
+    {
+      "hash": "a19ec6ead1019ab34f442fae28832f5c5fbfccb9",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "Clean up debug output and finalize bytecode VM implementation"
+    },
+    {
+      "hash": "3b68690e79b3c7f2493609a7bd90f0dc9d715a7e",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "Achieve 97.64% test pass rate with comprehensive bytecode VM implementation"
+    },
+    {
+      "hash": "6d25166f078076ca9e328494d490c5307f172c0b",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "MAJOR: Complete bytecode VM implementation with 97.64% test pass rate"
+    },
+    {
+      "hash": "3fd5327ac11588f5daa76135f8406c4db4013c3e",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "Add comprehensive optimization plan for Phase 2"
+    },
+    {
+      "hash": "38c954bb1105bf2bd8ef5fc7a7ba83990150d845",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "Complete Phase 2 Optimization Implementation"
+    },
+    {
+      "hash": "1cf13bcc44a29e21091aa5bd2c0d49c217539f5f",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "Fix phantom failing tests: Add proper pass/fail tracking"
+    },
+    {
+      "hash": "e56af4b7f21897e148f7dd9fb42aee771fd2f73a",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "Implement bytecode as optional flag with AST as default"
+    },
+    {
+      "hash": "4d6c8527a5ff506b2250923de0e557d482f9b29a",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "\ud83c\udf33 Complete Tree Library Implementation - Phase 2 Complete"
+    },
+    {
+      "hash": "8b3dcc6b680c3737d7b3cfc623df6fa95c951644",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "\ud83d\udcca Complete Graph Library Implementation - Phase 3 Complete"
+    },
+    {
+      "hash": "17f12a6fbe8a3bbccc9765a3b9b6fda1437ae72d",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Complete Server Library Implementation - Phase 4 Complete"
+    },
+    {
+      "hash": "285fc3e6e53d4bdf738350419f90476cf7c37faf",
+      "date": "2025-10-21",
+      "author": "Ivy Mycelia",
+      "message": "Add GitHub Actions workflow for Myco macOS release"
+    },
+    {
+      "hash": "f18f7f7388353760301a9cf73f4145edc2591976",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Implement complete web framework and database system"
+    },
+    {
+      "hash": "f8027ca7d9305c0a8587152f21fe8fea34e246bd",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Add comprehensive GitHub workflows for Myco"
+    },
+    {
+      "hash": "c0a7141fce8c1e8f1ec3092d41ce5a1479f26fee",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Add automatic release workflows"
+    },
+    {
+      "hash": "f0022d1138a2e7b803c87458f5158ed0270915f2",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Fix CodeQL security scanning and add comprehensive security checks"
+    },
+    {
+      "hash": "778a06d2a38a49fcfa54ab3ddc059f08c6c5f864",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Fix segmentation fault and implement clean HTTPS support"
+    },
+    {
+      "hash": "4eb5e34a0c77d88a3ff05047feaa34f5be38a6ec",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Fix segmentation fault in Ubuntu CI by adding type checker safety checks"
+    },
+    {
+      "hash": "06297182858640cc6b68a4cafae1e9aff5d401e3",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Add Ubuntu-specific debugging to identify segfault location"
+    },
+    {
+      "hash": "9854fc5e7d3a05b2394a7c97975f17312e661bb8",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Add comprehensive debugging to identify Ubuntu segfault location"
+    },
+    {
+      "hash": "d820c658b05ea182ca68ac50b30936778321b3fc",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Add enhanced lexer debugging to pinpoint segfault location"
+    },
+    {
+      "hash": "4b3b241b0323c434e7879897cf71f51073295340",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Add identifier parsing debugging to pinpoint segfault"
+    },
+    {
+      "hash": "76a63659d656337b39d7f3ea8c4734f3d6dfca75",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Add number parsing debugging to pinpoint segfault"
+    },
+    {
+      "hash": "9b0f3dc618b66f3a931e408e10aa94467752a06d",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Add aggressive debugging to pinpoint exact segfault location"
+    },
+    {
+      "hash": "176d17293735b111089ddf38003f0657074238dc",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Add enhanced identifier debugging to pinpoint segfault"
+    },
+    {
+      "hash": "cf0b307919b6c8a88c935d00e9a0ae4ead16b1fc",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Add enhanced extract_text debugging to pinpoint segfault"
+    },
+    {
+      "hash": "05acf40276903fb9cd02f6b01492a19d88de3dc5",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Add enhanced add_token debugging to pinpoint segfault"
+    },
+    {
+      "hash": "c257f87a282ed8dd4084efd87d8911bafb7420c1",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Add enhanced parser debugging to pinpoint segfault"
+    },
+    {
+      "hash": "c37fed3128a1d6906a641c7519d324c4b2d2ebad",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Add stack size increase for Ubuntu CI"
+    },
+    {
+      "hash": "d2254ffd12a9df3623c218f78a2593d97682e43d",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Add comprehensive debugging for Ubuntu CI segfault"
+    },
+    {
+      "hash": "463c48ab31a932c7e0710493e26664353a279a3e",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Fix macOS timeout and add detailed Ubuntu debugging"
+    },
+    {
+      "hash": "1a980eac5f4569241016e34f995b678056fbed09",
+      "date": "2025-10-23",
+      "author": "Ivy Banana",
+      "message": "feat: Add CORS support and modernize web server examples"
+    },
+    {
+      "hash": "ac4cd0f9fe45e479316a99ffb94857a4cbad3400",
+      "date": "2025-10-23",
+      "author": "Ivy Banana",
+      "message": "feat: Implement working web server examples with JSON support"
+    },
+    {
+      "hash": "99666dd3d404aa0a91e3fd7b5988250a6c13846e",
+      "date": "2025-10-23",
+      "author": "Ivy Banana",
+      "message": "fix: Add ast_clone support for hash map and array literals"
+    }
+  ],
+  "Changed": [
+    {
+      "hash": "4d5156516a3adde8abefe5174e564223304ad11e",
+      "date": "2025-09-08",
+      "author": "Ivy Banana",
+      "message": "Update next_steps.md to reflect completed work"
+    },
+    {
+      "hash": "8815e7609add327b8cf4624f50cf6f5fbb085606",
+      "date": "2025-09-09",
+      "author": "Ivy Banana",
+      "message": "Change pattern matching syntax from spore to match"
+    },
+    {
+      "hash": "e5db266683283f3dd33f268bcd785c8d07b6fc10",
+      "date": "2025-09-30",
+      "author": "Ivy Banana",
+      "message": "Refactor compiler.c: Extract expressions module"
+    },
+    {
+      "hash": "6b41707708d525d83a73b28d4dab9f5a75afd508",
+      "date": "2025-10-08",
+      "author": "cnnorwood14",
+      "message": "Clean up repository: remove debug script and update gitignore"
+    },
+    {
+      "hash": "9d065a16677183ec7d4a603e4a7ffd7a15f16746",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "\ud83c\udf89 ACHIEVE 100% PASS RATE! Complete interpreter refactoring success!"
+    },
+    {
+      "hash": "9b04ef118ce6c7bc7f7a67382099c3b6be5d0650",
+      "date": "2025-10-18",
+      "author": "Ivy Banana",
+      "message": "Update BC_METHOD_CALL to use args array consistently"
+    },
+    {
+      "hash": "5cce2e22fef2ec24bba8e8bae11c6f6b05434833",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Changes to security workflow"
+    },
+    {
+      "hash": "aabe11fe90d9f41c8b54e6d30bd041a669e10647",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Update CI workflow to remove external dependencies"
+    }
+  ],
+  "Fixed": [
+    {
+      "hash": "0d1326fa463ee30699980bbe2cb57c7cde65b4c4",
+      "date": "2025-09-02",
+      "author": "Ivy Banana",
+      "message": "Fixes"
+    },
+    {
+      "hash": "a4a05c0ecc44ab894ee66ea55e11823dad889deb",
+      "date": "2025-09-02",
+      "author": "Ivy Banana",
+      "message": "Two issues remaining"
+    },
+    {
+      "hash": "db3df4786f4a632f35838d336c04523fd5271708",
+      "date": "2025-09-04",
+      "author": "Ivy Banana",
+      "message": "Fix undefined variable error and clean up debug output"
+    },
+    {
+      "hash": "0f3d7c6d9429b2934cfedfa99daddc6a5ad03622",
+      "date": "2025-09-08",
+      "author": "Ivy Banana",
+      "message": "Debug method call undefined."
+    },
+    {
+      "hash": "ceb872eefc056f7961812fad92a9feb2cc1bc0c9",
+      "date": "2025-09-09",
+      "author": "Ivy Banana",
+      "message": "fixed toString issues"
+    },
+    {
+      "hash": "77394538bb27a8c7ee08b5ae6c246790ee9ff1ce",
+      "date": "2025-09-30",
+      "author": "Ivy Banana",
+      "message": "Fix output naming, string spacing, function formatting, and placeholder functions"
+    },
+    {
+      "hash": "229c58b60b76a19d9ef1f14fce2944ed9228e68f",
+      "date": "2025-09-30",
+      "author": "Ivy Banana",
+      "message": "Fix identifier pattern matching to use exact string comparison instead of substring matching"
+    },
+    {
+      "hash": "7145a48464c288f05d505093caec6964f7ef60a7",
+      "date": "2025-09-30",
+      "author": "Ivy Banana",
+      "message": "Fix .toString() method calls and string concatenation"
+    },
+    {
+      "hash": "ea28b66dbf63db74fc4568044659a135de604990",
+      "date": "2025-09-30",
+      "author": "Ivy Banana",
+      "message": "Major progress on compiler fixes"
+    },
+    {
+      "hash": "c103bef37dd3edab797b440e450d32321557e7a4",
+      "date": "2025-10-01",
+      "author": "Ivy Banana",
+      "message": "Major compiler fixes - extensive method handling"
+    },
+    {
+      "hash": "f8d14ce455048433bf0d80fc85176eb13090f709",
+      "date": "2025-10-03",
+      "author": "Ivy Banana",
+      "message": "Fix null comparison type mismatches in code generator"
+    },
+    {
+      "hash": "c48730702d2c83a8596c30436d2d480271f5c85f",
+      "date": "2025-10-03",
+      "author": "Ivy Banana",
+      "message": "Fix execution issues and remove debug output"
+    },
+    {
+      "hash": "486dc5c9d9fb784d5d9fcc4a69b1965f21746a2c",
+      "date": "2025-10-03",
+      "author": "Ivy Banana",
+      "message": "Fix string generation and segmentation fault"
+    },
+    {
+      "hash": "a2e3bd045b8eeb998c659385537d13693a8dda68",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "Major compiler improvements: Fixed class method calls, runtime function linking, and segmentation faults"
+    },
+    {
+      "hash": "f0a31389d0bd9230304501bbcbeb807527ff91c7",
+      "date": "2025-10-05",
+      "author": "Ivy Mycelia",
+      "message": "Delete pass_debug"
+    },
+    {
+      "hash": "d1a373f350be4ca62c39794b5c8f7199347410f3",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "Fix compiler segmentation faults: integer-to-string conversion, union types, and NULL string comparisons"
+    },
+    {
+      "hash": "949c15d19291642827dc0740088b659923f9d0c2",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "Fix class constructor argument handling"
+    },
+    {
+      "hash": "1c93014912a32383fc75e8b3a328a62a6437172c",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "Fix array iteration bounds in for-loops"
+    },
+    {
+      "hash": "1fe7290a490e21ef6f0b40e95eb44b13dde21616",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "Fix string arguments in print function"
+    },
+    {
+      "hash": "6b6379cc43518c0af241ce72815ce558db916835",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "Fix array append operations"
+    },
+    {
+      "hash": "cace9760d247f01dbe5198f678d317d2596443dc",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "Fix for-loop execution with empty arrays"
+    },
+    {
+      "hash": "0bb8500f093f93b0d653a11607d9d4ca812a17d6",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "WIP: Attempted fixes for regex and class type methods"
+    },
+    {
+      "hash": "114fce1eea765c79bd4b8eb5d6a31a126ef58a32",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "\u2705 Fixed JSON validation edge cases - Success rate: 97.29%"
+    },
+    {
+      "hash": "c87764b6b4f358b8d87ba768ab83b930c2976531",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "\ud83d\udd27 FIX: For-Loop Code Generation"
+    },
+    {
+      "hash": "7e1f51c40b463b19180289941a571ac14b451622",
+      "date": "2025-10-06",
+      "author": "Ivy Banana",
+      "message": "Fix parser infinite loop issues with complex syntax"
+    },
+    {
+      "hash": "03c52ac308a1e9fc2822b949b2f3ac6ba1c6395b",
+      "date": "2025-10-06",
+      "author": "Ivy Banana",
+      "message": "Fix array type inference to show proper typed array syntax"
+    },
+    {
+      "hash": "0f9be275cbd89196028d79b57bba7050268d1bce",
+      "date": "2025-10-07",
+      "author": "Ivy Banana",
+      "message": "Fix memory management standardization and segmentation fault"
+    },
+    {
+      "hash": "d23ab027b0c10fc30ff3753168a578269f5f2048",
+      "date": "2025-10-07",
+      "author": "Ivy Banana",
+      "message": "Fix cross-platform compatibility issues for Linux/Debian compilation"
+    },
+    {
+      "hash": "2abb33d2c85672c9367a72189788f3a86adf6f26",
+      "date": "2025-10-07",
+      "author": "Ivy Banana",
+      "message": "Enhanced Type System and REPL Debugging Features"
+    },
+    {
+      "hash": "28927cc99316f74f6a694155097396c1fd374741",
+      "date": "2025-10-07",
+      "author": "Ivy Banana",
+      "message": "Fix version manager output"
+    },
+    {
+      "hash": "584ea221ff7c218ec82c01b4006aa9c2a1476302",
+      "date": "2025-10-07",
+      "author": "Ivy Banana",
+      "message": "Fix Debian Compatibility Issues"
+    },
+    {
+      "hash": "d155b591655039034351507045d1f344e13c5820",
+      "date": "2025-10-08",
+      "author": "Ivy Banana",
+      "message": "feat: Achieve 100% test success - Fix library registration and object creation"
+    },
+    {
+      "hash": "79493623c00935a8ad3f5e9bcf4c37255e314ec8",
+      "date": "2025-10-08",
+      "author": "Ivy Banana",
+      "message": "Clean up debug files"
+    },
+    {
+      "hash": "74d6ec85038d76f30555d81cf860b37254c4ddbf",
+      "date": "2025-10-08",
+      "author": "Ivy Banana",
+      "message": "Fix remaining double null checks in strdup() calls"
+    },
+    {
+      "hash": "20167da0d6a83269364496caa1aeb852c46f3db4",
+      "date": "2025-10-08",
+      "author": "Ivy Banana",
+      "message": "Fix hardcoded include path in Makefile for Debian compatibility"
+    },
+    {
+      "hash": "30424a019ef006f65f23ebcd9e7e285991a1f073",
+      "date": "2025-10-08",
+      "author": "Ivy Banana",
+      "message": "Fix ALL remaining double null checks in strdup() calls"
+    },
+    {
+      "hash": "9c2a4485247890c4055ec39d826cc3e1c445acba",
+      "date": "2025-10-08",
+      "author": "cnnorwood14",
+      "message": "Fix build system and remove build artifacts from git tracking"
+    },
+    {
+      "hash": "cf4a1b4b49e49023c369449db4256ce7b41f8e8a",
+      "date": "2025-10-08",
+      "author": "cnnorwood14",
+      "message": "Fix value_clone function to handle builtin functions properly"
+    },
+    {
+      "hash": "bf8fd0222f770a0e6792317685208a341314f731",
+      "date": "2025-10-08",
+      "author": "cnnorwood14",
+      "message": "Enhance error handling system with comprehensive edge case coverage"
+    },
+    {
+      "hash": "1f5055ff29d7c59fd71e8da4abd4fb2f1b1138cd",
+      "date": "2025-10-09",
+      "author": "Ivy Banana",
+      "message": "feat: Comprehensive error handling and memory safety improvements"
+    },
+    {
+      "hash": "77c98d523c78c64aa68506c7e0baaed34142ff23",
+      "date": "2025-10-09",
+      "author": "Ivy Banana",
+      "message": "fix: Remove reference to non-existent should_stop field"
+    },
+    {
+      "hash": "da8b8cd3a7b336f868cb9a3f3c27cca3eb274fd5",
+      "date": "2025-10-09",
+      "author": "Ivy Banana",
+      "message": "fix: Disable incomplete type checker to resolve false positive errors"
+    },
+    {
+      "hash": "fafaeb09a1ace24c37242f8798553630ddd4acf9",
+      "date": "2025-10-09",
+      "author": "Ivy Banana",
+      "message": "Fix graphs.isEmpty() method call support"
+    },
+    {
+      "hash": "475373f0c3a1a8e809ee1767f046e758e4695eb4",
+      "date": "2025-10-09",
+      "author": "Ivy Banana",
+      "message": "Fix Class with typed methods test failure"
+    },
+    {
+      "hash": "7366b61e685a039ba2421a42627108400d8dfe64",
+      "date": "2025-10-09",
+      "author": "Ivy Banana",
+      "message": "Fix try-catch block execution"
+    },
+    {
+      "hash": "d8506c4718d675592035e50f2ca407171f4973ce",
+      "date": "2025-10-09",
+      "author": "Ivy Banana",
+      "message": "Fix graphs library and remove library rejection errors"
+    },
+    {
+      "hash": "9232aaeb05a51c348b69f42a2cc802065146f2d5",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "Major progress: Fix built-in functions, library registration, and most test cases"
+    },
+    {
+      "hash": "a18869856257957e08c352dc305ab77f61286a5f",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "Major breakthrough: Fix function calls and achieve 95%+ pass rate"
+    },
+    {
+      "hash": "7732483af69431a9eed1f0f045ef30092dc26c3f",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "WIP: Debugging function call arguments issue"
+    },
+    {
+      "hash": "9423bea9a7f423be4e7b009693a26fa0a5ad76e1",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "MAJOR FIX: Function calls with parameters now working! \ud83c\udf89"
+    },
+    {
+      "hash": "160bf7406e6172b8d96e9a84890170782243ec69",
+      "date": "2025-10-18",
+      "author": "Ivy Banana",
+      "message": "Fix library type system - library objects now have .type == \"Library\""
+    },
+    {
+      "hash": "6e3ae442eb0a21ddec553c501593f0281a58fac2",
+      "date": "2025-10-18",
+      "author": "Ivy Banana",
+      "message": "Fix BC_METHOD_CALL stack pop order - library methods now work correctly"
+    },
+    {
+      "hash": "13605ef37c74bd47f1143c7a547fae4fcdd3f16f",
+      "date": "2025-10-18",
+      "author": "Ivy Banana",
+      "message": "Remove debug output from BC_METHOD_CALL"
+    },
+    {
+      "hash": "44da05b0db385c6483f39cd783e5be85ca317d22",
+      "date": "2025-10-18",
+      "author": "Ivy Banana",
+      "message": "Fix library method calls to use pre-populated args array"
+    },
+    {
+      "hash": "5c42bb68d2b6b0481c8e47b975ed042d15c29eca",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "Fix segmentation fault in set operations (value_set_remove bug)"
+    },
+    {
+      "hash": "6662d3be7b59e28e4cf1f1477823fe496da3855b",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "Fix function definitions and library method calls"
+    },
+    {
+      "hash": "aaac24205453078372b9b9ab6b2e6ab8d99db894",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "Fix library method calls for heaps, queues, and stacks"
+    },
+    {
+      "hash": "01685cf83356d53ede4e9c9136afdd6a5ad32a0d",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "Fix graph method names to use snake_case instead of camelCase"
+    },
+    {
+      "hash": "199c2de3e3bab156e45c2a8be9ce26ab644ba148",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "Merge bytecode-working-fix: Achieve 98.99% test pass rate"
+    },
+    {
+      "hash": "20708901051a56ebefbadc8f8f4d87d8c95e8d02",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "Fix test counting bug: Remove double-counting of total_tests"
+    },
+    {
+      "hash": "f5ee212db7aad2b45e7218729da442ba75c9bf5b",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "Fix JSON library memory issues and server middleware/routing"
+    },
+    {
+      "hash": "c50b8836ffc417ce4b5c2a382ba656881ac4b81a",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "Fix graph size and isEmpty() methods - 97.2% test success rate"
+    },
+    {
+      "hash": "8713cab1ff019b4b0c056e354f4e8b51f5dec2fd",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "Fix tree creation and insertion tests - 97.8% success rate"
+    },
+    {
+      "hash": "1feea3fed850632b9d21573105f95f545730eca0",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Fix deprecated GitHub Actions"
+    },
+    {
+      "hash": "33589f20983c27ab36f4d1db3e6029b954cdba5f",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Fix GitHub release permissions and dependencies"
+    },
+    {
+      "hash": "caefc2ed97f7af34ad4572bdbbaed5c6d0eca7da",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Fix CPU features compilation error"
+    },
+    {
+      "hash": "f4fbcab16219b8d5a2099d150f9ea6f7171b02ec",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Fix performance profiler compilation error"
+    },
+    {
+      "hash": "afaaad13ca7750b87bf9f9609bf9806b05531e56",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Fix HTTP client buffer overflow issues"
+    },
+    {
+      "hash": "b0e2af290ea4f3553981dfb2289dcee0ef66f4d0",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Fix comprehensive memory safety issues"
+    },
+    {
+      "hash": "71f30533509f23db1f5ca7b4c6fe8958488a6e9c",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Fix HTTPS segmentation fault with mock response"
+    },
+    {
+      "hash": "5e3d104cffb6c7dbff469f514fc84534725b7ab4",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Fix Ubuntu compilation error in performance_profiler.c"
+    },
+    {
+      "hash": "d91503498368c524088823a4f4dc90b3b28d41fe",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Fix Ubuntu compilation with proper POSIX_C_SOURCE definition"
+    },
+    {
+      "hash": "037f1499a6f9bda579c34c6fc3445cec4cccd1a2",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Fix all POSIX timing compilation errors across codebase"
+    },
+    {
+      "hash": "c12af8e1599bf0e88b4ffad9e9f6a1fcc21781ef",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Fix all compilation errors and warnings for cross-platform compatibility"
+    },
+    {
+      "hash": "ddb7c211e8738500d9f6d57f3dcf7b976bec7655",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Fix segmentation fault in CI by enabling HTTPS mock by default"
+    },
+    {
+      "hash": "de119ce4d75809ba9807cbcd879295373cbf267e",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Fix double-free errors in lexer by resetting token state before each scan"
+    },
+    {
+      "hash": "2b3932e5804e67d3e1af70306e6088fab1ef7e54",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Optimize performance by removing debug output"
+    },
+    {
+      "hash": "ee5fee2d08fa636a3efc1c8c5e8a2bc7c37f5824",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Fix Ubuntu segfault by simplifying HTTPS mock response"
+    },
+    {
+      "hash": "92efa60311ceb99e0c27eb0e758acd032b743523",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Fix unsafe pointer usage in token creation"
+    },
+    {
+      "hash": "6ba856a69f2b1047925398530e2063e51851ec18",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Clean up debug output after fixing segfaults"
+    },
+    {
+      "hash": "8fb193f9b8de4c9ce47071237851bd0953f6190b",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Fix lexer_scan_next to prevent segfault after EOF"
+    },
+    {
+      "hash": "edc3c0e08bb8fffd3f2cba0e4d06e47af3547eb5",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Remove all debug output from lexer to fix Ubuntu CI segfault"
+    },
+    {
+      "hash": "76a6f79c410adcc7ed433ecfa030f9cbe9f98973",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Remove all debug output from entire codebase"
+    },
+    {
+      "hash": "0e72f4af9242bfa4778666940c4bcdb3598e59e9",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Fix memory safety issues in lexer"
+    },
+    {
+      "hash": "342fbf4782089752488fd6b6bcd0aadb1d45898a",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Fix GitHub Actions permissions for all workflows"
+    },
+    {
+      "hash": "ec0872997982b9cd053ac04e65cf585e4006b85f",
+      "date": "2025-10-23",
+      "author": "Ivy Banana",
+      "message": "fix: Resolve json.stringify() segfault with working solution"
+    },
+    {
+      "hash": "0df7588369fc1c8a22c7dd27c71ef20b492b24bc",
+      "date": "2025-10-23",
+      "author": "Ivy Banana",
+      "message": "fix: Resolve json.stringify() segfault with working solution"
+    },
+    {
+      "hash": "c8afe75ecba798c79eea0ee8c1a10b89eab478d3",
+      "date": "2025-10-24",
+      "author": "Ivy Banana",
+      "message": "Fix all critical bugs: array.push(), AST cloning, server methods"
+    },
+    {
+      "hash": "87bc1e0a531b21cfaf63769568bdfd95ec1de851",
+      "date": "2025-10-24",
+      "author": "Ivy Banana",
+      "message": "Fix server JSON stringify - replace hardcoded JSON with proper json.stringify()"
+    }
+  ],
+  "Removed": [
+    {
+      "hash": "d3b9651b1be1d0c77012d9072e5f9fbe0c44a096",
+      "date": "2025-09-07",
+      "author": "Ivy Banana",
+      "message": "removed the use of string as string;"
+    },
+    {
+      "hash": "e514e6cfa7a20708c19487c88dc09cb769ab5ffc",
+      "date": "2025-10-05",
+      "author": "Ivy Mycelia",
+      "message": "Delete remove_expressions.sh"
+    },
+    {
+      "hash": "2d40e02d6c3c2d65e5416b0c89588056fba117a1",
+      "date": "2025-10-05",
+      "author": "Ivy Mycelia",
+      "message": "Delete output.c"
+    },
+    {
+      "hash": "b89c96dd00b92173595d2abfe1aada9e69568a93",
+      "date": "2025-10-05",
+      "author": "Ivy Mycelia",
+      "message": "Delete pass.myco"
+    },
+    {
+      "hash": "da1755ae15901485130d8cb8faa0e9c0aa39dedb",
+      "date": "2025-10-05",
+      "author": "Ivy Mycelia",
+      "message": "Delete temp_output.c"
+    },
+    {
+      "hash": "8627e7bd1dba39a345502a66478454a1b2a3848f",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "Remove expressions from compiler.c"
+    },
+    {
+      "hash": "72ad1480c473c1b0b70a7d78671ed965d24326fe",
+      "date": "2025-10-21",
+      "author": "Ivy Mycelia",
+      "message": "Remove emoji from section headers in README"
+    },
+    {
+      "hash": "af24cd8ef06eb11b92ef06a0211680ed43afa28f",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Remove struct timeval dependency for absolute compatibility"
+    }
+  ],
+  "Security": [
+    {
+      "hash": "23914ff576e9f9ed65163bcff1f88c445c47a0cd",
+      "date": "2025-10-13",
+      "author": "Ivy Banana",
+      "message": "Safety Commit"
+    }
+  ],
+  "Performance": [
+    {
+      "hash": "d8714d0d761c07816e3c9573e2876d4a081075c9",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "\ud83d\ude80 PERFORMANCE OPTIMIZATION: Advanced Compiler Optimizations"
+    },
+    {
+      "hash": "5c16a73576a275ecc66a721d936c72de14f2bb2f",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "\ud83d\ude80 PERFORMANCE OPTIMIZATION: Achieve C-level performance"
+    },
+    {
+      "hash": "ea7708d052165d4ae0293444a1bc5fbe264e254b",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "Optimize numeric operations for 24% performance improvement"
+    },
+    {
+      "hash": "65b86ad7b43bb5a84befbc783e2e3adc23661b07",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Optimize test suite for memory efficiency"
+    }
+  ],
+  "Documentation": [],
+  "Other": [
+    {
+      "hash": "d819230eea6fe52169c68117da74043ba07c0748",
+      "date": "2025-08-31",
+      "author": "Ivy Banana",
+      "message": "Initial"
+    },
+    {
+      "hash": "7f8caf38ec5eebe28940171598f68836d8472b96",
+      "date": "2025-09-01",
+      "author": "Ivy Banana",
+      "message": "Start of v2.0"
+    },
+    {
+      "hash": "cf2146a0f585edb22ecc50b5071840bb44be5a51",
+      "date": "2025-09-02",
+      "author": "Ivy Banana",
+      "message": "Completed nested array support"
+    },
+    {
+      "hash": "80636f3c481bbb12d3c12b64e3e1f03a28338a18",
+      "date": "2025-09-02",
+      "author": "Ivy Banana",
+      "message": "Working state"
+    },
+    {
+      "hash": "cdd8b83fe2875a5a26e3bc4059802283587bce2f",
+      "date": "2025-09-02",
+      "author": "Ivy Banana",
+      "message": "Stable"
+    },
+    {
+      "hash": "87d20c45822788f0d6eb8403402d53e9354c32e7",
+      "date": "2025-09-02",
+      "author": "Ivy Banana",
+      "message": "Stable"
+    },
+    {
+      "hash": "8a7ea04573417fa1da0514c0ece2a5a062f7410c",
+      "date": "2025-09-02",
+      "author": "Ivy Banana",
+      "message": "Success rate: 99.152542%"
+    },
+    {
+      "hash": "373ff1ff5270cf724649a3541cca32a8a617d6a2",
+      "date": "2025-09-02",
+      "author": "Ivy Banana",
+      "message": "Stable"
+    },
+    {
+      "hash": "48344f65c39521643fdfc1562cd693286585edba",
+      "date": "2025-09-02",
+      "author": "Ivy Banana",
+      "message": "Stable"
+    },
+    {
+      "hash": "41dfb0842e5febec07e5ad9554ee82e083fd6203",
+      "date": "2025-09-02",
+      "author": "Ivy Banana",
+      "message": "100% stable"
+    },
+    {
+      "hash": "61e2c2ca8ea17af92ab36a77f4d186a439d7b5a2",
+      "date": "2025-09-02",
+      "author": "Ivy Banana",
+      "message": "Type enforcement"
+    },
+    {
+      "hash": "413d8ebe770d2c79d6b249119800f91b6e4ac6f7",
+      "date": "2025-09-03",
+      "author": "Ivy Banana",
+      "message": "Classes"
+    },
+    {
+      "hash": "4190eaab222f5cd1ac2c42b96420f0881d97e1ec",
+      "date": "2025-09-03",
+      "author": "Ivy Banana",
+      "message": "Classes Stable"
+    },
+    {
+      "hash": "ccce582d434442c38b9ce5e9eb89a585b265700c",
+      "date": "2025-09-03",
+      "author": "Ivy Banana",
+      "message": "pre stable"
+    },
+    {
+      "hash": "44113e0dfe308297911f37385c94be30d9aca944",
+      "date": "2025-09-04",
+      "author": "Ivy Banana",
+      "message": "100% pass"
+    },
+    {
+      "hash": "176f1a481e2f9e059fb14d86ad93df83cbfeef66",
+      "date": "2025-09-04",
+      "author": "Ivy Banana",
+      "message": "Stable classes"
+    },
+    {
+      "hash": "e3ae1b3b51ba43cdbd422f93e89480a138296564",
+      "date": "2025-09-04",
+      "author": "Ivy Banana",
+      "message": "Complete modularization: Split main.c and interpreter.c into focused modules"
+    },
+    {
+      "hash": "d9be4867c37f9e1011bd1c94303a73ad1bf4d599",
+      "date": "2025-09-04",
+      "author": "Ivy Banana",
+      "message": "Compilation first steps"
+    },
+    {
+      "hash": "ddad58d3f911e8ff1d5f84dc446b0c1005d971a1",
+      "date": "2025-09-07",
+      "author": "Ivy Banana",
+      "message": "method calls are now var.method() instead of library.method(var, ...)"
+    },
+    {
+      "hash": "9350d98908cc683b6d42f1ef2dfeb80e185f6104",
+      "date": "2025-09-07",
+      "author": "Ivy Banana",
+      "message": "literal string methods are now var.method() instead of library.method(var, ...)"
+    },
+    {
+      "hash": "09b2269e00add0c39f3b56e000fe69db180d3530",
+      "date": "2025-09-07",
+      "author": "Ivy Banana",
+      "message": "Sets methods now work as expected."
+    },
+    {
+      "hash": "e9ed75031e5cd7ed6c94071546ad1d6722cd37bd",
+      "date": "2025-09-07",
+      "author": "Ivy Banana",
+      "message": "Stable method calls."
+    },
+    {
+      "hash": "f91ede1cd1158e16b335782d30aaa84c05263929",
+      "date": "2025-09-08",
+      "author": "Ivy Banana",
+      "message": "Servers now work."
+    },
+    {
+      "hash": "e8ffd6233712770a50e8a5cb41c5d0f9af05acd2",
+      "date": "2025-09-08",
+      "author": "Ivy Banana",
+      "message": "Servers now support Route parameters."
+    },
+    {
+      "hash": "3ce28f2e6a5747349bf8c94016a880db8355ceb8",
+      "date": "2025-09-08",
+      "author": "Ivy Banana",
+      "message": "Server functionality"
+    },
+    {
+      "hash": "dfb4680a34dfabcbb2a6ed4aabcbd64c6e30c01c",
+      "date": "2025-09-30",
+      "author": "Ivy Banana",
+      "message": "WIP: Program now runs through 134 lines of output before segfault"
+    },
+    {
+      "hash": "83aae062da8a14d0a14acc7824fb9e1a779047dc",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "Restore pass.myco comprehensive test suite"
+    },
+    {
+      "hash": "cc65a131044ff16c7ab116086e31613696f878a7",
+      "date": "2025-10-05",
+      "author": "Ivy Banana",
+      "message": "\ud83c\udf89 ACHIEVE 100% COMPILER SUCCESS RATE!"
+    },
+    {
+      "hash": "dd159e7d15bde686b0b5784945e8e4b6279a55da",
+      "date": "2025-10-07",
+      "author": "Ivy Banana",
+      "message": "Clean up version display and feature names"
+    },
+    {
+      "hash": "446dd9d0f35b16d70ce5b4abfa0a88f5e4433aea",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "Phase 5: Extract Function/Class Values"
+    },
+    {
+      "hash": "f8d892b3324d068595792b4dd012f1bc50f0a3c5",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "Phase 6: Extract Arithmetic Operations"
+    },
+    {
+      "hash": "7c1656e2d1ea5f45af07a3b9cdc15725e5dc762f",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "Phase 7: Extract Conversions and Utilities"
+    },
+    {
+      "hash": "5d01dbca8e3cb73cc2eb4501e04f27ebfeef3071",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "Phase 8: Extract Method Handlers"
+    },
+    {
+      "hash": "db3ac41341bef9dbcfa5e120a4a706b6e660b6ee",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "Phase 9: Extract Built-in Functions"
+    },
+    {
+      "hash": "824ba053818a0429943ce8602feab52141d4f552",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "Phase 10: Extract Expression Evaluation"
+    },
+    {
+      "hash": "331cc2925721c1240feac7560be4c82a2b192f25",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "Phase 11: Extract Control Flow"
+    },
+    {
+      "hash": "3826548342ec31b2144bf9ffc5b9f54765734d68",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "Phase 11: Extract Control Flow"
+    },
+    {
+      "hash": "9f39a108920921d62f5e6a056ddd5022aca197a2",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "\ud83c\udf89 ACHIEVE 98.98% PASS RATE! Class method calls now working!"
+    },
+    {
+      "hash": "2897a869bd676177e14f04f129db214eb0414038",
+      "date": "2025-10-12",
+      "author": "Ivy Banana",
+      "message": "Phase 1 Complete: Benchmark Suite and Baseline Established"
+    },
+    {
+      "hash": "609ea342d1dbbc5d91208ac0e78ccd13b96ae1a5",
+      "date": "2025-10-13",
+      "author": "Ivy Banana",
+      "message": "Phase 4: Zero-Copy Memory Architecture"
+    },
+    {
+      "hash": "e777cac531b829b335d726145e781d26898370fc",
+      "date": "2025-10-13",
+      "author": "Ivy Banana",
+      "message": "Phase 4: Zero-Copy Memory Architecture"
+    },
+    {
+      "hash": "ba0da3342301777d958924c4209bb19187d1c232",
+      "date": "2025-10-13",
+      "author": "Ivy Banana",
+      "message": "Phase 5: Advanced Loop Optimization"
+    },
+    {
+      "hash": "d819db042f5ccfca26bad483d775943268b0e9a3",
+      "date": "2025-10-13",
+      "author": "Ivy Banana",
+      "message": "Phase 8: Comprehensive Testing and Validation"
+    },
+    {
+      "hash": "03c0a4b2f9a6664374bed664f9ca212f8d0cd2cd",
+      "date": "2025-10-13",
+      "author": "Ivy Banana",
+      "message": "Phase 9: Final Validation and Production Commit"
+    },
+    {
+      "hash": "be40481b80dc2cba07795637cfd352a87804bc33",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "Complete Phase 3: Runtime Optimizations"
+    },
+    {
+      "hash": "40e37ca7e3ede51e66d3df1c69a77b112fe91bf9",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "Ppro"
+    },
+    {
+      "hash": "aeae3b6b44383b06c5d0347d4e87b323261f6813",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "\ud83c\udf89 ACHIEVE 100% TEST SUCCESS - Complete Myco Interpreter"
+    },
+    {
+      "hash": "5d4c4b65e23596b9e5098f0810623cf6f66386b2",
+      "date": "2025-10-20",
+      "author": "Ivy Banana",
+      "message": "\u2705 Complete JSON Library Enhancement - Phase 1 Complete"
+    },
+    {
+      "hash": "439815afce875014bf2a112712a8501abecbd64c",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Complete Phase 5: Type Checker Integration - Final Phase Complete"
+    },
+    {
+      "hash": "63386804ddf4e30e20c8aaf04fcc20c7062b9020",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Merge branch 'main' of https://github.com/IvyMycelia/Myco"
+    },
+    {
+      "hash": "4778f5b2ac7d4dee269cb5f0630a4ac6e199f43d",
+      "date": "2025-10-21",
+      "author": "Ivy Banana",
+      "message": "Replace getline/ssize_t with portable input solution"
+    },
+    {
+      "hash": "4ed6b319f5887e2df9e88cfba77afff1847bb5f4",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Streamline GitHub workflows to 3 core workflows"
+    },
+    {
+      "hash": "96d06c9dbeaccc2cc0c1639786db7425b5bf9e3c",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Improve GitHub Pages deployment configuration"
+    },
+    {
+      "hash": "da6fadde53d34b24f83f09d2f84c876f13710758",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Use custom MYCO_RELEASE token for GitHub Actions"
+    },
+    {
+      "hash": "d85a417274bf7f73e6924d51a4524a370c02a951",
+      "date": "2025-10-22",
+      "author": "Ivy Banana",
+      "message": "Simplify workflow to just run pass.myco test suite"
+    }
+  ]
+}

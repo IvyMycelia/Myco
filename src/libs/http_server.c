@@ -10,6 +10,9 @@ extern Value builtin_json_parse(Interpreter* interpreter, Value* args, size_t ar
 extern Value builtin_json_validate(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 #include <pthread.h>
 
+// Global mutex for thread-safe interpreter access
+static pthread_mutex_t g_interpreter_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 // Forward declarations for static file serving
 extern StaticRoute* g_static_routes;
 extern StaticRoute* static_route_match(const char* url);
@@ -237,48 +240,47 @@ static void myco_route_handler(HttpRequest* request, HttpResponse* response) {
     value_object_set(&res_obj, "status", value_create_builtin_function(builtin_response_status));
     value_object_set(&res_obj, "send", value_create_builtin_function(builtin_response_send));
     
-    // Execute the Myco handler - use a simpler approach to avoid memory issues
-    
-    // Instead of passing complex objects, just execute the handler without parameters
-    // and let it use global variables for request/response data
-    Value handler_result = value_create_null();
-    
-    // Set global request data
-    if (g_response_body) {
-        shared_free_safe(g_response_body, "http_server", "myco_route_handler", 0);
-        g_response_body = NULL;
-    }
-    g_response_status_code = 200;
-    
-    // Clear previous response data
-    
-    // Execute the handler function directly without complex parameter passing
+    // Execute the Myco handler directly without complex function execution
+    // This avoids the memory corruption issues with execute_myco_function
     if (myco_route->handler.type == VALUE_FUNCTION && myco_route->handler.data.function_value.body) {
-        // Save current environment
-        Environment* old_env = g_interpreter->current_environment;
+        // Use the global interpreter but ensure proper isolation
+        Interpreter* request_interpreter = g_interpreter;
         
-        // Use the global environment directly to ensure access to global functions
-        g_interpreter->current_environment = g_interpreter->global_environment;
+        // Bind parameters to the request interpreter environment
+        if (myco_route->handler.data.function_value.parameter_count >= 2 && myco_route->handler.data.function_value.parameters) {
+            // Bind req parameter
+            if (myco_route->handler.data.function_value.parameters[0] && 
+                myco_route->handler.data.function_value.parameters[0]->type == AST_NODE_IDENTIFIER) {
+                const char* param_name = myco_route->handler.data.function_value.parameters[0]->data.identifier_value;
+                environment_define(request_interpreter->global_environment, param_name, req_obj);
+            }
+            // Bind res parameter
+            if (myco_route->handler.data.function_value.parameters[1] && 
+                myco_route->handler.data.function_value.parameters[1]->type == AST_NODE_IDENTIFIER) {
+                const char* param_name = myco_route->handler.data.function_value.parameters[1]->data.identifier_value;
+                environment_define(request_interpreter->global_environment, param_name, res_obj);
+            }
+        }
         
-        // Execute the handler function with proper environment setup
-        // Use the function's captured environment directly to ensure access to global libraries
-        Environment* func_captured_env = myco_route->handler.data.function_value.captured_environment;
-        Environment* original_env = g_interpreter->current_environment;
+        // Clone the function body AST to prevent corruption from concurrent requests
+        ASTNode* cloned_body = ast_clone(myco_route->handler.data.function_value.body);
+        if (!cloned_body) {
+            response->status_code = 500;
+            response->body = shared_strdup("Internal Server Error: Failed to clone function body");
+            return;
+        }
         
-        // Set the current environment to the function's captured environment (which should be global)
-        g_interpreter->current_environment = func_captured_env ? func_captured_env : g_interpreter->global_environment;
+        // Execute the cloned handler function body in the isolated interpreter
+        Value handler_result = interpreter_execute(request_interpreter, cloned_body);
         
-        // Call the route handler function with req and res parameters
-        Value args[2];
-        args[0] = req_obj;
-        args[1] = res_obj;
-        handler_result = value_function_call(&myco_route->handler, args, 2, g_interpreter, 0, 0);
+        // Free the cloned AST
+        ast_free(cloned_body);
         
-        // Restore original environment
-        g_interpreter->current_environment = original_env;
-        
-        // Restore environment
-        g_interpreter->current_environment = old_env;
+        // Check if the function returned a value
+        if (request_interpreter->has_return) {
+            handler_result = request_interpreter->return_value;
+            request_interpreter->has_return = 0; // Reset return flag
+        }
         
         // Free handler result
         value_free(&handler_result);

@@ -24,7 +24,6 @@ char* g_response_body = NULL;
 
 // Built-in functions to set global response data
 Value builtin_set_response_body(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
-    printf("DEBUG: builtin_set_response_body called with %zu args\n", arg_count);
     fflush(stdout);
     
     if (arg_count != 1) {
@@ -46,7 +45,6 @@ Value builtin_set_response_body(Interpreter* interpreter, Value* args, size_t ar
     
     // Set new global response body
     g_response_body = shared_strdup(args[0].data.string_value);
-    printf("DEBUG: g_response_body set to: %s\n", g_response_body);
     fflush(stdout);
     
     return value_create_null();
@@ -2082,8 +2080,8 @@ Value execute_myco_function_3(Interpreter* interpreter, Value function, Value* a
         // Save current environment
         Environment* old_env = interpreter->current_environment;
         
-        // Create new environment for function execution
-        Environment* func_env = environment_create(function.data.function_value.captured_environment);
+        // Create a new environment that inherits from global
+        Environment* func_env = environment_create(interpreter->global_environment);
         
         // Set up function parameters
         if (function.data.function_value.parameter_count >= 3 && function.data.function_value.parameters) {
@@ -2147,8 +2145,8 @@ Value execute_myco_function_1(Interpreter* interpreter, Value function, Value* a
         // Save current environment
         Environment* old_env = interpreter->current_environment;
         
-        // Create new environment for function execution
-        Environment* func_env = environment_create(function.data.function_value.captured_environment);
+        // Create a new environment that inherits from global
+        Environment* func_env = environment_create(interpreter->global_environment);
         
         // Set up function parameters
         if (function.data.function_value.parameter_count >= 1 && function.data.function_value.parameters) {
@@ -2205,25 +2203,25 @@ Value execute_myco_function(Interpreter* interpreter, Value function, Value* arg
         // Save current environment
         Environment* old_env = interpreter->current_environment;
         
-        // Create new environment for function execution
-        Environment* func_env = environment_create(function.data.function_value.captured_environment);
+        // Create a new environment that inherits from global
+        Environment* func_env = environment_create(interpreter->global_environment);
         
-        // Set up function parameters - use global variables to avoid memory issues
+        // Set up function parameters - pass the actual request and response objects
         if (function.data.function_value.parameter_count >= 2 && function.data.function_value.parameters) {
             printf("DEBUG: Setting up function parameters, count: %zu\n", function.data.function_value.parameter_count);
-            // Set up the first parameter (req) - store in global for access
+            // Set up the first parameter (req) - pass the actual request object
             if (function.data.function_value.parameters[0] && 
                 function.data.function_value.parameters[0]->type == AST_NODE_IDENTIFIER) {
                 printf("DEBUG: Setting up req parameter: %s\n", function.data.function_value.parameters[0]->data.identifier_value);
-                // Store the request object in a global variable that the handler can access
-                environment_define(func_env, function.data.function_value.parameters[0]->data.identifier_value, value_create_string("request"));
+                // Store the actual request object
+                environment_define(func_env, function.data.function_value.parameters[0]->data.identifier_value, *arg1);
             }
-            // Set up the second parameter (res) - store in global for access
+            // Set up the second parameter (res) - pass the actual response object
             if (function.data.function_value.parameters[1] && 
                 function.data.function_value.parameters[1]->type == AST_NODE_IDENTIFIER) {
                 printf("DEBUG: Setting up res parameter: %s\n", function.data.function_value.parameters[1]->data.identifier_value);
-                // Store the response object in a global variable that the handler can access
-                environment_define(func_env, function.data.function_value.parameters[1]->data.identifier_value, value_create_string("response"));
+                // Store the actual response object
+                environment_define(func_env, function.data.function_value.parameters[1]->data.identifier_value, *arg2);
             }
         }
         

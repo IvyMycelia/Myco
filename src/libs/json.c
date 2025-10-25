@@ -598,11 +598,18 @@ Value builtin_json_parse(Interpreter* interpreter, Value* args, size_t arg_count
     context.input = json_str;
     context.position = 0;
     context.length = strlen(json_str);
+    context.error_message = NULL;
+    context.has_error = false;
     
     // Parse the JSON string
     JsonValue* json_result = json_parse_value(&context);
-    if (!json_result) {
-        std_error_report(ERROR_INVALID_ARGUMENT, "json", "unknown_function", "Invalid JSON format", line, column);
+    if (!json_result || context.has_error) {
+        if (context.error_message) {
+            std_error_report(ERROR_INVALID_ARGUMENT, "json", "unknown_function", context.error_message, line, column);
+            shared_free_safe(context.error_message, "libs", "json_parse", 0);
+        } else {
+            std_error_report(ERROR_INVALID_ARGUMENT, "json", "unknown_function", "Invalid JSON format", line, column);
+        }
         return value_create_null();
     }
     
@@ -976,7 +983,7 @@ Value json_to_myco_value(const JsonValue* json_value) {
             return value_create_string(json_value->data.string_value);
             
         case JSON_ARRAY: {
-            Value array = value_create_array(json_value->data.array_value.capacity);
+            Value array = value_create_array(json_value->data.array_value.count);
             for (size_t i = 0; i < json_value->data.array_value.count; i++) {
                 Value element = json_to_myco_value(json_value->data.array_value.elements[i]);
                 value_array_push(&array, element);

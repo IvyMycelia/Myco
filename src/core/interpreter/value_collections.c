@@ -46,7 +46,8 @@ void value_array_push(Value* array, Value element) {
     // Add the element
     Value* stored_element = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 2860);
     if (stored_element) {
-        *stored_element = element; // Don't clone again - element is already cloned
+        Value cloned_element = value_clone(&element);
+        *stored_element = cloned_element; // Store the cloned element
         array->data.array_value.elements[array->data.array_value.count] = stored_element;
         array->data.array_value.count++;
     }
@@ -148,7 +149,8 @@ void value_object_set_member(Value* object, const char* member_name, Value membe
         object->data.object_value.keys[object->data.object_value.count] = shared_strdup(member_name);
         object->data.object_value.values[object->data.object_value.count] = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 420);
         if (object->data.object_value.values[object->data.object_value.count]) {
-            *((Value*)object->data.object_value.values[object->data.object_value.count]) = value_clone(&member_value);
+            Value* stored_value = (Value*)object->data.object_value.values[object->data.object_value.count];
+            *stored_value = value_clone(&member_value);
             object->data.object_value.count++;
         }
     }

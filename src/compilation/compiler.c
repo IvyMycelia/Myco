@@ -534,8 +534,8 @@ int compiler_compile_to_binary(CompilerConfig* config, const char* c_file, const
         strcat(flags, define);
     }
     
-    // Construct the full command with runtime library
-    snprintf(command, sizeof(command), "%s %s %s %s %s build/runtime/myco_runtime.o -o %s", 
+    // Construct the full command with complete runtime library
+    snprintf(command, sizeof(command), "%s %s %s %s %s build/runtime/myco_runtime.o build/runtime/shared_utilities.o -o %s", 
              compiler, flags, includes, libraries, c_file, binary_file);
     
     printf("Compiling to binary: %s\n", command);

@@ -775,13 +775,13 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                     codegen_write(context, "\"Default Bird\", 1");
                 }
             } else if (strcmp(func_name, "Fish") == 0) {
-                // Generate Fish class constructor with name and can_swim fields
+                // Generate Fish class constructor with all fields: name, species, depth, is_saltwater
                 if (node->data.function_call.argument_count > 0) {
                     // First argument is name
                     if (!codegen_generate_c_expression(context, node->data.function_call.arguments[0])) return 0;
-                    codegen_write(context, ", 1"); // can_swim = true for fish
+                    codegen_write(context, ", NULL, 0.0, 0"); // species=NULL, depth=0.0, is_saltwater=0
                 } else {
-                    codegen_write(context, "\"Default Fish\", 1");
+                    codegen_write(context, "\"Default Fish\", NULL, 0.0, 0");
                 }
             } else {
                 // Default case: use arguments if available, otherwise use default values

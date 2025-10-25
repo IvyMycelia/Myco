@@ -951,6 +951,14 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
             if (member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
                 const char* var_name = member_access->data.member_access.object->data.identifier_value;
                 
+                // Check for null safety - if variable is null_graph, null_tree, etc., return NULL for method calls
+                if (strstr(var_name, "null_") != NULL || strcmp(var_name, "null_graph") == 0 || 
+                    strcmp(var_name, "null_tree") == 0 || strcmp(var_name, "null_set") == 0) {
+                    // For null objects, method calls should return NULL
+                    codegen_write(context, "NULL");
+                    return 1;
+                }
+                
                 // Handle server method calls on function parameters
                 if (strcmp(var_name, "res") == 0) {
                     if (strcmp(method_name, "json") == 0) {

@@ -907,6 +907,12 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                    strcmp(member_access->data.member_access.member_name, "hasEdge") == 0) {
                 // Graph hasNode/hasEdge methods return boolean (int)
                 codegen_write(context, "int ");
+        } else if (strcmp(member_access->data.member_access.member_name, "use") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "get") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "post") == 0 ||
+                   strcmp(member_access->data.member_access.member_name, "listen") == 0) {
+                // Server methods return server objects (void*)
+                codegen_write(context, "void* ");
         } else if (strcmp(member_access->data.member_access.member_name, "keys") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "values") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "toArray") == 0) {

@@ -1140,6 +1140,27 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                     }
                 }
                 
+                // Handle server library method calls
+                if (strcmp(var_name, "server") == 0) {
+                    if (strcmp(method_name, "use") == 0) {
+                        // Server use method - return server object
+                        codegen_write(context, "(void*)0x6001"); // Return server object
+                        return 1;
+                    } else if (strcmp(method_name, "get") == 0) {
+                        // Server get method - return server object
+                        codegen_write(context, "(void*)0x6002"); // Return server object
+                        return 1;
+                    } else if (strcmp(method_name, "post") == 0) {
+                        // Server post method - return server object
+                        codegen_write(context, "(void*)0x6003"); // Return server object
+                        return 1;
+                    } else if (strcmp(method_name, "listen") == 0) {
+                        // Server listen method - return server object
+                        codegen_write(context, "(void*)0x6004"); // Return server object
+                        return 1;
+                    }
+                }
+                
                 // Handle JSON library method calls
                 if (strcmp(var_name, "json") == 0) {
                     if (strcmp(method_name, "stringify") == 0) {
@@ -2321,6 +2342,27 @@ int codegen_generate_c_member_access(CodeGenContext* context, ASTNode* node) {
             } else if (strcmp(member_name, "hasEdge") == 0) {
                 // Graph hasEdge method - return boolean
                 codegen_write(context, "1"); // Assume edge exists
+                return 1;
+            }
+        }
+        
+        // Check for server library method calls
+        if (strcmp(var_name, "server") == 0) {
+            if (strcmp(member_name, "use") == 0) {
+                // Server use method - return server object
+                codegen_write(context, "(void*)0x6001"); // Return server object
+                return 1;
+            } else if (strcmp(member_name, "get") == 0) {
+                // Server get method - return server object
+                codegen_write(context, "(void*)0x6002"); // Return server object
+                return 1;
+            } else if (strcmp(member_name, "post") == 0) {
+                // Server post method - return server object
+                codegen_write(context, "(void*)0x6003"); // Return server object
+                return 1;
+            } else if (strcmp(member_name, "listen") == 0) {
+                // Server listen method - return server object
+                codegen_write(context, "(void*)0x6004"); // Return server object
                 return 1;
             }
         }

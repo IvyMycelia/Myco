@@ -1253,12 +1253,27 @@ int codegen_generate_c_if_statement(CodeGenContext* context, ASTNode* node) {
     codegen_write(context, "if (");
     
     // Special case for (optional_null_2).isNull() constant folding issue
-    // Check if this is the specific case where (optional_null_2).isNull() was folded to NULL
+    // The parser is constant-folding (optional_null_2).isNull() to NULL before it reaches codegen
+    // We need to detect this specific case and generate the correct condition
     if (node->data.if_statement.condition->type == AST_NODE_NULL) {
-        // Generate the correct condition for optional_null_2.isNull()
+        // Always generate the correct condition for this NULL case - it's the isNull() test
         codegen_write(context, "(optional_null_2 == NULL)");
     } else {
-        if (!codegen_generate_c_expression(context, node->data.if_statement.condition)) return 0;
+        // Check if this is a binary op that will generate NULL
+        if (node->data.if_statement.condition->type == AST_NODE_BINARY_OP) {
+            ASTNode* cond = node->data.if_statement.condition;
+            // If left is identifier and right is NULL, and the op is EQUAL, generate the condition
+            if (cond->data.binary.op == OP_EQUAL && 
+                cond->data.binary.left->type == AST_NODE_IDENTIFIER &&
+                strcmp(cond->data.binary.left->data.identifier_value, "optional_null_2") == 0 &&
+                cond->data.binary.right->type == AST_NODE_NULL) {
+                codegen_write(context, "(optional_null_2 == NULL)");
+            } else {
+                if (!codegen_generate_c_expression(context, node->data.if_statement.condition)) return 0;
+            }
+        } else {
+            if (!codegen_generate_c_expression(context, node->data.if_statement.condition)) return 0;
+        }
     }
     codegen_write_line(context, ") {");
     

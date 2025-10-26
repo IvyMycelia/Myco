@@ -273,6 +273,14 @@ void compiler_config_set_type_checking(CompilerConfig* config, int enable) {
     if (config) config->type_checking = enable;
 }
 
+void compiler_config_set_debug_info(CompilerConfig* config, int enable) {
+    if (config) config->debug_info = enable;
+}
+
+void compiler_config_set_strict_mode(CompilerConfig* config, int enable) {
+    if (config) config->strict_mode = enable;
+}
+
 void compiler_config_add_include_path(CompilerConfig* config, const char* path) {
     if (config && config->include_path_count < 100) {
         config->include_paths[config->include_path_count++] = (path ? strdup(path) : NULL);
@@ -1768,6 +1776,26 @@ int codegen_generate_c_headers(CodeGenContext* context) {
     codegen_write_line(context, "#include <string.h>");
     codegen_write_line(context, "#include <math.h>");
     codegen_write_line(context, "#include <stdint.h>");
+    codegen_write_line(context, "");
+    
+    // Generate debug information if enabled
+    if (context->config->debug_info) {
+        codegen_write_line(context, "// Debug information macros");
+        codegen_write_line(context, "#define MYCO_DEBUG_LINE(line) fprintf(stderr, \"[DEBUG] Line %d: %s\\n\", line, __FUNCTION__)");
+        codegen_write_line(context, "#define MYCO_ERROR_HANDLER() do { fprintf(stderr, \"[ERROR] %s:%d in %s\\n\", __FILE__, __LINE__, __FUNCTION__); } while(0)");
+        codegen_write_line(context, "");
+        
+        codegen_write_line(context, "// Error checking wrappers");
+        codegen_write_line(context, "#define MYCO_CHECK_PTR(ptr) do { if (!(ptr)) { MYCO_ERROR_HANDLER(); return; } } while(0)");
+        codegen_write_line(context, "#define MYCO_CHECK_RESULT(result) do { if ((result) < 0) { MYCO_ERROR_HANDLER(); return; } } while(0)");
+        codegen_write_line(context, "");
+    }
+    
+    // Generate error handling utilities
+    codegen_write_line(context, "// Error reporting utilities");
+    codegen_write_line(context, "static void myco_report_error(const char* function, int line, const char* message) {");
+    codegen_write_line(context, "    fprintf(stderr, \"[ERROR] %s:%d: %s\\n\", function, line, message);");
+    codegen_write_line(context, "}");
     codegen_write_line(context, "");
     
     // Generate Myco runtime headers

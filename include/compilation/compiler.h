@@ -87,6 +87,8 @@ void compiler_config_set_target(CompilerConfig* config, TargetArchitecture targe
 void compiler_config_set_optimization(CompilerConfig* config, OptimizationLevel level);
 void compiler_config_set_output(CompilerConfig* config, const char* output_file);
 void compiler_config_set_type_checking(CompilerConfig* config, int enable);
+void compiler_config_set_debug_info(CompilerConfig* config, int enable);
+void compiler_config_set_strict_mode(CompilerConfig* config, int enable);
 void compiler_config_add_include_path(CompilerConfig* config, const char* path);
 void compiler_config_add_library_path(CompilerConfig* config, const char* path);
 void compiler_config_add_define(CompilerConfig* config, const char* define);

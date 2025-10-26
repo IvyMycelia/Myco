@@ -314,7 +314,7 @@ const char* value_type_string(ValueType type) {
         case VALUE_PROMISE: return "Promise";
         case VALUE_RANGE: return "Range";
         case VALUE_CLASS: return "Class";
-        case VALUE_MODULE: return "Object";
+        case VALUE_MODULE: return "Module";
         case VALUE_ERROR: return "Error";
         default: return "Unknown";
     }

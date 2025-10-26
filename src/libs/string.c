@@ -453,10 +453,132 @@ Value builtin_toString(Interpreter* interpreter, Value* args, size_t arg_count, 
     return value_to_string(&args[0]);
 }
 
+// Get character at index
+Value builtin_string_charAt(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 2) {
+        std_error_report(ERROR_ARGUMENT_COUNT, "string", "unknown_function", "charAt() requires exactly 2 arguments (string, index)", line, column);
+        return value_create_null();
+    }
+    
+    Value str_arg = args[0];
+    Value index_arg = args[1];
+    
+    if (str_arg.type != VALUE_STRING || !str_arg.data.string_value ||
+        index_arg.type != VALUE_NUMBER) {
+        std_error_report(ERROR_INVALID_ARGUMENT, "string", "unknown_function", "charAt() first argument must be string, second must be number", line, column);
+        return value_create_null();
+    }
+    
+    const char* str = str_arg.data.string_value;
+    int index = (int)index_arg.data.number_value;
+    size_t len = strlen(str);
+    
+    if (index < 0 || index >= len) {
+        return value_create_string("");
+    }
+    
+    char result[2];
+    result[0] = str[index];
+    result[1] = '\0';
+    return value_create_string(result);
+}
+
+// Get substring
+Value builtin_string_substring(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count < 2 || arg_count > 3) {
+        std_error_report(ERROR_ARGUMENT_COUNT, "string", "unknown_function", "substring() requires 2-3 arguments (string, start, [end])", line, column);
+        return value_create_null();
+    }
+    
+    Value str_arg = args[0];
+    Value start_arg = args[1];
+    Value end_arg = (arg_count >= 3) ? args[2] : value_create_null();
+    
+    if (str_arg.type != VALUE_STRING || !str_arg.data.string_value ||
+        start_arg.type != VALUE_NUMBER ||
+        (end_arg.type != VALUE_NULL && end_arg.type != VALUE_NUMBER)) {
+        std_error_report(ERROR_INVALID_ARGUMENT, "string", "unknown_function", "substring() arguments must be string and numbers", line, column);
+        return value_create_null();
+    }
+    
+    const char* str = str_arg.data.string_value;
+    int start = (int)start_arg.data.number_value;
+    int end = end_arg.type == VALUE_NULL ? -1 : (int)end_arg.data.number_value;
+    size_t len = strlen(str);
+    
+    // Normalize bounds
+    if (start < 0) start = 0;
+    if (start > len) start = len;
+    if (end < 0 || end_arg.type == VALUE_NULL) end = len;
+    if (end > len) end = len;
+    if (end < start) end = start;
+    
+    size_t result_len = end - start;
+    char* result = shared_malloc_safe(result_len + 1, "string", "unknown_function", 448);
+    if (!result) {
+        std_error_report(ERROR_OUT_OF_MEMORY, "string", "unknown_function", "Out of memory in substring()", line, column);
+        return value_create_null();
+    }
+    
+    strncpy(result, str + start, result_len);
+    result[result_len] = '\0';
+    
+    Value ret = value_create_string(result);
+    shared_free_safe(result, "string", "unknown_function", 449);
+    return ret;
+}
+
+// Get character code (ASCII/UTF-8)
+Value builtin_string_charCodeAt(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    if (arg_count != 2) {
+        std_error_report(ERROR_ARGUMENT_COUNT, "string", "unknown_function", "charCodeAt() requires exactly 2 arguments (string, index)", line, column);
+        return value_create_null();
+    }
+    
+    Value str_arg = args[0];
+    Value index_arg = args[1];
+    
+    if (str_arg.type != VALUE_STRING || !str_arg.data.string_value ||
+        index_arg.type != VALUE_NUMBER) {
+        std_error_report(ERROR_INVALID_ARGUMENT, "string", "unknown_function", "charCodeAt() first argument must be string, second must be number", line, column);
+        return value_create_null();
+    }
+    
+    const char* str = str_arg.data.string_value;
+    int index = (int)index_arg.data.number_value;
+    size_t len = strlen(str);
+    
+    if (index < 0 || index >= len) {
+        return value_create_number(0);
+    }
+    
+    return value_create_number((unsigned char)str[index]);
+}
+
 // Register string library with interpreter
 void string_library_register(Interpreter* interpreter) {
     if (!interpreter || !interpreter->global_environment) return;
     
-    // toString is now handled as a method on all value types (e.g., value.toString())
-    // No longer registered as a global function
+    // Create string object with functions
+    Value string_obj = value_create_object(32);
+    value_object_set(&string_obj, "__type__", value_create_string("Library"));
+    value_object_set(&string_obj, "type", value_create_string("Library"));
+    
+    // Add string functions
+    value_object_set(&string_obj, "charAt", value_create_builtin_function(builtin_string_charAt));
+    value_object_set(&string_obj, "substring", value_create_builtin_function(builtin_string_substring));
+    value_object_set(&string_obj, "charCodeAt", value_create_builtin_function(builtin_string_charCodeAt));
+    value_object_set(&string_obj, "upper", value_create_builtin_function(builtin_string_upper));
+    value_object_set(&string_obj, "lower", value_create_builtin_function(builtin_string_lower));
+    value_object_set(&string_obj, "trim", value_create_builtin_function(builtin_string_trim));
+    value_object_set(&string_obj, "split", value_create_builtin_function(builtin_string_split));
+    value_object_set(&string_obj, "join", value_create_builtin_function(builtin_string_join));
+    value_object_set(&string_obj, "contains", value_create_builtin_function(builtin_string_contains));
+    value_object_set(&string_obj, "startsWith", value_create_builtin_function(builtin_string_starts_with));
+    value_object_set(&string_obj, "endsWith", value_create_builtin_function(builtin_string_ends_with));
+    value_object_set(&string_obj, "replace", value_create_builtin_function(builtin_string_replace));
+    value_object_set(&string_obj, "repeat", value_create_builtin_function(builtin_string_repeat));
+    
+    // Register the string object as a module
+    environment_define(interpreter->global_environment, "string", string_obj);
 }

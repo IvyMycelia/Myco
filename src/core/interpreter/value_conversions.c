@@ -26,8 +26,8 @@ Value value_to_string(Value* value) {
                 // It's an integer, use %lld to avoid scientific notation
                 snprintf(buf, sizeof(buf), "%lld", (long long)value->data.number_value);
             } else {
-                // It's a float, use %.6f to avoid scientific notation
-                snprintf(buf, sizeof(buf), "%.6f", value->data.number_value);
+                // It's a float, use %.15g for full precision
+                snprintf(buf, sizeof(buf), "%.15g", value->data.number_value);
             }
             return value_create_string(buf);
         }

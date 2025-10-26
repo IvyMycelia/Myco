@@ -17,5 +17,8 @@ Value builtin_string_starts_with(Interpreter* interpreter, Value* args, size_t a
 Value builtin_string_ends_with(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_string_replace(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_string_repeat(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_string_charAt(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_string_substring(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_string_charCodeAt(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 
 #endif // STRING_H

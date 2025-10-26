@@ -173,15 +173,64 @@ let result = pf(5);
 
 #### Access Rules
 
+**What's Considered Top-Level (Public by Default):**
+
+**Top-level (implicitly exported):**
+- Functions defined at module scope: `func square(x)` at file root
+- Variables at module scope: `let CONSTANT = 42` at file root
+- Classes at module scope: `class MyClass` at file root
+- Constants at module scope: `const PI = 3.14` at file root
+
+**NOT Top-level (private by default, never accessible outside):**
+- Variables inside functions: `let local = x + 1` inside a function body
+- Nested functions: `func helper()` defined inside another function
+- Variables in control flow: `let temp` inside `if`/`while` blocks
+- Function parameters: `func foo(x: Number)` - `x` is local scope
+- Closure variables: Any variable captured in a function's environment
+
+**Example:**
+```myco
+# Public (top-level)
+func publicFunction(x: Number) -> Number:
+    return x * 2;
+end
+
+let GLOBAL_CONSTANT = "public";
+
+# Private (inside function)
+func wrapper() -> Number:
+    # This is NOT top-level - it's inside a function
+    func internalHelper() -> Number:
+        return 42;  # Not accessible from outside module
+    end
+    
+    # This variable is also private
+    let localVar = 10;
+    
+    return internalHelper() + localVar;
+end
+
+# Nested scoping makes things private
+if someCondition:
+    let temporary = 5;  # Private - not accessible outside if block
+    func tempFunc():  # Private - inside control flow
+        return temporary;
+    end
+end
+```
+
 **Priority System:**
 1. If a symbol is marked `private` → Never accessible outside module
-2. If a symbol is marked `export` → Always accessible
-3. If neither → Public by default (implicit export)
+2. If a symbol is marked `export` → Always accessible (even if nested)
+3. If neither and top-level → Public by default (implicit export)
+4. If neither and nested → Private (scope-based)
 
 **Export Semantics:**
-- `export` is explicit intent: "I want this to be public"
-- `private` is explicit intent: "Keep this internal"
-- No keyword is implicit: "Probably public, could be private later"
+- `export` is explicit intent: "I want this to be public" (overrides scope)
+- `private` is explicit intent: "Keep this internal" (overrides default)
+- No keyword is implicit: "Scope determines visibility"
+- Top-level = public by default
+- Nested/local = private by default
 
 **Why this hybrid approach works:**
 
@@ -190,39 +239,101 @@ let result = pf(5);
 3. **Gradual discipline** - Start implicit, add keywords as project grows
 4. **Clear intent** - Easy to see public API of a module
 5. **Namespace-friendly** - Supports both namespaced and direct access
+6. **Scope-based privacy** - Natural privacy without keywords for nested code
 
 ### Semantics
 
 #### Environment Model
+
+**Module Execution:**
 ```
 Module A Environment (isolated)
-├── square (function)
-├── cube (function)
-└── PI (variable)
+├── square (function) [top-level, exported]
+├── cube (function) [top-level, exported]
+├── PI (variable) [top-level, exported]
+├── _helper (function) [top-level, but 'private' keyword]
+└── ... (module's local scope)
+```
 
+**Importer Environment:**
+```
 Importer Environment
-├── math (module object)
+├── math (module object with internal env)
 └── ... (importer's code)
 ```
 
-When accessing `math.square`:
+**Access Flow for `math.square`:**
 1. Resolve `math` → gets module object
-2. Module object has internal environment
+2. Module object stores its internal environment
 3. Look up `square` in module's internal environment
-4. Return function
+4. Check if symbol is exported:
+   - If `export` keyword → accessible
+   - If `private` keyword → error
+   - If top-level → export
+   - If nested → error
+5. Return function if accessible
+
+**Scope-Based Privacy:**
+```myco
+# In module mymath.myco
+let public = 10;        # Top-level, exported
+
+func publicFunc():      # Top-level, exported
+    let local = 5;      # NOT top-level, not exported
+    func nested():      # NOT top-level, not exported
+        return local;
+    end
+    return nested();
+end
+
+func otherFunc():
+    return publicFunc();  # Can access because same module
+end
+```
 
 #### Export Rules
 
-**By Default:**
-- All top-level `func` definitions are exported
-- All top-level `let` variable declarations are exported
-- All top-level `class` definitions are exported
-- Print statements, control flow, and expressions execute but don't export
+**What Gets Exported:**
 
-**Private Patterns:**
-- Prefixed with underscore: `_internalHelper()`
-- Moved to nested scope (future)
-- Future: explicit `export` keyword
+**Automatically Exported (Top-Level Only):**
+- All top-level `func` definitions: `func square(x: Number)`
+- All top-level `let` variable declarations: `let CONSTANT = 42`
+- All top-level `class` definitions: `class MyClass`
+- All top-level `const` declarations: `const PI = 3.14159`
+
+**Never Exported (Automatically Private):**
+- Variables inside functions: `let local = x` (inside a function body)
+- Nested functions: `func helper()` (inside another function)
+- Variables in control flow: `let temp` (inside `if`/`while` blocks)
+- Function parameters: `func foo(x: Number)` - parameter `x` is local
+- Temporary variables in expressions
+
+**Explicit Control (Phase 3):**
+- `export` keyword overrides: Makes nested symbols exportable
+- `private` keyword overrides: Makes top-level symbols private
+- Underscore prefix convention: `_internalHelper()` (future enhancement)
+
+**Examples of Scope-Based Privacy:**
+```myco
+# These are exported (top-level)
+func publicFunction() -> Number:
+    return 42;
+end
+
+let GLOBAL_CONSTANT = 10;
+
+# These are NOT exported (nested/local)
+func wrapper() -> Number:
+    let localVar = 5;           # Private (inside function)
+    func internalHelper():     # Private (nested function)
+        return localVar;
+    end
+    return internalHelper();
+end
+
+# Print statements don't export anything
+print("Hello");  # Executes but nothing to export
+```
 
 ### Syntax Examples
 

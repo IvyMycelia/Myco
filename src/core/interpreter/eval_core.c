@@ -772,6 +772,9 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
         case AST_NODE_USE: {
             const char* module_name = node->data.use_statement.library_name;
             const char* alias = node->data.use_statement.alias && node->data.use_statement.alias[0] ? node->data.use_statement.alias : module_name;
+            char** specific_items = node->data.use_statement.specific_items;
+            char** specific_aliases = node->data.use_statement.specific_aliases;
+            size_t item_count = node->data.use_statement.item_count;
             
             // Handle built-in libraries by binding alias to global registration
             if (strcmp(module_name, "math") == 0) {
@@ -926,12 +929,20 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                             }
                             lexer_free(file_lexer);
                         }
-                        free(source);
+                                free(source);
                     } else {
                         fclose(file);
                     }
                 }
                 free(file_path);
+                
+                // Handle specific imports if requested
+                if (specific_items && item_count > 0) {
+                    // Load the module and import specific items
+                    // (For now, this uses the same code as full module import)
+                    // TODO: Implement specific item extraction from module
+                }
+                
                 return value_create_null();
             }
             

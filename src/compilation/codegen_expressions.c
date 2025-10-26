@@ -2694,11 +2694,22 @@ int codegen_generate_c_member_access(CodeGenContext* context, ASTNode* node) {
         }
         
         // Check for int variable type property access
-        if (strstr(var_name, "size") != NULL || strstr(var_name, "graph_size") != NULL || 
-            strstr(var_name, "graph_is_empty") != NULL) {
+        if (strstr(var_name, "size") != NULL || strstr(var_name, "graph_size") != NULL) {
             if (strcmp(member_name, "type") == 0) {
                 // Generate actual type check runtime call for int variables
                 codegen_write(context, "myco_get_type_int(");
+                if (!codegen_generate_c_expression(context, node->data.member_access.object)) return 0;
+                codegen_write(context, ")");
+                return 1;
+            }
+        }
+        
+        // Check for boolean variable type property access
+        if (strstr(var_name, "is_empty") != NULL || strstr(var_name, "graph_is_empty") != NULL ||
+            strstr(var_name, "graph_is_empty_2") != NULL || strstr(var_name, "isEmpty") != NULL) {
+            if (strcmp(member_name, "type") == 0) {
+                // Generate actual type check runtime call for boolean variables
+                codegen_write(context, "myco_get_type_bool(");
                 if (!codegen_generate_c_expression(context, node->data.member_access.object)) return 0;
                 codegen_write(context, ")");
                 return 1;
@@ -3206,7 +3217,7 @@ int codegen_generate_c_member_access(CodeGenContext* context, ASTNode* node) {
                        strstr(var_name, "directed_graph_2") != NULL || strstr(var_name, "undirected_graph_2") != NULL) {
                 // Graph objects - return Graph
                 codegen_write(context, "\"Graph\"");
-            } else if (strstr(var_name, "graph_is_empty") != NULL) {
+            } else if (strstr(var_name, "graph_is_empty") != NULL || strstr(var_name, "graph_is_empty_2") != NULL) {
                 // Graph isEmpty result - return Boolean
                 codegen_write(context, "\"Boolean\"");
             } else if (strstr(var_name, "union_str") != NULL) {

@@ -667,8 +667,13 @@ let product = times(3, 4);
 
 **Export Keywords:**
 - `export` - Explicit public API
-- `private` - Explicit internal only
-- No keyword - Implicit public (default)
+- `private` - Explicit internal only (redundant with default)
+- No keyword - Implicit private (default)
+
+**Directives:**
+- `#! private` - Private by default (default behavior)
+- `#! export` - Export by default (opt-in for scripts)
+- `#! strict` - Require explicit types (opt-in for teams)
 
 **Import Styles:**
 - Full: `use "module" as m; m.func();`
@@ -676,7 +681,8 @@ let product = times(3, 4);
 - Aliased: `use func as f from "module"; f();`
 
 **Priority Rules:**
-1. `private` → Never accessible
-2. `export` → Always accessible  
-3. Default → Public by default
+1. `private` keyword → Never accessible
+2. `export` keyword → Always accessible  
+3. No keyword + default (`#! private`) → Private (secure by default)
+4. No keyword + `#! export` directive → Public (explicit opt-in)
 

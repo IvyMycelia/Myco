@@ -386,18 +386,6 @@ int codegen_generate_c_binary_op(CodeGenContext* context, ASTNode* node) {
         }
     }
     
-    // Debug: Check all comparisons
-    if (node->data.binary.op == OP_EQUAL || node->data.binary.op == OP_NOT_EQUAL) {
-        if (node->data.binary.left->type == AST_NODE_IDENTIFIER) {
-            const char* left_var = node->data.binary.left->data.identifier_value;
-            if (strcmp(left_var, "json_error") == 0) {
-                printf("DEBUG: json_error comparison - right type: %d\n", node->data.binary.right->type);
-                if (node->data.binary.right->type == AST_NODE_IDENTIFIER) {
-                    printf("DEBUG: right identifier: %s\n", node->data.binary.right->data.identifier_value);
-                }
-            }
-        }
-    }
     
     // Check if we're comparing a pointer with 0, NULL, or Null (should be treated as NULL)
     if ((node->data.binary.op == OP_EQUAL || node->data.binary.op == OP_NOT_EQUAL) &&
@@ -410,14 +398,6 @@ int codegen_generate_c_binary_op(CodeGenContext* context, ASTNode* node) {
         
         // Check if the left operand is a pointer variable (like "result")
         const char* var_name = node->data.binary.left->data.identifier_value;
-        
-        // Debug: Check if this is json_error comparison
-        if (strcmp(var_name, "json_error") == 0) {
-            printf("DEBUG: Found json_error comparison with right type: %d, value: %s\n", 
-                   node->data.binary.right->type, 
-                   node->data.binary.right->type == AST_NODE_IDENTIFIER ? 
-                   node->data.binary.right->data.identifier_value : "not identifier");
-        }
         if (strcmp(var_name, "result") == 0 || strstr(var_name, "_result") != NULL) {
             // Generate: result == NULL (or != NULL)
             if (!codegen_generate_c_expression(context, node->data.binary.left)) return 0;
@@ -455,9 +435,7 @@ int codegen_generate_c_binary_op(CodeGenContext* context, ASTNode* node) {
          (node->data.binary.right->type == AST_NODE_IDENTIFIER &&
           strcmp(node->data.binary.right->data.identifier_value, "Null") == 0))) {
         const char* var_name = node->data.binary.left->data.identifier_value;
-        printf("DEBUG: Checking MycoValue comparison: %s == NULL/Null\n", var_name);
         if (strcmp(var_name, "json_error") == 0 || strstr(var_name, "parsed") != NULL) {
-            printf("DEBUG: Generating myco_is_null() for %s\n", var_name);
             // This is a MycoValue comparison with NULL, generate myco_is_null() instead
             if (node->data.binary.op == OP_EQUAL) {
                 codegen_write(context, "myco_is_null(");

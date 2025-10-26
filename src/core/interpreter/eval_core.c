@@ -14,9 +14,12 @@
 #include "../../include/core/optimization/value_specializer.h"
 #include "../../include/core/optimization/adaptive_executor.h"
 #include "../../include/utils/shared_utilities.h"
+#include "../../include/core/lexer.h"
+#include "../../include/core/parser.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <string.h>  // for memmove
 
 // Optimization features are disabled for now
 
@@ -849,6 +852,54 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
             if (strcmp(module_name, "arduino") == 0) {
                 Value lib = environment_get(interpreter->global_environment, "arduino");
                 environment_define(interpreter->current_environment, alias, lib);
+                return value_create_null();
+            }
+            
+            // Check if this is a file import (string path)
+            if (module_name && module_name[0] == '"') {
+                // This is a file path - load and execute the file
+                // Remove quotes from the path
+                char* file_path = strdup(module_name);
+                size_t len = strlen(file_path);
+                if (len >= 2 && file_path[0] == '"' && file_path[len-1] == '"') {
+                    file_path[len-1] = '\0';
+                    memmove(file_path, file_path + 1, strlen(file_path));
+                }
+                
+                // Read the file
+                FILE* file = fopen(file_path, "r");
+                if (file) {
+                    fseek(file, 0, SEEK_END);
+                    long size = ftell(file);
+                    fseek(file, 0, SEEK_SET);
+                    
+                    char* source = malloc(size + 1);
+                    if (source) {
+                        fread(source, 1, size, file);
+                        source[size] = '\0';
+                        fclose(file);
+                        
+                        // Parse and execute the file
+                        Lexer* file_lexer = lexer_initialize(source);
+                        if (file_lexer) {
+                            Parser* file_parser = parser_initialize(file_lexer);
+                            if (file_parser) {
+                                ASTNode* file_ast = parser_parse_program(file_parser);
+                                if (file_ast) {
+                                    // Execute the imported file's AST in current environment
+                                    // Note: This creates the module's exports in the current environment
+                                    eval_node(interpreter, file_ast);
+                                }
+                                parser_free(file_parser);
+                            }
+                            lexer_free(file_lexer);
+                        }
+                        free(source);
+                    } else {
+                        fclose(file);
+                    }
+                }
+                free(file_path);
                 return value_create_null();
             }
             

@@ -1,0 +1,12 @@
+# Math utilities module
+
+func square(x: Number) -> Number:
+    return x * x;
+end
+
+func cube(x: Number) -> Number:
+    return x * x * x;
+end
+
+print("Math utilities module loaded");
+

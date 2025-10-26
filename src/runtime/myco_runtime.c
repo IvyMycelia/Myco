@@ -216,6 +216,10 @@ const char* myco_get_type_void(void* value) {
         return "Heap";
     } else if (value == (void*)0x5000) {
         return "Queue";
+    } else if (value == (void*)0x5001) {
+        return "Graph";  // Graph with nodes
+    } else if (value == (void*)0x5002) {
+        return "Graph";  // Graph with edges
     } else if (value == (void*)0x6000) {
         return "Stack";
     } else if (value == (void*)0x7000) {

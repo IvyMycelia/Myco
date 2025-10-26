@@ -628,12 +628,9 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
 
     // Handle module method calls - look up function in module's environment
     if (object.type == VALUE_MODULE) {
-        fprintf(stderr, "[DEBUG] Module method call: %s\n", method_name);
         Environment* module_env = (Environment*)object.data.module_value.exports;
         if (module_env) {
-            fprintf(stderr, "[DEBUG] Module env has %zu bindings\n", module_env->count);
             Value member = environment_get(module_env, method_name);
-            fprintf(stderr, "[DEBUG] Got member: type=%d\n", member.type);
             
             if (member.type == VALUE_FUNCTION) {
                 // Evaluate arguments

@@ -502,16 +502,10 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
             Value object = eval_node(interpreter, node->data.member_access.object);
             const char* member_name = node->data.member_access.member_name;
             
-            fprintf(stderr, "[DEBUG] Member access: object type = %d (%s), member = %s\n", 
-                    object.type, value_type_string(object.type), member_name);
-            
-            
-            
             // Allow reading `.type` even on Null to satisfy tests
             if (strcmp(member_name, "type") == 0) {
                 // Handle modules first
                 if (object.type == VALUE_MODULE) {
-                    fprintf(stderr, "[DEBUG] Module type access\n");
                     Value type_str = value_create_string("Module");
                     value_free(&object);
                     return type_str;
@@ -637,17 +631,10 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
             
             // Handle module member access - look up in module's environment
             if (object.type == VALUE_MODULE) {
-                fprintf(stderr, "[DEBUG] Accessing '%s' on module\n", member_name);
                 // Get the module's internal environment
                 Environment* module_env = (Environment*)object.data.module_value.exports;
                 if (module_env) {
-                    fprintf(stderr, "[DEBUG] Module env has %zu bindings\n", module_env->count);
-                    for (size_t i = 0; i < module_env->count; i++) {
-                        fprintf(stderr, "[DEBUG] Module binding %zu: %s\n", i, module_env->names[i]);
-                    }
                     Value member = environment_get(module_env, member_name);
-                    fprintf(stderr, "[DEBUG] Member lookup for '%s' result type: %d (%s)\n", 
-                            member_name, member.type, value_type_string(member.type));
                     value_free(&object);
                     return member;
                 }
@@ -768,9 +755,7 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 captured_env
             );
             // Store function in current environment (works for both global and module scopes)
-            fprintf(stderr, "[DEBUG] Defining function '%s' in environment\n", func_name);
             environment_define(interpreter->current_environment, func_name, function_value);
-            fprintf(stderr, "[DEBUG] Function '%s' defined\n", func_name);
             return value_create_null();
         }
         case AST_NODE_CLASS: {
@@ -786,7 +771,6 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
         }
         case AST_NODE_USE: {
             const char* module_name = node->data.use_statement.library_name;
-            fprintf(stderr, "[DEBUG] USE statement: module_name = '%s'\n", module_name);
             const char* alias = node->data.use_statement.alias && node->data.use_statement.alias[0] ? node->data.use_statement.alias : module_name;
             
             // Handle built-in libraries by binding alias to global registration
@@ -884,7 +868,6 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
             // Check if this is a file import (string path or path with quotes)
             // Parser may or may not remove quotes, so check for both
             if (module_name && (module_name[0] == '"' || strstr(module_name, ".myco") != NULL || strstr(module_name, "/") != NULL)) {
-                fprintf(stderr, "[DEBUG] File import detected: %s\n", module_name);
                 // This is a file path - load and execute the file
                 // Remove quotes from the path if present
                 char* file_path = strdup(module_name);
@@ -908,18 +891,13 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                         fclose(file);
                         
                         // Parse and execute the file
-                        fprintf(stderr, "[DEBUG] File content read (size: %ld)\n", size);
-                        fprintf(stderr, "[DEBUG] First 200 chars: %.*s\n", 200, source);
                         Lexer* file_lexer = lexer_initialize(source);
                         if (file_lexer) {
-                            fprintf(stderr, "[DEBUG] Lexer initialized\n");
+                            lexer_scan_all(file_lexer);
                             Parser* file_parser = parser_initialize(file_lexer);
                             if (file_parser) {
-                                fprintf(stderr, "[DEBUG] Parser initialized\n");
                                 ASTNode* file_ast = parser_parse_program(file_parser);
-                                fprintf(stderr, "[DEBUG] Parsed file, AST type: %d\n", file_ast ? file_ast->type : -1);
                                 if (file_ast && file_ast->type == AST_NODE_BLOCK) {
-                                    fprintf(stderr, "[DEBUG] Block has %zu statements\n", file_ast->data.block.statement_count);
                                 }
                                     if (file_ast) {
                                     // Execute the imported file's AST in a separate module environment
@@ -933,23 +911,16 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                                     interpreter->current_environment = module_env;
                                     
                                     // Execute the imported file
-                                    fprintf(stderr, "[DEBUG] About to execute imported file\n");
-                                    fprintf(stderr, "[DEBUG] File AST type: %d\n", file_ast->type);
-                                    fprintf(stderr, "[DEBUG] Block has %zu statements\n", file_ast->data.block.statement_count);
                                     eval_node(interpreter, file_ast);
-                                    fprintf(stderr, "[DEBUG] File execution complete, module env now has %zu bindings\n", module_env->count);
                                     
                                     // Create module value with exports (use module_env as exports)
                                     Value module_value = value_create_module(alias, (void*)module_env);
-                                    fprintf(stderr, "[DEBUG] Created module '%s' with type %d\n", alias, module_value.type);
                                     
                                     // Restore current environment
                                     interpreter->current_environment = old_env;
                                     
                                     // Bind the module to the alias
-                                    fprintf(stderr, "[DEBUG] Defining module '%s' in current env\n", alias);
                                     environment_define(interpreter->current_environment, alias, module_value);
-                                    fprintf(stderr, "[DEBUG] Module '%s' defined\n", alias);
                                 }
                                 parser_free(file_parser);
                             }

@@ -626,6 +626,46 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
         value_free(&member);
     }
 
+    // Handle module method calls - look up function in module's environment
+    if (object.type == VALUE_MODULE) {
+        fprintf(stderr, "[DEBUG] Module method call: %s\n", method_name);
+        Environment* module_env = (Environment*)object.data.module_value.exports;
+        if (module_env) {
+            fprintf(stderr, "[DEBUG] Module env has %zu bindings\n", module_env->count);
+            Value member = environment_get(module_env, method_name);
+            fprintf(stderr, "[DEBUG] Got member: type=%d\n", member.type);
+            
+            if (member.type == VALUE_FUNCTION) {
+                // Evaluate arguments
+                size_t arg_count = call_node->data.function_call_expr.argument_count;
+                Value* args = (Value*)shared_malloc_safe(arg_count * sizeof(Value), "interpreter", "module_method_call", 0);
+                if (!args) {
+                    value_free(&member);
+                    value_free(&object);
+                    return value_create_null();
+                }
+                
+                for (size_t i = 0; i < arg_count; i++) {
+                    args[i] = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[i]);
+                }
+                
+                // Call the function
+                Value result = value_function_call(&member, args, arg_count, interpreter, call_node->line, call_node->column);
+                
+                for (size_t i = 0; i < arg_count; i++) value_free(&args[i]);
+                shared_free_safe(args, "interpreter", "module_method_call", 0);
+                value_free(&member);
+                value_free(&object);
+                return result;
+            }
+            
+            value_free(&member);
+        }
+        value_free(&object);
+        interpreter_set_error(interpreter, "Method not found in module", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
     // Check if this is a custom object method call (Tree, Graph, Heap, Queue, Stack)
     if (object.type == VALUE_OBJECT) {
         Value class_name = value_object_get(&object, "__class_name__");

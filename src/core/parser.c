@@ -443,6 +443,56 @@ ASTNode* parser_parse_statement(Parser* parser) {
             } else if (strcmp(token->text, "for") == 0) {
                 parser_advance(parser);  // Consume the 'for' keyword
                 return parser_parse_for_loop(parser);
+            } else if (strcmp(token->text, "export") == 0) {
+                parser_advance(parser);  // Consume the 'export' keyword
+                // Next must be 'func', 'let', or 'class'
+                Token* next_token = parser_peek(parser);
+                if (next_token && next_token->text) {
+                    if (strcmp(next_token->text, "func") == 0) {
+                        parser_advance(parser);
+                        ASTNode* func = parser_parse_function_declaration(parser);
+                        if (func && func->type == AST_NODE_FUNCTION) {
+                            func->data.function_definition.is_export = 1;
+                        }
+                        return func;
+                    } else if (strcmp(next_token->text, "let") == 0) {
+                        parser_advance(parser);
+                        ASTNode* var = parser_parse_variable_declaration(parser);
+                        if (var && var->type == AST_NODE_VARIABLE_DECLARATION) {
+                            var->data.variable_declaration.is_export = 1;
+                        }
+                        return var;
+                    } else {
+                        parser_error(parser, "Expected 'func', 'let', or 'class' after 'export'");
+                        parser_synchronize(parser);
+                        return NULL;
+                    }
+                }
+            } else if (strcmp(token->text, "private") == 0) {
+                parser_advance(parser);  // Consume the 'private' keyword
+                // Next must be 'func', 'let', or 'class'
+                Token* next_token = parser_peek(parser);
+                if (next_token && next_token->text) {
+                    if (strcmp(next_token->text, "func") == 0) {
+                        parser_advance(parser);
+                        ASTNode* func = parser_parse_function_declaration(parser);
+                        if (func && func->type == AST_NODE_FUNCTION) {
+                            func->data.function_definition.is_private = 1;
+                        }
+                        return func;
+                    } else if (strcmp(next_token->text, "let") == 0) {
+                        parser_advance(parser);
+                        ASTNode* var = parser_parse_variable_declaration(parser);
+                        if (var && var->type == AST_NODE_VARIABLE_DECLARATION) {
+                            var->data.variable_declaration.is_private = 1;
+                        }
+                        return var;
+                    } else {
+                        parser_error(parser, "Expected 'func', 'let', or 'class' after 'private'");
+                        parser_synchronize(parser);
+                        return NULL;
+                    }
+                }
             } else if (strcmp(token->text, "func") == 0) {
                 parser_advance(parser);  // Consume the 'func' keyword
                 return parser_parse_function_declaration(parser);
@@ -2649,6 +2699,9 @@ ASTNode* parser_parse_function_declaration(Parser* parser) {
         return NULL;
     }
     // The 'func' keyword has already been consumed by the statement parser
+    
+    // Check for export/private modifiers (already consumed by statement parser)
+    // These are handled at the statement parsing level, not here
 
     // Function name
     if (!parser_match(parser, TOKEN_IDENTIFIER)) {

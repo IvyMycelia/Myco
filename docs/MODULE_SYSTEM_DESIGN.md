@@ -120,27 +120,55 @@ Support both implicit exports for simplicity AND explicit imports for flexibilit
 **Module Definition with File Directives (utils/myco):**
 
 ```myco
-# File-level directives (at very top of file, before any code)
-#! strict           # Require explicit export/private keywords for all top-level symbols
-#! export-default    # Export by default (default behavior)
-#! private-default   # Private by default (opt-in to exports)
+# File-level directives
 
-# Example with strict mode
-#! strict
+# Global directives (at very top of file) - apply to entire file
+#! export    # Export all top-level symbols by default (opt-in to exports)
+#! private   # Private by default (defaul
+#! strict    # Require explicit typing for all top-level symbols, no implicit returns
 
-# This would require explicit export/private
-export func publicFunction(x: Number) -> Number:
+# Example: Per-section overrides
+
+# Section 1: Public API (explicit export mode)
+#! export
+export func apiFunction(x: Number) -> Number:
     return x * 2;
 end
 
-# Without export would be ERROR in strict mode
-# func anotherPublicFunction() -> Number:
-#     return 3;
-# end  # ERROR: Unmarked function in strict mode
-
-# Must be explicit
-private func internalHelper() -> Number:
+func publicHelper() -> Number:  # Also exported (export mode)
     return 42;
+end
+
+# Section 2: Private implementation (private mode)
+#! private
+func internalFunc() -> Number:  # Private
+    return 100;
+end
+
+export func publicAPI() -> Number:  # Explicitly public
+    return internalFunc() + 1;
+end
+
+# Section 3: Back to default mode (no directive)
+# Directive is scoped, so we're back to default export behavior
+func normalFunc() -> Number:  # Exported (default)
+    return 0;
+end
+
+# Nested scoping example
+#! private
+func wrapper() -> Number:
+    # All symbols here are private by default
+    func inner() -> Number:  # Still private (nested)
+        return 5;
+    end
+    
+    # But explicit export overrides
+    export func publicInner() -> Number:  # Public despite nesting
+        return 10;
+    end
+    
+    return inner() + publicInner();
 end
 ```
 
@@ -271,40 +299,66 @@ end
 5. If neither and file is `private-default` → Private (opt-in exports)
 6. If neither and nested → Private (scope-based, regardless of mode)
 
-**File-Level Modes:**
+**File-Level Directives (Scoped):**
 
-**`#! export-default` (Default - No directive needed):**
-- Top-level symbols are public by default
+**`#! export` (Default - No directive needed):**
+- Top-level symbols in scope are public by default
 - `export` keyword is optional (for clarity/documentation)
 - `private` keyword marks as internal
+- Can be applied to file or to code sections
 - Best for: Scripts, utilities, development code
 ```myco
-#! export-default  # or just omit the directive
+#! export  # or just omit (default behavior)
 func publicFunc() -> Number: return 42; end  # Exported automatically
 private func internal() -> Number: return 0; end  # Private
 ```
 
-**`#! private-default`:**
-- Top-level symbols are private by default
+**`#! private`:**
+- Top-level symbols in scope are private by default
 - Must use `export` to make public
 - Explicit opt-in for public API
+- Can be applied to file or to code sections
 - Best for: Library code, APIs, production modules
 ```myco
-#! private-default
+#! private
 func privateFunc() -> Number: return 42; end  # Private (not exported)
 export func publicFunc() -> Number: return 0; end  # Exported
 ```
 
 **`#! strict`:**
-- ALL top-level symbols MUST have `export` or `private`
-- No implicit exports allowed
-- Forces explicit visibility decisions everywhere
+- ALL symbols MUST have explicit type annotations
+- No implicit return types, no type inference
+- Forces explicit type decisions everywhere
+- Can be combined with export/private directives
 - Best for: Large projects, team development, public libraries
 ```myco
 #! strict
-export func publicFunc() -> Number: return 42; end  # REQUIRED
-private func privateFunc() -> Number: return 0; end  # REQUIRED
-# ERROR: func unmarked() -> Number: return 1; end  # Missing export/private
+export func publicFunc(x: Number) -> Number: return 42; end  # Explicit types required
+private func privateFunc(x: Number) -> Number: return 0; end  # Explicit types required
+# ERROR: func untypedFunc(x): return 1; end  # Missing type annotations
+```
+
+**Multiple Directives (Per-Section):**
+```myco
+# File-level default
+#! export
+
+# Section 1: Public API area
+#! export
+func api1() -> Number: return 1; end  # Exported (export mode)
+
+# Section 2: Implementation detail (private by default)
+#! private
+func internal() -> Number: return 2; end  # Private
+export func publicAPI() -> Number: return internal(); end  # Explicitly public
+
+# Section 3: Back to default
+func normal() -> Number: return 3; end  # Exported (default)
+
+# Section 4: Strict typing required
+#! strict
+func typedFunc(x: Number) -> Number: return x; end  # Types required
+# func untypedFunc(x): return x; end  # ERROR: missing types
 ```
 
 **Export Semantics:**
@@ -529,9 +583,11 @@ let product = times(3, 4);
 ### Phase 3: Explicit Export Keywords + File Directives (Medium-term)
 **Goal:** Add `export`/`private` keywords and file-level directives
 
-1. Add file-level directive parsing
-   - Parse `#! strict`, `#! export-default`, `#! private-default` at file top
-   - Store directive in module metadata
+1. Add file-level directive parsing with scoping
+   - Parse `#! strict`, `#! export`, `#! private` directives
+   - Support directives at file top (global) or before code sections (scoped)
+   - Each directive applies until the next directive or end of file
+   - Store directive state in module context
    - Apply directive rules during export filtering
 
 2. Add `export` keyword to lexer and parser
@@ -547,33 +603,40 @@ let product = times(3, 4);
    - Overrides file-level default
 
 4. Update export logic in interpreter
-   - Check file-level directive
+   - Track active directive state (starts with default `#! export`)
+   - Check scoped directive for each code section
    - Check for `export`/`private` modifiers on AST nodes
    - Apply rules based on directive and keyword presence:
-     - `strict`: Require explicit export/private for all top-level
-     - `export-default`: Export unmarked top-level (default)
-     - `private-default`: Private unmarked top-level
+     - `#! export`: Export unmarked top-level (default behavior)
+     - `#! private`: Private unmarked top-level
+     - `#! strict`: Require explicit type annotations for all symbols
    - Filter exported symbols when creating module value
    - Return error on access to private symbols
+   - Error on untyped symbols when in strict mode
 
 5. Test explicit control with different modes
    ```myco
    # Module 1: Strict mode
    #! strict
-   export func publicAPI();    # OK
-   private func internalOnly(); # OK
-   # func unmarked();          # ERROR: strict mode requires export/private
+   export func publicAPI(x: Number) -> Number: return x; end  # OK
+   private func internalOnly(x: Number) -> Number: return x; end  # OK
+   # func untyped(): return 42; end  # ERROR: strict mode requires types
    
-   # Module 2: Private-default
-   #! private-default
-   func wouldBePrivate();     # Private
-   export func wouldBePublic(); # Public
+   # Module 2: Private mode
+   #! private
+   func wouldBePrivate(x: Number) -> Number: return x; end  # Private
+   export func wouldBePublic(x: Number) -> Number: return x; end  # Public
+   
+   # Module 3: Export mode (default)
+   #! export
+   func autoExported(x: Number) -> Number: return x; end  # Exported
    
    # Importer
-   module1.publicAPI();       # OK
-   module1.internalOnly();    # ERROR: private
-   module2.wouldBePrivate();  # ERROR: private
-   module2.wouldBePublic();  # OK
+   module1.publicAPI(5);       # OK
+   module1.internalOnly(5);    # ERROR: private
+   module2.wouldBePrivate(5);  # ERROR: private
+   module2.wouldBePublic(5);  # OK
+   module3.autoExported(5);   # OK
    ```
 
 **Deliverable:** Full control over module exports with file-level configuration

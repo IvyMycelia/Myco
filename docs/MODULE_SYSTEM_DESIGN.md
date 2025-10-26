@@ -125,7 +125,8 @@ Support both implicit exports for simplicity AND explicit imports for flexibilit
 # Global directives (at very top of file) - apply to entire file
 #! private   # Private by default (default behavior - opt-in to exports)
 #! export    # Export all top-level symbols by default
-#! strict    # Require explicit typing for all top-level symbols, no implicit returns
+#! strict    # Require explicit typing for all symbols (no implicit returns/types)
+#! unstrict  # Allow implicit or explicit typing (default behavior)
 #! 
 # Example: Per-section overrides
 
@@ -158,6 +159,20 @@ end
 export func publicFunc() -> Number:  # Exported (explicit)
     return 1;
 end
+
+# Section 4: Implicit typing allowed
+#! unstrict
+func implicitFunc(x):  # Allowed (implicit type)
+    return x;
+end
+
+# Section 5: Explicit typing required
+#! strict
+func typedFunc(x: Number) -> Number:  # Required (explicit types)
+    return x;
+end
+
+# func untypedFunc(x): return x; end  # ERROR: strict mode requires types
 
 # Nested scoping example
 #! private
@@ -330,16 +345,31 @@ private func internal() -> Number: return 0; end  # Private
 ```
 
 **`#! strict`:**
-- ALL symbols MUST have explicit type annotations
+- ALL symbols in scope MUST have explicit type annotations
 - No implicit return types, no type inference
 - Forces explicit type decisions everywhere
 - Can be combined with export/private directives
+- Can be scoped to specific sections
 - Best for: Large projects, team development, public libraries
 ```myco
 #! strict
 export func publicFunc(x: Number) -> Number: return 42; end  # Explicit types required
 private func privateFunc(x: Number) -> Number: return 0; end  # Explicit types required
 # ERROR: func untypedFunc(x): return 1; end  # Missing type annotations
+```
+
+**`#! unstrict`:**
+- Allow implicit or explicit type annotations
+- Type inference is permitted
+- Implicit return types are allowed
+- Can be combined with export/private directives
+- Can be scoped to specific sections
+- Default behavior if no directive is specified
+- Best for: Scripts, rapid development, dynamic typing
+```myco
+#! unstrict
+func implicitFunc(x): return x; end  # Allowed (implicit types)
+func typedFunc(x: Number) -> Number: return x; end  # Allowed (explicit types)
 ```
 
 **Multiple Directives (Per-Section):**
@@ -588,11 +618,11 @@ let product = times(3, 4);
 **Goal:** Add `export`/`private` keywords and file-level directives
 
 1. Add file-level directive parsing with scoping
-   - Parse `#! strict`, `#! export`, `#! private` directives
+   - Parse `#! strict`, `#! unstrict`, `#! export`, `#! private` directives
    - Support directives at file top (global) or before code sections (scoped)
    - Each directive applies until the next directive or end of file
    - Store directive state in module context
-   - Apply directive rules during export filtering
+   - Apply directive rules during export filtering and type checking
 
 2. Add `export` keyword to lexer and parser
    - `export func ...`, `export let ...`, `export class ...`
@@ -607,13 +637,14 @@ let product = times(3, 4);
    - Overrides file-level default
 
 4. Update export logic in interpreter
-   - Track active directive state (starts with default `#! private`)
+   - Track active directive state (starts with default `#! private` and `#! unstrict`)
    - Check scoped directive for each code section
    - Check for `export`/`private` modifiers on AST nodes
    - Apply rules based on directive and keyword presence:
      - `#! private`: Private unmarked top-level (default behavior)
      - `#! export`: Export unmarked top-level
      - `#! strict`: Require explicit type annotations for all symbols
+     - `#! unstrict`: Allow implicit or explicit types (default behavior)
    - Filter exported symbols when creating module value
    - Return error on access to private symbols
    - Error on untyped symbols when in strict mode
@@ -631,9 +662,14 @@ let product = times(3, 4);
    func wouldBePrivate(x: Number) -> Number: return x; end  # Private
    export func wouldBePublic(x: Number) -> Number: return x; end  # Public
    
-   # Module 3: Export mode (default)
+   # Module 3: Export mode
    #! export
    func autoExported(x: Number) -> Number: return x; end  # Exported
+   
+   # Module 4: Unstrict mode (allows implicit types)
+   #! unstrict
+   func implicitFunc(x): return x; end  # OK (implicit types allowed)
+   func explicitFunc(x: Number) -> Number: return x; end  # OK (explicit types allowed)
    
    # Importer
    module1.publicAPI(5);       # OK
@@ -641,6 +677,8 @@ let product = times(3, 4);
    module2.wouldBePrivate(5);  # ERROR: private
    module2.wouldBePublic(5);  # OK
    module3.autoExported(5);   # OK
+   module4.implicitFunc(5);   # OK
+   module4.explicitFunc(5);   # OK
    ```
 
 **Deliverable:** Full control over module exports with file-level configuration
@@ -674,6 +712,7 @@ let product = times(3, 4);
 - `#! private` - Private by default (default behavior)
 - `#! export` - Export by default (opt-in for scripts)
 - `#! strict` - Require explicit types (opt-in for teams)
+- `#! unstrict` - Allow implicit types (default behavior)
 
 **Import Styles:**
 - Full: `use "module" as m; m.func();`

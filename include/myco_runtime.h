@@ -74,6 +74,8 @@ char** myco_array_add_numeric_element(char** array, double value);
 const char* myco_get_type_string(const char* value);
 const char* myco_get_type_void(void* value);
 const char* myco_get_type_int(int value);
+const char* myco_get_type_array(void* value);
+const char* myco_get_type_null(void);
 const char* myco_get_type_myco_value(MycoValue value);
 int myco_is_null(MycoValue value);
 MycoValue myco_value_object(void* data);

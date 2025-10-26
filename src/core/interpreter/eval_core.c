@@ -908,11 +908,19 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                         fclose(file);
                         
                         // Parse and execute the file
+                        fprintf(stderr, "[DEBUG] File content read (size: %ld)\n", size);
+                        fprintf(stderr, "[DEBUG] First 200 chars: %.*s\n", 200, source);
                         Lexer* file_lexer = lexer_initialize(source);
                         if (file_lexer) {
+                            fprintf(stderr, "[DEBUG] Lexer initialized\n");
                             Parser* file_parser = parser_initialize(file_lexer);
                             if (file_parser) {
+                                fprintf(stderr, "[DEBUG] Parser initialized\n");
                                 ASTNode* file_ast = parser_parse_program(file_parser);
+                                fprintf(stderr, "[DEBUG] Parsed file, AST type: %d\n", file_ast ? file_ast->type : -1);
+                                if (file_ast && file_ast->type == AST_NODE_BLOCK) {
+                                    fprintf(stderr, "[DEBUG] Block has %zu statements\n", file_ast->data.block.statement_count);
+                                }
                                     if (file_ast) {
                                     // Execute the imported file's AST in a separate module environment
                                     // to capture all functions and values as exports

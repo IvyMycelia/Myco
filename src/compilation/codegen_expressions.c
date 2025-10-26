@@ -3217,7 +3217,8 @@ int codegen_generate_c_member_access(CodeGenContext* context, ASTNode* node) {
                        strstr(var_name, "directed_graph_2") != NULL || strstr(var_name, "undirected_graph_2") != NULL) {
                 // Graph objects - return Graph
                 codegen_write(context, "\"Graph\"");
-            } else if (strstr(var_name, "graph_is_empty") != NULL || strstr(var_name, "graph_is_empty_2") != NULL) {
+            } else if (strstr(var_name, "graph_is_empty") != NULL || strstr(var_name, "graph_is_empty_2") != NULL ||
+                       strstr(var_name, "empty_check") != NULL || strstr(var_name, "non_empty_check") != NULL) {
                 // Graph isEmpty result - return Boolean
                 codegen_write(context, "\"Boolean\"");
             } else if (strstr(var_name, "union_str") != NULL) {

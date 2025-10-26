@@ -213,7 +213,9 @@ Value value_create_module(const char* name, void* exports) {
     Value v = {0};
     v.type = VALUE_MODULE;
     v.data.module_value.module_name = name ? shared_strdup(name) : NULL;
-    v.data.module_value.exports = exports;
+    v.data.module_value.module_environment = (Environment*)exports;
+    v.data.module_value.exports = (Environment*)exports;
+    v.data.module_value.is_loaded = 1;
     return v;
 }
 

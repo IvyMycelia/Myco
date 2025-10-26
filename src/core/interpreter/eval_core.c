@@ -750,8 +750,8 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 node->data.function_definition.return_type,
                 captured_env
             );
-            // Store function in global environment so it can be called from anywhere
-            environment_define(interpreter->global_environment, func_name, function_value);
+            // Store function in current environment (works for both global and module scopes)
+            environment_define(interpreter->current_environment, func_name, function_value);
             return value_create_null();
         }
         case AST_NODE_CLASS: {

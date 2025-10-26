@@ -1549,8 +1549,13 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                                     codegen_write(context, "        tests_failed[i] = myco_number_to_string(");
                                     if (!codegen_generate_c_expression(context, node->data.function_call_expr.arguments[0])) return 0;
                                     codegen_write(context, ");\n");
+                                } else if (node->data.function_call_expr.arguments[0]->type == AST_NODE_STRING) {
+                                    // String literal - directly assign the string pointer
+                                    codegen_write(context, "        tests_failed[i] = ");
+                                    if (!codegen_generate_c_expression(context, node->data.function_call_expr.arguments[0])) return 0;
+                                    codegen_write(context, ";\n");
                                 } else {
-                                    codegen_write(context, "        tests_failed[i] = (void*)");
+                                    codegen_write(context, "        tests_failed[i] = ");
                                     if (!codegen_generate_c_expression(context, node->data.function_call_expr.arguments[0])) return 0;
                                     codegen_write(context, ";\n");
                                 }

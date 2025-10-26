@@ -2657,7 +2657,13 @@ int codegen_generate_c_member_access(CodeGenContext* context, ASTNode* node) {
         // Check for graph library method calls
         if (strcmp(var_name, "directed_graph") == 0 || strcmp(var_name, "directed_graph_2") == 0 ||
             strcmp(var_name, "undirected_graph") == 0 || strcmp(var_name, "weighted_graph") == 0) {
-            if (strcmp(member_name, "addNode") == 0) {
+            if (strcmp(member_name, "type") == 0) {
+                // Graph variable type property - use runtime call
+                codegen_write(context, "myco_get_type_void(");
+                codegen_write(context, var_name);
+                codegen_write(context, ")");
+                return 1;
+            } else if (strcmp(member_name, "addNode") == 0) {
                 // Graph addNode method - return graph object
                 codegen_write(context, "(void*)0x5001"); // Return graph object
                 return 1;

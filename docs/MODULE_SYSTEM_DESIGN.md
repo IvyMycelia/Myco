@@ -123,10 +123,10 @@ Support both implicit exports for simplicity AND explicit imports for flexibilit
 # File-level directives
 
 # Global directives (at very top of file) - apply to entire file
-#! export    # Export all top-level symbols by default (opt-in to exports)
-#! private   # Private by default (defaul
+#! private   # Private by default (default behavior - opt-in to exports)
+#! export    # Export all top-level symbols by default
 #! strict    # Require explicit typing for all top-level symbols, no implicit returns
-
+#! 
 # Example: Per-section overrides
 
 # Section 1: Public API (explicit export mode)
@@ -150,9 +150,13 @@ export func publicAPI() -> Number:  # Explicitly public
 end
 
 # Section 3: Back to default mode (no directive)
-# Directive is scoped, so we're back to default export behavior
-func normalFunc() -> Number:  # Exported (default)
+# Directive is scoped, so we're back to default private behavior
+func normalFunc() -> Number:  # Private (default)
     return 0;
+end
+
+export func publicFunc() -> Number:  # Exported (explicit)
+    return 1;
 end
 
 # Nested scoping example
@@ -174,44 +178,44 @@ end
 
 **Full Example with Default Behavior:**
 ```myco
-# No file directives = export-default (implicit exports)
+# No file directives = private (implicit privacy)
 
-# Explicitly exported (recommended for public APIs)
+# Explicitly exported (public API)
 export func publicFunction(x: Number) -> Number:
     return x * 2;
 end
 
-# Implicitly exported (public by default)
-func anotherPublicFunction(x: Number) -> Number:
+# Implicitly private (default behavior)
+func wouldBePrivate(x: Number) -> Number:
     return x * 3;
 end
 
-# Explicitly private (internal use only)
+# Explicitly private (redundant but clear)
 private func internalHelper() -> Number:
     return 42;
 end
 
-# Constants can be exported explicitly
+# Constants must be exported to be public
 export let API_VERSION = "1.0.0";
 
-# Or implicitly
+# Implicitly private (default)
 let MODULE_NAME = "utils";
 
-# Private constant (won't be accessible outside)
+# Explicitly private constant
 private let SECRET_KEY = "hidden";
 ```
 
-**Example with private-default:**
+**Example with export mode:**
 ```myco
-#! private-default  # Top-level is private by default
+#! export  # Top-level is exported by default
 
-# This would be private
-func wouldBePrivate(x: Number) -> Number:
+# This would be exported
+func wouldBePublic(x: Number) -> Number:
     return x * 2;
 end
 
-# This is public (explicit export required)
-export func actuallyPublic(x: Number) -> Number:
+# This is private (explicit private required)
+private func actuallyPrivate(x: Number) -> Number:
     return x * 3;
 end
 ```
@@ -295,34 +299,34 @@ end
 1. If a symbol is marked `private` → Never accessible outside module
 2. If a symbol is marked `export` → Always accessible (even if nested)
 3. If neither and file is `strict` → ERROR (must be explicit)
-4. If neither and file is `export-default` (default) → Public (implicit export)
-5. If neither and file is `private-default` → Private (opt-in exports)
+4. If neither and file is `private` (default) → Private (opt-in exports)
+5. If neither and file is `export` → Public (implicit export)
 6. If neither and nested → Private (scope-based, regardless of mode)
 
 **File-Level Directives (Scoped):**
 
-**`#! export` (Default - No directive needed):**
-- Top-level symbols in scope are public by default
-- `export` keyword is optional (for clarity/documentation)
-- `private` keyword marks as internal
-- Can be applied to file or to code sections
-- Best for: Scripts, utilities, development code
-```myco
-#! export  # or just omit (default behavior)
-func publicFunc() -> Number: return 42; end  # Exported automatically
-private func internal() -> Number: return 0; end  # Private
-```
-
-**`#! private`:**
+**`#! private` (Default - No directive needed):**
 - Top-level symbols in scope are private by default
 - Must use `export` to make public
 - Explicit opt-in for public API
 - Can be applied to file or to code sections
-- Best for: Library code, APIs, production modules
+- Best for: Library code, APIs, production modules, security
 ```myco
-#! private
+#! private  # or just omit (default behavior)
 func privateFunc() -> Number: return 42; end  # Private (not exported)
 export func publicFunc() -> Number: return 0; end  # Exported
+```
+
+**`#! export`:**
+- Top-level symbols in scope are public by default
+- `export` keyword is optional (for clarity/documentation)
+- `private` keyword marks as internal
+- Can be applied to file or to code sections
+- Best for: Scripts, utilities, development code, rapid prototyping
+```myco
+#! export
+func publicFunc() -> Number: return 42; end  # Exported automatically
+private func internal() -> Number: return 0; end  # Private
 ```
 
 **`#! strict`:**
@@ -603,12 +607,12 @@ let product = times(3, 4);
    - Overrides file-level default
 
 4. Update export logic in interpreter
-   - Track active directive state (starts with default `#! export`)
+   - Track active directive state (starts with default `#! private`)
    - Check scoped directive for each code section
    - Check for `export`/`private` modifiers on AST nodes
    - Apply rules based on directive and keyword presence:
-     - `#! export`: Export unmarked top-level (default behavior)
-     - `#! private`: Private unmarked top-level
+     - `#! private`: Private unmarked top-level (default behavior)
+     - `#! export`: Export unmarked top-level
      - `#! strict`: Require explicit type annotations for all symbols
    - Filter exported symbols when creating module value
    - Return error on access to private symbols

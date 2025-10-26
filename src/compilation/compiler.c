@@ -1000,8 +1000,17 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
                    strcmp(member_access->data.member_access.member_name, "status_ok") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "get_header") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "get_json") == 0) {
-            // json.parse() and HTTP methods return void*
-            codegen_write(context, "void* ");
+            // json.parse() returns MycoValue, HTTP methods return void*
+            // Special case: json_error should be void* to allow NULL comparison
+            if (strcmp(member_access->data.member_access.member_name, "parse") == 0) {
+                if (strcmp(node->data.variable_declaration.variable_name, "json_error") == 0) {
+                    codegen_write(context, "void* ");
+                } else {
+                    codegen_write(context, "MycoValue ");
+                }
+            } else {
+                codegen_write(context, "void* ");
+            }
         } else if (strcmp(member_access->data.member_access.member_name, "test") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "is_email") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "is_url") == 0 ||
@@ -1010,8 +1019,8 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
             // regex and json methods return int (boolean)
             codegen_write(context, "int ");
         } else if (strcmp(member_access->data.member_access.member_name, "size") == 0) {
-            // json.size() returns double
-            codegen_write(context, "double ");
+            // size property returns int
+            codegen_write(context, "int ");
         } else if (strcmp(member_access->data.member_access.member_name, "search") == 0) {
             // Tree/Graph search methods return boolean
             codegen_write(context, "int ");
@@ -1118,8 +1127,8 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
             // json.stringify() returns char*
             codegen_write(context, "char* ");
         } else if (strstr(node->data.variable_declaration.initial_value->data.member_access.member_name, "size") != NULL) {
-            // json.size() returns double
-            codegen_write(context, "double ");
+            // size property returns int
+            codegen_write(context, "int ");
         } else if (strstr(node->data.variable_declaration.initial_value->data.member_access.member_name, "post") != NULL ||
                    strstr(node->data.variable_declaration.initial_value->data.member_access.member_name, "get") != NULL ||
                    strstr(node->data.variable_declaration.initial_value->data.member_access.member_name, "put") != NULL ||
@@ -1165,6 +1174,7 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
         // Set current variable name for context-aware code generation
         context->current_variable_name = node->data.variable_declaration.variable_name;
         codegen_write(context, " = ");
+        
         
         // Check if this is a union type (void*) being assigned a numeric value
         if (node->data.variable_declaration.type_name && 

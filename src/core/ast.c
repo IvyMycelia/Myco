@@ -171,6 +171,8 @@ ASTNode* ast_create_variable_declaration(const char* name, const char* type, AST
     node->data.variable_declaration.type_name = type ? (type ? shared_strdup(type) : NULL) : NULL;
     node->data.variable_declaration.initial_value = initial_value;
     node->data.variable_declaration.is_mutable = is_mutable;
+    node->data.variable_declaration.is_export = 0;
+    node->data.variable_declaration.is_private = 0;
     node->line = line;
     node->column = column;
     node->next = NULL;
@@ -504,6 +506,8 @@ ASTNode* ast_create_generic_function(const char* name, char** generic_params, si
     node->data.function_definition.parameter_count = param_count;
     node->data.function_definition.return_type = return_type ? (return_type ? shared_strdup(return_type) : NULL) : NULL;
     node->data.function_definition.body = body;
+    node->data.function_definition.is_export = 0;
+    node->data.function_definition.is_private = 0;
     
     // Handle generic parameters
     node->data.function_definition.generic_parameter_count = generic_param_count;

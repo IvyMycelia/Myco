@@ -117,8 +117,37 @@ Support both implicit exports for simplicity AND explicit imports for flexibilit
 
 #### Best Hybrid Syntax
 
-**Module Definition (utils/myco):**
+**Module Definition with File Directives (utils/myco):**
+
 ```myco
+# File-level directives (at very top of file, before any code)
+#! strict           # Require explicit export/private keywords for all top-level symbols
+#! export-default    # Export by default (default behavior)
+#! private-default   # Private by default (opt-in to exports)
+
+# Example with strict mode
+#! strict
+
+# This would require explicit export/private
+export func publicFunction(x: Number) -> Number:
+    return x * 2;
+end
+
+# Without export would be ERROR in strict mode
+# func anotherPublicFunction() -> Number:
+#     return 3;
+# end  # ERROR: Unmarked function in strict mode
+
+# Must be explicit
+private func internalHelper() -> Number:
+    return 42;
+end
+```
+
+**Full Example with Default Behavior:**
+```myco
+# No file directives = export-default (implicit exports)
+
 # Explicitly exported (recommended for public APIs)
 export func publicFunction(x: Number) -> Number:
     return x * 2;
@@ -142,6 +171,21 @@ let MODULE_NAME = "utils";
 
 # Private constant (won't be accessible outside)
 private let SECRET_KEY = "hidden";
+```
+
+**Example with private-default:**
+```myco
+#! private-default  # Top-level is private by default
+
+# This would be private
+func wouldBePrivate(x: Number) -> Number:
+    return x * 2;
+end
+
+# This is public (explicit export required)
+export func actuallyPublic(x: Number) -> Number:
+    return x * 3;
+end
 ```
 
 **Import Options:**
@@ -222,15 +266,52 @@ end
 **Priority System:**
 1. If a symbol is marked `private` → Never accessible outside module
 2. If a symbol is marked `export` → Always accessible (even if nested)
-3. If neither and top-level → Public by default (implicit export)
-4. If neither and nested → Private (scope-based)
+3. If neither and file is `strict` → ERROR (must be explicit)
+4. If neither and file is `export-default` (default) → Public (implicit export)
+5. If neither and file is `private-default` → Private (opt-in exports)
+6. If neither and nested → Private (scope-based, regardless of mode)
+
+**File-Level Modes:**
+
+**`#! export-default` (Default - No directive needed):**
+- Top-level symbols are public by default
+- `export` keyword is optional (for clarity/documentation)
+- `private` keyword marks as internal
+- Best for: Scripts, utilities, development code
+```myco
+#! export-default  # or just omit the directive
+func publicFunc() -> Number: return 42; end  # Exported automatically
+private func internal() -> Number: return 0; end  # Private
+```
+
+**`#! private-default`:**
+- Top-level symbols are private by default
+- Must use `export` to make public
+- Explicit opt-in for public API
+- Best for: Library code, APIs, production modules
+```myco
+#! private-default
+func privateFunc() -> Number: return 42; end  # Private (not exported)
+export func publicFunc() -> Number: return 0; end  # Exported
+```
+
+**`#! strict`:**
+- ALL top-level symbols MUST have `export` or `private`
+- No implicit exports allowed
+- Forces explicit visibility decisions everywhere
+- Best for: Large projects, team development, public libraries
+```myco
+#! strict
+export func publicFunc() -> Number: return 42; end  # REQUIRED
+private func privateFunc() -> Number: return 0; end  # REQUIRED
+# ERROR: func unmarked() -> Number: return 1; end  # Missing export/private
+```
 
 **Export Semantics:**
-- `export` is explicit intent: "I want this to be public" (overrides scope)
-- `private` is explicit intent: "Keep this internal" (overrides default)
-- No keyword is implicit: "Scope determines visibility"
-- Top-level = public by default
-- Nested/local = private by default
+- `export` is explicit intent: "I want this to be public" (overrides file mode)
+- `private` is explicit intent: "Keep this internal" (overrides file mode)
+- No keyword behavior depends on file mode
+- Nested/local symbols are always private regardless of mode
 
 **Why this hybrid approach works:**
 
@@ -445,36 +526,57 @@ let product = times(3, 4);
 
 **Deliverable:** Direct function access without namespace
 
-### Phase 3: Explicit Export Keywords (Medium-term)
-**Goal:** Add `export` and `private` keywords
+### Phase 3: Explicit Export Keywords + File Directives (Medium-term)
+**Goal:** Add `export`/`private` keywords and file-level directives
 
-1. Add `export` keyword to lexer and parser
+1. Add file-level directive parsing
+   - Parse `#! strict`, `#! export-default`, `#! private-default` at file top
+   - Store directive in module metadata
+   - Apply directive rules during export filtering
+
+2. Add `export` keyword to lexer and parser
    - `export func ...`, `export let ...`, `export class ...`
    - Mark symbol for intentional export
    - Explicit intent for public API
+   - Overrides file-level default
 
-2. Add `private` keyword to lexer and parser
+3. Add `private` keyword to lexer and parser
    - `private func ...`, `private let ...`, `private class ...`
    - Mark symbol as internal-only
    - Prevent access from outside module
+   - Overrides file-level default
 
-3. Update export logic in interpreter
+4. Update export logic in interpreter
+   - Check file-level directive
    - Check for `export`/`private` modifiers on AST nodes
+   - Apply rules based on directive and keyword presence:
+     - `strict`: Require explicit export/private for all top-level
+     - `export-default`: Export unmarked top-level (default)
+     - `private-default`: Private unmarked top-level
    - Filter exported symbols when creating module value
    - Return error on access to private symbols
 
-4. Test explicit control
+5. Test explicit control with different modes
    ```myco
-   # In module
-   export func publicAPI();
-   private func internalOnly();
+   # Module 1: Strict mode
+   #! strict
+   export func publicAPI();    # OK
+   private func internalOnly(); # OK
+   # func unmarked();          # ERROR: strict mode requires export/private
    
-   # In importer
-   module.publicAPI();    # OK
-   module.internalOnly();  # ERROR: private
+   # Module 2: Private-default
+   #! private-default
+   func wouldBePrivate();     # Private
+   export func wouldBePublic(); # Public
+   
+   # Importer
+   module1.publicAPI();       # OK
+   module1.internalOnly();    # ERROR: private
+   module2.wouldBePrivate();  # ERROR: private
+   module2.wouldBePublic();  # OK
    ```
 
-**Deliverable:** Full control over module exports
+**Deliverable:** Full control over module exports with file-level configuration
 
 ### Phase 4: Optimizations (Long-term)
 **Goal:** Production-ready module system

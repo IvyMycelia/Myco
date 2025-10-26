@@ -24,6 +24,7 @@ typedef struct {
         char* string_value;
         int bool_value;
         void* object_value;
+        void* array_value;
     } data;
 } MycoValue;
 
@@ -67,12 +68,16 @@ int isNumber(void* value);
 int myco_get_size(MycoValue value);
 int myco_get_size_string(const char* value);
 int myco_get_size_void(void* value);
+int myco_array_length(char** array);
+char** myco_array_add_element(char** array, void* element);
+char** myco_array_add_numeric_element(char** array, double value);
 const char* myco_get_type_string(const char* value);
 const char* myco_get_type_void(void* value);
 const char* myco_get_type_int(int value);
 const char* myco_get_type_myco_value(MycoValue value);
 int myco_is_null(MycoValue value);
 MycoValue myco_value_object(void* data);
+MycoValue myco_value_array(void* data);
 MycoValue myco_json_parse(const char* json_str);
 void* myco_json_parse_void(const char* json_str);
 

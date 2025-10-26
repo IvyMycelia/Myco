@@ -1022,8 +1022,8 @@ int codegen_generate_c_variable_declaration(CodeGenContext* context, ASTNode* no
             // size property returns int
             codegen_write(context, "int ");
         } else if (strcmp(member_access->data.member_access.member_name, "search") == 0) {
-            // Tree/Graph search methods return boolean
-            codegen_write(context, "int ");
+            // Tree/Graph search methods return boolean object
+            codegen_write(context, "void* ");
         } else if (strcmp(member_access->data.member_access.member_name, "post") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "get") == 0 ||
                    strcmp(member_access->data.member_access.member_name, "put") == 0) {

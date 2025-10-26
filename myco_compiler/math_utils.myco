@@ -8,5 +8,7 @@ func cube(x: Number) -> Number:
     return x * x * x;
 end
 
-print("Math utilities module loaded");
+let pi = 3.141592653589793115997963468544185161590576171875
 
+print("Math utilities module loaded");
+print(pi);

@@ -900,49 +900,72 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                             Parser* file_parser = parser_initialize(file_lexer);
                             if (file_parser) {
                                 ASTNode* file_ast = parser_parse_program(file_parser);
-                                if (file_ast && file_ast->type == AST_NODE_BLOCK) {
-                                }
-                                    if (file_ast) {
-                                    // Execute the imported file's AST in a separate module environment
-                                    // to capture all functions and values as exports
-                                    Environment* module_env = environment_create(interpreter->current_environment);
-                                    
-                                    // Save current environment
-                                    Environment* old_env = interpreter->current_environment;
-                                    
-                                    // Switch to module environment
-                                    interpreter->current_environment = module_env;
-                                    
-                                    // Execute the imported file
-                                    eval_node(interpreter, file_ast);
-                                    
-                                    // Create module value with exports (use module_env as exports)
-                                    Value module_value = value_create_module(alias, (void*)module_env);
-                                    
-                                    // Restore current environment
-                                    interpreter->current_environment = old_env;
-                                    
-                                    // Bind the module to the alias
-                                    environment_define(interpreter->current_environment, alias, module_value);
+                                if (file_ast) {
+                                    // Check if this is a specific import
+                                    if (specific_items && item_count > 0) {
+                                        // Specific imports: load module and extract specific items
+                                        Environment* module_env = environment_create(interpreter->current_environment);
+                                        Environment* old_env = interpreter->current_environment;
+                                        interpreter->current_environment = module_env;
+                                        
+                                        // Execute the imported file in module environment
+                                        eval_node(interpreter, file_ast);
+                                        
+                                        // Extract specific items from module into current environment
+                                        for (size_t i = 0; i < item_count; i++) {
+                                            const char* item_name = specific_items[i];
+                                            const char* item_alias = (specific_aliases && specific_aliases[i]) ? specific_aliases[i] : item_name;
+                                            
+                                            // Get the item from module environment
+                                            Value item = environment_get(module_env, item_name);
+                                            if (item.type != VALUE_NULL) {
+                                                // Clone and add to current environment with alias
+                                                Value cloned_item = value_clone(&item);
+                                                environment_define(old_env, item_alias, cloned_item);
+                                            }
+                                        }
+                                        
+                                        // Restore current environment
+                                        interpreter->current_environment = old_env;
+                                        
+                                        free(source);
+                                        free(file_path);
+                                        return value_create_null();
+                                    } else {
+                                        // Full module import: create module object
+                                        Environment* module_env = environment_create(interpreter->current_environment);
+                                        Environment* old_env = interpreter->current_environment;
+                                        
+                                        // Switch to module environment
+                                        interpreter->current_environment = module_env;
+                                        
+                                        // Execute the imported file
+                                        eval_node(interpreter, file_ast);
+                                        
+                                        // Create module value with exports
+                                        Value module_value = value_create_module(alias, (void*)module_env);
+                                        
+                                        // Restore current environment
+                                        interpreter->current_environment = old_env;
+                                        
+                                        // Bind the module to the alias
+                                        environment_define(interpreter->current_environment, alias, module_value);
+                                        
+                                        free(source);
+                                        free(file_path);
+                                        return value_create_null();
+                                    }
                                 }
                                 parser_free(file_parser);
                             }
                             lexer_free(file_lexer);
                         }
-                                free(source);
+                        free(source);
                     } else {
                         fclose(file);
                     }
                 }
                 free(file_path);
-                
-                // Handle specific imports if requested
-                if (specific_items && item_count > 0) {
-                    // Load the module and import specific items
-                    // (For now, this uses the same code as full module import)
-                    // TODO: Implement specific item extraction from module
-                }
-                
                 return value_create_null();
             }
             

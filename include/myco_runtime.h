@@ -6,6 +6,7 @@
 #include <string.h>
 #include <math.h>
 
+
 // Myco runtime types
 typedef enum {
     MYCO_TYPE_NUMBER,
@@ -22,6 +23,7 @@ typedef struct {
         double number_value;
         char* string_value;
         int bool_value;
+        void* object_value;
     } data;
 } MycoValue;
 
@@ -60,6 +62,19 @@ int isBool(void* value);
 int isArray(void* value);
 int isNull(void* value);
 int isNumber(void* value);
+
+// Size and utility functions
+int myco_get_size(MycoValue value);
+int myco_get_size_string(const char* value);
+int myco_get_size_void(void* value);
+const char* myco_get_type_string(const char* value);
+const char* myco_get_type_void(void* value);
+const char* myco_get_type_int(int value);
+const char* myco_get_type_myco_value(MycoValue value);
+int myco_is_null(MycoValue value);
+MycoValue myco_value_object(void* data);
+MycoValue myco_json_parse(const char* json_str);
+void* myco_json_parse_void(const char* json_str);
 
 // Type checking functions for double values
 int isInt_double(double value);

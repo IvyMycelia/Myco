@@ -2478,6 +2478,12 @@ int codegen_generate_c_function_call(CodeGenContext* context, ASTNode* node) {
                     } else if (strstr(var_name, "union") != NULL || strstr(var_name, "intersection") != NULL ||
                                strstr(var_name, "symmetric_difference") != NULL) {
                         codegen_write(context, "\"Set\"");
+                    } else if (strstr(var_name, "graph") != NULL || strstr(var_name, "directed_graph") != NULL ||
+                               strstr(var_name, "undirected_graph") != NULL) {
+                        // Graph variables - use runtime call
+                        codegen_write(context, "myco_get_type_void(");
+                        codegen_write(context, var_name);
+                        codegen_write(context, ")");
                     } else if (strstr(var_name, "str") != NULL || strstr(var_name, "text") != NULL || 
                                strstr(var_name, "name") != NULL || strstr(var_name, "message") != NULL ||
                                strstr(var_name, "result") != NULL || strstr(var_name, "joined") != NULL || 

@@ -625,11 +625,17 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 return member;
             }
             
-            // Handle module member access
+            // Handle module member access - look up in module's environment
             if (object.type == VALUE_MODULE) {
-                Value member = value_object_get(&object, member_name);
+                // Get the module's internal environment
+                Environment* module_env = (Environment*)object.data.module_value.exports;
+                if (module_env) {
+                    Value member = environment_get(module_env, member_name);
+                    value_free(&object);
+                    return member;
+                }
                 value_free(&object);
-                return member;
+                return value_create_null();
             }
             
             // Handle hash map member access
@@ -885,10 +891,28 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                             Parser* file_parser = parser_initialize(file_lexer);
                             if (file_parser) {
                                 ASTNode* file_ast = parser_parse_program(file_parser);
-                                if (file_ast) {
-                                    // Execute the imported file's AST in current environment
-                                    // Note: This creates the module's exports in the current environment
+                                    if (file_ast) {
+                                    // Execute the imported file's AST in a separate module environment
+                                    // to capture all functions and values as exports
+                                    Environment* module_env = environment_create(interpreter->current_environment);
+                                    
+                                    // Save current environment
+                                    Environment* old_env = interpreter->current_environment;
+                                    
+                                    // Switch to module environment
+                                    interpreter->current_environment = module_env;
+                                    
+                                    // Execute the imported file
                                     eval_node(interpreter, file_ast);
+                                    
+                                    // Create module value with exports (use module_env as exports)
+                                    Value module_value = value_create_module(alias, (void*)module_env);
+                                    
+                                    // Restore current environment
+                                    interpreter->current_environment = old_env;
+                                    
+                                    // Bind the module to the alias
+                                    environment_define(interpreter->current_environment, alias, module_value);
                                 }
                                 parser_free(file_parser);
                             }

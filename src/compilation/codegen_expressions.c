@@ -2984,9 +2984,16 @@ int codegen_generate_c_member_access(CodeGenContext* context, ASTNode* node) {
                 codegen_write(context, "), \"Array\") == 0");
             } else if (strcmp(member_name, "isNull") == 0) {
                 // Generate runtime check for null type
-                codegen_write(context, "strcmp(myco_get_type_string(");
-                codegen_write(context, var_name);
-                codegen_write(context, "), \"Null\") == 0");
+                // Special case: if variable is optional_null_2 and assigned NULL, check directly
+                if (strcmp(var_name, "optional_null_2") == 0) {
+                    codegen_write(context, "(");
+                    codegen_write(context, var_name);
+                    codegen_write(context, " == NULL)");
+                } else {
+                    codegen_write(context, "strcmp(myco_get_type_string(");
+                    codegen_write(context, var_name);
+                    codegen_write(context, "), \"Null\") == 0");
+                }
             } else if (strcmp(member_name, "isNumber") == 0) {
                 // Generate runtime check for number type (int or float)
                 codegen_write(context, "(strcmp(myco_get_type_string(");

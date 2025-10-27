@@ -36,6 +36,10 @@ static int pattern_matches_regex(Interpreter* interpreter, Value* value, ASTNode
 // Forward declaration for global error system
 extern EnhancedErrorSystem* global_error_system;
 
+// Forward declarations for control flow functions
+Value eval_break_statement(Interpreter* interpreter, ASTNode* node);
+Value eval_continue_statement(Interpreter* interpreter, ASTNode* node);
+
 // ============================================================================
 // CORE EVALUATION FUNCTIONS
 // ============================================================================
@@ -62,6 +66,10 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
         case AST_NODE_STRING: return value_create_string(node->data.string_value);
         case AST_NODE_BOOL: return value_create_boolean(node->data.bool_value);
         case AST_NODE_NULL: return value_create_null();
+        case AST_NODE_TYPED_PARAMETER:
+            // Typed parameters are type annotations, not runtime values
+            // They should never be evaluated directly
+            return value_create_null();
         case AST_NODE_IDENTIFIER: {
             const char* name = node->data.identifier_value;
             
@@ -91,26 +99,44 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                 }
             }
             
+            // Check if this is a built-in type name - these should never be evaluated as variables
+            if (strcmp(name, "String") == 0 || strcmp(name, "Int") == 0 || strcmp(name, "Float") == 0 ||
+                strcmp(name, "Bool") == 0 || strcmp(name, "Array") == 0 || strcmp(name, "Object") == 0 ||
+                strcmp(name, "Null") == 0 || strcmp(name, "Any") == 0 || strcmp(name, "Number") == 0) {
+                // Type annotations should not be evaluated - return null silently
+                return value_create_null();
+            }
+            
             Value result;
             // Check if the variable exists in current environment first
             if (environment_exists(interpreter->current_environment, name)) {
                 result = environment_get(interpreter->current_environment, name);
-            } else if (environment_exists(interpreter->global_environment, name)) {
-                result = environment_get(interpreter->global_environment, name);
             } else {
-                char error_msg[256];
-                // Check if this looks like a library call (e.g., "debug.help", "graphs.isEmpty")
-                if (strchr(name, '.') != NULL) {
-                    char* library_name = shared_strdup(name);
-                    char* dot_pos = strchr(library_name, '.');
-                    *dot_pos = '\0';
-                    snprintf(error_msg, sizeof(error_msg), "\"%s\" library is not found", library_name);
-                    shared_free_safe(library_name, "interpreter", "eval_node", 0);
-                } else {
-                    snprintf(error_msg, sizeof(error_msg), "\"%s\" is undefined", name);
+                // Try to find in captured environment (for module internal functions)
+                Environment* captured = NULL;
+                if (interpreter->current_environment && interpreter->current_environment->parent) {
+                    captured = interpreter->current_environment->parent;
                 }
-                interpreter_set_error(interpreter, error_msg, node->line, node->column);
-                result = value_create_null();
+                
+                if (captured && environment_exists(captured, name)) {
+                    result = environment_get(captured, name);
+                } else if (environment_exists(interpreter->global_environment, name)) {
+                    result = environment_get(interpreter->global_environment, name);
+                } else {
+                    char error_msg[256];
+                    // Check if this looks like a library call (e.g., "debug.help", "graphs.isEmpty")
+                    if (strchr(name, '.') != NULL) {
+                        char* library_name = shared_strdup(name);
+                        char* dot_pos = strchr(library_name, '.');
+                        *dot_pos = '\0';
+                        snprintf(error_msg, sizeof(error_msg), "\"%s\" library is not found", library_name);
+                        shared_free_safe(library_name, "interpreter", "eval_node", 0);
+                    } else {
+                        snprintf(error_msg, sizeof(error_msg), "\"%s\" is undefined", name);
+                    }
+                    interpreter_set_error(interpreter, error_msg, node->line, node->column);
+                    result = value_create_null();
+                }
             }
             return result;
         }
@@ -429,6 +455,8 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
         case AST_NODE_IF_STATEMENT: return eval_if_statement(interpreter, node);
         case AST_NODE_WHILE_LOOP: return eval_while_loop(interpreter, node);
         case AST_NODE_RETURN: return eval_return_statement(interpreter, node);
+        case AST_NODE_BREAK: return eval_break_statement(interpreter, node);
+        case AST_NODE_CONTINUE: return eval_continue_statement(interpreter, node);
         case AST_NODE_THROW: return eval_throw_statement(interpreter, node);
         case AST_NODE_ASSIGNMENT: {
             // Evaluate the value to assign
@@ -744,8 +772,8 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
         }
         case AST_NODE_FUNCTION: {
             const char* func_name = node->data.function_definition.function_name;
-            // For top-level functions, always capture the global environment to ensure access to libraries
-            Environment* captured_env = interpreter->global_environment;
+            // Capture the current environment (module or global) so functions can call each other
+            Environment* captured_env = interpreter->current_environment;
             
             Value function_value = value_create_function(
                 node->data.function_definition.body,

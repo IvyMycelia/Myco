@@ -32,7 +32,6 @@ Value builtin_set_response_body(Interpreter* interpreter, Value* args, size_t ar
     }
     
     if (args[0].type != VALUE_STRING) {
-        printf("DEBUG: set_response_body argument type: %d (expected STRING)\n", args[0].type);
         fflush(stdout);
         std_error_report(ERROR_TYPE_MISMATCH, "server", "unknown_function", "set_response_body argument must be a string", line, column);
         return value_create_null();
@@ -193,12 +192,6 @@ Route* route_create(const char* method, const char* path, Value handler) {
     route->params = NULL;  // Initialize params to NULL
     route->handler = value_clone(&handler);  // Clone the function value to preserve the body
     route->next = NULL;
-    
-    printf("DEBUG: Route created, handler type: %d, body type: %d, statement_count: %zu\n", 
-           route->handler.type,
-           route->handler.type == VALUE_FUNCTION && route->handler.data.function_value.body ? route->handler.data.function_value.body->type : -1,
-           route->handler.type == VALUE_FUNCTION && route->handler.data.function_value.body && route->handler.data.function_value.body->type == AST_NODE_BLOCK ? route->handler.data.function_value.body->data.block.statement_count : 0);
-    
     return route;
 }
 
@@ -738,7 +731,6 @@ int server_handle_request(void* cls, void* connection, const char* url, const ch
                         }
                     }
                     
-                    printf("Sending 200 OK response\n");
                     
                     // Free compressed content if it was created
                     if (compressed_content) {
@@ -769,7 +761,6 @@ int server_handle_request(void* cls, void* connection, const char* url, const ch
     MycoRequest* request = parse_http_request(connection, url, method);
     if (!request) {
         const char* response = "500 Internal Server Error";
-        printf("500 Internal Server Error: Failed to parse request\n");
         // Note: In our custom implementation, we handle 500 responses differently
         return 1;
     }
@@ -782,7 +773,6 @@ int server_handle_request(void* cls, void* connection, const char* url, const ch
     if (!response) {
         free_request_object(request);
         const char* error_response = "500 Internal Server Error";
-        printf("500 Internal Server Error: Failed to create response\n");
         // Note: In our custom implementation, we handle 500 responses differently
         return 1;
     }
@@ -806,10 +796,8 @@ int server_handle_request(void* cls, void* connection, const char* url, const ch
     
     // Call the route handler if it exists
     if (route->handler.type == VALUE_FUNCTION && g_interpreter) {
-        printf("DEBUG: Executing route handler for %s %s\n", method, url);
         // Execute the Myco route handler function
         Value handler_result = execute_myco_function(g_interpreter, route->handler, &req_obj, &res_obj);
-        printf("DEBUG: Route handler executed, result type: %d\n", handler_result.type);
         value_free(&handler_result);
         
         // After route handler execution, sync any changes from global response data back to the local response object
@@ -837,7 +825,6 @@ int server_handle_request(void* cls, void* connection, const char* url, const ch
     
     
     // Create response
-    printf("Sending response: %d, body length: %zu\n", status_code, strlen(response_body));
     // Note: In our custom implementation, we handle response sending differently
     
     // Clean up
@@ -854,7 +841,6 @@ int server_handle_request(void* cls, void* connection, const char* url, const ch
 
 // Create a new server
 Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
-    printf("DEBUG: builtin_server_create called\n");
     fflush(stdout);
     
     if (arg_count != 1) {
@@ -862,7 +848,6 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
         return value_create_null();
     }
     
-    printf("DEBUG: Parsing arguments\n");
     fflush(stdout);
     
     Value arg = args[0];
@@ -886,7 +871,6 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
         return value_create_null();
     }
     
-    printf("DEBUG: About to create server\n");
     fflush(stdout);
     
     // Free existing server if any
@@ -894,7 +878,6 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
         server_free(g_server);
     }
     
-    printf("DEBUG: Creating server\n");
     fflush(stdout);
     
     // Create new server
@@ -904,7 +887,6 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
         g_server = server_create(port, interpreter);
     }
     
-    printf("DEBUG: Server created\n");
     fflush(stdout);
     
     if (!g_server) {
@@ -916,32 +898,25 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
     // Store interpreter reference for route handlers
     g_interpreter = interpreter;
     
-    printf("DEBUG: About to register global variables\n");
     fflush(stdout);
     
     // Register global response variables with the interpreter
     if (interpreter && interpreter->global_environment) {
-        printf("DEBUG: Registering g_response_body\n");
         fflush(stdout);
         // Register global response body variable
         environment_define(interpreter->global_environment, "g_response_body", value_create_string(""));
         
-        printf("DEBUG: Registering g_response_status_code\n");
         fflush(stdout);
         // Register global response status code variable
         environment_define(interpreter->global_environment, "g_response_status_code", value_create_number(200));
         
-        printf("DEBUG: About to register set_response_body\n");
         fflush(stdout);
         // Register built-in functions to set global response data
         Value set_response_body_func = value_create_builtin_function(builtin_set_response_body);
-        printf("DEBUG: Created set_response_body function, type: %d\n", set_response_body_func.type);
         fflush(stdout);
         environment_define(interpreter->global_environment, "set_response_body", set_response_body_func);
-        printf("DEBUG: Registered set_response_body in global environment at %p\n", (void*)interpreter->global_environment);
         fflush(stdout);
         
-    printf("DEBUG: About to register set_response_status\n");
     fflush(stdout);
     environment_define(interpreter->global_environment, "set_response_status", value_create_builtin_function(builtin_set_response_status));
 
@@ -949,7 +924,6 @@ Value builtin_server_create(Interpreter* interpreter, Value* args, size_t arg_co
     // Register json library in server context
     json_library_register(interpreter);
 
-    printf("DEBUG: Registered all global variables\n");
     fflush(stdout);
     }
     
@@ -2180,9 +2154,7 @@ Value execute_myco_function_1(Interpreter* interpreter, Value function, Value* a
 
 // Execute a Myco function from C
 Value execute_myco_function(Interpreter* interpreter, Value function, Value* arg1, Value* arg2) {
-    printf("DEBUG: execute_myco_function called, function type: %d, interpreter: %p\n", function.type, interpreter);
     if (!interpreter || function.type != VALUE_FUNCTION) {
-        printf("DEBUG: Invalid function or interpreter\n");
         return value_create_null();
     }
     
@@ -2199,7 +2171,6 @@ Value execute_myco_function(Interpreter* interpreter, Value function, Value* arg
     
     // Handle user-defined functions
     if (function.data.function_value.body) {
-        printf("DEBUG: Executing user-defined function, param count: %d\n", function.data.function_value.parameter_count);
         // Save current environment
         Environment* old_env = interpreter->current_environment;
         
@@ -2208,18 +2179,15 @@ Value execute_myco_function(Interpreter* interpreter, Value function, Value* arg
         
         // Set up function parameters - pass the actual request and response objects
         if (function.data.function_value.parameter_count >= 2 && function.data.function_value.parameters) {
-            printf("DEBUG: Setting up function parameters, count: %zu\n", function.data.function_value.parameter_count);
             // Set up the first parameter (req) - pass the actual request object
             if (function.data.function_value.parameters[0] && 
                 function.data.function_value.parameters[0]->type == AST_NODE_IDENTIFIER) {
-                printf("DEBUG: Setting up req parameter: %s\n", function.data.function_value.parameters[0]->data.identifier_value);
                 // Store the actual request object
                 environment_define(func_env, function.data.function_value.parameters[0]->data.identifier_value, *arg1);
             }
             // Set up the second parameter (res) - pass the actual response object
             if (function.data.function_value.parameters[1] && 
                 function.data.function_value.parameters[1]->type == AST_NODE_IDENTIFIER) {
-                printf("DEBUG: Setting up res parameter: %s\n", function.data.function_value.parameters[1]->data.identifier_value);
                 // Store the actual response object
                 environment_define(func_env, function.data.function_value.parameters[1]->data.identifier_value, *arg2);
             }

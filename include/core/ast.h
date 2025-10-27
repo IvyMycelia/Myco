@@ -472,6 +472,8 @@ ASTNode* ast_create_for_loop(const char* iterator, ASTNode* collection, ASTNode*
 ASTNode* ast_create_block(ASTNode** statements, size_t statement_count, int line, int column);
 ASTNode* ast_create_return(ASTNode* value, int line, int column);
 ASTNode* ast_create_throw(ASTNode* value, int line, int column);
+ASTNode* ast_create_break_statement(int line, int column);
+ASTNode* ast_create_continue_statement(int line, int column);
 ASTNode* ast_create_try_catch(ASTNode* try_block, const char* catch_var, ASTNode* catch_block, ASTNode* finally_block, int line, int column);
 ASTNode* ast_create_switch(ASTNode* expression, ASTNode** cases, size_t case_count, ASTNode* default_case, int line, int column);
 ASTNode* ast_create_match(ASTNode* expression, ASTNode** patterns, size_t pattern_count, int line, int column);

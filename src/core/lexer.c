@@ -546,6 +546,8 @@ static void lexer_parse_identifier(Lexer* lexer) {
         else if (strcmp(text, "public") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "export") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "private") == 0) type = TOKEN_KEYWORD;
+        else if (strcmp(text, "break") == 0) type = TOKEN_BREAK;
+        else if (strcmp(text, "continue") == 0) type = TOKEN_CONTINUE;
         
         lexer_add_token(lexer, type, text, lexer->line, lexer->column - (text ? strlen(text) : 0));
         shared_free_safe(text, "core", "unknown_function", 439);

@@ -2831,9 +2831,6 @@ ASTNode* parser_parse_function_declaration(Parser* parser) {
     }
     int dummy = 0;
     ASTNode* body = parser_collect_block(parser, /*stop_on_else*/0, &dummy);
-    printf("DEBUG: Function body parsed, type: %d, statement_count: %zu\n", 
-           body ? body->type : -1, 
-           body && body->type == AST_NODE_BLOCK ? body->data.block.statement_count : 0);
     if (!(parser_check(parser, TOKEN_KEYWORD) && parser->current_token && parser->current_token->text && strcmp(parser->current_token->text, "end") == 0)) {
         parser_error(parser, "Expected 'end' to close function");
         parser_synchronize(parser);

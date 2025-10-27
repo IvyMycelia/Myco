@@ -77,6 +77,7 @@ Value eval_while_loop(Interpreter* interpreter, ASTNode* node) {
         int truthy = value_is_truthy(&cond);
         value_free(&cond);
         if (!truthy) break;
+        
         if (node->data.while_loop.body) {
             Value body_result = interpreter_execute(interpreter, node->data.while_loop.body);
             if (interpreter_has_error(interpreter)) {
@@ -85,6 +86,17 @@ Value eval_while_loop(Interpreter* interpreter, ASTNode* node) {
             }
             // CRITICAL: Free the body result to prevent memory leak
             value_free(&body_result);
+        }
+        
+        // Check for break AFTER executing body - if break, exit loop
+        if (interpreter->break_depth > 0) {
+            interpreter->break_depth = 0;  // Consume the break
+            break;  // Exit the loop
+        }
+        // Check for continue AFTER executing body - if continue, go to next iteration
+        if (interpreter->continue_depth > 0) {
+            interpreter->continue_depth = 0;  // Consume the continue
+            continue;  // Next iteration
         }
     }
     return value_create_null();
@@ -122,6 +134,22 @@ Value eval_for_loop(Interpreter* interpreter, ASTNode* node) {
                     environment_free(loop_env);
                     value_free(&collection);
                     return value_create_null();
+                }
+                // Check for break - if break, exit loop
+                if (interpreter->break_depth > 0) {
+                    interpreter->break_depth = 0;  // Consume the break
+                    value_free(&body_result);
+                    // Restore environment before breaking
+                    interpreter->current_environment = old_env;
+                    environment_free(loop_env);
+                    value_free(&collection);
+                    return value_create_null();
+                }
+                // Check for continue - if continue, go to next iteration
+                if (interpreter->continue_depth > 0) {
+                    interpreter->continue_depth = 0;  // Consume the continue
+                    value_free(&body_result);
+                    continue;  // Next iteration
                 }
                 // CRITICAL: Free the body result to prevent memory leak
                 value_free(&body_result);
@@ -161,6 +189,22 @@ Value eval_for_loop(Interpreter* interpreter, ASTNode* node) {
                         environment_free(loop_env);
                         value_free(&collection);
                         return value_create_null();
+                    }
+                    // Check for break - if break, exit loop
+                    if (interpreter->break_depth > 0) {
+                        interpreter->break_depth = 0;  // Consume the break
+                        value_free(&body_result);
+                        // Restore environment before breaking
+                        interpreter->current_environment = old_env;
+                        environment_free(loop_env);
+                        value_free(&collection);
+                        return value_create_null();
+                    }
+                    // Check for continue - if continue, go to next iteration
+                    if (interpreter->continue_depth > 0) {
+                        interpreter->continue_depth = 0;  // Consume the continue
+                        value_free(&body_result);
+                        continue;  // Next iteration
                     }
                     // CRITICAL: Free the body result to prevent memory leak
                     value_free(&body_result);
@@ -339,6 +383,20 @@ Value eval_block(Interpreter* interpreter, ASTNode* node) {
         if (interpreter->has_return) {
             return value_create_null(); // Block returns null, but return value is preserved in interpreter
         }
+        // NOTE: Don't check break/continue here - let loops handle it
+        // The block itself should not consume these flags
     }
+    return value_create_null();
+}
+
+Value eval_break_statement(Interpreter* interpreter, ASTNode* node) {
+    if (!interpreter) return value_create_null();
+    interpreter->break_depth++;
+    return value_create_null();
+}
+
+Value eval_continue_statement(Interpreter* interpreter, ASTNode* node) {
+    if (!interpreter) return value_create_null();
+    interpreter->continue_depth++;
     return value_create_null();
 }

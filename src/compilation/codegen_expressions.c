@@ -127,7 +127,6 @@ int codegen_generate_c_identifier(CodeGenContext* context, ASTNode* node) {
     
     // Special case: Convert Null identifier to AST_NODE_NULL
     if (strcmp(var_name, "Null") == 0) {
-        printf("DEBUG: Converting Null identifier to AST_NODE_NULL\n");
         // Create a temporary AST_NODE_NULL node
         ASTNode null_node = {0};
         null_node.type = AST_NODE_NULL;

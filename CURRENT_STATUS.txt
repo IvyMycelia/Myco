@@ -1,8 +1,0 @@
-Current Status: 99.07% success rate (320/323 tests passing)
-
-Remaining 3 failures are parser-level constant folding issues:
-1. Null checking - (optional_null).isNull()  
-2. Float precision - 0.1 + 0.2 > 0.3
-3. JSON isEmpty() - arrays
-
-All require architectural parser changes to fix.

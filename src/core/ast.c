@@ -265,6 +265,30 @@ ASTNode* ast_create_throw(ASTNode* value, int line, int column) {
     return node;
 }
 
+ASTNode* ast_create_break_statement(int line, int column) {
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 264);
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_BREAK;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
+ASTNode* ast_create_continue_statement(int line, int column) {
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 277);
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_CONTINUE;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
 ASTNode* ast_create_try_catch(ASTNode* try_block, const char* catch_var, ASTNode* catch_block, ASTNode* finally_block, int line, int column) {
     ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 267);
     if (!node) return NULL;

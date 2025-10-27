@@ -66,6 +66,10 @@ typedef enum {
     TOKEN_OR,          // Logical OR (or)
     TOKEN_NOT,         // Logical NOT (not)
     
+    // Control flow keywords
+    TOKEN_BREAK,       // break keyword
+    TOKEN_CONTINUE,    // continue keyword
+    
     // Assignment operators
     TOKEN_ASSIGN,      // Simple assignment (=)
     TOKEN_PLUS_ASSIGN, // Add and assign (+=)

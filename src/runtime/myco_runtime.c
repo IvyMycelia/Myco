@@ -351,7 +351,7 @@ char* myco_number_to_string(double number) {
         if (number == (int)number) {
             snprintf(result, 64, "%d", (int)number);
         } else {
-            snprintf(result, 64, "%.6f", number);
+            snprintf(result, 64, "%g", number);
         }
     }
     return result;

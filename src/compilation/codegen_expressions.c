@@ -254,7 +254,7 @@ int codegen_generate_c_literal(CodeGenContext* context, ASTNode* node) {
                 // This handles the case where (optional_null_2).isNull() is constant-folded
                 codegen_write(context, "optional_null_2 == NULL");
             } else {
-                codegen_write(context, "NULL");
+            codegen_write(context, "NULL");
             }
             break;
         default:
@@ -701,14 +701,14 @@ int codegen_generate_c_binary_op(CodeGenContext* context, ASTNode* node) {
             // If either operand might be NULL, add NULL checks
             if (left_might_be_null || right_might_be_null) {
                 // Generate: (left != NULL && right != NULL && strcmp(left, right) == 0)
-                codegen_write(context, "(");
+            codegen_write(context, "(");
                 if (left_might_be_null) {
-                    if (!codegen_generate_c_expression(context, node->data.binary.left)) return 0;
+            if (!codegen_generate_c_expression(context, node->data.binary.left)) return 0;
                     codegen_write(context, " != NULL");
                     if (right_might_be_null) codegen_write(context, " && ");
                 }
                 if (right_might_be_null) {
-                    if (!codegen_generate_c_expression(context, node->data.binary.right)) return 0;
+            if (!codegen_generate_c_expression(context, node->data.binary.right)) return 0;
                     codegen_write(context, " != NULL");
                 }
                 codegen_write(context, " && ");

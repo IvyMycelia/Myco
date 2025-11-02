@@ -151,14 +151,14 @@ app.static("/", "./");
 # Start the server
 app.listen();
 
-print("🚀 Modern Myco Web Server Started!");
-print("📡 Server running on port 3000");
-print("🌐 CORS enabled for cross-origin requests");
+print("Modern Myco Web Server Started!");
+print("Server running on port 3000");
+print("CORS enabled for cross-origin requests");
 print("");
-print("🔗 Test the API:");
+print("Test the API:");
 print("   curl http://localhost:3000/api/events");
 print("   curl -X POST http://localhost:3000/api/auth/register");
 print("   curl -X POST http://localhost:3000/api/events");
 print("");
-print("🌍 Open http://localhost:3000/ in your browser!");
-print("⚡ Server will stay alive automatically (like JavaScript)");
+print("Open http://localhost:3000/ in your browser!");
+print("Server will stay alive automatically (like JavaScript)");

@@ -183,6 +183,20 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
     
     // Library object methods - check for specific library types first
     if (object.type == VALUE_OBJECT) {
+        // Check __class_name__ first for ServerLibrary to ensure correct routing
+        Value class_name_check = value_object_get(&object, "__class_name__");
+        if (class_name_check.type == VALUE_STRING && strcmp(class_name_check.data.string_value, "ServerLibrary") == 0) {
+            // Also verify __type__ is "Library" to be sure
+            Value object_type_check = value_object_get(&object, "__type__");
+            if (object_type_check.type == VALUE_STRING && strcmp(object_type_check.data.string_value, "Library") == 0) {
+                value_free(&class_name_check);
+                value_free(&object_type_check);
+                return handle_server_library_method_call(interpreter, call_node, method_name, object);
+            }
+            value_free(&object_type_check);
+        }
+        value_free(&class_name_check);
+        
         Value object_type = value_object_get(&object, "__type__");
         if (object_type.type == VALUE_STRING) {
             if (strcmp(object_type.data.string_value, "Database") == 0) {
@@ -191,6 +205,16 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                 value_free(&object_type);
                 return result;
             } else if (strcmp(object_type.data.string_value, "Library") == 0) {
+                // Check __class_name__ for ServerLibrary first (before library_name check)
+                Value class_name = value_object_get(&object, "__class_name__");
+                if (class_name.type == VALUE_STRING && strcmp(class_name.data.string_value, "ServerLibrary") == 0) {
+                    Value result = handle_server_library_method_call(interpreter, call_node, method_name, object);
+                    value_free(&object_type);
+                    value_free(&class_name);
+                    return result;
+                }
+                value_free(&class_name);
+                
                 // Check if this is a web or database library specifically
                 Value library_name = value_object_get(&object, "__library_name__");
                 if (library_name.type == VALUE_STRING) {
@@ -572,7 +596,9 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
         Value member = value_object_get(&object, method_name);
         if (member.type == VALUE_FUNCTION) {
             // Check if this is a library instance (has __class_name__)
+            // Skip if it's a specific library type that needs special handling
             Value class_name = value_object_get(&object, "__class_name__");
+            Value object_type = value_object_get(&object, "__type__");
             bool is_library_instance = (class_name.type == VALUE_STRING && 
                 (strcmp(class_name.data.string_value, "Tree") == 0 ||
                  strcmp(class_name.data.string_value, "Graph") == 0 ||
@@ -583,11 +609,16 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                  strcmp(class_name.data.string_value, "Request") == 0 ||
                  strcmp(class_name.data.string_value, "Response") == 0 ||
                  strcmp(class_name.data.string_value, "Database") == 0));
+            // For ServerLibrary objects, also skip the generic handler (they're handled by handle_server_library_method_call)
+            bool is_server_library = (object_type.type == VALUE_STRING && strcmp(object_type.data.string_value, "Library") == 0 &&
+                                     class_name.type == VALUE_STRING && strcmp(class_name.data.string_value, "ServerLibrary") == 0);
             
             value_free(&class_name);
+            value_free(&object_type);
             
             // Skip library instances - they will be handled by specific handlers below
-            if (is_library_instance) {
+            // Also skip ServerLibrary - it's handled by handle_server_library_method_call (checked earlier)
+            if (is_library_instance || is_server_library) {
                 value_free(&member);
                 // Fall through to specific class handlers
             } else {
@@ -687,6 +718,11 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                 // Handle stack method calls
                 value_free(&class_name);
                 return handle_stack_method_call(interpreter, call_node, method_name, object);
+            } else if (strcmp(class_name.data.string_value, "ServerLibrary") == 0) {
+                // Handle server library method calls (check before "Server" to avoid confusion)
+                // This is a fallback check in case the Library type check at line 193 didn't match
+                value_free(&class_name);
+                return handle_server_library_method_call(interpreter, call_node, method_name, object);
             } else if (strcmp(class_name.data.string_value, "Server") == 0) {
                 // Handle server method calls
                 value_free(&class_name);
@@ -703,10 +739,6 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                 // Handle route group method calls
                 value_free(&class_name);
                 return handle_route_group_method_call(interpreter, call_node, method_name, object);
-            } else if (strcmp(class_name.data.string_value, "ServerLibrary") == 0) {
-                // Handle server library method calls
-                value_free(&class_name);
-                return handle_server_library_method_call(interpreter, call_node, method_name, object);
             } else {
                 // Handle user-defined class method calls
                 // Look up the class definition
@@ -748,6 +780,17 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                     }
                     value_free(&class_def);
                     value_free(&method);
+                }
+            }
+        }
+        value_free(&class_name);
+    }
+    
+    // If we get here, the method wasn't found
+    interpreter_set_error(interpreter, "Method not found", call_node->line, call_node->column);
+    return value_create_null();
+}
+
                 }
             }
         }

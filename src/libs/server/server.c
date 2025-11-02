@@ -1773,6 +1773,9 @@ void server_library_register(Interpreter* interpreter) {
     // Create server library object
     Value server_lib = value_create_object(12);
     value_object_set(&server_lib, "__class_name__", value_create_string("ServerLibrary"));
+    value_object_set(&server_lib, "__type__", value_create_string("Library"));
+    value_object_set(&server_lib, "__library_name__", value_create_string("server"));
+    value_object_set(&server_lib, "type", value_create_string("Library"));
     value_object_set(&server_lib, "create", value_create_builtin_function(builtin_server_create));
     value_object_set(&server_lib, "listen", value_create_builtin_function(builtin_server_listen));
     value_object_set(&server_lib, "stop", value_create_builtin_function(builtin_server_stop));

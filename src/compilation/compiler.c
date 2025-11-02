@@ -530,7 +530,7 @@ static void generate_function_literals_inline(CodeGenContext* ctx, ASTNode* n) {
                         if (!codegen_generate_c_function_declaration(ctx, func_node, var_name)) {
                             fprintf(stderr, "Error: Failed to generate function literal for variable %s\n", var_name);
                         }
-                    } else {
+    } else {
                         // Function already has a name - generate normally (but still generate it!)
                         if (!codegen_generate_c_function_declaration(ctx, func_node, NULL)) {
                             fprintf(stderr, "Error: Failed to generate function literal for variable %s (name: %s)\n", var_name, existing_name);
@@ -583,8 +583,8 @@ int codegen_generate_c_program(CodeGenContext* context, ASTNode* node) {
             if (stmt->type == AST_NODE_FUNCTION) {
                 if (!codegen_generate_c_statement(context, stmt)) {
                     fprintf(stderr, "Error: Failed to generate function at statement %zu\n", i);
-                    return 0;
-                }
+            return 0;
+        }
             }
             // Skip variable declarations with function literals here - they're already handled by generate_function_literals_inline()
             // This prevents duplicate function generation
@@ -594,7 +594,7 @@ int codegen_generate_c_program(CodeGenContext* context, ASTNode* node) {
     // Generate main function
     codegen_write_line(context, "// Main program entry point");
     codegen_write_line(context, "int main(void) {");
-    codegen_indent(context);
+        codegen_indent(context);
     
     // Generate library availability test variables with placeholder objects
     codegen_write_line(context, "void* db = (void*)0x1234;");
@@ -609,10 +609,10 @@ int codegen_generate_c_program(CodeGenContext* context, ASTNode* node) {
             if (stmt->type != AST_NODE_FUNCTION) {
                 if (!codegen_generate_c_statement(context, stmt)) {
                     fprintf(stderr, "Error: Failed to generate statement %zu (type: %d)\n", i, (int)stmt->type);
-                    return 0;
-                }
+                return 0;
             }
         }
+    }
     }
     
     codegen_unindent(context);
@@ -620,7 +620,7 @@ int codegen_generate_c_program(CodeGenContext* context, ASTNode* node) {
     // _exit() terminates immediately without calling atexit handlers or flushing streams
     // This prevents crashes from accumulated memory issues during cleanup
     codegen_write_line(context, "    _exit(0);");
-        codegen_write_line(context, "}");
+    codegen_write_line(context, "}");
     
     return 1;
 }

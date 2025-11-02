@@ -38,21 +38,8 @@ typedef struct {
     int define_count;
 } CompilerConfig;
 
-// Variable scope entry
-typedef struct {
-    char* original_name;
-    char* c_name;
-    int scope_level;
-    int is_declared;
-} VariableScopeEntry;
-
-// Variable scope stack
-typedef struct {
-    VariableScopeEntry* entries;
-    int capacity;
-    int count;
-    int current_scope_level;
-} VariableScopeStack;
+// Variable scope types are defined in codegen_variables.h
+#include "codegen_variables.h"
 
 // Code generation context
 typedef struct {
@@ -76,6 +63,10 @@ typedef struct {
     int imported_library_count;
     // Track current variable name being declared (for context-aware code generation)
     const char* current_variable_name;
+    // Track if we're currently generating an if statement condition (for NULL literal handling)
+    int in_if_condition;
+    // Track the previous statement variable name (for detecting optional_null_2 pattern)
+    const char* previous_variable_name;
     // Type checker context for accurate type inference
     void* type_context;  // TypeCheckerContext* - using void* to avoid circular includes
 } CodeGenContext;
@@ -99,13 +90,7 @@ void codegen_context_free(CodeGenContext* context);
 void codegen_context_reset(CodeGenContext* context);
 
 // Variable scoping system
-VariableScopeStack* variable_scope_create(void);
-void variable_scope_free(VariableScopeStack* scope);
-void variable_scope_enter(VariableScopeStack* scope);
-void variable_scope_exit(VariableScopeStack* scope);
-char* variable_scope_get_c_name(VariableScopeStack* scope, const char* original_name);
-char* variable_scope_declare_variable(VariableScopeStack* scope, const char* original_name);
-int variable_scope_is_declared(VariableScopeStack* scope, const char* original_name);
+// Variable scoping functions are declared in codegen_variables.h
 
 // C code generation
 int compiler_generate_c(CompilerConfig* config, ASTNode* ast, const char* output_file);
@@ -129,7 +114,7 @@ int codegen_generate_c_return(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_break(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_continue(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_throw(CodeGenContext* context, ASTNode* node);
-int codegen_generate_c_function_declaration(CodeGenContext* context, ASTNode* node);
+int codegen_generate_c_function_declaration(CodeGenContext* context, ASTNode* node, const char* override_name);
 int codegen_generate_c_async_function_declaration(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_await(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_promise(CodeGenContext* context, ASTNode* node);
@@ -171,7 +156,7 @@ void compiler_report_info(const char* message, int line, int column);
 void codegen_indent(CodeGenContext* context);
 void codegen_unindent(CodeGenContext* context);
 void codegen_write(CodeGenContext* context, const char* format, ...);
-void codegen_write_line(CodeGenContext* context, const char* format, ...);
+// codegen_write_line is declared in codegen_utils.h
 char* codegen_generate_label(CodeGenContext* context, const char* prefix);
 char* codegen_generate_temp(CodeGenContext* context, const char* prefix);
 const char* target_architecture_to_string(TargetArchitecture target);

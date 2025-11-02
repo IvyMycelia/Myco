@@ -3082,15 +3082,27 @@ ASTNode* parser_parse_lambda_expression(Parser* parser) {
                     params = new_params; 
                     param_cap = new_cap;
                 }
-                ASTNode* pid = ast_create_identifier(parser->previous_token->text, 0, 0);
-                params[param_count++] = pid;
-            }
-            // Optional : Type (skip)
-            if (parser_check(parser, TOKEN_COLON)) {
-                parser_advance(parser);
-                if (!parser_match(parser, TOKEN_IDENTIFIER)) {
-                    parser_error(parser, "Expected type name after ':'");
-                    parser_synchronize(parser);
+                char* param_name = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
+                
+                // Check for type annotation
+                if (parser_check(parser, TOKEN_COLON)) {
+                    parser_advance(parser);
+                    char* type_name = parser_parse_type_annotation(parser);
+                    if (!type_name) {
+                        parser_error(parser, "Expected type name after ':'");
+                        parser_synchronize(parser);
+                        shared_free_safe(param_name, "parser", "unknown_function", 3095);
+                        break;
+                    }
+                    // Create typed parameter node
+                    ASTNode* tparam = ast_create_typed_parameter(param_name, type_name, 0, 0);
+                    shared_free_safe(type_name, "parser", "unknown_function", 3100);
+                    params[param_count++] = tparam;
+                } else {
+                    // No type annotation - create identifier node
+                    ASTNode* pid = ast_create_identifier(param_name, 0, 0);
+                    shared_free_safe(param_name, "parser", "unknown_function", 3105);
+                    params[param_count++] = pid;
                 }
             }
             if (parser_check(parser, TOKEN_COMMA)) { 

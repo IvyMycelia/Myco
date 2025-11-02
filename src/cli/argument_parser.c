@@ -56,7 +56,7 @@ int parse_arguments(int argc, char* argv[], ArgumentConfig* config) {
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i], "--interpret") == 0 || strcmp(argv[i], "-i") == 0) {
             config->interpret = 1;
-        } else if (strcmp(argv[i], "--compile") == 0 || strcmp(argv[i], "-c") == 0) {
+        } else if (strcmp(argv[i], "--compile") == 0 || strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--c") == 0) {
             config->compile = 1;
         } else if (strcmp(argv[i], "--build") == 0 || strcmp(argv[i], "-b") == 0) {
             config->build = 1;
@@ -170,7 +170,7 @@ void print_usage(const char* program_name) {
     printf("  -v, --version             Show version information\n");
     printf("  -t, --test                Run comprehensive test suite\n");
     printf("  -i, --interpret           Interpret the input (default)\n");
-    printf("  -c, --compile             Compile the input to intermediate code\n");
+    printf("  -c, --compile, --c        Compile the input to C (emit .c)\n");
     printf("  -b, --build               Build executable from input\n");
     printf("      --emit-arduino        Emit Arduino .ino sketch from Myco source\n");
     printf("  -d, --debug               Enable debug mode\n");

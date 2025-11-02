@@ -7,16 +7,18 @@
 int codegen_generate_c_headers(CodeGenContext* context) {
     if (!context) return 0;
     
-    // Standard includes
+    // Standard includes (only essential ones to avoid compilation errors)
     codegen_write_string(context, "#include <stdio.h>\n");
     codegen_write_string(context, "#include <stdlib.h>\n");
     codegen_write_string(context, "#include <string.h>\n");
     codegen_write_string(context, "#include <math.h>\n");
     codegen_write_string(context, "#include <time.h>\n");
-    codegen_write_string(context, "#include <regex.h>\n");
-    codegen_write_string(context, "#include <curl/curl.h>\n");
-    codegen_write_string(context, "#include <microhttpd.h>\n");
-    codegen_write_string(context, "#include <zlib.h>\n");
+    codegen_write_string(context, "#include <unistd.h>\n");
+    // Optional includes commented out to avoid compilation errors if libraries aren't available
+    // codegen_write_string(context, "#include <regex.h>\n");
+    // codegen_write_string(context, "#include <curl/curl.h>\n");
+    // codegen_write_string(context, "#include <microhttpd.h>\n");
+    // codegen_write_string(context, "#include <zlib.h>\n");
     codegen_write_string(context, "\n");
     
     // Myco runtime includes
@@ -29,8 +31,8 @@ int codegen_generate_c_headers(CodeGenContext* context) {
     // Function declarations
     codegen_generate_c_function_declarations(context);
     
-    // Library functions
-    codegen_generate_c_library_functions(context);
+    // Library functions (implementations - already declared above)
+    // codegen_generate_c_library_functions(context);  // Commented out - generates duplicate definitions
     
     return 1;
 }
@@ -100,6 +102,7 @@ int codegen_generate_c_stdlib_headers(CodeGenContext* context) {
     codegen_write_string(context, "#include <string.h>\n");
     codegen_write_string(context, "#include <math.h>\n");
     codegen_write_string(context, "#include <time.h>\n");
+    codegen_write_string(context, "#include <unistd.h>\n");
     codegen_write_string(context, "#include <regex.h>\n");
     codegen_write_string(context, "#include <curl/curl.h>\n");
     codegen_write_string(context, "#include <microhttpd.h>\n");

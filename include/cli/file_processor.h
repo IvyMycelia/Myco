@@ -16,7 +16,7 @@ int process_source(const char* source, const char* filename, int interpret, int 
 int interpret_source(const char* source, const char* filename, int debug);
 
 // Compile source code
-int compile_source(const char* source, int target, int debug);
+int compile_source(const char* source, int target, int debug, const char* output_file);
 
 // Build executable from source
 int build_executable(const char* source, const char* filename, const char* architecture, const char* output_file, int debug, int optimization_level);

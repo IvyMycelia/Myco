@@ -14,7 +14,7 @@ int codegen_generate_c_block(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_return(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_break(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_continue(CodeGenContext* context, ASTNode* node);
-int codegen_generate_c_function_declaration(CodeGenContext* context, ASTNode* node);
+int codegen_generate_c_function_declaration(CodeGenContext* context, ASTNode* node, const char* override_name);
 int codegen_generate_c_class_declaration(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_import(CodeGenContext* context, ASTNode* node);
 int codegen_generate_c_module(CodeGenContext* context, ASTNode* node);

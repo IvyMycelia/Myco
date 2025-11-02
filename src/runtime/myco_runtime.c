@@ -5,6 +5,10 @@
 #include <math.h>
 #include <stdint.h>
 #include "../../include/utils/shared_utilities.h"
+#undef myco_number_to_string
+
+// Forward declarations for internal helpers
+static int myco_is_cstring(const void* ptr);
 
 // Myco runtime value creation
 MycoValue myco_value_number(double value) {
@@ -17,7 +21,7 @@ MycoValue myco_value_number(double value) {
 MycoValue myco_value_string(const char* value) {
     MycoValue v;
     v.type = MYCO_TYPE_STRING;
-    v.data.string_value = (value ? strdup(value) : NULL);
+    v.data.string_value = (value ? shared_strdup(value) : NULL);
     return v;
 }
 
@@ -153,55 +157,67 @@ int myco_get_size_void(void* value) {
     }
 }
 
-int myco_array_length(char** array) {
-    // Count the number of non-NULL elements in the array
+int myco_array_length(void* array) {
     if (!array) return 0;
-    
+
+    // If it looks like a C-string, return its length
+    if (myco_is_cstring(array)) {
+        return (int)strlen((const char*)array);
+    }
+
+    // Check if this might be a numeric array (double*)
+    // For numeric arrays, we can't use NULL as a terminator because 0.0 is valid
+    // Instead, we'll use a heuristic: check if values are numeric (not pointers)
+    // If we see consecutive numeric values (non-NULL, non-string), it's likely numeric
+    const double* num_elems = (const double*)array;
     int count = 0;
-    while (array[count] != NULL) {
+    
+    // Try to detect if it's a numeric array by checking a few values
+    // Numeric arrays won't have NULL terminators, but we can't reliably detect length
+    // For now, check if it looks like a numeric array and use a different strategy
+    // This is a heuristic - ideally array length would be tracked separately
+    
+    // First, try NULL-terminated pointer array approach
+    const void* const* elems = (const void* const*)array;
+    count = 0;
+    while (count < 100000 && elems[count] != NULL) {
         count++;
     }
-    return count;
+    
+    // If we got a reasonable count from NULL-termination, use it
+    if (count > 0 && count < 1000) {
+        return count;
+    }
+    
+    // Otherwise, if it might be numeric, try to detect based on memory layout
+    // For numeric arrays cast to void*, we can't reliably detect length
+    // So return a default value or try to infer from usage
+    // For now, return 0 as a safe default
+    return 0;
 }
 
 char** myco_array_add_element(char** array, void* element) {
-    // Add element to the array and return the array
-    if (!array) return NULL;
-    
-    // Find the next available slot
-    for (int i = 0; i < 100; i++) {
-        if (array[i] == NULL) {
-            // Convert element to string and store
-            if (element) {
-                // For now, just store a placeholder
-                array[i] = "element";
-            } else {
-                array[i] = NULL;
-            }
-            break;
-        }
+    // Create a new NULL-terminated array that appends element
+    // Determine current length safely (treat non-arrays as empty)
+    int length = 0;
+    if (array && !myco_is_cstring((const void*)array)) {
+        // Count up to a sane max to avoid runaway
+        while (length < 4096 && array[length] != NULL) length++;
     }
-    
-    return array;
+    // Allocate new block: old length + element + NULL
+    size_t new_count = (size_t)length + 2;
+    char** out = (char**)myco_malloc(new_count * sizeof(char*));
+    if (!out) return array; // fallback
+    for (int i = 0; i < length; i++) out[i] = array[i];
+    out[length] = (char*)element;
+    out[length + 1] = NULL;
+    return out;
 }
 
 // Helper function to add numeric elements to array
 char** myco_array_add_numeric_element(char** array, double value) {
-    // Add numeric element to the array and return the array
-    if (!array) return NULL;
-    
-    // Find the next available slot
-    for (int i = 0; i < 100; i++) {
-        if (array[i] == NULL) {
-            // Convert number to string and store
-            char* str = malloc(32);
-            snprintf(str, 32, "%g", value);
-            array[i] = str;
-            break;
-        }
-    }
-    
-    return array;
+    char* str = myco_number_to_string_impl(value);
+    return myco_array_add_element(array, (void*)str);
 }
 
 const char* myco_get_type_void(void* value) {
@@ -305,11 +321,11 @@ char* myco_value_to_string(MycoValue value) {
         case MYCO_TYPE_NUMBER:
             return myco_string_from_number(value.data.number_value);
         case MYCO_TYPE_STRING:
-            return (value.data.string_value ? strdup(value.data.string_value) : NULL);
+            return (value.data.string_value ? shared_strdup(value.data.string_value) : NULL);
         case MYCO_TYPE_BOOL:
             return myco_string_from_bool(value.data.bool_value);
         case MYCO_TYPE_NULL:
-            return strdup("null");
+            return shared_strdup("null");
         default:
             return strdup("unknown");
     }
@@ -319,17 +335,8 @@ char* myco_value_to_string(MycoValue value) {
 char* myco_string_concat(const char* str1, const char* str2) {
     if (!str1) str1 = "";
     if (!str2) str2 = "";
-    
-    size_t len1 = strlen(str1);
-    size_t len2 = strlen(str2);
-    char* result = shared_malloc_safe(len1 + len2 + 1, "unknown", "unknown_function", 67);
-    
-    if (result) {
-        strcpy(result, str1);
-        strcat(result, str2);
-    }
-    
-    return result;
+    // Use safe formatted allocation which we fully control
+    return shared_strprintf("%s%s", str1, str2);
 }
 
 char* myco_string_from_number(double number) {
@@ -341,10 +348,10 @@ char* myco_string_from_number(double number) {
 }
 
 char* myco_string_from_bool(int bool_value) {
-    return strdup(bool_value ? "True" : "False");
+    return shared_strdup(bool_value ? "True" : "False");
 }
 
-char* myco_number_to_string(double number) {
+char* myco_number_to_string_impl(double number) {
     char* result = shared_malloc_safe(64, "unknown", "unknown_function", 90);
     if (result) {
         // Check if the number is a whole number (integer)
@@ -357,20 +364,40 @@ char* myco_number_to_string(double number) {
     return result;
 }
 
+// Provide non-macro symbol for any direct calls without header macro expansion
+char* myco_number_to_string(double number) { return myco_number_to_string_impl(number); }
+char* myco_number_to_string_noarg(void) { return myco_number_to_string_impl(0.0); }
+
 char* myco_to_string(void* value) {
     if (!value) {
-        return strdup("null");
+        return shared_strdup("null");
     }
-    // This is a placeholder - in a real implementation, we would need to
-    // determine the type of the value and convert accordingly
-    // For now, assume it's a string and return it
-    return ((const char*)value) ? strdup((const char*)value) : NULL;
+    // Make an owned copy so callers can free independently
+    return ((const char*)value) ? shared_strdup((const char*)value) : NULL;
+}
+
+double myco_safe_div(double a, double b) {
+    if (b == 0.0) return 0.0;
+    return a / b;
+}
+
+double myco_safe_array_access_double(double* arr, int index, int size) {
+    if (!arr || index < 0 || index >= size) return 0.0;
+    return arr[index];
+}
+
+// Safer conversion for unknown values: uses heuristic conversion then duplicates
+char* myco_to_string_any(void* value) {
+    char* safe = myco_safe_to_string(value);
+    if (!safe) return NULL;
+    return shared_strdup(safe);
 }
 
 // Built-in functions
 void myco_print(const char* str) {
     if (str) {
         printf("%s\n", str);
+        fflush(stdout);
     }
 }
 
@@ -383,23 +410,27 @@ void myco_print_bool(int bool_value) {
 }
 
 // Type checking functions
+static int myco_is_cstring(const void* ptr) {
+    if (!ptr) return 0;
+    const unsigned char* p = (const unsigned char*)ptr;
+    for (int i = 0; i < 1024; i++) {
+        unsigned char c = p[i];
+        if (c == '\0') return 1; // found terminator within limit
+        if (!(c == '\t' || c == '\n' || c == '\r' || (c >= 32 && c <= 126))) {
+            return 0;
+        }
+    }
+    return 0;
+}
+
 int isString(void* value) {
-    // Simple heuristic: if it's a string literal or char*, return 1
-    // This is a placeholder implementation
-    return (value != NULL && (intptr_t)value > 1000) ? 1 : 0;
+    return myco_is_cstring(value);
 }
 
 int isInt(void* value) {
-    // Check if the value is a whole number
     if (value == NULL) return 0;
-    
-    // If it's a small integer cast to void*, check if it's a whole number
-    if ((intptr_t)value < 1000) {
-        return 1; // Small integers are treated as integers
-    }
-    
-    // For larger values, we can't determine if they're integers with this approach
-    return 0;
+    uintptr_t iv = (uintptr_t)value;
+    return (iv < 1000) ? 1 : 0;
 }
 
 int isInt_double(double value) {
@@ -407,18 +438,7 @@ int isInt_double(double value) {
     return (value == (int)value) ? 1 : 0;
 }
 
-int isFloat(void* value) {
-    // Check if the value is a floating point number
-    if (value == NULL) return 0;
-    
-    // If it's a small integer cast to void*, it's not a float
-    if ((intptr_t)value < 1000) {
-        return 0; // Small integers are not floats
-    }
-    
-    // For larger values, we can't determine if they're floats with this approach
-    return 0;
-}
+int isFloat(void* value) { (void)value; return 0; }
 
 int isFloat_double(double value) {
     // Check if the double value has a decimal part
@@ -426,27 +446,16 @@ int isFloat_double(double value) {
 }
 
 int isBool(void* value) {
-    // Simple heuristic: if it's 0 or 1, return 1
-    // This is a placeholder implementation
-    return (value != NULL && ((intptr_t)value == 0 || (intptr_t)value == 1)) ? 1 : 0;
+    if (value == NULL) return 0;
+    uintptr_t iv = (uintptr_t)value;
+    return (iv == 0 || iv == 1) ? 1 : 0;
 }
 
 int isArray(void* value) {
-    // Simple heuristic: if it's not NULL and not a small integer, it might be an array
-    // But exclude string literals by checking if it looks like a string
-    if (value == NULL || (intptr_t)value <= 1000) {
-        return 0;
-    }
-    
-    // Check if it's a string literal by looking at the first few characters
-    char* str = (char*)value;
-    if (str[0] >= 32 && str[0] <= 126) { // Printable ASCII range
-        // This looks like a string literal, not an array
-        return 0;
-    }
-    
-    // Otherwise, assume it's an array
-    return 1;
+    if (value == NULL) return 0;
+    if ((uintptr_t)value < 1000) return 0;
+    // Not a small int; if not a c-string, treat as array-like
+    return myco_is_cstring(value) ? 0 : 1;
 }
 
 int isNull(void* value) {
@@ -454,25 +463,24 @@ int isNull(void* value) {
 }
 
 int isNumber(void* value) {
-    // Simple heuristic: if it's not NULL and not a string, return 1
-    // This is a placeholder implementation
-    return (value != NULL && (intptr_t)value < 1000) ? 1 : 0;
+    if (value == NULL) return 0;
+    return ((uintptr_t)value < 1000) ? 1 : 0;
 }
 
 // Get type name as string
 char* myco_get_type_name(void* value) {
     if (value == NULL) {
-        return strdup("Null");
+        return shared_strdup("Null");
     } else if (isString(value)) {
-        return strdup("String");
+        return shared_strdup("String");
     } else if (isNumber(value)) {
-        return strdup("Int"); // For simplicity, treat all numbers as Int
+        return shared_strdup("Int"); // For simplicity, treat all numbers as Int
     } else if (isBool(value)) {
-        return strdup("Boolean");
+        return shared_strdup("Boolean");
     } else if (isArray(value)) {
-        return strdup("Array");
+        return shared_strdup("Array");
     } else {
-        return strdup("Unknown");
+        return shared_strdup("Unknown");
     }
 }
 
@@ -491,14 +499,8 @@ char* myco_safe_to_string(void* value) {
     } else if (isString(value)) {
         return (char*)value;
     } else if (isNumber(value)) {
-        // Check if this is a small integer cast to void* (common pattern in generated code)
         uintptr_t int_value = (uintptr_t)value;
-        if (int_value < 1000) { // Small integers are likely cast to void* directly
-            return myco_number_to_string((double)int_value);
-        } else {
-            // Try to dereference as double* (for actual double values)
-            return myco_number_to_string(*(double*)value);
-        }
+        return myco_number_to_string_impl((double)int_value);
     } else if (isArray(value)) {
         // For arrays, return a simple representation
         return "[Array]";

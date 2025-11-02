@@ -75,7 +75,7 @@ int process_source(const char* source, const char* filename, int interpret, int 
     if (interpret) {
         return interpret_source(source, filename, debug);
     } else if (compile) {
-        return compile_source(source, target, debug);
+        return compile_source(source, target, debug, output_file);
     } else if (build) {
         return build_executable(source, filename, architecture, output_file, debug, optimization_level);
     }
@@ -229,7 +229,7 @@ int interpret_source(const char* source, const char* filename, int debug) {
 }
 
 // Compile source code
-int compile_source(const char* source, int target, int debug) {
+int compile_source(const char* source, int target, int debug, const char* output_override) {
     if (!source) return MYCO_ERROR_CLI;
     
     if (debug) {
@@ -309,7 +309,7 @@ int compile_source(const char* source, int target, int debug) {
     compiler_config_set_optimization(config, OPTIMIZATION_BASIC);
     
     // Set output file
-    const char* output_file = "output.c";
+    const char* output_file = (output_override && output_override[0] != '\0') ? output_override : "output.c";
     compiler_config_set_output(config, output_file);
     
     // Generate code based on target
@@ -326,7 +326,76 @@ int compile_source(const char* source, int target, int debug) {
             lexer_free(lexer);
             return MYCO_ERROR_COMPILER;
         }
-        
+        // Post-process: normalize zero-arg myco_number_to_string to myco_number_to_string_noarg()
+        {
+            FILE* f = fopen(output_file, "rb");
+            if (f) {
+                fseek(f, 0, SEEK_END);
+                long sz = ftell(f);
+                fseek(f, 0, SEEK_SET);
+                if (sz > 0) {
+                    char* buf = (char*)malloc((size_t)sz + 1);
+                    if (buf) {
+                        size_t rd = fread(buf, 1, (size_t)sz, f);
+                        buf[rd] = '\0';
+                        fclose(f);
+                        const char* name = "myco_number_to_string";
+                        size_t name_len = strlen(name);
+                        char* scan = buf;
+                        int changed = 0;
+                        for (;;) {
+                            char* pos = strstr(scan, name);
+                            if (!pos) break;
+                            char* q = pos + name_len;
+                            while (*q && (unsigned char)(*q) <= ' ') q++;
+                            if (*q == '(') {
+                                char* open = q;
+                                char* p = open + 1;
+                                while (*p && (unsigned char)(*p) <= ' ') p++;
+                                char* r = p;
+                                int only_ws = 1;
+                                while (*r && *r != ')') {
+                                    unsigned char ch = (unsigned char)(*r);
+                                    if ((ch & 0x80) == 0 && ch > ' ') { only_ws = 0; break; }
+                                    r++;
+                                }
+                                if (*r == ')' && only_ws) {
+                                    const char* repl = "myco_number_to_string_noarg()";
+                                    size_t call_len = (size_t)((r + 1) - pos);
+                                    size_t repl_len = strlen(repl);
+                                    size_t head_len = (size_t)(pos - buf);
+                                    size_t tail_len = strlen(r + 1);
+                                    char* nbuf = (char*)malloc(head_len + repl_len + tail_len + 1);
+                                    if (nbuf) {
+                                        memcpy(nbuf, buf, head_len);
+                                        memcpy(nbuf + head_len, repl, repl_len);
+                                        memcpy(nbuf + head_len + repl_len, r + 1, tail_len + 1);
+                                        free(buf);
+                                        buf = nbuf;
+                                        scan = buf + head_len + repl_len;
+                                        changed = 1;
+                                        continue;
+                                    }
+                                }
+                            }
+                            scan = pos + name_len;
+                        }
+                        if (changed) {
+                            FILE* wf = fopen(output_file, "wb");
+                            if (wf) {
+                                fwrite(buf, 1, strlen(buf), wf);
+                                fclose(wf);
+                            }
+                        }
+                        free(buf);
+                    } else {
+                        fclose(f);
+                    }
+                } else {
+                    fclose(f);
+                }
+            }
+        }
         printf("Successfully compiled to C: %s\n", output_file);
     } else if (target == TARGET_X86_64 || target == TARGET_ARM64) {
         // For native targets, generate C code and then compile to binary

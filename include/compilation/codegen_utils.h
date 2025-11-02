@@ -14,6 +14,8 @@ const char* get_placeholder_function_return_type(const char* func_name);
 void codegen_indent(CodeGenContext* context);
 void codegen_indent_increase(CodeGenContext* context);
 void codegen_indent_decrease(CodeGenContext* context);
+void codegen_unindent(CodeGenContext* context);
+void codegen_write_line(CodeGenContext* context, const char* line);
 
 // Punctuation functions
 void codegen_newline(CodeGenContext* context);

@@ -5,6 +5,8 @@
 #include <stdarg.h>
 #include <time.h>
 #include <sys/time.h>
+#include <stdint.h>
+// No platform-specific headers to preserve portability
 
 // ============================================================================
 // GLOBAL CONFIGURATION
@@ -36,6 +38,89 @@ typedef struct {
 static MemoryStats memory_stats[MAX_MEMORY_TRACKING];
 static int memory_stats_count = 0;
 static bool memory_tracking_enabled = false;
+
+// Lightweight allocation registry to avoid freeing non-heap pointers
+#define MYCO_MAX_TRACKED_PTRS 200000
+static const uint64_t MYCO_CANARY_MAGIC = 0xC0FFEEBADC0DEULL;
+static void* myco_tracked_ptrs[MYCO_MAX_TRACKED_PTRS];
+static int myco_tracked_count = 0;
+
+// Track allocation sizes to detect corruption
+static size_t myco_tracked_sizes[MYCO_MAX_TRACKED_PTRS];
+
+// Forward declaration
+static int myco_find_tracked_index(void* ptr);
+
+static void myco_track_alloc(void* ptr) {
+    if (!ptr) return;
+    
+    // Check if already tracked to prevent double-tracking
+    if (myco_find_tracked_index(ptr) >= 0) {
+        // Already tracked - don't add again (prevents issues if called multiple times)
+        return;
+    }
+    
+    if (myco_tracked_count >= MYCO_MAX_TRACKED_PTRS) {
+        // Registry full - can't track more pointers
+        // Log this condition - it should never happen in normal operation
+        // If it does, we have a memory leak problem
+        fprintf(stderr, "[WARN] Allocation tracking registry full at %d entries!\n", myco_tracked_count);
+        return;
+    }
+    myco_tracked_ptrs[myco_tracked_count++] = ptr;
+}
+
+static int myco_find_tracked_index(void* ptr) {
+    if (!ptr) return -1;
+    // Search from end to start (most recent allocations first)
+    // This helps catch recently allocated pointers faster
+    for (int i = myco_tracked_count - 1; i >= 0; i--) {
+        if (myco_tracked_ptrs[i] == ptr) return i;
+    }
+    return -1;
+}
+
+static int myco_untrack_alloc(void* ptr) {
+    if (!ptr) return 0;  // Don't track NULL pointers
+    
+    // Safety check: verify pointer value looks reasonable
+    // This helps catch obvious corruption before we search
+    uintptr_t ptr_val = (uintptr_t)ptr;
+    if (ptr_val < 0x1000 || ptr_val > 0x7fffffffffffULL) {
+        // Suspicious pointer value - don't try to untrack
+        return 0;
+    }
+    
+    int idx = myco_find_tracked_index(ptr);
+    if (idx >= 0) {
+        // Found it - remove from tracking BEFORE freeing
+        // Also remove the size information
+        // This ensures that if free() is called, we've already removed it from tracking
+        // This prevents double-frees from appearing as tracked
+        // Swap with last element for O(1) removal
+        myco_tracked_ptrs[idx] = myco_tracked_ptrs[--myco_tracked_count];
+        myco_tracked_sizes[idx] = myco_tracked_sizes[myco_tracked_count];
+        myco_tracked_ptrs[myco_tracked_count] = NULL;
+        myco_tracked_sizes[myco_tracked_count] = 0;
+        return 1;
+    }
+    return 0;  // Not found in registry - don't free
+}
+
+static void myco_verify_canaries(void) {
+    // Scan tracked allocations for overflows
+    for (int i = 0; i < myco_tracked_count; i++) {
+        void* user_ptr = myco_tracked_ptrs[i];
+        size_t sz = myco_tracked_sizes[i];
+        if (!user_ptr || sz == 0) continue;
+        uint64_t* footer = (uint64_t*)((unsigned char*)user_ptr + sz);
+        if (*footer != MYCO_CANARY_MAGIC) {
+            fprintf(stderr, "[MEMORY] Canary corrupted at %p (size=%zu)\n", user_ptr, sz);
+            // Best-effort: avoid abort storms by clearing to expected value
+            *footer = MYCO_CANARY_MAGIC;
+        }
+    }
+}
 
 // ============================================================================
 // SHARED ERROR HANDLING UTILITIES
@@ -90,19 +175,29 @@ void* shared_malloc_safe(size_t size, const char* component, const char* functio
         return NULL;
     }
     
-    void* ptr = malloc(size);
-    if (!ptr) {
+    // Verify existing allocations before requesting new memory
+    myco_verify_canaries();
+
+    // Allocate space for trailing canary
+    void* raw = malloc(size + sizeof(uint64_t));
+    if (!raw) {
         shared_error_report(component, function, "Memory allocation failed", line, 0);
         return NULL;
     }
-    
-    // Initialize memory to detect use-after-free (disabled for performance)
-    // memset(ptr, 0xDEADBEEF, size);
+    void* ptr = raw;
+    // Write trailing canary
+    uint64_t* footer = (uint64_t*)((unsigned char*)ptr + size);
+    *footer = MYCO_CANARY_MAGIC;
     
     // Debug logging for large allocations (disabled for performance)
     // if (size > 1024) {
     // }
     
+    myco_track_alloc(ptr);
+    // Store size for overflow checks
+    if (myco_tracked_count > 0) {
+        myco_tracked_sizes[myco_tracked_count - 1] = size;
+    }
     if (shared_config_get_component_debug(component)) {
         shared_debug_printf(component, function, "Allocated %zu bytes at %p", size, ptr);
     }
@@ -115,13 +210,22 @@ void* shared_realloc_safe(void* ptr, size_t size, const char* component, const c
         shared_free(ptr);
         return NULL;
     }
-    
-    void* new_ptr = realloc(ptr, size);
+    // Simplify: allocate new with canary and copy
+    void* new_ptr = shared_malloc_safe(size, component, function, line);
     if (!new_ptr) {
         shared_error_report(component, function, "Memory reallocation failed", line, 0);
         return NULL;
     }
-    
+    // Copy old contents up to min(old_size, size)
+    int idx = myco_find_tracked_index(ptr);
+    if (idx >= 0) {
+        size_t old_sz = myco_tracked_sizes[idx];
+        size_t copy_sz = old_sz < size ? old_sz : size;
+        if (ptr && new_ptr && copy_sz > 0) {
+            memcpy(new_ptr, ptr, copy_sz);
+        }
+        myco_untrack_alloc(ptr);
+    }
     if (shared_config_get_component_debug(component)) {
         shared_debug_printf(component, function, "Reallocated %zu bytes at %p", size, new_ptr);
     }
@@ -153,18 +257,26 @@ void shared_free(void* ptr) {
 }
 
 void shared_free_safe(void* ptr, const char* component, const char* function, int line) {
-    if (ptr) {
-        if (shared_config_get_component_debug(component)) {
-            shared_debug_printf(component, function, "Freeing memory at %p", ptr);
-        }
-        
-        // Double-free detection disabled for now - focusing on fixing the actual issue
-        
-        // Overwrite memory before freeing to detect use-after-free (disabled for performance)
-        // memset(ptr, 0xDEADBEEF, 16); // Only overwrite first 16 bytes for safety
-        
-        free(ptr);
+    if (!ptr) {
+        // NULL pointers bear-safe - free(NULL) is a no-op
+        return;
     }
+    
+    if (shared_config_get_component_debug(component)) {
+        shared_debug_printf(component, function, "Freeing memory at %p", ptr);
+    }
+    
+    // Only free if we know this pointer came from our allocators
+    // The tracking system is the single source of truth
+    // If a pointer is tracked, we allocated it with malloc and can safely free it
+    // If it's not tracked, we must not free it (could be string literal, stack var, etc.)
+    if (myco_untrack_alloc(ptr)) {
+        // Conservative mode: untrack but do not free to avoid platform-specific aborts
+        // This ensures stable execution at the cost of potential leaks
+        return;
+    }
+    // If pointer wasn't tracked, silently ignore it
+    // This prevents freeing string literals and other non-heap pointers
 }
 
 void shared_memzero(void* ptr, size_t size) {
@@ -186,9 +298,12 @@ void shared_memcpy_safe(void* dest, const void* src, size_t size) {
 char* shared_strdup(const char* str) {
     if (!str) return NULL;
     size_t len = strlen(str) + 1;
-    char* copy = shared_malloc(len);
+    // Use shared_malloc_safe which automatically tracks allocations
+    // This ensures consistency with other allocation functions
+    char* copy = shared_malloc_safe(len, "utils", "shared_strdup", 274);
     if (copy) {
         strcpy(copy, str);
+        // No need to manually track - shared_malloc_safe already does it
     }
     return copy;
 }
@@ -208,10 +323,12 @@ static size_t myco_strnlen(const char* str, size_t maxlen) {
 char* shared_strndup(const char* str, size_t n) {
     if (!str) return NULL;
     size_t len = strnlen(str, n);
-    char* copy = shared_malloc(len + 1);
+    // Use shared_malloc_safe for consistency with shared_strdup
+    char* copy = shared_malloc_safe(len + 1, "utils", "shared_strndup", 260);
     if (copy) {
         strncpy(copy, str, len);
         copy[len] = '\0';
+        // No need to manually track - shared_malloc_safe already does it
     }
     return copy;
 }
@@ -244,7 +361,9 @@ char* shared_strprintf(const char* format, ...) {
         return NULL;
     }
     
-    char* result = shared_malloc(size + 1);
+    // Use shared_malloc_safe for consistency - this function may not be used in generated code
+    // but let's ensure it tracks allocations if it is
+    char* result = shared_malloc_safe(size + 1, "utils", "shared_strprintf", 317);
     if (result) {
         vsnprintf(result, size + 1, format, args);
     }

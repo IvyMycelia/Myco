@@ -3,56 +3,20 @@
 #include <string.h>
 #include <stdarg.h>
 
-// Write formatted output to the context
+// Write formatted output to the context (uses FILE* output)
 void codegen_write(CodeGenContext* context, const char* format, ...) {
-    if (!context || !format) return;
+    if (!context || !format || !context->output) return;
     
     va_list args;
     va_start(args, format);
-    
-    // Calculate the required buffer size
-    va_list args_copy;
-    va_copy(args_copy, args);
-    int size = vsnprintf(NULL, 0, format, args_copy);
-    va_end(args_copy);
-    
-    if (size < 0) {
-        va_end(args);
-        return;
-    }
-    
-    // Ensure we have enough space
-    if (context->output_length + size + 1 >= context->output_capacity) {
-        context->output_capacity = (context->output_length + size + 1) * 2;
-        context->output = realloc(context->output, context->output_capacity);
-        if (!context->output) {
-            va_end(args);
-            return;
-        }
-    }
-    
-    // Write the formatted string
-    vsnprintf(context->output + context->output_length, 
-              context->output_capacity - context->output_length, 
-              format, args);
-    context->output_length += size;
-    
+    vfprintf(context->output, format, args);
     va_end(args);
 }
 
-// Write a string to the context
+// Write a string to the context (uses FILE* output)
 void codegen_write_string(CodeGenContext* context, const char* str) {
-    if (!context || !str) return;
-    
-    size_t len = strlen(str);
-    if (context->output_length + len + 1 >= context->output_capacity) {
-        context->output_capacity = (context->output_length + len + 1) * 2;
-        context->output = realloc(context->output, context->output_capacity);
-        if (!context->output) return;
-    }
-    
-    strcpy(context->output + context->output_length, str);
-    context->output_length += len;
+    if (!context || !str || !context->output) return;
+    fputs(str, context->output);
 }
 
 // Convert Myco type to C type
@@ -114,21 +78,37 @@ const char* get_placeholder_function_return_type(const char* func_name) {
 
 // Generate indentation
 void codegen_indent(CodeGenContext* context) {
-    for (int i = 0; i < context->indentation_level; i++) {
-        codegen_write_string(context, "    ");
+    if (!context || !context->output) return;
+    for (int i = 0; i < context->indent_level; i++) {
+        fputs("    ", context->output);
     }
 }
 
 // Increase indentation
 void codegen_indent_increase(CodeGenContext* context) {
-    context->indentation_level++;
+    if (!context) return;
+    context->indent_level++;
 }
 
 // Decrease indentation
 void codegen_indent_decrease(CodeGenContext* context) {
-    if (context->indentation_level > 0) {
-        context->indentation_level--;
+    if (!context) return;
+    if (context->indent_level > 0) {
+        context->indent_level--;
     }
+}
+
+// Unindent (alias for codegen_indent_decrease)
+void codegen_unindent(CodeGenContext* context) {
+    codegen_indent_decrease(context);
+}
+
+// Write a line with indentation and newline
+void codegen_write_line(CodeGenContext* context, const char* line) {
+    if (!context || !line || !context->output) return;
+    codegen_indent(context);
+    fputs(line, context->output);
+    fputs("\n", context->output);
 }
 
 // Generate a newline

@@ -41,8 +41,15 @@ char* myco_value_to_string(MycoValue value);
 char* myco_string_concat(const char* str1, const char* str2);
 char* myco_string_from_number(double number);
 char* myco_string_from_bool(int bool_value);
+// Number to string conversion
 char* myco_number_to_string(double number);
+char* myco_number_to_string_impl(double number);
+char* myco_number_to_string_noarg(void);
 char* myco_to_string(void* value); // General string conversion
+// Safe arithmetic helpers
+double myco_safe_div(double a, double b);
+// Safe array access - returns 0.0 if index is out of bounds
+double myco_safe_array_access_double(double* arr, int index, int size);
 
 // Built-in functions
 void myco_print(const char* str);
@@ -68,7 +75,7 @@ int isNumber(void* value);
 int myco_get_size(MycoValue value);
 int myco_get_size_string(const char* value);
 int myco_get_size_void(void* value);
-int myco_array_length(char** array);
+int myco_array_length(void* array);
 char** myco_array_add_element(char** array, void* element);
 char** myco_array_add_numeric_element(char** array, double value);
 const char* myco_get_type_string(const char* value);

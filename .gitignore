@@ -16,6 +16,7 @@ bin/
 *.vcxproj.user
 *.vcxproj.filters
 *.ino
+*output*
 
 # OS files
 .DS_Store
@@ -47,6 +48,6 @@ test_output*.txt
 **/*.dSYM
 
 # Development-only planning (ignored)
-dev-planning/
+planning/
 benchmark/
 optimization_roadmap.md

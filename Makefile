@@ -148,9 +148,9 @@ $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
 
 # Main executable
-$(MAIN_EXECUTABLE): $(OBJ_FILES) | $(BIN_DIR)
+$(MAIN_EXECUTABLE): $(OBJ_FILES) $(BUILD_DIR)/compilation/codegen_statements.o $(BUILD_DIR)/compilation/codegen_variables.o $(BUILD_DIR)/compilation/codegen_utils.o $(BUILD_DIR)/compilation/codegen_headers.o | $(BIN_DIR)
 	@echo "Linking $@..."
-	$(CC) $(OBJ_FILES) -o $@ $(LIBS)
+	$(CC) $(OBJ_FILES) $(BUILD_DIR)/compilation/codegen_statements.o $(BUILD_DIR)/compilation/codegen_variables.o $(BUILD_DIR)/compilation/codegen_utils.o $(BUILD_DIR)/compilation/codegen_headers.o -o $@ $(LIBS)
 	@echo "Build complete: $@"
 
 # LSP executable
@@ -350,19 +350,19 @@ version:
 
 version-patch:
 	@python3 scripts/version_manager.py patch
-	@echo "✅ Patch version bumped"
+	@echo "Patch version bumped"
 
 version-minor:
 	@python3 scripts/version_manager.py minor
-	@echo "✅ Minor version bumped"
+	@echo "Minor version bumped"
 
 version-major:
 	@python3 scripts/version_manager.py major
-	@echo "✅ Major version bumped"
+	@echo "Major version bumped"
 
 version-auto:
 	@python3 scripts/version_manager.py auto
-	@echo "✅ Version auto-bumped"
+	@echo "Version auto-bumped"
 
 version-status:
 	@python3 scripts/version_manager.py status

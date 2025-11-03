@@ -1428,6 +1428,37 @@ ASTNode* parser_parse_primary(Parser* parser) {
                 return NULL;
             }
             
+            // Check for assignment: array[index] = value
+            if (parser_check(parser, TOKEN_ASSIGN)) {
+                parser_advance(parser);  // Consume '='
+                
+                // Parse the right side (value)
+                ASTNode* value = parser_parse_expression(parser);
+                if (!value) {
+                    parser_error(parser, "Expected expression after '=' in array element assignment");
+                    ast_free(access);
+                    return NULL;
+                }
+                
+                // Create assignment node with array access as the target
+                ASTNode* assignment = shared_malloc_safe(sizeof(ASTNode), "parser", "unknown_function", 1432);
+                if (!assignment) {
+                    ast_free(access);
+                    ast_free(value);
+                    return NULL;
+                }
+                
+                assignment->type = AST_NODE_ASSIGNMENT;
+                assignment->data.assignment.variable_name = NULL;  // Not used for array assignments
+                assignment->data.assignment.target = access;       // Store the array access as target
+                assignment->data.assignment.value = value;
+                assignment->line = ident_token->line;
+                assignment->column = ident_token->column;
+                assignment->next = NULL;
+                
+                return assignment;
+            }
+            
             // Check for member access after array access: arr[index].method
             if (parser_check(parser, TOKEN_DOT)) {
                 return parser_parse_member_access_chain(parser, access);

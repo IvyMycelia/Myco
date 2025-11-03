@@ -133,8 +133,9 @@ typedef struct ASTNode {
         
         // Assignment
         struct {
-            char* variable_name;
-            struct ASTNode* value;
+            char* variable_name;        // For simple assignments: variable = value
+            struct ASTNode* target;     // For array element assignments: array[index] = value (target is AST_NODE_ARRAY_ACCESS)
+            struct ASTNode* value;      // The value being assigned
         } assignment;
         
         // Function call

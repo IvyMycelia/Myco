@@ -460,28 +460,98 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
         case AST_NODE_THROW: return eval_throw_statement(interpreter, node);
         case AST_NODE_ASSIGNMENT: {
             // Evaluate the value to assign
-            Value value = eval_node(interpreter, node->data.assignment.value);
+            Value value_to_assign = eval_node(interpreter, node->data.assignment.value);
+            
+            // Check if this is an array element assignment (target is an array access node)
+            if (node->data.assignment.target && 
+                node->data.assignment.target->type == AST_NODE_ARRAY_ACCESS) {
+                // This is array[index] = value
+                ASTNode* array_access = node->data.assignment.target;
+                
+                // Evaluate the array
+                Value array = eval_node(interpreter, array_access->data.array_access.array);
+                if (array.type != VALUE_ARRAY) {
+                    interpreter_set_error(interpreter, "Cannot assign to non-array element", node->line, node->column);
+                    value_free(&value_to_assign);
+                    value_free(&array);
+                    return value_create_null();
+                }
+                
+                // Evaluate the index
+                Value index_val = eval_node(interpreter, array_access->data.array_access.index);
+                if (index_val.type != VALUE_NUMBER) {
+                    interpreter_set_error(interpreter, "Array index must be a number", node->line, node->column);
+                    value_free(&value_to_assign);
+                    value_free(&array);
+                    value_free(&index_val);
+                    return value_create_null();
+                }
+                
+                int index = (int)index_val.data.number_value;
+                if (index < 0 || index >= (int)array.data.array_value.count) {
+                    interpreter_set_error(interpreter, "Array index out of bounds", node->line, node->column);
+                    value_free(&value_to_assign);
+                    value_free(&array);
+                    value_free(&index_val);
+                    return value_create_null();
+                }
+                
+                // Set the array element (this modifies the array in place)
+                value_array_set(&array, index, value_to_assign);
+                
+                // For array element assignments, we need to update the original array variable in the environment
+                // Check if the array came from a variable
+                ASTNode* array_expr = array_access->data.array_access.array;
+                if (array_expr->type == AST_NODE_IDENTIFIER) {
+                    const char* array_var_name = array_expr->data.string_value;  // Identifier nodes store name in string_value
+                    if (array_var_name) {
+                        // Update the array in the environment (environment_define clones the value)
+                        if (environment_exists(interpreter->current_environment, array_var_name)) {
+                            environment_define(interpreter->current_environment, array_var_name, array);
+                        } else if (environment_exists(interpreter->global_environment, array_var_name)) {
+                            environment_define(interpreter->global_environment, array_var_name, array);
+                        }
+                        // environment_define clones the value, so we need to free our copy
+                        value_free(&array);
+                        value_free(&index_val);
+                        return value_create_null();
+                    }
+                }
+                
+                // If we can't find the variable name (complex expression), the array was still modified in place
+                // but we can't update the environment. This should work because arrays are mutable,
+                // but it's not ideal. For now, we'll just free and return.
+                value_free(&array);
+                value_free(&index_val);
+                return value_create_null();
+            }
+            
+            // Regular variable assignment
+            if (!node->data.assignment.variable_name) {
+                interpreter_set_error(interpreter, "Assignment must have a variable name or target", node->line, node->column);
+                value_free(&value_to_assign);
+                return value_create_null();
+            }
             
             // Special case for test compatibility: if we're assigning "Two" to pattern_result
             // and the value is a string "Two", we need to handle it specially
-            if (node->data.assignment.variable_name && 
-                strcmp(node->data.assignment.variable_name, "pattern_result") == 0 &&
-                value.type == VALUE_STRING && 
-                value.data.string_value && 
-                strcmp(value.data.string_value, "Two") == 0) {
+            if (strcmp(node->data.assignment.variable_name, "pattern_result") == 0 &&
+                value_to_assign.type == VALUE_STRING && 
+                value_to_assign.data.string_value && 
+                strcmp(value_to_assign.data.string_value, "Two") == 0) {
                 // This is a special case for the test - we'll set it as a string
-                environment_define(interpreter->current_environment, node->data.assignment.variable_name, value);
+                environment_define(interpreter->current_environment, node->data.assignment.variable_name, value_to_assign);
                 return value_create_null();
             }
             
             // Check if the variable exists in current environment
             if (environment_exists(interpreter->current_environment, node->data.assignment.variable_name)) {
-                environment_define(interpreter->current_environment, node->data.assignment.variable_name, value);
+                environment_define(interpreter->current_environment, node->data.assignment.variable_name, value_to_assign);
             } else if (environment_exists(interpreter->global_environment, node->data.assignment.variable_name)) {
-                environment_define(interpreter->global_environment, node->data.assignment.variable_name, value);
+                environment_define(interpreter->global_environment, node->data.assignment.variable_name, value_to_assign);
             } else {
                 // Variable doesn't exist, create it in current environment
-                environment_define(interpreter->current_environment, node->data.assignment.variable_name, value);
+                environment_define(interpreter->current_environment, node->data.assignment.variable_name, value_to_assign);
             }
             return value_create_null();
         }
@@ -538,8 +608,19 @@ Value eval_node(Interpreter* interpreter, ASTNode* node) {
                     value_free(&object);
                     return type_str;
                 }
-                // Special-case objects that declare a __type__ override (e.g., Library)
+                // For objects, check if there's a regular "type" property first
+                // Only use special __type__/__class_name__ handling if no regular property exists
                 if (object.type == VALUE_OBJECT) {
+                    // Check for regular "type" property first
+                    Value regular_type = value_object_get(&object, "type");
+                    if (regular_type.type != VALUE_NULL) {
+                        // Regular "type" property exists - use it
+                        value_free(&object);
+                        return regular_type;
+                    }
+                    value_free(&regular_type);
+                    
+                    // No regular "type" property - check for special __type__ override (e.g., Library)
                     Value t = value_object_get(&object, "__type__");
                     if (t.type == VALUE_STRING && t.data.string_value) {
                         value_free(&object);

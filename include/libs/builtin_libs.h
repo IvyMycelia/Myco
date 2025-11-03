@@ -24,6 +24,7 @@
 #include "web.h"
 #include "database.h"
 #include "arduino.h"
+#include "graphics.h"
 
 // Register all built-in libraries
 void register_all_builtin_libraries(Interpreter* interpreter);

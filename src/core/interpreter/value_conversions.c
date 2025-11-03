@@ -484,7 +484,12 @@ Value value_clone(Value* value) {
         }
         case VALUE_OBJECT: {
             // Deep copy object with all members
-            Value v = value_create_object(value->data.object_value.count);
+            // Check if object creation succeeds - if it returns NULL, there's a memory issue
+            Value v = value_create_object(value->data.object_value.count > 0 ? value->data.object_value.count : 4);
+            if (v.type == VALUE_NULL) {
+                // Object creation failed - return NULL to indicate error
+                return value_create_null();
+            }
             for (size_t i = 0; i < value->data.object_value.count; i++) {
                 const char* key = value->data.object_value.keys[i];
                 Value* member_value = (Value*)value->data.object_value.values[i];

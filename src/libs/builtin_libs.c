@@ -61,4 +61,7 @@ void register_all_builtin_libraries(Interpreter* interpreter) {
 
     // Register arduino library (host-simulated, cross-platform)
     arduino_library_register(interpreter);
+
+    // Register graphics library
+    graphics_library_register(interpreter);
 }

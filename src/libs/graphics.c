@@ -856,6 +856,494 @@ Value builtin_graphics_draw_text(Interpreter* interpreter, Value* args, size_t a
     #endif
 }
 
+// Draw multiple text lines at once (batch rendering for performance)
+// Takes: texts (array of strings), x_positions (array of numbers), y_positions (array of numbers), colors (array of objects with r,g,b,a)
+Value builtin_graphics_draw_text_lines(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    #ifndef HAS_SDL_TTF
+    std_error_report(ERROR_INTERNAL_ERROR, "graphics", "drawTextLines", "SDL_ttf not available. Install SDL2_ttf to use text rendering.", line, column);
+    return value_create_null();
+    #else
+    // Initialize cache if needed (reuse existing cache from draw_text)
+    if (!text_cache) {
+        text_cache = (CachedTextTexture*)shared_malloc_safe(MAX_CACHE_SIZE * sizeof(CachedTextTexture), "libs", "graphics", 0);
+        if (text_cache) {
+            for (size_t i = 0; i < MAX_CACHE_SIZE; i++) {
+                text_cache[i].text = NULL;
+                text_cache[i].texture = NULL;
+            }
+        }
+    }
+    
+    // Increment cache frame counter once per batch call
+    cache_frame++;
+    
+    if (!g_window || !g_window->is_open || !g_window->renderer || arg_count < 3) {
+        return value_create_null();
+    }
+    
+    // Arguments: texts (array), x_positions (array), y_positions (array), [colors (array)]
+    if (args[0].type != VALUE_ARRAY || args[1].type != VALUE_ARRAY || args[2].type != VALUE_ARRAY) {
+        return value_create_null();
+    }
+    
+    Value* texts_array = &args[0];
+    Value* x_positions_array = &args[1];
+    Value* y_positions_array = &args[2];
+    Value* colors_array = NULL;
+    bool use_custom_colors = false;
+    
+    if (arg_count >= 4 && args[3].type == VALUE_ARRAY) {
+        colors_array = &args[3];
+        use_custom_colors = true;
+    }
+    
+    // Get font
+    TTF_Font* font = NULL;
+    if (g_window->default_font) {
+        font = g_window->default_font->font;
+    }
+    
+    if (!font) {
+        return value_create_null();
+    }
+    
+    // Get array lengths
+    size_t text_count = texts_array->data.array_value.count;
+    size_t x_count = x_positions_array->data.array_value.count;
+    size_t y_count = y_positions_array->data.array_value.count;
+    
+    // Use minimum count to avoid overruns
+    size_t count = text_count;
+    if (x_count < count) count = x_count;
+    if (y_count < count) count = y_count;
+    
+    // OPTIMIZATION: Batch render all text in one pass
+    // This reduces function call overhead dramatically
+    for (size_t i = 0; i < count; i++) {
+        // Get text
+        Value* text_elem = (Value*)texts_array->data.array_value.elements[i];
+        if (!text_elem || text_elem->type != VALUE_STRING || !text_elem->data.string_value) {
+            continue;  // Skip invalid entries
+        }
+        const char* text = text_elem->data.string_value;
+        size_t text_len = strlen(text);
+        if (text_len == 0) {
+            continue;  // Skip empty strings
+        }
+        
+        // Get x position
+        Value* x_elem = (Value*)x_positions_array->data.array_value.elements[i];
+        if (!x_elem || x_elem->type != VALUE_NUMBER) {
+            continue;
+        }
+        int x = (int)x_elem->data.number_value;
+        
+        // Get y position
+        Value* y_elem = (Value*)y_positions_array->data.array_value.elements[i];
+        if (!y_elem || y_elem->type != VALUE_NUMBER) {
+            continue;
+        }
+        int y = (int)y_elem->data.number_value;
+        
+        // Get color (use custom color if provided, otherwise window's current color)
+        SDL_Color color;
+        if (use_custom_colors && colors_array && i < colors_array->data.array_value.count) {
+            Value* color_elem = (Value*)colors_array->data.array_value.elements[i];
+            if (color_elem && color_elem->type == VALUE_OBJECT) {
+                // Extract r, g, b, a from color object
+                Value r_val = value_object_get(color_elem, "r");
+                Value g_val = value_object_get(color_elem, "g");
+                Value b_val = value_object_get(color_elem, "b");
+                Value a_val = value_object_get(color_elem, "a");
+                
+                if (r_val.type == VALUE_NUMBER && g_val.type == VALUE_NUMBER && 
+                    b_val.type == VALUE_NUMBER && a_val.type == VALUE_NUMBER) {
+                    color.r = (Uint8)r_val.data.number_value;
+                    color.g = (Uint8)g_val.data.number_value;
+                    color.b = (Uint8)b_val.data.number_value;
+                    color.a = (Uint8)a_val.data.number_value;
+                } else {
+                    // Fallback to window color
+                    color.r = g_window->r;
+                    color.g = g_window->g;
+                    color.b = g_window->b;
+                    color.a = g_window->a;
+                }
+            } else {
+                // Fallback to window color
+                color.r = g_window->r;
+                color.g = g_window->g;
+                color.b = g_window->b;
+                color.a = g_window->a;
+            }
+        } else {
+            // Use window's current color
+            color.r = g_window->r;
+            color.g = g_window->g;
+            color.b = g_window->b;
+            color.a = g_window->a;
+        }
+        
+        // Reuse existing cache from draw_text for performance
+        size_t text_len_check = strlen(text);
+        bool should_cache = text_len_check > 2;
+        
+        // Check cache first
+        bool found_in_cache = false;
+        if (should_cache && text_cache) {
+            // Search cache backwards (recent items at end)
+            for (int j = (int)cache_size - 1; j >= 0; j--) {
+                if (text_cache[j].text && 
+                    strcmp(text_cache[j].text, text) == 0 &&
+                    text_cache[j].r == color.r &&
+                    text_cache[j].g == color.g &&
+                    text_cache[j].b == color.b &&
+                    text_cache[j].a == color.a) {
+                    // Found cached texture!
+                    text_cache[j].last_used = cache_frame;
+                    
+                    // Render cached texture
+                    SDL_SetTextureBlendMode(text_cache[j].texture, SDL_BLENDMODE_BLEND);
+                    SDL_Rect dest_rect = {x, y, text_cache[j].w, text_cache[j].h};
+                    SDL_RenderCopy(g_window->renderer, text_cache[j].texture, NULL, &dest_rect);
+                    found_in_cache = true;
+                    break;
+                }
+            }
+        }
+        
+        if (found_in_cache) {
+            continue;  // Already rendered from cache
+        }
+        
+        // Not in cache - render it
+        SDL_Surface* text_surface = TTF_RenderText_Blended(font, text, color);
+        if (!text_surface) {
+            continue;
+        }
+        
+        SDL_Texture* text_texture = SDL_CreateTextureFromSurface(g_window->renderer, text_surface);
+        int text_w = text_surface->w;
+        int text_h = text_surface->h;
+        SDL_FreeSurface(text_surface);
+        
+        if (!text_texture) {
+            continue;
+        }
+        
+        // Render texture
+        SDL_SetTextureBlendMode(text_texture, SDL_BLENDMODE_BLEND);
+        SDL_Rect dest_rect = {x, y, text_w, text_h};
+        SDL_RenderCopy(g_window->renderer, text_texture, NULL, &dest_rect);
+        
+        // Cache the texture (if we should cache it)
+        if (should_cache && text_cache) {
+            if (cache_size < MAX_CACHE_SIZE) {
+                // Add to cache
+                size_t new_index = cache_size;
+                text_cache[new_index].text = shared_strdup(text);
+                text_cache[new_index].r = color.r;
+                text_cache[new_index].g = color.g;
+                text_cache[new_index].b = color.b;
+                text_cache[new_index].a = color.a;
+                text_cache[new_index].texture = text_texture;  // Don't destroy, keep for cache
+                text_cache[new_index].w = text_w;
+                text_cache[new_index].h = text_h;
+                text_cache[new_index].last_used = cache_frame;
+                cache_size++;
+                continue;  // Don't destroy texture, it's cached
+            } else {
+                // Cache full - use LRU eviction
+                size_t lru_index = 0;
+                Uint32 lru_frame = text_cache[0].last_used;
+                for (size_t j = 1; j < cache_size; j++) {
+                    if (text_cache[j].last_used < lru_frame) {
+                        lru_frame = text_cache[j].last_used;
+                        lru_index = j;
+                    }
+                }
+                
+                // Free old cache entry
+                if (text_cache[lru_index].text) {
+                    shared_free_safe(text_cache[lru_index].text, "libs", "graphics", 0);
+                }
+                if (text_cache[lru_index].texture) {
+                    SDL_DestroyTexture(text_cache[lru_index].texture);
+                }
+                
+                // Replace with new entry
+                text_cache[lru_index].text = shared_strdup(text);
+                text_cache[lru_index].r = color.r;
+                text_cache[lru_index].g = color.g;
+                text_cache[lru_index].b = color.b;
+                text_cache[lru_index].a = color.a;
+                text_cache[lru_index].texture = text_texture;
+                text_cache[lru_index].w = text_w;
+                text_cache[lru_index].h = text_h;
+                text_cache[lru_index].last_used = cache_frame;
+                continue;  // Don't destroy texture, it's cached
+            }
+        }
+        
+        // Not caching - cleanup immediately
+        SDL_DestroyTexture(text_texture);
+    }
+    
+    return value_create_null();
+    #endif
+}
+
+// Draw text lines directly from a lines array (optimized for text editors)
+// Takes: lines (array of strings), start_x, start_y, line_height, padding_x, padding_y, scroll_y, window_height
+// All rendering logic happens in fast C code - no interpreted loops
+Value builtin_graphics_draw_text_lines_from_array(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    #ifndef HAS_SDL_TTF
+    std_error_report(ERROR_INTERNAL_ERROR, "graphics", "drawTextLinesFromArray", "SDL_ttf not available. Install SDL2_ttf to use text rendering.", line, column);
+    return value_create_null();
+    #else
+    // Initialize cache if needed (reuse existing cache from draw_text)
+    if (!text_cache) {
+        text_cache = (CachedTextTexture*)shared_malloc_safe(MAX_CACHE_SIZE * sizeof(CachedTextTexture), "libs", "graphics", 0);
+        if (text_cache) {
+            for (size_t i = 0; i < MAX_CACHE_SIZE; i++) {
+                text_cache[i].text = NULL;
+                text_cache[i].texture = NULL;
+            }
+        }
+    }
+    
+    // Increment cache frame counter once per batch call
+    cache_frame++;
+    
+    if (!g_window || !g_window->is_open || !g_window->renderer || arg_count < 8) {
+        return value_create_null();
+    }
+    
+    // Arguments: lines (array of strings), start_x, start_y, line_height, padding_x, padding_y, scroll_y, window_height
+    if (args[0].type != VALUE_ARRAY) {
+        return value_create_null();
+    }
+    
+    Value* lines_array = &args[0];
+    size_t lines_count = lines_array->data.array_value.count;
+    
+    // Get numeric parameters
+    if (args[1].type != VALUE_NUMBER || args[2].type != VALUE_NUMBER || args[3].type != VALUE_NUMBER ||
+        args[4].type != VALUE_NUMBER || args[5].type != VALUE_NUMBER || args[6].type != VALUE_NUMBER ||
+        args[7].type != VALUE_NUMBER) {
+        return value_create_null();
+    }
+    
+    int start_x = (int)args[1].data.number_value;
+    int start_y = (int)args[2].data.number_value;
+    int line_height = (int)args[3].data.number_value;
+    int padding_x = (int)args[4].data.number_value;
+    int padding_y = (int)args[5].data.number_value;
+    int scroll_y = (int)args[6].data.number_value;
+    int window_height = (int)args[7].data.number_value;
+    
+    // Get font
+    TTF_Font* font = NULL;
+    if (g_window->default_font) {
+        font = g_window->default_font->font;
+    }
+    
+    if (!font) {
+        return value_create_null();
+    }
+    
+    // OPTIMIZATION: All rendering logic in fast C code
+    // Calculate visible lines and render them directly in C - no interpreted loops
+    int start_line_idx = scroll_y > 0 ? scroll_y : 0;
+    
+    // Gray color for line numbers
+    SDL_Color gray_color = {150, 150, 150, 255};
+    // Black color for text
+    SDL_Color black_color = {0, 0, 0, 255};
+    
+    // Render all visible lines in one pass (entirely in C code)
+    for (size_t i = start_line_idx; i < lines_count; i++) {
+        // Calculate Y position
+        int y_pos = padding_y + (int)(i - start_line_idx) * line_height;
+        
+        // Check if line is visible
+        if (y_pos < padding_y || y_pos >= window_height) {
+            continue;  // Skip non-visible lines
+        }
+        
+        // Get line from array (direct C access)
+        Value* line_elem = (Value*)lines_array->data.array_value.elements[i];
+        if (!line_elem || line_elem->type != VALUE_STRING) {
+            continue;
+        }
+        const char* line_text = line_elem->data.string_value;
+        if (!line_text) {
+            line_text = "";
+        }
+        
+        // Render line number (convert i+1 to string in C)
+        char line_num_buf[32];
+        snprintf(line_num_buf, sizeof(line_num_buf), "%zu", i + 1);
+        
+        // Render line number using cached rendering
+        size_t line_num_len = strlen(line_num_buf);
+        bool should_cache = line_num_len > 2;
+        bool found_in_cache = false;
+        
+        if (should_cache && text_cache) {
+            for (int j = (int)cache_size - 1; j >= 0; j--) {
+                if (text_cache[j].text && 
+                    strcmp(text_cache[j].text, line_num_buf) == 0 &&
+                    text_cache[j].r == gray_color.r &&
+                    text_cache[j].g == gray_color.g &&
+                    text_cache[j].b == gray_color.b &&
+                    text_cache[j].a == gray_color.a) {
+                    text_cache[j].last_used = cache_frame;
+                    SDL_SetTextureBlendMode(text_cache[j].texture, SDL_BLENDMODE_BLEND);
+                    SDL_Rect dest_rect = {start_x, y_pos, text_cache[j].w, text_cache[j].h};
+                    SDL_RenderCopy(g_window->renderer, text_cache[j].texture, NULL, &dest_rect);
+                    found_in_cache = true;
+                    break;
+                }
+            }
+        }
+        
+        if (!found_in_cache && line_num_len > 0) {
+            SDL_Surface* num_surface = TTF_RenderText_Blended(font, line_num_buf, gray_color);
+            if (num_surface) {
+                SDL_Texture* num_texture = SDL_CreateTextureFromSurface(g_window->renderer, num_surface);
+                int num_w = num_surface->w;
+                int num_h = num_surface->h;
+                SDL_FreeSurface(num_surface);
+                
+                if (num_texture) {
+                    SDL_SetTextureBlendMode(num_texture, SDL_BLENDMODE_BLEND);
+                    SDL_Rect dest_rect = {start_x, y_pos, num_w, num_h};
+                    SDL_RenderCopy(g_window->renderer, num_texture, NULL, &dest_rect);
+                    
+                    // Cache it if we should
+                    if (should_cache && text_cache && cache_size < MAX_CACHE_SIZE) {
+                        text_cache[cache_size].text = shared_strdup(line_num_buf);
+                        text_cache[cache_size].r = gray_color.r;
+                        text_cache[cache_size].g = gray_color.g;
+                        text_cache[cache_size].b = gray_color.b;
+                        text_cache[cache_size].a = gray_color.a;
+                        text_cache[cache_size].texture = num_texture;
+                        text_cache[cache_size].w = num_w;
+                        text_cache[cache_size].h = num_h;
+                        text_cache[cache_size].last_used = cache_frame;
+                        cache_size++;
+                    } else if (should_cache && text_cache && cache_size >= MAX_CACHE_SIZE) {
+                        // LRU eviction
+                        size_t lru_idx = 0;
+                        Uint32 lru_frame = text_cache[0].last_used;
+                        for (size_t j = 1; j < cache_size; j++) {
+                            if (text_cache[j].last_used < lru_frame) {
+                                lru_frame = text_cache[j].last_used;
+                                lru_idx = j;
+                            }
+                        }
+                        if (text_cache[lru_idx].text) shared_free_safe(text_cache[lru_idx].text, "libs", "graphics", 0);
+                        if (text_cache[lru_idx].texture) SDL_DestroyTexture(text_cache[lru_idx].texture);
+                        text_cache[lru_idx].text = shared_strdup(line_num_buf);
+                        text_cache[lru_idx].r = gray_color.r;
+                        text_cache[lru_idx].g = gray_color.g;
+                        text_cache[lru_idx].b = gray_color.b;
+                        text_cache[lru_idx].a = gray_color.a;
+                        text_cache[lru_idx].texture = num_texture;
+                        text_cache[lru_idx].w = num_w;
+                        text_cache[lru_idx].h = num_h;
+                        text_cache[lru_idx].last_used = cache_frame;
+                    } else {
+                        SDL_DestroyTexture(num_texture);
+                    }
+                }
+            }
+        }
+        
+        // Render line text if it has content
+        size_t line_text_len = strlen(line_text);
+        if (line_text_len > 0) {
+            should_cache = line_text_len > 2;
+            found_in_cache = false;
+            
+            if (should_cache && text_cache) {
+                for (int j = (int)cache_size - 1; j >= 0; j--) {
+                    if (text_cache[j].text && 
+                        strcmp(text_cache[j].text, line_text) == 0 &&
+                        text_cache[j].r == black_color.r &&
+                        text_cache[j].g == black_color.g &&
+                        text_cache[j].b == black_color.b &&
+                        text_cache[j].a == black_color.a) {
+                        text_cache[j].last_used = cache_frame;
+                        SDL_SetTextureBlendMode(text_cache[j].texture, SDL_BLENDMODE_BLEND);
+                        SDL_Rect dest_rect = {padding_x, y_pos, text_cache[j].w, text_cache[j].h};
+                        SDL_RenderCopy(g_window->renderer, text_cache[j].texture, NULL, &dest_rect);
+                        found_in_cache = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (!found_in_cache) {
+                SDL_Surface* text_surface = TTF_RenderText_Blended(font, line_text, black_color);
+                if (text_surface) {
+                    SDL_Texture* text_texture = SDL_CreateTextureFromSurface(g_window->renderer, text_surface);
+                    int text_w = text_surface->w;
+                    int text_h = text_surface->h;
+                    SDL_FreeSurface(text_surface);
+                    
+                    if (text_texture) {
+                        SDL_SetTextureBlendMode(text_texture, SDL_BLENDMODE_BLEND);
+                        SDL_Rect dest_rect = {padding_x, y_pos, text_w, text_h};
+                        SDL_RenderCopy(g_window->renderer, text_texture, NULL, &dest_rect);
+                        
+                        // Cache it if we should
+                        if (should_cache && text_cache && cache_size < MAX_CACHE_SIZE) {
+                            text_cache[cache_size].text = shared_strdup(line_text);
+                            text_cache[cache_size].r = black_color.r;
+                            text_cache[cache_size].g = black_color.g;
+                            text_cache[cache_size].b = black_color.b;
+                            text_cache[cache_size].a = black_color.a;
+                            text_cache[cache_size].texture = text_texture;
+                            text_cache[cache_size].w = text_w;
+                            text_cache[cache_size].h = text_h;
+                            text_cache[cache_size].last_used = cache_frame;
+                            cache_size++;
+                        } else if (should_cache && text_cache && cache_size >= MAX_CACHE_SIZE) {
+                            // LRU eviction
+                            size_t lru_idx = 0;
+                            Uint32 lru_frame = text_cache[0].last_used;
+                            for (size_t j = 1; j < cache_size; j++) {
+                                if (text_cache[j].last_used < lru_frame) {
+                                    lru_frame = text_cache[j].last_used;
+                                    lru_idx = j;
+                                }
+                            }
+                            if (text_cache[lru_idx].text) shared_free_safe(text_cache[lru_idx].text, "libs", "graphics", 0);
+                            if (text_cache[lru_idx].texture) SDL_DestroyTexture(text_cache[lru_idx].texture);
+                            text_cache[lru_idx].text = shared_strdup(line_text);
+                            text_cache[lru_idx].r = black_color.r;
+                            text_cache[lru_idx].g = black_color.g;
+                            text_cache[lru_idx].b = black_color.b;
+                            text_cache[lru_idx].a = black_color.a;
+                            text_cache[lru_idx].texture = text_texture;
+                            text_cache[lru_idx].w = text_w;
+                            text_cache[lru_idx].h = text_h;
+                            text_cache[lru_idx].last_used = cache_frame;
+                        } else {
+                            SDL_DestroyTexture(text_texture);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    return value_create_null();
+    #endif
+}
+
 // Measure text dimensions (text, [font_id])
 Value builtin_graphics_measure_text(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     #ifndef HAS_SDL_TTF
@@ -1264,6 +1752,8 @@ void graphics_library_register(Interpreter* interpreter) {
     value_object_set(&graphics_lib, "setTitle", value_create_builtin_function(builtin_graphics_set_title));
     value_object_set(&graphics_lib, "loadFont", value_create_builtin_function(builtin_graphics_load_font));
     value_object_set(&graphics_lib, "drawText", value_create_builtin_function(builtin_graphics_draw_text));
+    value_object_set(&graphics_lib, "drawTextLines", value_create_builtin_function(builtin_graphics_draw_text_lines));
+    value_object_set(&graphics_lib, "drawTextLinesFromArray", value_create_builtin_function(builtin_graphics_draw_text_lines_from_array));
     value_object_set(&graphics_lib, "measureText", value_create_builtin_function(builtin_graphics_measure_text));
     value_object_set(&graphics_lib, "setDefaultFont", value_create_builtin_function(builtin_graphics_set_default_font));
     

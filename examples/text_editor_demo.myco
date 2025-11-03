@@ -1,0 +1,414 @@
+# Simple Text Editor Demo
+# Demonstrates keyboard input and text rendering for text editor implementation
+
+use graphics;
+use file;
+use array;
+use string;
+
+# Create editor window
+let window = graphics.createWindow(1000, 700, "Myco Text Editor ");
+
+if window != Null:
+    print("Window created successfully!");
+    
+    # Load a font (try common macOS fonts)
+    let font_id = graphics.loadFont("/System/Library/Fonts/Menlo.ttc", 16);
+    if font_id != Null:
+        print("Font loaded successfully!");
+        graphics.setDefaultFont(font_id);
+    else:
+        print("Warning: Could not load font. Text rendering will not work.");
+    end
+    
+    # Text editor state
+    # Initialize with one empty line
+    let lines = [""];
+    let cursor_x = 0;
+    let cursor_y = 0;
+    let scroll_y = 0;
+    let line_height = 20;
+    let padding_x = 10;
+    let padding_y = 40;  # Start below status bar
+    let status_bar_height = 30;
+    let filename = "untitled";  # Default filename
+    
+    # Main editor loop
+    print("Type text! Use arrow keys, Enter, Backspace. Press ESC to close.");
+    
+    let frame = 0;
+    let last_fps_time = time.now();
+    let fps = 0;
+    let fps_frame_count = 0;
+    let cursor_blink_start_time = time.now();
+    print("Entering main loop - window should be visible now");
+    
+    while window.isOpen():
+        # Poll window events first (handles close, resize, etc.)
+        # pollEvents() returns true only if window should close (close button clicked)
+        # All other events return false, so the window stays open
+        let should_close = window.pollEvents();
+        if should_close:
+            print("Window closing...");
+            break;
+        end
+        
+        # Get keyboard input (after pollEvents to avoid conflicts)
+        # Note: getKey() returns Null if window is closing or no key is pressed
+        let key = graphics.getKey();
+        
+        # Check if window is still open before processing key (getKey might close window)
+        if not window.isOpen():
+            break;
+        end
+        
+        # Process key if we got one
+        # Initialize key_type and key_name to avoid undefined variable errors
+        let key_type = Null;
+        let key_name = Null;
+        
+        if key != Null:
+            # Get key properties directly (they should be available)
+            key_type = key.type;
+            key_name = key.key;
+            
+            # Debug: Print what we got (commented out to reduce noise)
+            # print("Got key - Type: " + key_type + ", Key: " + key_name);
+            
+            # Process key based on type
+            if key_type != Null and key_name != Null:
+                if key_type == "CHAR":
+                    # Insert character at cursor position
+                    # Ensure we have a line at cursor_y
+                    while cursor_y >= lines.length:
+                        lines.push("");
+                    end
+                    
+                    # Get current line
+                    let current_line = lines[cursor_y];
+                    
+                    # Insert character at cursor_x
+                    # Split line at cursor position
+                    let before = current_line.substring(0, cursor_x);
+                    let after = current_line.substring(cursor_x);
+                    
+                    # Create new line with inserted character
+                    let new_line = before + key_name + after;
+                    # Now we can use direct array element assignment!
+                    lines[cursor_y] = new_line;
+                    # Debug: Verify the assignment worked
+                    # print("After assignment, lines[" + cursor_y + "] = '" + lines[cursor_y] + "'");
+                    
+                    # Move cursor forward
+                    cursor_x = cursor_x + 1;
+                else:
+                    # Handle special keys
+                    if key_name == "ENTER":
+                        # Split current line at cursor and create new line below
+                        # Ensure we have a line at cursor_y
+                        while cursor_y >= lines.length:
+                            lines.push("");
+                        end
+                        
+                        let current_line = lines[cursor_y];
+                        let before = current_line.substring(0, cursor_x);
+                        let after = current_line.substring(cursor_x);
+                        
+                        # Update current line
+                        lines[cursor_y] = before;
+                        
+                        # Insert new line below using array.insert
+                        # array.insert returns a new array with the element inserted
+                        lines = lines.insert(cursor_y + 1, after);
+                        
+                        # Move cursor to start of new line
+                        cursor_x = 0;
+                        cursor_y = cursor_y + 1;
+                    else if key_name == "BACKSPACE":
+                        # Delete character before cursor
+                        if cursor_x > 0:
+                            # Ensure we have a line at cursor_y
+                            while cursor_y >= lines.length:
+                                lines.push("");
+                            end
+                            
+                            let current_line = lines[cursor_y];
+                            let before = current_line.substring(0, cursor_x - 1);
+                            let after = current_line.substring(cursor_x);
+                            
+                                    lines[cursor_y] = before + after;
+                            cursor_x = cursor_x - 1;
+                        else if cursor_y > 0:
+                            # At start of line - merge with previous line
+                            let prev_line = lines[cursor_y - 1];
+                            let current_line = lines[cursor_y];
+                            
+                            cursor_x = prev_line.length;
+                                    lines[cursor_y - 1] = prev_line + current_line;
+                            lines = lines.remove(cursor_y);
+                            cursor_y = cursor_y - 1;
+                        end
+                    else if key_name == "DELETE":
+                        # Delete character after cursor
+                        # Ensure we have a line at cursor_y
+                        while cursor_y >= lines.length:
+                            lines.push("");
+                        end
+                        
+                        let current_line = lines[cursor_y];
+                        if cursor_x < current_line.length:
+                            let before = current_line.substring(0, cursor_x);
+                            let after = current_line.substring(cursor_x + 1);
+                                    lines[cursor_y] = before + after;
+                        else if cursor_y < lines.length - 1:
+                            # At end of line - merge with next line
+                            let current_line = lines[cursor_y];
+                            let next_line = lines[cursor_y + 1];
+                                    lines[cursor_y] = current_line + next_line;
+                            lines = lines.remove(cursor_y + 1);
+                        end
+                    else if key_name == "UP":
+                        # Move cursor up
+                        if cursor_y > 0:
+                            cursor_y = cursor_y - 1;
+                            # Clamp cursor_x to line length
+                            let line = lines[cursor_y];
+                            if cursor_x > line.length:
+                                cursor_x = line.length;
+                            end
+                        end
+                    else if key_name == "DOWN":
+                        # Move cursor down
+                        if cursor_y < lines.length - 1:
+                            cursor_y = cursor_y + 1;
+                            # Clamp cursor_x to line length
+                            let line = lines[cursor_y];
+                            if cursor_x > line.length:
+                                cursor_x = line.length;
+                            end
+                        end
+                    else if key_name == "LEFT":
+                        # Move cursor left
+                        if cursor_x > 0:
+                            cursor_x = cursor_x - 1;
+                        else if cursor_y > 0:
+                            # Move to end of previous line
+                            cursor_y = cursor_y - 1;
+                            cursor_x = lines[cursor_y].length;
+                        end
+                    else if key_name == "RIGHT":
+                        # Move cursor right
+                        # Ensure we have a line at cursor_y
+                        while cursor_y >= lines.length:
+                            lines.push("");
+                        end
+                        
+                        let current_line = lines[cursor_y];
+                        if cursor_x < current_line.length:
+                            cursor_x = cursor_x + 1;
+                        else if cursor_y < lines.length - 1:
+                            # Move to start of next line
+                            cursor_y = cursor_y + 1;
+                            cursor_x = 0;
+                        end
+                    else if key_name == "ESCAPE":
+                        # Close editor
+                        print("Escape pressed - closing");
+                        window.close();
+                    end
+                end
+            end
+        end
+        
+        # Render editor
+        # Clear with background color first
+        graphics.setColor(240, 240, 240, 255);  # Light gray background
+        graphics.clear();
+        
+        # Draw text if font is available
+        if font_id != Null:
+            # Draw status bar at top
+            graphics.setColor(220, 220, 220, 255);  # Light gray status bar
+            graphics.fillRect(0, 0, window.getWidth(), status_bar_height);
+            
+            # Draw status bar border
+            graphics.setColor(180, 180, 180, 255);  # Darker gray border
+            graphics.drawLine(0, status_bar_height, window.getWidth(), status_bar_height);
+            
+            # Draw status bar text
+            graphics.setColor(0, 0, 0, 255);  # Black text
+            # Calculate blinking state that scales with FPS
+            # Use FPS to determine how many frames = 500ms (half a second)
+            # If FPS is 10, 500ms = 5 frames. If FPS is 60, 500ms = 30 frames.
+            # Default to 30 frames if FPS is 0 or not yet calculated
+            let frames_per_blink_cycle = 30;
+            if fps > 0:
+                # Calculate frames for 500ms at current FPS: 0.5 seconds * fps
+                frames_per_blink_cycle = fps / 2;  # 0.5 seconds worth of frames
+                # Ensure minimum of 1 frame
+                if frames_per_blink_cycle < 1:
+                    frames_per_blink_cycle = 1;
+                end
+            end
+            
+            # Calculate blink cycle: frame % (frames_per_blink_cycle * 2)
+            # This gives us a cycle of frames_per_blink_cycle frames on, frames_per_blink_cycle frames off
+            let blink_cycle_length = frames_per_blink_cycle * 2;
+            let blink_position = frame % blink_cycle_length;
+            let show_cursor_debug = blink_position < frames_per_blink_cycle;
+            
+            # Build status text with debug info
+            let cursor_state_text = "cursor: false";
+            if show_cursor_debug:
+                cursor_state_text = "cursor: true";
+            end
+            
+            let status_text = filename + " | Line " + (cursor_y + 1) + ", Col " + (cursor_x + 1) + " | " + lines.length + " lines | Frame: " + frame + " | FPS: " + fps + " | " + cursor_state_text;
+            graphics.drawText(10, 8, status_text);
+            
+            # Render all lines of text in editor area
+            let start_line = 0;
+            if scroll_y > 0:
+                start_line = scroll_y;
+            end
+            
+            let window_height = window.getHeight();
+            let editor_height = window_height - status_bar_height;
+            
+            for i in 0..lines.length:
+                if i >= lines.length:
+                    break;
+                end
+                
+                # Skip lines before start_line
+                if i < start_line:
+                    continue;
+                end
+                
+                let line = lines[i];
+                let y_pos = padding_y + (i - start_line) * line_height;
+                
+                # Only render visible lines in editor area
+                if y_pos >= padding_y and y_pos < window_height:
+                    # Draw line number (optional - can remove if not wanted)
+                    graphics.setColor(150, 150, 150, 255);  # Gray for line numbers
+                    # Convert line number to string using toString() method
+                    let line_num = i + 1;
+                    let line_num_text = "" + line_num;  # String concatenation converts number to string
+                    graphics.drawText(5, y_pos, line_num_text);
+                    
+                    # Draw the actual line text (always draw, even if empty, so cursor shows)
+                    graphics.setColor(0, 0, 0, 255);  # Black for text
+                    # Always try to draw the line if it has content
+                    if line.length > 0:
+                        graphics.drawText(padding_x + 50, y_pos, line);  # Offset by 50px for line numbers
+                    end
+                end
+            end
+            
+            # Draw cursor (blinking effect)
+            # Use FPS-scaled blinking that ensures consistent 500ms blink rate
+            # Calculate how many frames equal 500ms based on current FPS
+            # This makes blinking consistent regardless of frame rate variations
+            let frames_per_blink_cycle = 30;  # Default: assume 60fps (30 frames = 500ms)
+            if fps > 0:
+                # Calculate frames for 500ms at current FPS: 0.5 seconds * fps
+                frames_per_blink_cycle = fps / 2;  # 0.5 seconds worth of frames
+                # Ensure minimum of 1 frame
+                if frames_per_blink_cycle < 1:
+                    frames_per_blink_cycle = 1;
+                end
+            end
+            
+            # Calculate blink cycle: frame % (frames_per_blink_cycle * 2)
+            # This gives us a cycle of frames_per_blink_cycle frames on, frames_per_blink_cycle frames off
+            # Total cycle length is 2 * frames_per_blink_cycle (on + off = 1000ms = 1 second)
+            let blink_cycle_length = frames_per_blink_cycle * 2;
+            let blink_position = frame % blink_cycle_length;
+            let show_cursor = blink_position < frames_per_blink_cycle;
+            
+            # Calculate cursor position based on actual text width
+            let cursor_line = "";
+            if cursor_y < lines.length:
+                cursor_line = lines[cursor_y];
+            end
+            
+            # Get text before cursor to calculate X position
+            let text_before_cursor = cursor_line.substring(0, cursor_x);
+            
+            # Measure text width (if available) or use approximate
+            # OPTIMIZATION: Use approximate width instead of measuring every frame
+            # Text measurement is expensive, so we approximate for monospace fonts
+            let cursor_x_px = padding_x + 50;  # Offset by 50px for line numbers (base position)
+            # For monospace fonts, approximate 9 pixels per character is close enough
+            # This avoids expensive measureText() calls every frame
+            if text_before_cursor.length > 0:
+                # Approximate: 9 pixels per character for Menlo 16pt font
+                cursor_x_px = padding_x + 50 + text_before_cursor.length * 9;
+                
+                # Uncomment below for precise measurement (slower but more accurate)
+                # let dims = graphics.measureText(text_before_cursor);
+                # if dims != Null:
+                #     cursor_x_px = padding_x + 50 + dims.width;
+                # end
+            end
+            
+            # Calculate cursor Y position (relative to editor area, not window)
+            # cursor_y is 0-based, start_line is 0-based, so offset is (cursor_y - start_line)
+            let cursor_y_px = padding_y + (cursor_y - start_line) * line_height;
+            
+            # Draw cursor when in visible area - make it blink
+            # Check if cursor is in visible range (simplified check)
+            if cursor_y >= 0 and cursor_y < lines.length:
+                if show_cursor:
+                    # Draw blinking cursor as a vertical line
+                    graphics.setColor(0, 0, 0, 255);  # Black cursor for contrast
+                    # Draw a thick, visible cursor (4 pixels wide, full line height)
+                    graphics.fillRect(cursor_x_px, cursor_y_px, 4, line_height);
+                end
+                # Cursor is in "off" phase - don't draw anything (will blink on next frame)
+            end
+        else:
+            # No font - draw simple colored rectangle to verify rendering works
+            graphics.setColor(255, 0, 0, 255);  # Red rectangle
+            graphics.fillRect(10, 10, 300, 30);
+            graphics.setColor(0, 255, 0, 255);  # Green rectangle
+            graphics.fillRect(10, 50, 200, 50);
+        end
+        
+        graphics.present();
+        
+        if frame <= 59:
+            frame = frame + 1;
+        else: frame = 0; end
+
+        fps_frame_count = fps_frame_count + 1;
+        
+        # Calculate FPS every second
+        # time.now() returns a time object, so we need to get the unix timestamp
+        let current_time_obj = time.now();
+        let current_timestamp = time.unix_timestamp(current_time_obj);
+        let last_timestamp = time.unix_timestamp(last_fps_time);
+        let time_diff = current_timestamp - last_timestamp;
+        
+        # Update FPS every ~1 second (1 second = 1 in Unix timestamp)
+        # Actually, Unix timestamp is in seconds, so we check for >= 1
+        if time_diff >= 1:
+            fps = fps_frame_count;
+            fps_frame_count = 0;
+            last_fps_time = current_time_obj;
+        end
+        
+        # Frame pacing is now handled in C code (graphics.present())
+        # This is much more efficient than interpreted Myco loops
+    end
+    
+    # Close window
+    if window.isOpen():
+        window.close();
+    end
+    print("Editor closed!");
+else:
+    print("Failed to create window!");
+end
+

@@ -22,6 +22,8 @@ Value builtin_graphics_set_title(Interpreter* interpreter, Value* args, size_t a
 Value builtin_graphics_get_key(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_graphics_load_font(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_graphics_draw_text(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_graphics_draw_text_lines(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+Value builtin_graphics_draw_text_lines_from_array(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_graphics_measure_text(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_graphics_set_default_font(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 

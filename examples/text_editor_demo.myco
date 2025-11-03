@@ -275,98 +275,33 @@ if window != Null:
             let window_height = window.getHeight();
             let editor_height = window_height - status_bar_height;
             
-            for i in 0..lines.length:
-                if i >= lines.length:
-                    break;
-                end
+            # OPTIMIZATION: Use C-based rendering function that handles everything
+            # This eliminates ALL interpreted loops and array building
+            # Takes: lines, start_x, start_y, line_height, padding_x, padding_y, scroll_y, window_height
+            # All rendering logic happens in fast C code - zero interpreted overhead
+            graphics.drawTextLinesFromArray(lines, 5, padding_y, line_height, padding_x + 50, padding_y, scroll_y, window_height);
+            
+            # Draw cursor (blinking effect) - OPTIMIZED to reduce interpreter overhead
+            # Use simple modulo-based blinking instead of FPS-scaled for better performance
+            # Simple blink every 30 frames (roughly 500ms at 60fps)
+            let show_cursor = (frame % 60) < 30;
+            
+            # Only calculate cursor position if we need to draw it (skip if not visible)
+            if show_cursor:
+                # OPTIMIZATION: Calculate cursor position directly without string operations
+                # For monospace fonts, approximate 9 pixels per character
+                # This eliminates expensive substring() and string.length operations
+                let cursor_x_px = padding_x + 50 + cursor_x * 9;
                 
-                # Skip lines before start_line
-                if i < start_line:
-                    continue;
-                end
+                # Calculate Y position based on cursor_y and scroll
+                let cursor_y_px = padding_y + (cursor_y - scroll_y) * line_height;
                 
-                let line = lines[i];
-                let y_pos = padding_y + (i - start_line) * line_height;
-                
-                # Only render visible lines in editor area
-                if y_pos >= padding_y and y_pos < window_height:
-                    # Draw line number (optional - can remove if not wanted)
-                    graphics.setColor(150, 150, 150, 255);  # Gray for line numbers
-                    # Convert line number to string using toString() method
-                    let line_num = i + 1;
-                    let line_num_text = "" + line_num;  # String concatenation converts number to string
-                    graphics.drawText(5, y_pos, line_num_text);
-                    
-                    # Draw the actual line text (always draw, even if empty, so cursor shows)
-                    graphics.setColor(0, 0, 0, 255);  # Black for text
-                    # Always try to draw the line if it has content
-                    if line.length > 0:
-                        graphics.drawText(padding_x + 50, y_pos, line);  # Offset by 50px for line numbers
-                    end
-                end
-            end
-            
-            # Draw cursor (blinking effect)
-            # Use FPS-scaled blinking that ensures consistent 500ms blink rate
-            # Calculate how many frames equal 500ms based on current FPS
-            # This makes blinking consistent regardless of frame rate variations
-            let frames_per_blink_cycle = 30;  # Default: assume 60fps (30 frames = 500ms)
-            if fps > 0:
-                # Calculate frames for 500ms at current FPS: 0.5 seconds * fps
-                frames_per_blink_cycle = fps / 2;  # 0.5 seconds worth of frames
-                # Ensure minimum of 1 frame
-                if frames_per_blink_cycle < 1:
-                    frames_per_blink_cycle = 1;
-                end
-            end
-            
-            # Calculate blink cycle: frame % (frames_per_blink_cycle * 2)
-            # This gives us a cycle of frames_per_blink_cycle frames on, frames_per_blink_cycle frames off
-            # Total cycle length is 2 * frames_per_blink_cycle (on + off = 1000ms = 1 second)
-            let blink_cycle_length = frames_per_blink_cycle * 2;
-            let blink_position = frame % blink_cycle_length;
-            let show_cursor = blink_position < frames_per_blink_cycle;
-            
-            # Calculate cursor position based on actual text width
-            let cursor_line = "";
-            if cursor_y < lines.length:
-                cursor_line = lines[cursor_y];
-            end
-            
-            # Get text before cursor to calculate X position
-            let text_before_cursor = cursor_line.substring(0, cursor_x);
-            
-            # Measure text width (if available) or use approximate
-            # OPTIMIZATION: Use approximate width instead of measuring every frame
-            # Text measurement is expensive, so we approximate for monospace fonts
-            let cursor_x_px = padding_x + 50;  # Offset by 50px for line numbers (base position)
-            # For monospace fonts, approximate 9 pixels per character is close enough
-            # This avoids expensive measureText() calls every frame
-            if text_before_cursor.length > 0:
-                # Approximate: 9 pixels per character for Menlo 16pt font
-                cursor_x_px = padding_x + 50 + text_before_cursor.length * 9;
-                
-                # Uncomment below for precise measurement (slower but more accurate)
-                # let dims = graphics.measureText(text_before_cursor);
-                # if dims != Null:
-                #     cursor_x_px = padding_x + 50 + dims.width;
-                # end
-            end
-            
-            # Calculate cursor Y position (relative to editor area, not window)
-            # cursor_y is 0-based, start_line is 0-based, so offset is (cursor_y - start_line)
-            let cursor_y_px = padding_y + (cursor_y - start_line) * line_height;
-            
-            # Draw cursor when in visible area - make it blink
-            # Check if cursor is in visible range (simplified check)
-            if cursor_y >= 0 and cursor_y < lines.length:
-                if show_cursor:
-                    # Draw blinking cursor as a vertical line
+                # Only draw cursor if it's within visible bounds
+                if cursor_y >= scroll_y and cursor_y < lines.length and cursor_y_px >= padding_y and cursor_y_px < window_height:
                     graphics.setColor(0, 0, 0, 255);  # Black cursor for contrast
                     # Draw a thick, visible cursor (4 pixels wide, full line height)
                     graphics.fillRect(cursor_x_px, cursor_y_px, 4, line_height);
                 end
-                # Cursor is in "off" phase - don't draw anything (will blink on next frame)
             end
         else:
             # No font - draw simple colored rectangle to verify rendering works
@@ -384,19 +319,22 @@ if window != Null:
 
         fps_frame_count = fps_frame_count + 1;
         
-        # Calculate FPS every second
-        # time.now() returns a time object, so we need to get the unix timestamp
-        let current_time_obj = time.now();
-        let current_timestamp = time.unix_timestamp(current_time_obj);
-        let last_timestamp = time.unix_timestamp(last_fps_time);
-        let time_diff = current_timestamp - last_timestamp;
-        
-        # Update FPS every ~1 second (1 second = 1 in Unix timestamp)
-        # Actually, Unix timestamp is in seconds, so we check for >= 1
-        if time_diff >= 1:
-            fps = fps_frame_count;
-            fps_frame_count = 0;
-            last_fps_time = current_time_obj;
+        # Calculate FPS less frequently to reduce interpreter overhead
+        # Only check every 60 frames (roughly once per second at 60fps)
+        if fps_frame_count % 60 == 0 and fps_frame_count > 0:
+            # Only call time.now() every 60 frames instead of every frame
+            let current_time_obj = time.now();
+            let current_timestamp = time.unix_timestamp(current_time_obj);
+            let last_timestamp = time.unix_timestamp(last_fps_time);
+            let time_diff = current_timestamp - last_timestamp;
+            
+            # Update FPS if at least 1 second has passed
+            if time_diff >= 1:
+                # Calculate actual FPS from frame count and time diff
+                fps = fps_frame_count / time_diff;
+                fps_frame_count = 0;
+                last_fps_time = current_time_obj;
+            end
         end
         
         # Frame pacing is now handled in C code (graphics.present())

@@ -9,6 +9,7 @@
 #include "../../include/libs/server/server.h"
 #include "../../include/libs/web.h"
 #include "../../include/libs/database.h"
+#include "../../include/libs/graphics.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -627,6 +628,66 @@ Value handle_db_method_call(Interpreter* interpreter, ASTNode* call_node, const 
         value_free(&args[i]);
     }
     shared_free_safe(args, "interpreter", "handle_db_method_call", 0);
+    
+    return result;
+}
+
+Value handle_window_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object) {
+    size_t arg_count = call_node->data.function_call_expr.argument_count;
+    Value* args = (Value*)calloc(arg_count + 1, sizeof(Value));
+    if (!args) {
+        interpreter_set_error(interpreter, "Out of memory", call_node->line, call_node->column);
+        return value_create_null();
+    }
+    
+    // Add object as first argument
+    args[0] = value_clone(&object);
+    
+    for (size_t i = 0; i < arg_count; i++) {
+        args[i + 1] = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[i]);
+    }
+    
+    Value result = value_create_null();
+    
+    // Call the appropriate window method
+    if (strcmp(method_name, "close") == 0) {
+        result = builtin_window_close(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "isOpen") == 0) {
+        result = builtin_window_is_open(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "pollEvents") == 0) {
+        result = builtin_window_poll_events(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "clear") == 0) {
+        result = builtin_window_clear(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "present") == 0) {
+        result = builtin_window_present(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "setColor") == 0) {
+        result = builtin_window_set_color(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "drawRect") == 0) {
+        result = builtin_window_draw_rect(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "drawLine") == 0) {
+        result = builtin_window_draw_line(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "drawCircle") == 0) {
+        result = builtin_window_draw_circle(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "fillRect") == 0) {
+        result = builtin_window_fill_rect(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "fillCircle") == 0) {
+        result = builtin_window_fill_circle(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "getWidth") == 0) {
+        result = builtin_window_get_width(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "getHeight") == 0) {
+        result = builtin_window_get_height(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else if (strcmp(method_name, "setTitle") == 0) {
+        result = builtin_window_set_title(interpreter, args, arg_count + 1, call_node->line, call_node->column);
+    } else {
+        interpreter_set_error(interpreter, "Unknown window method", call_node->line, call_node->column);
+        result = value_create_null();
+    }
+    
+    // Clean up arguments
+    for (size_t i = 0; i < arg_count + 1; i++) {
+        value_free(&args[i]);
+    }
+    shared_free_safe(args, "interpreter", "handle_window_method_call", 0);
     
     return result;
 }

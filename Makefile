@@ -108,18 +108,77 @@ TEST_EXECUTABLE = $(BIN_DIR)/myco_test
 LSP_EXECUTABLE = $(BIN_DIR)/myco-lsp
 
 # Libraries - No external dependencies (using custom implementations)
+# SDL2 is optional for graphics library - enhanced cross-platform detection
+SDL2_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null || sdl2-config --cflags 2>/dev/null || echo "")
+SDL2_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null || sdl2-config --libs 2>/dev/null || echo "-lSDL2")
+
+# SDL_ttf for font rendering (text editor support)
+SDL2_TTF_CFLAGS := $(shell pkg-config --cflags SDL2_ttf 2>/dev/null || echo "")
+SDL2_TTF_LIBS := $(shell pkg-config --libs SDL2_ttf 2>/dev/null || echo "-lSDL2_ttf")
+
+# Platform-specific SDL2 paths and configuration
 ifeq ($(PLATFORM),macos)
-    LIBS = -lm
-    INCLUDE_FLAGS = 
+    # macOS: Check Homebrew paths first, then system paths
+    ifeq ($(shell [ -d /opt/homebrew/include/SDL2 ] && echo exists),exists)
+        SDL2_CFLAGS := -I/opt/homebrew/include -D_THREAD_SAFE
+        SDL2_LIBS := -L/opt/homebrew/lib -lSDL2
+        SDL2_TTF_CFLAGS := -I/opt/homebrew/include/SDL2 -D_THREAD_SAFE
+        SDL2_TTF_LIBS := -L/opt/homebrew/lib -lSDL2_ttf
+        # Also add parent directory for SDL_ttf.h
+        SDL2_TTF_CFLAGS := $(SDL2_TTF_CFLAGS) -I/opt/homebrew/include
+    else ifeq ($(shell [ -d /usr/local/include/SDL2 ] && echo exists),exists)
+        SDL2_CFLAGS := -I/usr/local/include -D_THREAD_SAFE
+        SDL2_LIBS := -L/usr/local/lib -lSDL2
+        SDL2_TTF_CFLAGS := -I/usr/local/include/SDL2 -D_THREAD_SAFE
+        SDL2_TTF_LIBS := -L/usr/local/lib -lSDL2_ttf
+        # Also add parent directory for SDL_ttf.h
+        SDL2_TTF_CFLAGS := $(SDL2_TTF_CFLAGS) -I/usr/local/include
+    else
+        # Fallback to pkg-config/sdl2-config result (includes parent directory)
+        SDL2_CFLAGS := $(SDL2_CFLAGS) -D_THREAD_SAFE
+        SDL2_TTF_CFLAGS := $(SDL2_TTF_CFLAGS) -D_THREAD_SAFE
+    endif
+    LIBS = -lm $(SDL2_LIBS) $(SDL2_TTF_LIBS)
+    INCLUDE_FLAGS = $(SDL2_CFLAGS) $(SDL2_TTF_CFLAGS)
 else ifeq ($(PLATFORM),linux)
-    LIBS = -lm
-    INCLUDE_FLAGS = 
+    # Linux: Standard package manager paths
+    # pkg-config should handle most cases, but add common fallbacks
+    ifeq ($(SDL2_CFLAGS),)
+        SDL2_CFLAGS := -I/usr/include -D_REENTRANT
+        SDL2_LIBS := -lSDL2
+        SDL2_TTF_CFLAGS := -I/usr/include/SDL2 -D_REENTRANT
+        SDL2_TTF_LIBS := -lSDL2_ttf
+    else
+        SDL2_CFLAGS := $(SDL2_CFLAGS) -D_REENTRANT
+        SDL2_TTF_CFLAGS := $(SDL2_TTF_CFLAGS) -D_REENTRANT
+    endif
+    LIBS = -lm $(SDL2_LIBS) $(SDL2_TTF_LIBS)
+    INCLUDE_FLAGS = $(SDL2_CFLAGS) $(SDL2_TTF_CFLAGS)
 else ifeq ($(PLATFORM),windows)
-    LIBS = -lm
-    INCLUDE_FLAGS = 
+    # Windows (MinGW/MSYS2): Check common installation paths
+    ifeq ($(shell [ -d /mingw64/include/SDL2 ] && echo exists),exists)
+        SDL2_CFLAGS := -I/mingw64/include -Dmain=SDL_main
+        SDL2_LIBS := -L/mingw64/lib -lSDL2 -lmingw32
+        SDL2_TTF_CFLAGS := -I/mingw64/include/SDL2 -Dmain=SDL_main
+        SDL2_TTF_LIBS := -L/mingw64/lib -lSDL2_ttf -lmingw32
+    else ifeq ($(shell [ -d /usr/include/SDL2 ] && echo exists),exists)
+        SDL2_CFLAGS := -I/usr/include -Dmain=SDL_main
+        SDL2_LIBS := -L/usr/lib -lSDL2 -lmingw32
+        SDL2_TTF_CFLAGS := -I/usr/include/SDL2 -Dmain=SDL_main
+        SDL2_TTF_LIBS := -L/usr/lib -lSDL2_ttf -lmingw32
+    else
+        # Fallback to pkg-config/sdl2-config result (includes parent directory)
+        SDL2_CFLAGS := $(SDL2_CFLAGS) -Dmain=SDL_main
+        SDL2_LIBS := $(SDL2_LIBS) -lmingw32
+        SDL2_TTF_CFLAGS := $(SDL2_TTF_CFLAGS) -Dmain=SDL_main
+        SDL2_TTF_LIBS := $(SDL2_TTF_LIBS) -lmingw32
+    endif
+    LIBS = -lm $(SDL2_LIBS) $(SDL2_TTF_LIBS)
+    INCLUDE_FLAGS = $(SDL2_CFLAGS) $(SDL2_TTF_CFLAGS)
 else
-    LIBS = -lm
-    INCLUDE_FLAGS = 
+    # Unknown platform: use pkg-config/sdl2-config result
+    LIBS = -lm $(SDL2_LIBS) $(SDL2_TTF_LIBS)
+    INCLUDE_FLAGS = $(SDL2_CFLAGS) $(SDL2_TTF_CFLAGS)
 endif
 
 # Default target

@@ -20,6 +20,7 @@ Value handle_server_library_method_call(Interpreter* interpreter, ASTNode* call_
 Value handle_web_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 Value handle_http_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 Value handle_db_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
+Value handle_window_method_call(Interpreter* interpreter, ASTNode* call_node, const char* method_name, Value object);
 
 
 // ============================================================================
@@ -281,6 +282,46 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
             shared_free_safe(buf, "interpreter", "string_trim", 0);
             return out;
         }
+        if (strcmp(method_name, "substring") == 0) {
+            const char* s = object.data.string_value ? object.data.string_value : "";
+            size_t len = strlen(s);
+            int start = 0, end = (int)len;
+            
+            // Get start argument
+            if (call_node->data.function_call_expr.argument_count >= 1) {
+                Value start_val = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[0]);
+                if (start_val.type == VALUE_NUMBER) {
+                    start = (int)start_val.data.number_value;
+                }
+                value_free(&start_val);
+            }
+            
+            // Get end argument (optional)
+            if (call_node->data.function_call_expr.argument_count >= 2) {
+                Value end_val = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[1]);
+                if (end_val.type == VALUE_NUMBER) {
+                    end = (int)end_val.data.number_value;
+                }
+                value_free(&end_val);
+            }
+            
+            // Normalize bounds
+            if (start < 0) start = 0;
+            if (start > (int)len) start = (int)len;
+            if (end < 0) end = (int)len;
+            if (end > (int)len) end = (int)len;
+            if (end < start) end = start;
+            
+            size_t out_len = end - start;
+            char* buf = (char*)shared_malloc_safe(out_len + 1, "interpreter", "string_substring", 0);
+            if (!buf) { value_free(&object); return value_create_string(""); }
+            if (out_len > 0) memcpy(buf, s + start, out_len);
+            buf[out_len] = '\0';
+            value_free(&object);
+            Value out = value_create_string(buf);
+            shared_free_safe(buf, "interpreter", "string_substring", 0);
+            return out;
+        }
     }
 
     // Array methods
@@ -441,6 +482,156 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                 return object;
             }
             return object;
+        }
+        // set(index, element) - updates array element at index (modifies in place)
+        if (strcmp(method_name, "set") == 0) {
+            if (call_node->data.function_call_expr.argument_count < 2) {
+                value_free(&object);
+                return value_create_null();
+            }
+            
+            Value index_val = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[0]);
+            Value element = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[1]);
+            
+            if (index_val.type != VALUE_NUMBER) {
+                value_free(&index_val);
+                value_free(&element);
+                value_free(&object);
+                return value_create_null();
+            }
+            
+            int index = (int)index_val.data.number_value;
+            size_t array_len = object.data.array_value.count;
+            
+            // Validate index
+            if (index < 0 || index >= (int)array_len) {
+                value_free(&index_val);
+                value_free(&element);
+                value_free(&object);
+                return value_create_null();
+            }
+            
+            // Set the element at index using value_array_set
+            value_array_set(&object, index, element);
+            
+            value_free(&index_val);
+            value_free(&element);
+            
+            // Return the modified array (for chaining, though we modify in place)
+            return object;
+        }
+        // insert(index, element) - returns new array with element inserted
+        if (strcmp(method_name, "insert") == 0) {
+            if (call_node->data.function_call_expr.argument_count < 2) {
+                value_free(&object);
+                return value_create_null();
+            }
+            
+            Value index_val = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[0]);
+            Value element = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[1]);
+            
+            if (index_val.type != VALUE_NUMBER) {
+                value_free(&index_val);
+                value_free(&element);
+                value_free(&object);
+                return value_create_null();
+            }
+            
+            int index = (int)index_val.data.number_value;
+            size_t array_len = object.data.array_value.count;
+            
+            // Validate index
+            if (index < 0 || index > (int)array_len) {
+                value_free(&index_val);
+                value_free(&element);
+                value_free(&object);
+                return value_create_null();
+            }
+            
+            // Create new array with one more element
+            Value result = value_create_array(array_len + 1);
+            
+            // Copy elements before index
+            for (int i = 0; i < index; i++) {
+                Value* elem = (Value*)object.data.array_value.elements[i];
+                if (elem) {
+                    Value cloned = value_clone(elem);
+                    value_array_push(&result, cloned);
+                    value_free(&cloned);
+                }
+            }
+            
+            // Insert new element
+            Value cloned_element = value_clone(&element);
+            value_array_push(&result, cloned_element);
+            value_free(&cloned_element);
+            
+            // Copy elements after index
+            for (int i = index; i < (int)array_len; i++) {
+                Value* elem = (Value*)object.data.array_value.elements[i];
+                if (elem) {
+                    Value cloned = value_clone(elem);
+                    value_array_push(&result, cloned);
+                    value_free(&cloned);
+                }
+            }
+            
+            value_free(&index_val);
+            value_free(&element);
+            value_free(&object);
+            return result;
+        }
+        // remove(index) - returns new array with element removed
+        if (strcmp(method_name, "remove") == 0) {
+            if (call_node->data.function_call_expr.argument_count < 1) {
+                value_free(&object);
+                return value_create_null();
+            }
+            
+            Value index_val = interpreter_execute(interpreter, call_node->data.function_call_expr.arguments[0]);
+            
+            if (index_val.type != VALUE_NUMBER) {
+                value_free(&index_val);
+                value_free(&object);
+                return value_create_null();
+            }
+            
+            int index = (int)index_val.data.number_value;
+            size_t array_len = object.data.array_value.count;
+            
+            // Validate index
+            if (index < 0 || index >= (int)array_len) {
+                value_free(&index_val);
+                value_free(&object);
+                return value_create_null();
+            }
+            
+            // Create new array with one less element
+            Value result = value_create_array(array_len - 1);
+            
+            // Copy elements before index
+            for (int i = 0; i < index; i++) {
+                Value* elem = (Value*)object.data.array_value.elements[i];
+                if (elem) {
+                    Value cloned = value_clone(elem);
+                    value_array_push(&result, cloned);
+                    value_free(&cloned);
+                }
+            }
+            
+            // Skip element at index, copy elements after index
+            for (int i = index + 1; i < (int)array_len; i++) {
+                Value* elem = (Value*)object.data.array_value.elements[i];
+                if (elem) {
+                    Value cloned = value_clone(elem);
+                    value_array_push(&result, cloned);
+                    value_free(&cloned);
+                }
+            }
+            
+            value_free(&index_val);
+            value_free(&object);
+            return result;
         }
     }
 
@@ -608,8 +799,10 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                  strcmp(class_name.data.string_value, "Server") == 0 ||
                  strcmp(class_name.data.string_value, "Request") == 0 ||
                  strcmp(class_name.data.string_value, "Response") == 0 ||
-                 strcmp(class_name.data.string_value, "Database") == 0));
+                 strcmp(class_name.data.string_value, "Database") == 0 ||
+                 strcmp(class_name.data.string_value, "Window") == 0));
             // For ServerLibrary objects, also skip the generic handler (they're handled by handle_server_library_method_call)
+            // GraphicsLibrary doesn't have __class_name__ set, so it should use the generic handler
             bool is_server_library = (object_type.type == VALUE_STRING && strcmp(object_type.data.string_value, "Library") == 0 &&
                                      class_name.type == VALUE_STRING && strcmp(class_name.data.string_value, "ServerLibrary") == 0);
             
@@ -618,6 +811,7 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
             
             // Skip library instances - they will be handled by specific handlers below
             // Also skip ServerLibrary - it's handled by handle_server_library_method_call (checked earlier)
+            // GraphicsLibrary (and math, json, etc.) should use generic handler (regular libraries with functions)
             if (is_library_instance || is_server_library) {
                 value_free(&member);
                 // Fall through to specific class handlers
@@ -739,6 +933,10 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                 // Handle route group method calls
                 value_free(&class_name);
                 return handle_route_group_method_call(interpreter, call_node, method_name, object);
+            } else if (strcmp(class_name.data.string_value, "Window") == 0) {
+                // Handle window method calls
+                value_free(&class_name);
+                return handle_window_method_call(interpreter, call_node, method_name, object);
             } else {
                 // Handle user-defined class method calls
                 // Look up the class definition
@@ -780,17 +978,6 @@ Value handle_method_call(Interpreter* interpreter, ASTNode* call_node, Value obj
                     }
                     value_free(&class_def);
                     value_free(&method);
-                }
-            }
-        }
-        value_free(&class_name);
-    }
-    
-    // If we get here, the method wasn't found
-    interpreter_set_error(interpreter, "Method not found", call_node->line, call_node->column);
-    return value_create_null();
-}
-
                 }
             }
         }

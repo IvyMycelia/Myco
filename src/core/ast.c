@@ -135,6 +135,7 @@ ASTNode* ast_create_assignment(const char* variable, ASTNode* value, int line, i
     
     node->type = AST_NODE_ASSIGNMENT;
     node->data.assignment.variable_name = (variable ? shared_strdup(variable) : NULL);
+    node->data.assignment.target = NULL;  // For simple assignments, target is NULL
     node->data.assignment.value = value;
     node->line = line;
     node->column = column;
@@ -780,6 +781,9 @@ void ast_free(ASTNode* node) {
             
         case AST_NODE_ASSIGNMENT:
             shared_free_safe(node->data.assignment.variable_name, "ast", "unknown_function", 602);
+            if (node->data.assignment.target) {
+                ast_free(node->data.assignment.target);
+            }
             ast_free(node->data.assignment.value);
             break;
             
@@ -1102,6 +1106,7 @@ ASTNode* ast_clone(ASTNode* node) {
             
         case AST_NODE_ASSIGNMENT:
             clone->data.assignment.variable_name = (node->data.assignment.variable_name ? shared_strdup(node->data.assignment.variable_name) : NULL);
+            clone->data.assignment.target = (node->data.assignment.target ? ast_clone(node->data.assignment.target) : NULL);
             clone->data.assignment.value = ast_clone(node->data.assignment.value);
             break;
             
@@ -1531,9 +1536,11 @@ int ast_validate(ASTNode* node) {
             break;
             
         case AST_NODE_ASSIGNMENT:
-            if (!node->data.assignment.variable_name) return 0;
+            // Either variable_name (for simple assignments) or target (for array assignments) must be set
+            if (!node->data.assignment.variable_name && !node->data.assignment.target) return 0;
             if (!node->data.assignment.value) return 0;
             if (!ast_validate(node->data.assignment.value)) return 0;
+            if (node->data.assignment.target && !ast_validate(node->data.assignment.target)) return 0;
             break;
             
         case AST_NODE_FUNCTION_CALL:

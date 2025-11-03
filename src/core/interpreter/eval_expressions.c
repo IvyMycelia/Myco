@@ -87,7 +87,9 @@ Value eval_binary(Interpreter* interpreter, ASTNode* node) {
             if (l.type == VALUE_NUMBER && r.type == VALUE_NUMBER) res = (l.data.number_value != r.data.number_value); 
             else if (l.type == VALUE_STRING && r.type == VALUE_STRING) res = strcmp(l.data.string_value, r.data.string_value) != 0; 
             else if (l.type == VALUE_BOOLEAN && r.type == VALUE_BOOLEAN) res = l.data.boolean_value != r.data.boolean_value; 
-            else res = 1; 
+            else if (l.type == VALUE_NULL && r.type == VALUE_NULL) res = 0;  // Both are NULL, so they are equal (not not equal)
+            else if (l.type == VALUE_NULL || r.type == VALUE_NULL) res = 1;  // One is NULL and the other isn't, so they are not equal
+            else res = 1;  // Different types, not equal
             value_free(&l); value_free(&r); 
             return value_create_boolean(res); 
         }
@@ -132,6 +134,17 @@ Value eval_binary(Interpreter* interpreter, ASTNode* node) {
             Value out = value_divide(&l, &r); 
             value_free(&l); value_free(&r); 
             return out; 
+        }
+        case OP_MODULO: {
+            // Check for modulo by zero
+            if (r.type == VALUE_NUMBER && r.data.number_value == 0.0) {
+                interpreter_set_error(interpreter, "Modulo by zero", node->line, node->column);
+                value_free(&l); value_free(&r);
+                return value_create_null();
+            }
+            Value out = value_modulo(&l, &r);
+            value_free(&l); value_free(&r);
+            return out;
         }
         default: 
             value_free(&l); value_free(&r); 

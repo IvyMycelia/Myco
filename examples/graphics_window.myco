@@ -1,0 +1,65 @@
+# Simple Graphics Window Example
+# Demonstrates window creation, event handling, and basic drawing
+
+use graphics;
+
+# Create a window
+let window = graphics.createWindow(800, 600, "Myco Graphics Window");
+
+if window != Null:
+    print("Window created successfully!");
+    print("Window width: " + window.width);
+    print("Window height: " + window.height);
+    
+    # Main loop - check if window is open
+    # Keep window open until user closes it
+    # Note: The window will stay open until you click the close button
+    while window.isOpen():
+        # Poll events - returns true if window should close
+        let should_close = window.pollEvents();
+        if should_close:
+            # Window requested to close, break the loop
+            break;
+        end
+        
+        # Only draw if window is still open
+        if window.isOpen():
+            # Clear with dark background
+            graphics.setColor(30, 30, 50, 255);
+            graphics.clear();
+            
+            # Draw some shapes
+            # Set color to red
+            graphics.setColor(255, 0, 0, 255);
+            graphics.fillRect(100, 100, 200, 150);
+            
+            # Set color to green
+            graphics.setColor(0, 255, 0, 255);
+            graphics.fillCircle(400, 300, 75);
+            
+            # Set color to blue
+            graphics.setColor(0, 0, 255, 255);
+            graphics.drawRect(500, 200, 150, 200);
+            
+            # Set color to yellow
+            graphics.setColor(255, 255, 0, 255);
+            graphics.drawCircle(600, 450, 50);
+            
+            # Set color to white for lines
+            graphics.setColor(255, 255, 255, 255);
+            graphics.drawLine(50, 50, 750, 550);
+            graphics.drawLine(750, 50, 50, 550);
+            
+            # Present the frame
+            graphics.present();
+        end
+    end
+    
+    # Close window gracefully
+    if window.isOpen():
+        window.close();
+    end
+    print("Window closed!");
+else:
+    print("Failed to create window!");
+

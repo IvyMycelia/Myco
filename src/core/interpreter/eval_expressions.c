@@ -4,14 +4,137 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <math.h>  // For fmod()
 
 // ============================================================================
 // EXPRESSION EVALUATION FUNCTIONS
 // ============================================================================
 
 Value eval_binary(Interpreter* interpreter, ASTNode* node) { 
+    // FAST PATH: Optimize arithmetic operations for performance-critical code
+    // Try to evaluate operands quickly and do direct arithmetic when both are numbers
+    
+    ASTNode* left_node = node->data.binary.left;
+    ASTNode* right_node = node->data.binary.right;
+    
+    // Fast path 1: Both are number literals (fastest - no evaluation needed)
+    bool both_literals = (left_node && left_node->type == AST_NODE_NUMBER &&
+                          right_node && right_node->type == AST_NODE_NUMBER);
+    
+    if (both_literals) {
+        double left_val = left_node->data.number_value;
+        double right_val = right_node->data.number_value;
+        
+        switch (node->data.binary.op) {
+            case OP_ADD:
+                return value_create_number(left_val + right_val);
+            case OP_SUBTRACT:
+                return value_create_number(left_val - right_val);
+            case OP_MULTIPLY:
+                return value_create_number(left_val * right_val);
+            case OP_DIVIDE:
+                if (right_val == 0.0) {
+                    interpreter_set_error(interpreter, "Division by zero", node->line, node->column);
+                    return value_create_null();
+                }
+                return value_create_number(left_val / right_val);
+            case OP_MODULO:
+                if (right_val == 0.0) {
+                    interpreter_set_error(interpreter, "Modulo by zero", node->line, node->column);
+                    return value_create_null();
+                }
+                return value_create_number(fmod(left_val, right_val));
+            case OP_GREATER_THAN:
+                return value_create_boolean(left_val > right_val);
+            case OP_LESS_THAN:
+                return value_create_boolean(left_val < right_val);
+            case OP_GREATER_EQUAL:
+                return value_create_boolean(left_val >= right_val);
+            case OP_LESS_EQUAL:
+                return value_create_boolean(left_val <= right_val);
+            case OP_EQUAL:
+                return value_create_boolean(left_val == right_val);
+            case OP_NOT_EQUAL:
+                return value_create_boolean(left_val != right_val);
+            default:
+                break;
+        }
+    }
+    
+    // Fast path 2: Evaluate operands, then check if both are numbers
+    // This helps with variable-number operations like "frame % 60" or "cursor_x * 9"
+    // We still evaluate once, but avoid function call overhead for arithmetic
     Value l = interpreter_execute(interpreter, node->data.binary.left); 
-    Value r = interpreter_execute(interpreter, node->data.binary.right); 
+    Value r = interpreter_execute(interpreter, node->data.binary.right);
+    
+    // If both evaluated to numbers, do fast arithmetic
+    if (l.type == VALUE_NUMBER && r.type == VALUE_NUMBER) {
+        double left_val = l.data.number_value;
+        double right_val = r.data.number_value;
+        
+        Value result = value_create_null();
+        
+        switch (node->data.binary.op) {
+            case OP_ADD:
+                result = value_create_number(left_val + right_val);
+                break;
+            case OP_SUBTRACT:
+                result = value_create_number(left_val - right_val);
+                break;
+            case OP_MULTIPLY:
+                result = value_create_number(left_val * right_val);
+                break;
+            case OP_DIVIDE:
+                if (right_val == 0.0) {
+                    interpreter_set_error(interpreter, "Division by zero", node->line, node->column);
+                    result = value_create_null();
+                } else {
+                    result = value_create_number(left_val / right_val);
+                }
+                break;
+            case OP_MODULO:
+                if (right_val == 0.0) {
+                    interpreter_set_error(interpreter, "Modulo by zero", node->line, node->column);
+                    result = value_create_null();
+                } else {
+                    result = value_create_number(fmod(left_val, right_val));
+                }
+                break;
+            case OP_GREATER_THAN:
+                result = value_create_boolean(left_val > right_val);
+                break;
+            case OP_LESS_THAN:
+                result = value_create_boolean(left_val < right_val);
+                break;
+            case OP_GREATER_EQUAL:
+                result = value_create_boolean(left_val >= right_val);
+                break;
+            case OP_LESS_EQUAL:
+                result = value_create_boolean(left_val <= right_val);
+                break;
+            case OP_EQUAL:
+                result = value_create_boolean(left_val == right_val);
+                break;
+            case OP_NOT_EQUAL:
+                result = value_create_boolean(left_val != right_val);
+                break;
+            default:
+                // Not a fast path operation, fall through to normal path
+                break;
+        }
+        
+        // If we handled it in fast path, free operands and return
+        // Check if this is an arithmetic/comparison operation we handled
+        if (node->data.binary.op >= OP_ADD && node->data.binary.op <= OP_NOT_EQUAL) {
+            value_free(&l);
+            value_free(&r);
+            return result;
+        }
+        // If result is null and it's not an arithmetic op, might be an error - fall through
+    }
+    
+    // Normal path: use already-evaluated operands (l and r) or evaluate if not done
+    // Note: l and r may already be set from fast path 2 
     switch (node->data.binary.op) { 
         case OP_ADD: { 
             Value out = value_add(&l, &r); 

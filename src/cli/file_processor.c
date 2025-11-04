@@ -181,16 +181,13 @@ int interpret_source(const char* source, const char* filename, int debug) {
     
     // Check execution mode flags
     if (g_force_ast_only) {
-        // Force AST execution (for tests and --ast flag)
-        result = interpreter_execute_program(interpreter, program);
-    } else if (g_bytecode_enabled) {
-        // Try bytecode execution if enabled
-        // TODO: Implement bytecode compilation and execution
-        // For now, fall back to AST execution
-        printf("Bytecode mode enabled (not yet implemented, using AST)\n");
+        // Force AST execution (for --ast flag)
+        // TODO: In future, add flag to force AST-only in interpreter_execute_program
+        // For now, interpreter_execute_program will try bytecode first, then fall back to AST
         result = interpreter_execute_program(interpreter, program);
     } else {
-        // Default: AST execution
+        // Default: Try bytecode compilation and execution (with AST fallback)
+        // interpreter_execute_program() will handle bytecode compilation internally
         result = interpreter_execute_program(interpreter, program);
     }
     

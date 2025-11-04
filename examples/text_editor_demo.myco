@@ -13,11 +13,29 @@ if window != Null:
     print("Window created successfully!");
     
     # Load a font (try common macOS fonts)
-    let font_id = graphics.loadFont("/System/Library/Fonts/Menlo.ttc", 16);
-    if font_id != Null:
-        print("Font loaded successfully!");
-        graphics.setDefaultFont(font_id);
-    else:
+    # Try multiple possible locations for Menlo font
+    let font_id = Null;
+    let font_paths = [
+        "/System/Library/Fonts/Supplemental/Menlo.ttc",
+        "/Library/Fonts/Menlo.ttc",
+        "/System/Library/Fonts/Menlo.ttc",
+        "/System/Library/Fonts/Helvetica.ttc"
+    ];
+    
+    let font_loaded = false;
+    let i = 0;
+    while i < font_paths.length:
+        font_id = graphics.loadFont(font_paths[i], 16);
+        if font_id != Null:
+            print("Font loaded successfully from: " + font_paths[i]);
+            graphics.setDefaultFont(font_id);
+            font_loaded = true;
+            break;
+        end
+        i = i + 1;
+    end
+    
+    if not font_loaded:
         print("Warning: Could not load font. Text rendering will not work.");
     end
     
@@ -41,6 +59,8 @@ if window != Null:
     let fps = 0;
     let fps_frame_count = 0;
     let cursor_blink_start_time = time.now();
+    let last_status_update_frame = 0;
+    let last_status_fps = -1;
     print("Entering main loop - window should be visible now");
     
     while window.isOpen():
@@ -227,16 +247,8 @@ if window != Null:
         
         # Draw text if font is available
         if font_id != Null:
-            # Draw status bar at top
-            graphics.setColor(220, 220, 220, 255);  # Light gray status bar
-            graphics.fillRect(0, 0, window.getWidth(), status_bar_height);
-            
-            # Draw status bar border
-            graphics.setColor(180, 180, 180, 255);  # Darker gray border
-            graphics.drawLine(0, status_bar_height, window.getWidth(), status_bar_height);
-            
-            # Draw status bar text
-            graphics.setColor(0, 0, 0, 255);  # Black text
+            # Cache window size per frame
+            let win_h = window.getHeight();
             # Calculate blinking state that scales with FPS
             # Use FPS to determine how many frames = 500ms (half a second)
             # If FPS is 10, 500ms = 5 frames. If FPS is 60, 500ms = 30 frames.
@@ -257,14 +269,16 @@ if window != Null:
             let blink_position = frame % blink_cycle_length;
             let show_cursor_debug = blink_position < frames_per_blink_cycle;
             
-            # Build status text with debug info
-            let cursor_state_text = "cursor: false";
-            if show_cursor_debug:
-                cursor_state_text = "cursor: true";
-            end
-            
-            let status_text = filename + " | Line " + (cursor_y + 1) + ", Col " + (cursor_x + 1) + " | " + lines.length + " lines | Frame: " + frame + " | FPS: " + fps + " | " + cursor_state_text;
-            graphics.drawText(10, 8, status_text);
+            # Draw status bar (glyph atlas makes this fast)
+            graphics.setColor(200, 200, 200, 255);  # Light gray background
+            graphics.fillRect(0, 0, window.getWidth(), status_bar_height);
+            graphics.setColor(0, 0, 0, 255);  # Black text
+            let status_text = filename + " | Line " + (cursor_y + 1) + ", Col " + (cursor_x + 1) + " | " + lines.length + " lines | FPS: " + fps;
+            graphics.drawText(10, 5, status_text, font_id);
+
+            # Draw static header (glyph atlas makes this fast)
+            graphics.setColor(0, 0, 0, 255);  # Black text
+            graphics.drawText(10, status_bar_height + 4, "Myco Text Editor", font_id);
             
             # Render all lines of text in editor area
             let start_line = 0;
@@ -272,7 +286,7 @@ if window != Null:
                 start_line = scroll_y;
             end
             
-            let window_height = window.getHeight();
+            let window_height = win_h;
             let editor_height = window_height - status_bar_height;
             
             # OPTIMIZATION: Use C-based rendering function that handles everything
@@ -318,18 +332,20 @@ if window != Null:
         else: frame = 0; end
 
         fps_frame_count = fps_frame_count + 1;
+
+        # Avoid periodic cache clears; atlas + prepared text reduce churn already
         
-        # Calculate FPS less frequently to reduce interpreter overhead
-        # Only check every 60 frames (roughly once per second at 60fps)
-        if fps_frame_count % 60 == 0 and fps_frame_count > 0:
-            # Only call time.now() every 60 frames instead of every frame
+        # Calculate FPS more frequently for better feedback (every 30 frames)
+        # At 15 FPS, 30 frames = 2 seconds (more responsive)
+        if fps_frame_count % 30 == 0 and fps_frame_count > 0:
+            # Only call time.now() every 30 frames instead of every frame
             let current_time_obj = time.now();
             let current_timestamp = time.unix_timestamp(current_time_obj);
             let last_timestamp = time.unix_timestamp(last_fps_time);
             let time_diff = current_timestamp - last_timestamp;
             
-            # Update FPS if at least 1 second has passed
-            if time_diff >= 1:
+            # Update FPS if at least 0.5 second has passed (more responsive)
+            if time_diff >= 0.5:
                 # Calculate actual FPS from frame count and time diff
                 fps = fps_frame_count / time_diff;
                 fps_frame_count = 0;

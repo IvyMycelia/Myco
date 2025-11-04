@@ -1,6 +1,7 @@
 #include "../../include/core/bytecode.h"
 #include "../../include/utils/shared_utilities.h"
 #include "../../include/core/interpreter/value_operations.h"
+#include "../../include/core/interpreter/eval_engine.h"
 #include "../../include/core/environment.h"
 #include "../../include/libs/array.h"
 #include "../../include/libs/math.h"
@@ -387,19 +388,46 @@ static Value fast_create_null(BytecodeProgram* program) {
 
 // Stub functions for optimization features
 BytecodeProgram* bytecode_compile_ast(ASTNode* node, Interpreter* interpreter) {
-    // Stub implementation - return NULL to disable bytecode compilation
-    return NULL;
+    if (!node || !interpreter) {
+        return NULL;
+    }
+    
+    // Create a new bytecode program
+    BytecodeProgram* program = bytecode_program_create();
+    if (!program) {
+        return NULL;
+    }
+    
+    // Compile the AST node to bytecode
+    int success = bytecode_compile_program(program, node, interpreter);
+    if (!success) {
+        // Compilation failed - free the program and return NULL
+        bytecode_program_free(program);
+        return NULL;
+    }
+    
+    return program;
 }
 
 void ast_node_set_bytecode(ASTNode* node, BytecodeProgram* bytecode) {
-    // Stub implementation - do nothing
-    (void)node;
-    (void)bytecode;
+    if (!node) {
+        return;
+    }
+    
+    // Store the bytecode in the AST node's cached_bytecode field
+    node->cached_bytecode = bytecode;
 }
 
 Value interpreter_execute_bytecode(Interpreter* interpreter, BytecodeProgram* bytecode) {
-    // Stub implementation - fall back to AST execution
-    return value_create_null();
+    if (!interpreter || !bytecode) {
+        return value_create_null();
+    }
+    
+    // Execute the bytecode program
+    Value result = bytecode_execute(bytecode, interpreter, 0);
+    
+    // Return the result (bytecode_execute handles errors internally)
+    return result;
 }
 
 // Bytecode VM implementation
@@ -2172,7 +2200,8 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             case BC_EVAL_AST: {
-                // Fallback to AST evaluation
+                // Fallback to AST evaluation - use eval_node directly to avoid recursion
+                // eval_node doesn't try to compile to bytecode, it just evaluates AST directly
                 if (instr->a < program->ast_count) {
                     ASTNode* node = program->ast_nodes[instr->a];
                     if (node) {
@@ -2192,7 +2221,10 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             }
                         }
                         
-                        Value result = interpreter_execute(interpreter, node);
+                        // Use eval_node directly to avoid bytecode compilation recursion
+                        // eval_node is defined in eval_core.c and evaluates AST without trying to compile
+                        // It's declared in eval_engine.h which we include at the top
+                        Value result = eval_node(interpreter, node);
                         
                         // Synchronize back from AST environment to bytecode locals
                         // This allows modifications in AST fallbacks to be visible in bytecode
@@ -2538,7 +2570,12 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             case BC_HALT: {
-                result = value_stack_pop();
+                // Pop result if stack has value, otherwise return null
+                if (value_stack_size > 0) {
+                    result = value_stack_pop();
+                } else {
+                    result = value_create_null();
+                }
                 goto cleanup;
             }
             
@@ -2743,11 +2780,37 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             default: {
-                // Unknown opcode - fallback to AST
+                // Unknown opcode - fallback to AST evaluation
+                // Use eval_node directly to avoid bytecode compilation recursion
                 if (instr->a < program->ast_count) {
                     ASTNode* node = program->ast_nodes[instr->a];
                     if (node) {
-                        Value result = interpreter_execute(interpreter, node);
+                        // Synchronize bytecode variables with AST interpreter environment
+                        for (size_t i = 0; i < program->local_count && i < program->local_slot_count; i++) {
+                            if (program->local_names[i]) {
+                                Value local_val = program->locals[i];
+                                if (environment_exists(interpreter->current_environment, program->local_names[i])) {
+                                    environment_assign(interpreter->current_environment, program->local_names[i], value_clone(&local_val));
+                                } else {
+                                    environment_define(interpreter->current_environment, program->local_names[i], value_clone(&local_val));
+                                }
+                            }
+                        }
+                        
+                        // Use eval_node directly to avoid recursion
+                        Value result = eval_node(interpreter, node);
+                        
+                        // Synchronize back from AST environment to bytecode locals
+                        for (size_t i = 0; i < program->local_count && i < program->local_slot_count; i++) {
+                            if (program->local_names[i]) {
+                                Value env_val = environment_get(interpreter->current_environment, program->local_names[i]);
+                                if (env_val.type != VALUE_NULL) {
+                                    value_free(&program->locals[i]);
+                                    program->locals[i] = value_clone(&env_val);
+                                }
+                            }
+                        }
+                        
                         value_stack_push(result);
                     } else {
                         value_stack_push(value_create_null());

@@ -1070,6 +1070,9 @@ Value builtin_server_stop(Interpreter* interpreter, Value* args, size_t arg_coun
     g_server->daemon = NULL;
     g_server->running = false;
     
+    // Clear global flag so script can exit
+    g_servers_running = false;
+    
     // Update the server object's running property
     value_object_set(&server_obj, "running", value_create_boolean(false));
     
@@ -2344,6 +2347,9 @@ Value builtin_server_close(Interpreter* interpreter, Value* args, size_t arg_cou
         http_server_stop((HttpServer*)g_server->daemon);
         g_server->running = false;
         g_server->daemon = NULL;
+        
+        // Clear global flag so script can exit
+        g_servers_running = false;
     }
     
     // Update server object

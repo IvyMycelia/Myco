@@ -138,7 +138,7 @@ ifeq ($(PLATFORM),macos)
         SDL2_CFLAGS := $(SDL2_CFLAGS) -D_THREAD_SAFE
         SDL2_TTF_CFLAGS := $(SDL2_TTF_CFLAGS) -D_THREAD_SAFE
     endif
-    LIBS = -lm $(SDL2_LIBS) $(SDL2_TTF_LIBS)
+    LIBS = -lm $(SDL2_LIBS) $(SDL2_TTF_LIBS) -framework OpenGL
     INCLUDE_FLAGS = $(SDL2_CFLAGS) $(SDL2_TTF_CFLAGS)
 else ifeq ($(PLATFORM),linux)
     # Linux: Standard package manager paths
@@ -152,7 +152,7 @@ else ifeq ($(PLATFORM),linux)
         SDL2_CFLAGS := $(SDL2_CFLAGS) -D_REENTRANT
         SDL2_TTF_CFLAGS := $(SDL2_TTF_CFLAGS) -D_REENTRANT
     endif
-    LIBS = -lm $(SDL2_LIBS) $(SDL2_TTF_LIBS)
+    LIBS = -lm $(SDL2_LIBS) $(SDL2_TTF_LIBS) -framework OpenGL
     INCLUDE_FLAGS = $(SDL2_CFLAGS) $(SDL2_TTF_CFLAGS)
 else ifeq ($(PLATFORM),windows)
     # Windows (MinGW/MSYS2): Check common installation paths
@@ -173,12 +173,24 @@ else ifeq ($(PLATFORM),windows)
         SDL2_TTF_CFLAGS := $(SDL2_TTF_CFLAGS) -Dmain=SDL_main
         SDL2_TTF_LIBS := $(SDL2_TTF_LIBS) -lmingw32
     endif
-    LIBS = -lm $(SDL2_LIBS) $(SDL2_TTF_LIBS)
+    LIBS = -lm $(SDL2_LIBS) $(SDL2_TTF_LIBS) -framework OpenGL
     INCLUDE_FLAGS = $(SDL2_CFLAGS) $(SDL2_TTF_CFLAGS)
 else
     # Unknown platform: use pkg-config/sdl2-config result
-    LIBS = -lm $(SDL2_LIBS) $(SDL2_TTF_LIBS)
+    LIBS = -lm $(SDL2_LIBS) $(SDL2_TTF_LIBS) -framework OpenGL
     INCLUDE_FLAGS = $(SDL2_CFLAGS) $(SDL2_TTF_CFLAGS)
+
+# Optional bgfx backend (Phase 1 scaffold)
+# Enable with: make BGFX=1 BGFX_INCLUDE="-I/path/to/bgfx/include -I/path/to/bx/include -I/path/to/bimg/include" BGFX_LIBS="-L... -lbgfx -lbx -lbimg"
+ifeq ($(BGFX),1)
+    CFLAGS += -DMYCO_USE_BGFX=1
+    ifdef BGFX_INCLUDE
+        INCLUDE_FLAGS += $(BGFX_INCLUDE)
+    endif
+    ifdef BGFX_LIBS
+        LIBS += $(BGFX_LIBS)
+    endif
+endif
 endif
 
 # Default target

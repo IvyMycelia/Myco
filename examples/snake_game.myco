@@ -1,0 +1,554 @@
+# Snake Game in Myco
+# Demonstrates graphics API, batching, and game logic
+
+use graphics;
+use math;
+
+# Game configuration
+let grid_width = 20;  # Reduced grid size for better performance
+let grid_height = 20;
+let min_cell_size = 15;  # Minimum cell size for scaling
+let default_cell_size = 20;
+
+# Create game window (will scale to fit)
+let window = graphics.createWindow(800, 700, "Snake Game - Myco");
+
+if window != Null:
+    print("Snake Game Starting!");
+    
+    # Load font (try multiple common macOS fonts)
+    let font_id = Null;
+    let font_paths = [
+        "/System/Library/Fonts/Supplemental/Menlo.ttc",
+        "/Library/Fonts/Menlo.ttc",
+        "/System/Library/Fonts/Menlo.ttc",
+        "/System/Library/Fonts/Monaco.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+        "/System/Library/Fonts/ArialHB.ttc",
+        "/System/Library/Fonts/Supplemental/Courier New.ttf"
+    ];
+    
+    let font_loaded = false;
+    let i = 0;
+    while i < font_paths.length:
+        font_id = graphics.loadFont(font_paths[i], 18);
+        if font_id != Null:
+            print("Font loaded successfully from: " + font_paths[i]);
+            graphics.setDefaultFont(font_id);
+            font_loaded = true;
+            break;
+        end
+        i = i + 1;
+    end
+    
+    if not font_loaded:
+        print("Warning: Could not load font. Text rendering will not work.");
+    end
+    
+    # Menu state
+    let in_menu = true;
+    let menu_selection = 0;  # 0=Easy, 1=Medium, 2=Hard, 3=Start
+    let difficulty = "EASY";  # EASY, MEDIUM, HARD
+    let move_delay = 0.15;  # Will be set based on difficulty
+    
+    # Game state
+    let snake = [];
+    let direction = "RIGHT";  # UP, DOWN, LEFT, RIGHT
+    let next_direction = "RIGHT";
+    let food_x = 10;
+    let food_y = 10;
+    let score = 0;
+    let game_over = false;
+    let paused = false;
+    
+    # Initialize snake (starts with 3 segments)
+    let start_x = 5;
+    let start_y = 10;
+    snake = [[start_x, start_y], [start_x - 1, start_y], [start_x - 2, start_y]];
+    
+    # Game loop timing
+    let last_update = time.now();
+    let frame_count = 0;
+    let last_fps_update = time.now();
+    let fps = 0;
+    let fps_frame_count = 0;
+    let target_fps = 60;
+    
+    print("Game started! Use arrow keys to move. Press SPACE to pause.");
+    
+    while window.isOpen():
+        frame_count = frame_count + 1;
+        
+        # Calculate FPS
+        let current_time = time.now();
+        let current_ts = time.unix_timestamp(current_time);
+        let last_fps_ts = time.unix_timestamp(last_fps_update);
+        fps_frame_count = fps_frame_count + 1;
+        
+        if current_ts - last_fps_ts >= 1.0:  # Update FPS every second
+            fps = fps_frame_count;
+            fps_frame_count = 0;
+            last_fps_update = current_time;
+        end
+        
+        # Poll events
+        let should_close = window.pollEvents();
+        if should_close:
+            break;
+        end
+        
+        # Get keyboard input
+        let key = graphics.getKey();
+        if not window.isOpen():
+            break;
+        end
+        
+        if key != Null:
+            let key_type = key.type;
+            let key_name = key.key;
+            
+            if key_type == "SPECIAL":
+                if in_menu:
+                    # Menu navigation
+                    if key_name == "UP":
+                        menu_selection = menu_selection - 1;
+                        if menu_selection < 0:
+                            menu_selection = 3;
+                        end
+                    else if key_name == "DOWN":
+                        menu_selection = menu_selection + 1;
+                        if menu_selection > 3:
+                            menu_selection = 0;
+                        end
+                    else if key_name == "ENTER":
+                        if menu_selection == 3:
+                            # Start game
+                            in_menu = false;
+                            game_over = false;
+                            paused = false;
+                            score = 0;
+                            snake = [[start_x, start_y], [start_x - 1, start_y], [start_x - 2, start_y]];
+                            direction = "RIGHT";
+                            next_direction = "RIGHT";
+                            last_update = time.now();
+                            frame_count = 0;
+                        else if menu_selection == 0:
+                            difficulty = "EASY";
+                            move_delay = 0.15;
+                        else if menu_selection == 1:
+                            difficulty = "MEDIUM";
+                            move_delay = 0.10;
+                        else if menu_selection == 2:
+                            difficulty = "HARD";
+                            move_delay = 0.05;
+                        end
+                    else if key_name == "ESCAPE":
+                        print("Game quit by user");
+                        break;
+                    end
+                else:
+                    # In-game controls
+                    if key_name == "UP" and direction != "DOWN":
+                        next_direction = "UP";
+                    else if key_name == "DOWN" and direction != "UP":
+                        next_direction = "DOWN";
+                    else if key_name == "LEFT" and direction != "RIGHT":
+                        next_direction = "LEFT";
+                    else if key_name == "RIGHT" and direction != "LEFT":
+                        next_direction = "RIGHT";
+                    else if key_name == "ESCAPE":
+                        in_menu = true;
+                        menu_selection = 0;
+                    end
+                end
+            else if key_type == "CHAR":
+                if not in_menu:
+                    if key_name == " ":
+                        paused = not paused;
+                        if paused:
+                            print("Game paused - press SPACE to resume");
+                        else:
+                            print("Game resumed");
+                        end
+                    end
+                end
+            end
+        end
+        
+        # Update game state (only if not paused and not in menu)
+        if not in_menu and not paused and not game_over:
+            let current_time = time.now();
+            let current_timestamp = time.unix_timestamp(current_time);
+            let last_timestamp = time.unix_timestamp(last_update);
+            let delta = current_timestamp - last_timestamp;
+            
+            # Speed increases with score (gets faster as you play)
+            let speed_multiplier = 1.0 - (score / 1000.0) * 0.5;  # Up to 50% faster
+            if speed_multiplier < 0.5:
+                speed_multiplier = 0.5;  # Cap at 2x speed
+            end
+            let adjusted_delay = move_delay * speed_multiplier;
+            
+            if delta >= adjusted_delay:
+                # Update direction
+                direction = next_direction;
+                
+                # Calculate new head position
+                let head = snake[0];
+                let new_head_x = head[0];
+                let new_head_y = head[1];
+                
+                if direction == "UP":
+                    new_head_y = new_head_y - 1;
+                else if direction == "DOWN":
+                    new_head_y = new_head_y + 1;
+                else if direction == "LEFT":
+                    new_head_x = new_head_x - 1;
+                else if direction == "RIGHT":
+                    new_head_x = new_head_x + 1;
+                end
+                
+                # Wrap around edges
+                if new_head_x < 0:
+                    new_head_x = grid_width - 1;
+                else if new_head_x >= grid_width:
+                    new_head_x = 0;
+                end
+                
+                if new_head_y < 0:
+                    new_head_y = grid_height - 1;
+                else if new_head_y >= grid_height:
+                    new_head_y = 0;
+                end
+                
+                # Check collision with self
+                let collision = false;
+                let j = 0;
+                while j < snake.length:
+                    let segment = snake[j];
+                    if segment[0] == new_head_x and segment[1] == new_head_y:
+                        collision = true;
+                        break;
+                    end
+                    j = j + 1;
+                end
+                
+                if collision:
+                    game_over = true;
+                    print("Game Over! Collided with self. Final score: " + score);
+                else:
+                    # Add new head
+                    snake = [[new_head_x, new_head_y]] + snake;
+                    
+                    # Check if ate food
+                    if new_head_x == food_x and new_head_y == food_y:
+                        # Increase score
+                        score = score + 10;
+                        
+                        # Generate new food (not on snake)
+                        # Simple pseudo-random using score and time
+                        let valid_food = false;
+                        let attempts = 0;
+                        while not valid_food and attempts < 100:
+                            # Use score and time for pseudo-randomness
+                            let time_now = time.now();
+                            let time_ts = time.unix_timestamp(time_now);
+                            let seed = (score * 17 + snake.length * 23 + time_ts * 31) % 1000;
+                            
+                            food_x = (seed * 7 + score * 13) % grid_width;
+                            food_y = (seed * 11 + snake.length * 19) % grid_height;
+                            
+                            # Check if food is on snake
+                            valid_food = true;
+                            let k = 0;
+                            while k < snake.length:
+                                let seg = snake[k];
+                                if seg[0] == food_x and seg[1] == food_y:
+                                    valid_food = false;
+                                    break;
+                                end
+                                k = k + 1;
+                            end
+                            attempts = attempts + 1;
+                        end
+                        
+                        # If we couldn't find a valid spot, just use a default
+                        if not valid_food:
+                            food_x = 15;
+                            food_y = 15;
+                        end
+                    else:
+                        # Remove tail (snake didn't grow)
+                        snake = snake.remove(snake.length - 1);
+                    end
+                end
+                
+                last_update = current_time;
+            end
+        end
+        
+        # Get window size for scaling
+        let window_width = window.getWidth();
+        let window_height = window.getHeight();
+        
+        # Calculate cell size based on window size (scale to fit)
+        # Reserve space for UI on the right (200px) and top/bottom padding (100px)
+        let available_width = window_width - 200;
+        let available_height = window_height - 100;
+        let cell_size_x = available_width / grid_width;
+        let cell_size_y = available_height / grid_height;
+        
+        # Use if/else instead of ternary to avoid boolean issues
+        let cell_size = cell_size_x;
+        if cell_size_y < cell_size_x:
+            cell_size = cell_size_y;
+        end
+        
+        if cell_size < min_cell_size:
+            cell_size = min_cell_size;
+        end
+        
+        # Render game
+        # Note: begin_frame() already clears the screen at the start of each frame
+        # Set background color BEFORE drawing (this updates the clear color for the NEXT frame)
+        # For the current frame, we'll draw a background rectangle
+        graphics.setColor(30, 30, 30, 255);  # Dark gray background
+        graphics.fillRect(0, 0, window_width, window_height);  # Draw background
+        
+        if in_menu:
+            # Draw menu background
+            graphics.setColor(20, 20, 40, 255);  # Dark blue background
+            graphics.fillRect(0, 0, window_width, window_height);
+            
+            # Draw menu title background
+            graphics.setColor(50, 50, 100, 255);  # Medium blue
+            graphics.fillRect(window_width / 2 - 150, 30, 300, 60);
+            
+            # Draw menu items
+            let menu_y = 150;
+            let menu_item_height = 50;
+            
+            # Draw selection indicator (arrow)
+            graphics.setColor(255, 255, 0, 255);  # Yellow arrow
+            let arrow_x = window_width / 2 - 180;
+            let arrow_y = menu_y + menu_selection * menu_item_height + 15;
+            graphics.fillRect(arrow_x, arrow_y, 30, 20);
+            
+            # Draw menu items as colored rectangles
+            let i = 0;
+            while i < 4:
+                let is_selected = menu_selection == i;
+                let is_difficulty_selected = false;
+                
+                if i == 0:
+                    is_difficulty_selected = difficulty == "EASY";
+                else if i == 1:
+                    is_difficulty_selected = difficulty == "MEDIUM";
+                else if i == 2:
+                    is_difficulty_selected = difficulty == "HARD";
+                end
+                
+                # Menu item background
+                if is_selected or is_difficulty_selected:
+                    graphics.setColor(100, 150, 200, 255);  # Bright blue when selected
+                else:
+                    graphics.setColor(40, 60, 80, 255);  # Dark blue otherwise
+                end
+                
+                graphics.fillRect(window_width / 2 - 150, menu_y + i * menu_item_height, 300, 40);
+                
+                # Menu item border (draw as lines)
+                graphics.setColor(is_selected ? 255 : 100, is_selected ? 255 : 100, is_selected ? 0 : 100, 255);
+                let border_x = window_width / 2 - 150;
+                let border_y = menu_y + i * menu_item_height;
+                let border_w = 300;
+                let border_h = 40;
+                # Draw rectangle outline using lines
+                graphics.drawLine(border_x, border_y, border_x + border_w, border_y);  # Top
+                graphics.drawLine(border_x + border_w, border_y, border_x + border_w, border_y + border_h);  # Right
+                graphics.drawLine(border_x + border_w, border_y + border_h, border_x, border_y + border_h);  # Bottom
+                graphics.drawLine(border_x, border_y + border_h, border_x, border_y);  # Left
+                
+                i = i + 1;
+            end
+            
+            # Draw text if font is available (draw AFTER buttons so text is on top)
+            if font_id != Null:
+                # Draw title first (separate color batch)
+                graphics.setColor(255, 255, 255, 255);  # White text
+                let title = "SNAKE GAME";
+                graphics.drawText(window_width / 2 - 100, 50, title, font_id);
+                
+                # Draw menu item text - ensure text is drawn AFTER all rectangles
+                # Text uses top-left coordinates  
+                # Buttons are at: menu_y + i * menu_item_height, height 40
+                # Text at approximately 12px from top of button (for 18px font, roughly centered)
+                let text_offset_y = 12;
+                
+                # All button text uses same color to batch together
+                graphics.setColor(255, 255, 255, 255);  # White text for contrast
+                
+                # EASY button (button starts at y=150)
+                let easy_text = "EASY";
+                if difficulty == "EASY":
+                    easy_text = easy_text + " (Selected)";
+                end
+                graphics.drawText(window_width / 2 - 80, menu_y + text_offset_y, easy_text, font_id);
+                
+                # MEDIUM button (button starts at y=200)
+                let medium_text = "MEDIUM";
+                if difficulty == "MEDIUM":
+                    medium_text = medium_text + " (Selected)";
+                end
+                graphics.drawText(window_width / 2 - 80, menu_y + menu_item_height + text_offset_y, medium_text, font_id);
+                
+                # HARD button (button starts at y=250)
+                let hard_text = "HARD";
+                if difficulty == "HARD":
+                    hard_text = hard_text + " (Selected)";
+                end
+                graphics.drawText(window_width / 2 - 80, menu_y + 2 * menu_item_height + text_offset_y, hard_text, font_id);
+                
+                # START GAME button (button starts at y=300)
+                let start_text = "START GAME";
+                graphics.drawText(window_width / 2 - 80, menu_y + 3 * menu_item_height + text_offset_y, start_text, font_id);
+                
+                # Instructions at bottom (different color, will flush previous batch)
+                graphics.setColor(200, 200, 200, 255);
+                graphics.drawText(window_width / 2 - 150, 400, "Arrow keys: Navigate", font_id);
+                graphics.drawText(window_width / 2 - 150, 430, "Enter: Select", font_id);
+                graphics.drawText(window_width / 2 - 150, 460, "ESC: Quit", font_id);
+            end
+        else:
+            # Draw game grid background (subtle grid lines)
+            # Optimize: Only draw major grid lines every 5 cells to reduce draw calls
+            graphics.setColor(50, 50, 50, 255);
+            let grid_x = 0;
+            while grid_x <= grid_width:
+                if grid_x % 5 == 0 or grid_x == grid_width:
+                    let px = grid_x * cell_size;
+                    graphics.drawLine(px, 0, px, grid_height * cell_size);
+                end
+                grid_x = grid_x + 1;
+            end
+            
+            let grid_y = 0;
+            while grid_y <= grid_height:
+                if grid_y % 5 == 0 or grid_y == grid_height:
+                    let py = grid_y * cell_size;
+                    graphics.drawLine(0, py, grid_width * cell_size, py);
+                end
+                grid_y = grid_y + 1;
+            end
+            
+            # Draw border around play area
+            graphics.setColor(100, 100, 100, 255);
+            let border_right = grid_width * cell_size;
+            let border_bottom = grid_height * cell_size;
+            graphics.drawLine(0, 0, border_right, 0);  # Top
+            graphics.drawLine(border_right, 0, border_right, border_bottom);  # Right
+            graphics.drawLine(border_right, border_bottom, 0, border_bottom);  # Bottom
+            graphics.drawLine(0, border_bottom, 0, 0);  # Left
+            
+            # Draw snake (all batched together!)
+            if snake.length > 0:
+                let seg_idx = 0;
+                while seg_idx < snake.length:
+                    let segment = snake[seg_idx];
+                    # Calculate pixel position (with padding for visual clarity)
+                    let x = segment[0] * cell_size + 2;
+                    let y = segment[1] * cell_size + 2;
+                    let w = cell_size - 4;
+                    let h = cell_size - 4;
+                    
+                    # Head is slightly brighter
+                    if seg_idx == 0:
+                        graphics.setColor(100, 255, 100, 255);  # Brighter green for head
+                    else:
+                        graphics.setColor(50, 200, 50, 255);  # Normal green
+                    end
+                    
+                    # Draw rectangle
+                    graphics.fillRect(x, y, w, h);
+                    seg_idx = seg_idx + 1;
+                end
+            end
+            
+            # Draw food (red circle)
+            graphics.setColor(255, 50, 50, 255);  # Red food
+            let food_x_px = food_x * cell_size + cell_size / 2;
+            let food_y_px = food_y * cell_size + cell_size / 2;
+            let food_radius = (cell_size - 10) / 2;
+            if food_radius > 0:
+                graphics.fillCircle(food_x_px, food_y_px, food_radius);
+            end
+            
+            # Draw score and info (text batching!)
+            if font_id != Null:
+                graphics.setColor(255, 255, 255, 255);  # White text
+                let score_text = "Score: " + score;
+                graphics.drawText(grid_width * cell_size + 20, 30, score_text, font_id);
+                
+                let length_text = "Length: " + snake.length;
+                graphics.drawText(grid_width * cell_size + 20, 60, length_text, font_id);
+                
+                let difficulty_text = "Difficulty: " + difficulty;
+                graphics.drawText(grid_width * cell_size + 20, 90, difficulty_text, font_id);
+                
+                # Frame counter (frame 0/60)
+                let frame_in_cycle = frame_count % target_fps;
+                let frame_text = "Frame: " + frame_in_cycle + "/" + target_fps;
+                graphics.drawText(grid_width * cell_size + 20, 120, frame_text, font_id);
+                
+                # FPS counter
+                let fps_text = "FPS: " + fps;
+                graphics.setColor(fps >= 55 ? 0 : 255, fps >= 55 ? 255 : 0, 0, 255);  # Green if good, red if low
+                graphics.drawText(grid_width * cell_size + 20, 150, fps_text, font_id);
+                
+                if paused:
+                    graphics.setColor(255, 255, 0, 255);  # Yellow for pause
+                    graphics.drawText(grid_width * cell_size + 20, 180, "PAUSED", font_id);
+                end
+                
+                graphics.setColor(200, 200, 200, 255);
+                graphics.drawText(grid_width * cell_size + 20, 210, "ESC: Menu", font_id);
+            end
+            
+            # Draw game over message
+            if game_over and font_id != Null:
+                graphics.setColor(0, 0, 0, 200);  # Semi-transparent black overlay
+                graphics.fillRect(0, 0, window_width, window_height);
+                
+                graphics.setColor(255, 255, 255, 255);  # White background
+                graphics.fillRect(window_width / 2 - 200, window_height / 2 - 80, 400, 160);
+                
+                graphics.setColor(255, 0, 0, 255);  # Red text
+                graphics.drawText(window_width / 2 - 100, window_height / 2 - 40, "GAME OVER", font_id);
+                
+                graphics.setColor(0, 0, 0, 255);  # Black text
+                let final_score_text = "Final Score: " + score;
+                graphics.drawText(window_width / 2 - 80, window_height / 2 - 10, final_score_text, font_id);
+                
+                let final_length_text = "Length: " + snake.length;
+                graphics.drawText(window_width / 2 - 50, window_height / 2 + 20, final_length_text, font_id);
+                
+                graphics.setColor(150, 150, 150, 255);
+                graphics.drawText(window_width / 2 - 80, window_height / 2 + 50, "Press ESC for menu", font_id);
+            end
+        end
+        
+        # Present frame
+        graphics.present();
+    end
+    
+    # Close window
+    if window.isOpen():
+        window.close();
+    end
+    
+    print("Game ended. Final score: " + score);
+else:
+    print("Failed to create window!");
+end
+

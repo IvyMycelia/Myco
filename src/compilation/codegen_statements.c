@@ -1408,7 +1408,7 @@ int codegen_generate_c_function_declaration(CodeGenContext* context, ASTNode* no
     
     // Enter function scope for parameters
     variable_scope_enter(context->variable_scope);
-
+    
     // Generate parameters and add them to scope
     for (size_t i = 0; i < parameter_count; i++) {
         if (i > 0) codegen_comma(context);

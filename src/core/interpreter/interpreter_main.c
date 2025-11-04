@@ -11,6 +11,7 @@
 #include "interpreter/method_handlers.h"
 #include "interpreter/eval_engine.h"
 #include "optimization/hot_spot_tracker.h"
+#include "optimization/bytecode_engine.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -223,9 +224,30 @@ Value interpreter_execute_program(Interpreter* interpreter, ASTNode* node) {
         interpreter_clear_error(interpreter);
     }
     
-    // Use AST execution for now (bytecode conflicts resolved)
-    // Hot spot tracking is still active for future JIT compilation
-
+    // Try bytecode compilation (non-breaking, no caching to avoid memory overhead)
+    // Only compile to bytecode if not already executing bytecode (prevents recursion)
+    // For BLOCK nodes, we need to ensure all statements execute, so we'll be more careful
+    // For now, only use bytecode if the node is not a BLOCK (to avoid early stop issues)
+    // TODO: Fix bytecode execution to ensure all statements in BLOCK nodes execute
+    if (node->type != AST_NODE_BLOCK) {
+        BytecodeProgram* bytecode = bytecode_compile_ast(node, interpreter);
+        if (bytecode) {
+            Value result = interpreter_execute_bytecode(interpreter, bytecode);
+            // Free bytecode immediately after execution to avoid memory overhead
+            bytecode_program_free(bytecode);
+            // Check if bytecode execution had an error
+            if (interpreter_has_error(interpreter)) {
+                // If bytecode execution had error, fall back to AST
+                interpreter_clear_error(interpreter);
+                // Continue to AST fallback below
+            } else {
+                // Bytecode executed successfully - return result
+                return result;
+            }
+        }
+    }
+    
+    // Fall back to AST execution (existing behavior)
     if (node->type == AST_NODE_BLOCK) {
         for (size_t i = 0; i < node->data.block.statement_count; i++) {
             if (i % 1000 == 0) {

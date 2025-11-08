@@ -563,6 +563,11 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
     // Set interpreter reference
     program->interpreter = interpreter;
     
+    // Ensure program cache is set for function calls
+    if (!interpreter->bytecode_program_cache) {
+        interpreter->bytecode_program_cache = program;
+    }
+    
     // Execute main program
     size_t pc = 0;
     Value result = value_create_null();
@@ -699,6 +704,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 if (instr->a < program->local_slot_count) {
                     Value val = value_stack_pop();
                     value_free(&program->locals[instr->a]);
+                    // Store the value directly (don't clone) - the value on stack is already a clone from BC_LOAD_LOCAL
                     program->locals[instr->a] = val;
                     
                     // Also update numeric locals if this is a number
@@ -712,16 +718,21 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             
             case BC_LOAD_GLOBAL: {
                 // Load global variable by name
+                // environment_get already checks parent chain, so just use current_environment
                 if (instr->a >= 0 && instr->a < (int)program->const_count && 
                     program->constants && program->constants[instr->a].type == VALUE_STRING) {
                     const char* var_name = program->constants[instr->a].data.string_value;
-                    if (var_name && interpreter && interpreter->global_environment) {
-                        Value global_val = environment_get(interpreter->global_environment, var_name);
-                        // environment_get already returns a clone, so push it directly
-                        value_stack_push(global_val);
-                    } else {
-                        value_stack_push(value_create_null());
+                    Value loaded_val = value_create_null();
+                    
+                    // Use current environment - environment_get will check parent chain automatically
+                    if (var_name && interpreter && interpreter->current_environment) {
+                        loaded_val = environment_get(interpreter->current_environment, var_name);
+                    } else if (var_name && interpreter && interpreter->global_environment) {
+                        // Fallback to global environment if current_environment is NULL
+                        loaded_val = environment_get(interpreter->global_environment, var_name);
                     }
+                    
+                    value_stack_push(loaded_val);
                 } else {
                     value_stack_push(value_create_null());
                 }
@@ -731,21 +742,24 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             
             case BC_STORE_GLOBAL: {
                 // Store global variable by name
+                // Store in current environment if available, otherwise global environment
                 if (instr->a < program->const_count && program->constants[instr->a].type == VALUE_STRING) {
                     const char* var_name = program->constants[instr->a].data.string_value;
                     Value val = value_stack_pop();
+                    Environment* target_env = interpreter->current_environment ? interpreter->current_environment : interpreter->global_environment;
+                    
                     // Use environment_assign to update existing variable, or environment_define if it doesn't exist
                     // environment_assign/define will clone the value internally
-                    if (environment_exists(interpreter->global_environment, var_name)) {
-                        environment_assign(interpreter->global_environment, var_name, val);
+                    if (environment_exists(target_env, var_name)) {
+                        environment_assign(target_env, var_name, val);
                     } else {
-                        environment_define(interpreter->global_environment, var_name, val);
+                        environment_define(target_env, var_name, val);
                     }
                     // Free the value we just stored (it was cloned by environment_assign/define)
                     value_free(&val);
                     // Push a clone of the stored value back onto the stack (for expressions)
                     // Get it fresh from the environment to ensure we have the right reference
-                    Value stored_val = environment_get(interpreter->global_environment, var_name);
+                    Value stored_val = environment_get(target_env, var_name);
                     value_stack_push(stored_val); // environment_get already returns a clone
                 } else {
                     value_stack_pop(); // Remove value from stack
@@ -1534,7 +1548,8 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     Value return_val = value_stack_pop();
                     interpreter->has_return = 1;
                     interpreter->return_value = value_clone(&return_val);
-                    result = return_val;
+                    result = value_clone(&return_val);  // Clone for result too
+                    value_free(&return_val);  // Free the popped value
                 }
                 goto cleanup;
             }
@@ -1545,8 +1560,14 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 int func_id = instr->a;
                 int arg_count = instr->b;
                 
-                if (func_id >= 0 && func_id < (int)program->function_count) {
-                    BytecodeFunction* func = &program->functions[func_id];
+                // Get the function from the main program (cache) to ensure recursive calls work
+                BytecodeProgram* func_program = program;
+                if (interpreter && interpreter->bytecode_program_cache) {
+                    func_program = interpreter->bytecode_program_cache;
+                }
+                
+                if (func_id >= 0 && func_id < (int)func_program->function_count && func_program->functions) {
+                    BytecodeFunction* func = &func_program->functions[func_id];
                     
                     // Get arguments from stack
                     Value* args = NULL;
@@ -1563,8 +1584,11 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         }
                     }
                     
-                    // Execute function bytecode
-                    Value result = bytecode_execute_function_bytecode(interpreter, func, args, arg_count, program);
+                    // Save stack size before function call
+                    size_t stack_size_before = value_stack_size;
+                    
+                    // Execute function bytecode using the main program
+                    Value result = bytecode_execute_function_bytecode(interpreter, func, args, arg_count, func_program);
                     
                     // Clean up arguments
                     if (args) {
@@ -1574,7 +1598,15 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         shared_free_safe(args, "bytecode_vm", "BC_CALL_USER_FUNCTION", 2);
                     }
                     
-                    value_stack_push(result);
+                    // Check if return value was already pushed onto stack by bytecode_execute_function_bytecode
+                    // (it pushes the return value onto the restored stack)
+                    if (value_stack_size > stack_size_before) {
+                        // Return value was already pushed, just free the result
+                        value_free(&result);
+                    } else {
+                        // Return value was not pushed, push it now
+                        value_stack_push(result);
+                    }
                 } else {
                     value_stack_push(value_create_null());
                 }
@@ -1587,7 +1619,6 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 // instr->a = argument count
                 // This can also be a class instantiation if the value is a class
                 int arg_count = instr->a;
-                
                 // Get function/value from stack (should be on top, after arguments)
                 Value func_value = value_stack_pop();
                 
@@ -1689,18 +1720,31 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         // This looks like a function ID (small integer cast as pointer)
                         // Extract the function ID
                         int func_id = (int)body_addr;
-                        // Use program cache for consistency - it contains all functions from the main program
-                        BytecodeProgram* cache_program = interpreter ? interpreter->bytecode_program_cache : NULL;
-                        if (cache_program && func_id >= 0 && func_id < (int)cache_program->function_count) {
+                        // Try to use current program first, then fall back to cache
+                        BytecodeProgram* target_program = program;
+                        if (!target_program || func_id < 0 || func_id >= (int)target_program->function_count) {
+                            // Current program doesn't have the function, try cache
+                            target_program = interpreter ? interpreter->bytecode_program_cache : NULL;
+                        }
+                        if (target_program && func_id >= 0 && func_id < (int)target_program->function_count) {
                             // Found bytecode function - execute it directly
-                            BytecodeFunction* bc_func = &cache_program->functions[func_id];
-                            result = bytecode_execute_function_bytecode(interpreter, bc_func, args, arg_count, cache_program);
+                            BytecodeFunction* bc_func = &target_program->functions[func_id];
+                            result = bytecode_execute_function_bytecode(interpreter, bc_func, args, arg_count, target_program);
                         } else {
-                            // Invalid function ID or no cache - fall through to value_function_call
+                            // No valid program or invalid function ID - fall through to value_function_call
+                            // But first, ensure the program cache is set if we have a program
+                            // Use the main program from cache if available, otherwise use current program
+                            BytecodeProgram* cache_program = interpreter ? interpreter->bytecode_program_cache : NULL;
+                            if (!cache_program && program) {
+                                // Set cache to current program if cache is not set
+                                interpreter->bytecode_program_cache = program;
+                                cache_program = program;
+                            }
                             result = value_function_call(&func_value, args, arg_count, interpreter, 0, 0);
                         }
                     } else {
                         // Regular AST function or NULL body - use value_function_call
+                        // This should handle bytecode functions that weren't detected above
                         result = value_function_call(&func_value, args, arg_count, interpreter, 0, 0);
                     }
                 }
@@ -3992,6 +4036,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
     }
     
 cleanup:
+    
     // Clean up any remaining stack values
     while (value_stack_size > 0) {
         Value val = value_stack_pop();
@@ -4070,18 +4115,69 @@ Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunct
         
         
         // Execute the function's bytecode
+        // Save stack state before recursive call
+        // The stack may contain operands from the calling expression
+        size_t saved_stack_size = value_stack_size;
+        Value* saved_stack = NULL;
+        if (saved_stack_size > 0) {
+            saved_stack = shared_malloc_safe(saved_stack_size * sizeof(Value), "bytecode_vm", "bytecode_execute_function_bytecode", 1);
+            if (saved_stack) {
+                for (size_t i = 0; i < saved_stack_size; i++) {
+                    saved_stack[i] = value_clone(&value_stack[i]);
+                }
+            }
+        }
+        
         // Reset return flag before execution
         interpreter->has_return = 0;
         result = bytecode_execute(&temp_program, interpreter, 0);
         
-        // Check if the function returned a value
+        // Save the function's return value (if any) before restoring stack
+        // Check has_return first - if set, the return value is in interpreter->return_value
+        Value function_return_value = value_create_null();
+        int has_function_return = 0;
         if (interpreter->has_return) {
-            Value return_val = interpreter->return_value;
-            value_free(&result);  // Free the default result
-            result = value_clone(&return_val);  // Clone return value
-            value_free(&interpreter->return_value);  // Free stored return value
-            interpreter->has_return = 0; // Reset return flag
+            function_return_value = value_clone(&interpreter->return_value);
+            has_function_return = 1;
+            value_free(&interpreter->return_value);
+            interpreter->has_return = 0;
+        } else if (value_stack_size > 0) {
+            // If function didn't use BC_RETURN, the result might be on the stack
+            function_return_value = value_stack_pop();
+            has_function_return = 1;
         }
+        
+        // Restore stack state after recursive call
+        if (saved_stack && saved_stack_size > 0) {
+            // Clear any remaining values left on stack by function execution
+            while (value_stack_size > 0) {
+                Value val = value_stack_pop();
+                value_free(&val);
+            }
+            // Restore saved stack
+            for (size_t i = 0; i < saved_stack_size; i++) {
+                value_stack_push(saved_stack[i]);
+            }
+            // Free saved stack copies
+            for (size_t i = 0; i < saved_stack_size; i++) {
+                value_free(&saved_stack[i]);
+            }
+            shared_free_safe(saved_stack, "bytecode_vm", "bytecode_execute_function_bytecode", 2);
+        }
+        
+        // Push the function's return value onto the stack after restoring the saved stack
+        if (has_function_return) {
+            value_stack_push(function_return_value);
+        }
+        
+        // Update result to match the return value
+        if (has_function_return) {
+            value_free(&result);
+            result = value_clone(&function_return_value);
+        }
+        
+        // Note: The return value is pushed onto the stack at line 4159 above
+        // so it's available for the caller (BC_CALL_USER_FUNCTION or BC_CALL_FUNCTION_VALUE)
     }
     
     // Restore old environment

@@ -217,6 +217,11 @@ typedef struct Interpreter {
     // Timing functions (forward declarations)
     void (*interpreter_start_timing)(struct Interpreter*);
     void (*interpreter_end_timing)(struct Interpreter*);
+    
+    // Bytecode program cache - stores the last compiled program for function calls
+    // This allows bytecode functions to be called even after the program is "freed"
+    // The program is actually kept alive as long as functions reference it
+    struct BytecodeProgram* bytecode_program_cache;
 } Interpreter;
 
 // ============================================================================

@@ -1,6 +1,7 @@
 #include "interpreter/value_operations.h"
 #include "../../include/core/interpreter.h"
 #include "../../include/core/enhanced_error_system.h"
+#include "../../include/core/interpreter/eval_engine.h"
 #include "../../include/utils/shared_utilities.h"
 #include <stdlib.h>
 #include <string.h>
@@ -37,7 +38,8 @@ static void sync_environment_variables(Environment* source, Environment* target)
 // ============================================================================
 
 Value eval_if_statement(Interpreter* interpreter, ASTNode* node) {
-    Value cond = interpreter_execute(interpreter, node->data.if_statement.condition);
+    // Use eval_node directly to avoid bytecode compilation recursion when called from BC_EVAL_AST
+    Value cond = eval_node(interpreter, node->data.if_statement.condition);
     if (interpreter_has_error(interpreter)) {
         value_free(&cond);
         return value_create_null();
@@ -45,20 +47,20 @@ Value eval_if_statement(Interpreter* interpreter, ASTNode* node) {
     int truthy = value_is_truthy(&cond);
     value_free(&cond);
     if (truthy && node->data.if_statement.then_block) {
-        Value result = interpreter_execute(interpreter, node->data.if_statement.then_block);
+        Value result = eval_node(interpreter, node->data.if_statement.then_block);
         if (interpreter_has_error(interpreter)) {
             return value_create_null();
         }
         return result;
     } else if (!truthy && node->data.if_statement.else_if_chain) {
         // Handle else if chain
-        Value result = interpreter_execute(interpreter, node->data.if_statement.else_if_chain);
+        Value result = eval_node(interpreter, node->data.if_statement.else_if_chain);
         if (interpreter_has_error(interpreter)) {
             return value_create_null();
         }
         return result;
     } else if (!truthy && node->data.if_statement.else_block) {
-        Value result = interpreter_execute(interpreter, node->data.if_statement.else_block);
+        Value result = eval_node(interpreter, node->data.if_statement.else_block);
         if (interpreter_has_error(interpreter)) {
             return value_create_null();
         }
@@ -68,8 +70,9 @@ Value eval_if_statement(Interpreter* interpreter, ASTNode* node) {
 }
 
 Value eval_while_loop(Interpreter* interpreter, ASTNode* node) {
+    // Use eval_node directly to avoid bytecode compilation recursion when called from BC_EVAL_AST
     while (1) {
-        Value cond = interpreter_execute(interpreter, node->data.while_loop.condition);
+        Value cond = eval_node(interpreter, node->data.while_loop.condition);
         if (interpreter_has_error(interpreter)) {
             value_free(&cond);
             return value_create_null();
@@ -79,7 +82,7 @@ Value eval_while_loop(Interpreter* interpreter, ASTNode* node) {
         if (!truthy) break;
         
         if (node->data.while_loop.body) {
-            Value body_result = interpreter_execute(interpreter, node->data.while_loop.body);
+            Value body_result = eval_node(interpreter, node->data.while_loop.body);
             if (interpreter_has_error(interpreter)) {
                 value_free(&body_result);
                 return value_create_null();
@@ -103,8 +106,9 @@ Value eval_while_loop(Interpreter* interpreter, ASTNode* node) {
 }
 
 Value eval_for_loop(Interpreter* interpreter, ASTNode* node) {
+    // Use eval_node directly to avoid bytecode compilation recursion when called from BC_EVAL_AST
     // Evaluate the collection/range
-    Value collection = interpreter_execute(interpreter, node->data.for_loop.collection);
+    Value collection = eval_node(interpreter, node->data.for_loop.collection);
     
     // Handle range iteration
     if (collection.type == VALUE_RANGE) {
@@ -126,7 +130,7 @@ Value eval_for_loop(Interpreter* interpreter, ASTNode* node) {
             
             // Execute the loop body
             if (node->data.for_loop.body) {
-                Value body_result = interpreter_execute(interpreter, node->data.for_loop.body);
+                Value body_result = eval_node(interpreter, node->data.for_loop.body);
                 if (interpreter_has_error(interpreter)) {
                     value_free(&body_result);
                     // Restore environment before returning
@@ -181,7 +185,7 @@ Value eval_for_loop(Interpreter* interpreter, ASTNode* node) {
                 
                 // Execute the loop body
                 if (node->data.for_loop.body) {
-                    Value body_result = interpreter_execute(interpreter, node->data.for_loop.body);
+                    Value body_result = eval_node(interpreter, node->data.for_loop.body);
                     if (interpreter_has_error(interpreter)) {
                         value_free(&body_result);
                         // Restore environment before returning
@@ -225,10 +229,11 @@ Value eval_for_loop(Interpreter* interpreter, ASTNode* node) {
 }
 
 Value eval_return_statement(Interpreter* interpreter, ASTNode* node) {
+    // Use eval_node directly to avoid bytecode compilation recursion when called from BC_EVAL_AST
     // Minimal handling: evaluate value (if any), store as return_value and flag
     Value rv = value_create_null();
     if (node->data.return_statement.value) {
-        rv = interpreter_execute(interpreter, node->data.return_statement.value);
+        rv = eval_node(interpreter, node->data.return_statement.value);
     }
     interpreter->return_value = rv;
     interpreter->has_return = 1;
@@ -236,10 +241,11 @@ Value eval_return_statement(Interpreter* interpreter, ASTNode* node) {
 }
 
 Value eval_throw_statement(Interpreter* interpreter, ASTNode* node) {
+    // Use eval_node directly to avoid bytecode compilation recursion when called from BC_EVAL_AST
     // Evaluate the expression to throw
     Value throw_value = value_create_null();
     if (node->data.throw_statement.value) {
-        throw_value = interpreter_execute(interpreter, node->data.throw_statement.value);
+        throw_value = eval_node(interpreter, node->data.throw_statement.value);
     }
     
     // Convert the value to a string for the error message
@@ -263,7 +269,8 @@ Value eval_try_catch(Interpreter* interpreter, ASTNode* node) {
         // Set try depth for error handling
         interpreter->try_depth++;
         
-        Value result = interpreter_execute(interpreter, node->data.try_catch.try_block);
+        // Use eval_node directly to avoid bytecode compilation recursion when called from BC_EVAL_AST
+        Value result = eval_node(interpreter, node->data.try_catch.try_block);
         
         // If no error occurred, restore try depth and return result
         if (!interpreter->has_error) {
@@ -290,7 +297,7 @@ Value eval_try_catch(Interpreter* interpreter, ASTNode* node) {
             }
             
             // Execute catch block
-            Value catch_result = interpreter_execute(interpreter, node->data.try_catch.catch_block);
+            Value catch_result = eval_node(interpreter, node->data.try_catch.catch_block);
             
             // Restore environment
             interpreter->current_environment = old_env;
@@ -371,8 +378,9 @@ Value eval_try_catch(Interpreter* interpreter, ASTNode* node) {
 
 Value eval_block(Interpreter* interpreter, ASTNode* node) {
     // Execute all statements in the block
+    // Use eval_node directly to avoid bytecode compilation recursion when called from BC_EVAL_AST
     for (size_t i = 0; i < node->data.block.statement_count; i++) {
-        Value stmt_result = interpreter_execute(interpreter, node->data.block.statements[i]);
+        Value stmt_result = eval_node(interpreter, node->data.block.statements[i]);
         if (interpreter_has_error(interpreter)) {
             value_free(&stmt_result);
             return value_create_null();

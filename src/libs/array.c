@@ -489,18 +489,31 @@ Value builtin_array_join(Interpreter* interpreter, Value* args, size_t arg_count
     }
     
     result_str[0] = '\0';
+    size_t pos = 0;
     
     // Join elements
     for (size_t i = 0; i < array_len; i++) {
         Value* element = (Value*)array_arg.data.array_value.elements[i];
         if (element) {
             if (element->type == VALUE_STRING && element->data.string_value) {
-                strcat(result_str, element->data.string_value);
+                size_t elem_len = strlen(element->data.string_value);
+                size_t remaining = total_length - pos;
+                if (elem_len < remaining) {
+                    strncpy(result_str + pos, element->data.string_value, elem_len);
+                    pos += elem_len;
+                    result_str[pos] = '\0';
+                }
             } else {
                 // Convert to string representation
                 Value element_str_value = value_to_string(element);
                 if (element_str_value.type == VALUE_STRING && element_str_value.data.string_value) {
-                    strcat(result_str, element_str_value.data.string_value);
+                    size_t elem_len = strlen(element_str_value.data.string_value);
+                    size_t remaining = total_length - pos;
+                    if (elem_len < remaining) {
+                        strncpy(result_str + pos, element_str_value.data.string_value, elem_len);
+                        pos += elem_len;
+                        result_str[pos] = '\0';
+                    }
                 }
                 value_free(&element_str_value);
             }
@@ -508,7 +521,13 @@ Value builtin_array_join(Interpreter* interpreter, Value* args, size_t arg_count
         
         // Add separator (except for last element)
         if (i < array_len - 1 && separator_arg.data.string_value) {
-            strcat(result_str, separator_arg.data.string_value);
+            size_t sep_len = strlen(separator_arg.data.string_value);
+            size_t remaining = total_length - pos;
+            if (sep_len < remaining) {
+                strncpy(result_str + pos, separator_arg.data.string_value, sep_len);
+                pos += sep_len;
+                result_str[pos] = '\0';
+            }
         }
     }
     

@@ -6,6 +6,8 @@ CC = gcc
 CFLAGS = -std=c99 -Wall -Wextra -pedantic -O2
 DEBUG_CFLAGS = -std=c99 -Wall -Wextra -pedantic -g -O0 -DDEBUG
 RELEASE_CFLAGS = -std=c99 -Wall -Wextra -pedantic -O3 -DNDEBUG
+# AddressSanitizer flags for memory debugging
+ASAN_CFLAGS = -std=c99 -Wall -Wextra -pedantic -g -O1 -fsanitize=address -fno-omit-frame-pointer -fno-common
 
 # Platform detection
 UNAME_S := $(shell uname -s)
@@ -201,6 +203,12 @@ all: $(MAIN_EXECUTABLE)
 .PHONY: debug
 debug: CFLAGS = $(DEBUG_CFLAGS)
 debug: $(MAIN_EXECUTABLE)
+
+# AddressSanitizer build for memory debugging
+.PHONY: asan
+asan: CFLAGS = $(ASAN_CFLAGS)
+asan: LIBS += -fsanitize=address
+asan: $(MAIN_EXECUTABLE)
 
 # Release build
 .PHONY: release

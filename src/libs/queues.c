@@ -306,6 +306,7 @@ void queues_library_register(Interpreter* interpreter) {
     
     // Create queues object with factory functions
     Value queues_obj = value_create_object(16);
+    value_object_set(&queues_obj, "__type__", value_create_string("Library"));
     value_object_set(&queues_obj, "create", value_create_builtin_function(builtin_queue_create));
     
     // Register the queues object

@@ -246,35 +246,19 @@ static void myco_route_handler(HttpRequest* request, HttpResponse* response) {
         // Use the global interpreter but ensure proper isolation
         Interpreter* request_interpreter = g_interpreter;
         
-        // Bind parameters to the request interpreter environment
-        if (myco_route->handler.data.function_value.parameter_count >= 2 && myco_route->handler.data.function_value.parameters) {
-            // Bind req parameter
-            if (myco_route->handler.data.function_value.parameters[0] && 
-                myco_route->handler.data.function_value.parameters[0]->type == AST_NODE_IDENTIFIER) {
-                const char* param_name = myco_route->handler.data.function_value.parameters[0]->data.identifier_value;
-                environment_define(request_interpreter->global_environment, param_name, req_obj);
-            }
-            // Bind res parameter
-            if (myco_route->handler.data.function_value.parameters[1] && 
-                myco_route->handler.data.function_value.parameters[1]->type == AST_NODE_IDENTIFIER) {
-                const char* param_name = myco_route->handler.data.function_value.parameters[1]->data.identifier_value;
-                environment_define(request_interpreter->global_environment, param_name, res_obj);
-            }
+        // Use value_function_call which handles both AST and bytecode functions
+        // Prepare arguments array
+        Value handler_args[2] = {req_obj, res_obj};
+        size_t handler_arg_count = 2;
+        
+        // Adjust argument count based on function parameter count
+        if (myco_route->handler.data.function_value.parameter_count < 2) {
+            handler_arg_count = myco_route->handler.data.function_value.parameter_count;
         }
         
-        // Clone the function body AST to prevent corruption from concurrent requests
-        ASTNode* cloned_body = ast_clone(myco_route->handler.data.function_value.body);
-        if (!cloned_body) {
-            response->status_code = 500;
-            response->body = shared_strdup("Internal Server Error: Failed to clone function body");
-            return;
-        }
-        
-        // Execute the cloned handler function body in the isolated interpreter
-        Value handler_result = interpreter_execute(request_interpreter, cloned_body);
-        
-        // Free the cloned AST
-        ast_free(cloned_body);
+        // Call the handler function using value_function_call
+        // This will handle both AST and bytecode functions correctly
+        Value handler_result = value_function_call(&myco_route->handler, handler_args, handler_arg_count, request_interpreter, 0, 0);
         
         // Check if the function returned a value
         if (request_interpreter->has_return) {

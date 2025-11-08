@@ -268,6 +268,7 @@ void stacks_library_register(Interpreter* interpreter) {
     
     // Create stacks object with factory functions
     Value stacks_obj = value_create_object(16);
+    value_object_set(&stacks_obj, "__type__", value_create_string("Library"));
     value_object_set(&stacks_obj, "create", value_create_builtin_function(builtin_stack_create));
     
     // Register the stacks object

@@ -398,6 +398,7 @@ void heaps_library_register(Interpreter* interpreter) {
     
     // Create heaps object with factory functions
     Value heaps_obj = value_create_object(16);
+    value_object_set(&heaps_obj, "__type__", value_create_string("Library"));
     value_object_set(&heaps_obj, "create", value_create_builtin_function(builtin_heap_create));
     
     // Register the heaps object

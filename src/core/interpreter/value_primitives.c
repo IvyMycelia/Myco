@@ -19,7 +19,9 @@ static char* process_escape_sequences(const char* input) {
     if (!input) return NULL;
     
     size_t input_len = strlen(input);
-    char* output = shared_malloc_safe(input_len + 1, "interpreter", "unknown_function", 214);  // Output might be shorter due to \n -> single char
+    // Allocate buffer with worst-case size: input_len * 2 + 1
+    // (worst case: every character is an unprocessed escape sequence)
+    char* output = shared_malloc_safe(input_len * 2 + 1, "interpreter", "unknown_function", 214);
     if (!output) return NULL;
     
     size_t output_pos = 0;
@@ -46,15 +48,22 @@ static char* process_escape_sequences(const char* input) {
                     output[output_pos++] = '"';
                     break;
                 default:
-                    // Unknown escape sequence, treat as literal
-                    output[output_pos++] = '\\';
-                    output[output_pos++] = input[input_pos];
+                    // Unknown escape sequence, treat as literal (requires 2 bytes: \ + char)
+                    if (output_pos + 2 < input_len * 2 + 1) {
+                        output[output_pos++] = '\\';
+                        output[output_pos++] = input[input_pos];
+                    }
                     break;
             }
             input_pos++;
         } else {
             // Copy character as-is
-            output[output_pos++] = input[input_pos++];
+            if (output_pos < input_len * 2) {
+                output[output_pos++] = input[input_pos++];
+            } else {
+                // Buffer would overflow - stop processing
+                break;
+            }
         }
     }
     

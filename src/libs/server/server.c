@@ -552,10 +552,9 @@ Value parse_json_body(const char* body) {
         return value_create_null();
     }
     
-    // Use the JSON library to parse the request body
-    Value json_string = value_create_string(body);
-    Value parsed_json = builtin_json_parse(NULL, &json_string, 1, 0, 0);
-    value_free(&json_string);
+    // Use the silent JSON parser to avoid error messages when parsing fails
+    // (request bodies might not always be valid JSON)
+    Value parsed_json = json_parse_silent(body);
     
     if (parsed_json.type == VALUE_NULL) {
         // If JSON parsing fails, return a simple object with the raw body
@@ -2605,12 +2604,18 @@ Value builtin_group_get(Interpreter* interpreter, Value* args, size_t arg_count,
     
     // Combine prefix with path
     size_t prefix_len = g_current_route_prefix ? strlen(g_current_route_prefix) : 0;
-    char* full_path = shared_malloc_safe(prefix_len + strlen(path_val.data.string_value) + 1, "libs", "unknown_function", 2210);
+    size_t path_len = strlen(path_val.data.string_value);
+    size_t full_path_len = prefix_len + path_len + 1;
+    char* full_path = shared_malloc_safe(full_path_len, "libs", "unknown_function", 2210);
+    if (!full_path) return value_create_null();
+    
     if (g_current_route_prefix) {
-    strcpy(full_path, g_current_route_prefix);
-    strcat(full_path, path_val.data.string_value);
+        strncpy(full_path, g_current_route_prefix, prefix_len);
+        full_path[prefix_len] = '\0';
+        strncat(full_path, path_val.data.string_value, path_len);
     } else {
-        strcpy(full_path, path_val.data.string_value);
+        strncpy(full_path, path_val.data.string_value, path_len);
+        full_path[path_len] = '\0';
     }
     
     // Create route with the full path
@@ -2650,12 +2655,18 @@ Value builtin_group_post(Interpreter* interpreter, Value* args, size_t arg_count
     
     // Combine prefix with path
     size_t prefix_len = g_current_route_prefix ? strlen(g_current_route_prefix) : 0;
-    char* full_path = shared_malloc_safe(prefix_len + strlen(path_val.data.string_value) + 1, "libs", "unknown_function", 2250);
+    size_t path_len = strlen(path_val.data.string_value);
+    size_t full_path_len = prefix_len + path_len + 1;
+    char* full_path = shared_malloc_safe(full_path_len, "libs", "unknown_function", 2250);
+    if (!full_path) return value_create_null();
+    
     if (g_current_route_prefix) {
-    strcpy(full_path, g_current_route_prefix);
-    strcat(full_path, path_val.data.string_value);
+        strncpy(full_path, g_current_route_prefix, prefix_len);
+        full_path[prefix_len] = '\0';
+        strncat(full_path, path_val.data.string_value, path_len);
     } else {
-        strcpy(full_path, path_val.data.string_value);
+        strncpy(full_path, path_val.data.string_value, path_len);
+        full_path[path_len] = '\0';
     }
     
     // Create route with the full path
@@ -2695,12 +2706,18 @@ Value builtin_group_put(Interpreter* interpreter, Value* args, size_t arg_count,
     
     // Combine prefix with path
     size_t prefix_len = g_current_route_prefix ? strlen(g_current_route_prefix) : 0;
-    char* full_path = shared_malloc_safe(prefix_len + strlen(path_val.data.string_value) + 1, "libs", "unknown_function", 2290);
+    size_t path_len = strlen(path_val.data.string_value);
+    size_t full_path_len = prefix_len + path_len + 1;
+    char* full_path = shared_malloc_safe(full_path_len, "libs", "unknown_function", 2290);
+    if (!full_path) return value_create_null();
+    
     if (g_current_route_prefix) {
-    strcpy(full_path, g_current_route_prefix);
-    strcat(full_path, path_val.data.string_value);
+        strncpy(full_path, g_current_route_prefix, prefix_len);
+        full_path[prefix_len] = '\0';
+        strncat(full_path, path_val.data.string_value, path_len);
     } else {
-        strcpy(full_path, path_val.data.string_value);
+        strncpy(full_path, path_val.data.string_value, path_len);
+        full_path[path_len] = '\0';
     }
     
     // Create route with the full path
@@ -2740,12 +2757,18 @@ Value builtin_group_delete(Interpreter* interpreter, Value* args, size_t arg_cou
     
     // Combine prefix with path
     size_t prefix_len = g_current_route_prefix ? strlen(g_current_route_prefix) : 0;
-    char* full_path = shared_malloc_safe(prefix_len + strlen(path_val.data.string_value) + 1, "libs", "unknown_function", 2330);
+    size_t path_len = strlen(path_val.data.string_value);
+    size_t full_path_len = prefix_len + path_len + 1;
+    char* full_path = shared_malloc_safe(full_path_len, "libs", "unknown_function", 2330);
+    if (!full_path) return value_create_null();
+    
     if (g_current_route_prefix) {
-    strcpy(full_path, g_current_route_prefix);
-    strcat(full_path, path_val.data.string_value);
+        strncpy(full_path, g_current_route_prefix, prefix_len);
+        full_path[prefix_len] = '\0';
+        strncat(full_path, path_val.data.string_value, path_len);
     } else {
-        strcpy(full_path, path_val.data.string_value);
+        strncpy(full_path, path_val.data.string_value, path_len);
+        full_path[path_len] = '\0';
     }
     
     // Create route with the full path

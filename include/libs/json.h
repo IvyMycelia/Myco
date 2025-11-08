@@ -81,6 +81,9 @@ bool json_is_object(const JsonValue* value);
 JsonValue* json_from_myco_value(const Value* value);
 Value json_to_myco_value(const JsonValue* json_value);
 
+// Internal JSON parsing (silent, no error reporting)
+Value json_parse_silent(const char* json_str);
+
 // Myco library functions
 Value builtin_json_parse(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_json_stringify(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);

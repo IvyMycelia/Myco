@@ -365,7 +365,9 @@ Value builtin_graph_clear(Interpreter* interpreter, Value* args, size_t arg_coun
 void add_graph_methods(Value* graph) {
     value_object_set(graph, "isEmpty", value_create_builtin_function(builtin_graph_is_empty));
     value_object_set(graph, "addNode", value_create_builtin_function(builtin_graph_add_node));
+    value_object_set(graph, "add_node", value_create_builtin_function(builtin_graph_add_node));  // Also support snake_case
     value_object_set(graph, "addEdge", value_create_builtin_function(builtin_graph_add_edge));
+    value_object_set(graph, "add_edge", value_create_builtin_function(builtin_graph_add_edge));  // Also support snake_case
     // Don't add size as a method - it's a property set during graph creation/updates
     value_object_set(graph, "clear", value_create_builtin_function(builtin_graph_clear));
 }

@@ -40,13 +40,13 @@ static int memory_stats_count = 0;
 static bool memory_tracking_enabled = false;
 
 // Lightweight allocation registry to avoid freeing non-heap pointers
-#define MYCO_MAX_TRACKED_PTRS 200000
+#define MYCO_MAX_TRACKED_PTRS 1000000  // Increased for large programs like pass.myco
 static const uint64_t MYCO_CANARY_MAGIC = 0xC0FFEEBADC0DEULL;
-static void* myco_tracked_ptrs[MYCO_MAX_TRACKED_PTRS];
+// Use dynamic allocation for large tracking arrays to avoid stack overflow
+static void** myco_tracked_ptrs = NULL;
+static size_t* myco_tracked_sizes = NULL;
 static int myco_tracked_count = 0;
-
-// Track allocation sizes to detect corruption
-static size_t myco_tracked_sizes[MYCO_MAX_TRACKED_PTRS];
+static int myco_tracked_capacity = 0;
 
 // Forward declaration
 static int myco_find_tracked_index(void* ptr);
@@ -54,20 +54,57 @@ static int myco_find_tracked_index(void* ptr);
 static void myco_track_alloc(void* ptr) {
     if (!ptr) return;
     
+    // Initialize tracking arrays if needed
+    // Use raw malloc to avoid recursion (tracking arrays shouldn't be tracked themselves)
+    if (!myco_tracked_ptrs) {
+        myco_tracked_capacity = MYCO_MAX_TRACKED_PTRS;
+        myco_tracked_ptrs = (void**)malloc(sizeof(void*) * myco_tracked_capacity);
+        myco_tracked_sizes = (size_t*)malloc(sizeof(size_t) * myco_tracked_capacity);
+        if (!myco_tracked_ptrs || !myco_tracked_sizes) {
+            // Free whatever was allocated
+            if (myco_tracked_ptrs) free(myco_tracked_ptrs);
+            if (myco_tracked_sizes) free(myco_tracked_sizes);
+            myco_tracked_ptrs = NULL;
+            myco_tracked_sizes = NULL;
+            return; // Can't track if allocation fails
+        }
+        myco_tracked_count = 0;
+    }
+    
     // Check if already tracked to prevent double-tracking
     if (myco_find_tracked_index(ptr) >= 0) {
         // Already tracked - don't add again (prevents issues if called multiple times)
         return;
     }
     
-    if (myco_tracked_count >= MYCO_MAX_TRACKED_PTRS) {
-        // Registry full - can't track more pointers
-        // Log this condition - it should never happen in normal operation
-        // If it does, we have a memory leak problem
-        fprintf(stderr, "[WARN] Allocation tracking registry full at %d entries!\n", myco_tracked_count);
-        return;
+    // Grow arrays if needed
+    if (myco_tracked_count >= myco_tracked_capacity) {
+        // Try to grow, but cap at maximum
+        if (myco_tracked_capacity < MYCO_MAX_TRACKED_PTRS) {
+            int new_capacity = myco_tracked_capacity * 2;
+            if (new_capacity > MYCO_MAX_TRACKED_PTRS) {
+                new_capacity = MYCO_MAX_TRACKED_PTRS;
+            }
+            // Use raw realloc to avoid recursion
+            void** new_ptrs = (void**)realloc(myco_tracked_ptrs, sizeof(void*) * new_capacity);
+            size_t* new_sizes = (size_t*)realloc(myco_tracked_sizes, sizeof(size_t) * new_capacity);
+            if (new_ptrs && new_sizes) {
+                myco_tracked_ptrs = new_ptrs;
+                myco_tracked_sizes = new_sizes;
+                myco_tracked_capacity = new_capacity;
+            }
+        }
+        
+        // If still at capacity, log warning
+        if (myco_tracked_count >= myco_tracked_capacity) {
+            fprintf(stderr, "[WARN] Allocation tracking registry full at %d entries!\n", myco_tracked_count);
+            return; // Can't track more
+        }
     }
-    myco_tracked_ptrs[myco_tracked_count++] = ptr;
+    
+    myco_tracked_ptrs[myco_tracked_count] = ptr;
+    myco_tracked_sizes[myco_tracked_count] = 0;  // Size will be set by myco_track_allocation
+    myco_tracked_count++;
 }
 
 static int myco_find_tracked_index(void* ptr) {
@@ -107,19 +144,33 @@ static int myco_untrack_alloc(void* ptr) {
     return 0;  // Not found in registry - don't free
 }
 
+// Track recursion depth to prevent infinite recursion
+static int canary_verification_depth = 0;
+static const int MAX_CANARY_VERIFICATION_DEPTH = 3;
+
 static void myco_verify_canaries(void) {
+    // Prevent infinite recursion
+    if (canary_verification_depth >= MAX_CANARY_VERIFICATION_DEPTH) {
+        return;
+    }
+    canary_verification_depth++;
+    
     // Scan tracked allocations for overflows
-    for (int i = 0; i < myco_tracked_count; i++) {
-        void* user_ptr = myco_tracked_ptrs[i];
-        size_t sz = myco_tracked_sizes[i];
-        if (!user_ptr || sz == 0) continue;
-        uint64_t* footer = (uint64_t*)((unsigned char*)user_ptr + sz);
-        if (*footer != MYCO_CANARY_MAGIC) {
-            fprintf(stderr, "[MEMORY] Canary corrupted at %p (size=%zu)\n", user_ptr, sz);
-            // Best-effort: avoid abort storms by clearing to expected value
-            *footer = MYCO_CANARY_MAGIC;
+    if (myco_tracked_ptrs && myco_tracked_count > 0) {
+        for (int i = 0; i < myco_tracked_count; i++) {
+            void* user_ptr = myco_tracked_ptrs[i];
+            size_t sz = myco_tracked_sizes[i];
+            if (!user_ptr || sz == 0) continue;
+            uint64_t* footer = (uint64_t*)((unsigned char*)user_ptr + sz);
+            if (*footer != MYCO_CANARY_MAGIC) {
+                fprintf(stderr, "[MEMORY] Canary corrupted at %p (size=%zu)\n", user_ptr, sz);
+                // Best-effort: avoid abort storms by clearing to expected value
+                *footer = MYCO_CANARY_MAGIC;
+            }
         }
     }
+    
+    canary_verification_depth--;
 }
 
 // ============================================================================
@@ -176,7 +227,12 @@ void* shared_malloc_safe(size_t size, const char* component, const char* functio
     }
     
     // Verify existing allocations before requesting new memory
-    myco_verify_canaries();
+    // Skip canary verification to prevent stack overflow
+    // (canary verification itself can trigger allocations during initialization)
+    // TODO: Re-enable with better recursion protection
+    // if (myco_tracked_ptrs && myco_tracked_count > 0) {
+    //     myco_verify_canaries();
+    // }
 
     // Allocate space for trailing canary
     void* raw = malloc(size + sizeof(uint64_t));

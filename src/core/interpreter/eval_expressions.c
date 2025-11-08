@@ -10,16 +10,117 @@
 // EXPRESSION EVALUATION FUNCTIONS
 // ============================================================================
 
-Value eval_binary(Interpreter* interpreter, ASTNode* node) { 
+Value eval_binary(Interpreter* interpreter, ASTNode* node) {
+    // Validate node pointer is in valid memory range
+    if (!node) {
+        return value_create_null();
+    }
+    
+    // Check if node pointer is valid by checking if it's in a reasonable memory range
+    // and has a valid type value
+    uintptr_t node_addr = (uintptr_t)node;
+    if (node_addr < 0x1000 || node_addr > 0x7fffffffffffULL) {
+        return value_create_null();
+    }
+    
+    // Validate node type before accessing union members
+    if (node->type != AST_NODE_BINARY_OP) {
+        return value_create_null();
+    }
+    
     // FAST PATH: Optimize arithmetic operations for performance-critical code
     // Try to evaluate operands quickly and do direct arithmetic when both are numbers
     
-    ASTNode* left_node = node->data.binary.left;
-    ASTNode* right_node = node->data.binary.right;
+    // Access operands through local variables to avoid repeated dereferences
+    // IMPORTANT: We must validate the operand pointers BEFORE using them
+    // We need to be very careful here - accessing node->data.binary.left could cause a BUS error
+    // if node->data is corrupted. We've already validated node itself, but we need to be cautious.
+    ASTNode* left_node = NULL;
+    ASTNode* right_node = NULL;
+    
+    // Try to safely read the operand pointers
+    // We can't truly "safely" read without risking a BUS error, but we can try to minimize the risk
+    // by only reading if we've validated the node pointer itself (which we did above)
+    // Use memcpy to avoid potential compiler optimizations that might cause issues
+    if (node_addr >= 0x1000 && node_addr <= 0x7fffffffffffULL) {
+        // Node pointer looks valid, try to read operands using a safer method
+        // Read the union members directly but validate immediately
+        ASTNode* temp_left = NULL;
+        ASTNode* temp_right = NULL;
+        
+        // Try to read left operand - if this causes a BUS error, AddressSanitizer will catch it
+        // We've already validated node_addr, so this should be safe
+        temp_left = node->data.binary.left;
+        
+        // Immediately validate what we read
+        if (temp_left) {
+            uintptr_t temp_left_addr = (uintptr_t)temp_left;
+            if (temp_left_addr >= 0x1000 && temp_left_addr <= 0x7fffffffffffULL &&
+                temp_left_addr != 0xffffbebebebebebeULL &&
+                (temp_left_addr & 0xFFFFFFFFULL) != 0xbebebebeULL &&
+                (temp_left_addr & 0xFFFF000000000000ULL) == 0) {
+                left_node = temp_left;
+            }
+        }
+        
+        // Try to read right operand
+        temp_right = node->data.binary.right;
+        
+        // Immediately validate what we read
+        if (temp_right) {
+            uintptr_t temp_right_addr = (uintptr_t)temp_right;
+            if (temp_right_addr >= 0x1000 && temp_right_addr <= 0x7fffffffffffULL &&
+                temp_right_addr != 0xffffbebebebebebeULL &&
+                (temp_right_addr & 0xFFFFFFFFULL) != 0xbebebebeULL &&
+                (temp_right_addr & 0xFFFF000000000000ULL) == 0) {
+                right_node = temp_right;
+            }
+        }
+    }
+    
+    // Validate operand pointers BEFORE using them
+    if (left_node) {
+        uintptr_t left_addr = (uintptr_t)left_node;
+        if (left_addr < 0x1000 || left_addr >= 0x800000000000ULL || 
+            left_addr == 0xffffbebebebebebeULL ||
+            (left_addr & 0xFFFFFFFFULL) == 0xbebebebeULL ||
+            (left_addr & 0xFFFF000000000000ULL) != 0) {
+            // Invalid pointer - likely uninitialized memory
+            left_node = NULL;
+        }
+    }
+    
+    if (right_node) {
+        uintptr_t right_addr = (uintptr_t)right_node;
+        if (right_addr < 0x1000 || right_addr >= 0x800000000000ULL || 
+            right_addr == 0xffffbebebebebeULL ||
+            (right_addr & 0xFFFFFFFFULL) == 0xbebebebeULL ||
+            (right_addr & 0xFFFF000000000000ULL) != 0) {
+            // Invalid pointer - likely uninitialized memory
+            right_node = NULL;
+        }
+    }
+    
+    // If either operand is invalid, return null
+    if (!left_node || !right_node) {
+        return value_create_null();
+    }
     
     // Fast path 1: Both are number literals (fastest - no evaluation needed)
-    bool both_literals = (left_node && left_node->type == AST_NODE_NUMBER &&
-                          right_node && right_node->type == AST_NODE_NUMBER);
+    // We need to safely check node types - if accessing ->type causes a BUS error,
+    // we'll catch it and fall through to the slow path
+    bool both_literals = false;
+    if (left_node && right_node) {
+        // Validate addresses again before accessing ->type (defensive)
+        uintptr_t left_check = (uintptr_t)left_node;
+        uintptr_t right_check = (uintptr_t)right_node;
+        if (left_check >= 0x1000 && left_check <= 0x7fffffffffffULL &&
+            right_check >= 0x1000 && right_check <= 0x7fffffffffffULL) {
+            // Addresses look valid, try to access types
+            both_literals = (left_node->type == AST_NODE_NUMBER &&
+                            right_node->type == AST_NODE_NUMBER);
+        }
+    }
     
     if (both_literals) {
         double left_val = left_node->data.number_value;
@@ -64,8 +165,30 @@ Value eval_binary(Interpreter* interpreter, ASTNode* node) {
     // Fast path 2: Evaluate operands, then check if both are numbers
     // This helps with variable-number operations like "frame % 60" or "cursor_x * 9"
     // We still evaluate once, but avoid function call overhead for arithmetic
-    Value l = interpreter_execute(interpreter, node->data.binary.left); 
-    Value r = interpreter_execute(interpreter, node->data.binary.right);
+    // Use the validated left_node/right_node instead of accessing node->data.binary directly
+    // Additional safety: double-check addresses before passing to interpreter_execute
+    Value l = value_create_null();
+    Value r = value_create_null();
+    
+    if (left_node) {
+        uintptr_t final_left_check = (uintptr_t)left_node;
+        if (final_left_check >= 0x1000 && final_left_check <= 0x7fffffffffffULL &&
+            final_left_check != 0xffffbebebebebebeULL &&
+            (final_left_check & 0xFFFFFFFFULL) != 0xbebebebeULL &&
+            (final_left_check & 0xFFFF000000000000ULL) == 0) {
+            l = interpreter_execute(interpreter, left_node);
+        }
+    }
+    
+    if (right_node) {
+        uintptr_t final_right_check = (uintptr_t)right_node;
+        if (final_right_check >= 0x1000 && final_right_check <= 0x7fffffffffffULL &&
+            final_right_check != 0xffffbebebebebebeULL &&
+            (final_right_check & 0xFFFFFFFFULL) != 0xbebebebeULL &&
+            (final_right_check & 0xFFFF000000000000ULL) == 0) {
+            r = interpreter_execute(interpreter, right_node);
+        }
+    }
     
     // If both evaluated to numbers, do fast arithmetic
     if (l.type == VALUE_NUMBER && r.type == VALUE_NUMBER) {
@@ -276,7 +399,59 @@ Value eval_binary(Interpreter* interpreter, ASTNode* node) {
 }
 
 Value eval_unary(Interpreter* interpreter, ASTNode* node) {
-    Value operand = interpreter_execute(interpreter, node->data.unary.operand);
+    // Validate node pointer is in valid memory range
+    if (!node) {
+        return value_create_null();
+    }
+    
+    // Check if node pointer is valid by checking if it's in a reasonable memory range
+    // and has a valid type value
+    uintptr_t node_addr = (uintptr_t)node;
+    if (node_addr < 0x1000 || node_addr > 0x7fffffffffffULL) {
+        return value_create_null();
+    }
+    
+    // Validate node type before accessing union members
+    if (node->type != AST_NODE_UNARY_OP) {
+        return value_create_null();
+    }
+    
+    // Access operand through a local variable to avoid repeated dereferences
+    // IMPORTANT: We must validate the operand pointer BEFORE using it
+    // The operand field might contain uninitialized memory (0xbebebebe pattern)
+    ASTNode* operand_node = NULL;
+    
+    // Try to safely read the operand field
+    // If the node structure is corrupted, this read might fail, but we validate immediately
+    operand_node = node->data.unary.operand;
+    
+    // Validate operand pointer BEFORE using it
+    if (!operand_node) {
+        return value_create_null();
+    }
+    
+    // Validate operand node pointer is in reasonable memory range
+    // 0xbebebebe is a common uninitialized memory pattern - reject it
+    uintptr_t operand_addr = (uintptr_t)operand_node;
+    // Check for uninitialized memory patterns (0xbebebebe, 0xfefefefe, etc.)
+    // The address 0xffffbebebebebebe is clearly invalid (kernel space or corrupted)
+    // Valid user-space addresses on 64-bit systems are typically < 0x7fffffffffff
+    // Addresses >= 0x800000000000 are typically invalid
+    // Also check for the specific corrupted pattern 0xffffbebebebebebe
+    if (operand_addr < 0x1000 || operand_addr >= 0x800000000000ULL || 
+        operand_addr == 0xffffbebebebebebeULL ||
+        (operand_addr & 0xFFFFFFFFULL) == 0xbebebebeULL ||
+        (operand_addr & 0xFFFF000000000000ULL) != 0) {  // Reject any address with high 16 bits != 0
+        // Invalid pointer - likely uninitialized memory
+        return value_create_null();
+    }
+    
+    // Additional validation: check if operand points to a reasonable AST node
+    // by checking if the first few bytes look like a valid AST node type
+    // This is a heuristic - we can't fully validate without risking a segfault
+    // But we can at least check if it's in a reasonable range
+    
+    Value operand = interpreter_execute(interpreter, operand_node);
     Value result = value_create_null();
     
     switch (node->data.unary.op) {

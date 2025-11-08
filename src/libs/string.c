@@ -236,14 +236,26 @@ Value builtin_string_join(Interpreter* interpreter, Value* args, size_t arg_coun
         return value_create_null();
     }
     
-    result[0] = '\0';
+    size_t pos = 0;
     for (size_t i = 0; i < array_len; i++) {
         Value* element = (Value*)array_arg.data.array_value.elements[i];
         if (element && element->type == VALUE_STRING && element->data.string_value) {
-            strcat(result, element->data.string_value);
+            size_t elem_len = strlen(element->data.string_value);
+            size_t remaining = total_len - pos;
+            if (elem_len < remaining) {
+                strncpy(result + pos, element->data.string_value, elem_len);
+                pos += elem_len;
+                result[pos] = '\0';
+            }
         }
         if (i < array_len - 1) {
-            strcat(result, separator);
+            size_t sep_len = strlen(separator);
+            size_t remaining = total_len - pos;
+            if (sep_len < remaining) {
+                strncpy(result + pos, separator, sep_len);
+                pos += sep_len;
+                result[pos] = '\0';
+            }
         }
     }
     
@@ -380,14 +392,19 @@ Value builtin_string_replace(Interpreter* interpreter, Value* args, size_t arg_c
     // Build result
     char* dest = result;
     const char* src = str;
+    size_t remaining = result_len;
     
-    while (*src) {
+    while (*src && remaining > 0) {
         if (strncmp(src, old_str, old_len) == 0) {
-            strcpy(dest, new_str);
-            dest += new_len;
+            if (new_len < remaining) {
+                strncpy(dest, new_str, new_len);
+                dest += new_len;
+                remaining -= new_len;
+            }
             src += old_len;
         } else {
             *dest++ = *src++;
+            remaining--;
         }
     }
     *dest = '\0';
@@ -433,9 +450,14 @@ Value builtin_string_repeat(Interpreter* interpreter, Value* args, size_t arg_co
         return value_create_null();
     }
     
-    result[0] = '\0';
+    size_t pos = 0;
     for (int i = 0; i < count; i++) {
-        strcat(result, str);
+        size_t remaining = result_len - pos;
+        if (str_len < remaining) {
+            strncpy(result + pos, str, str_len);
+            pos += str_len;
+            result[pos] = '\0';
+        }
     }
     
     Value ret = value_create_string(result);

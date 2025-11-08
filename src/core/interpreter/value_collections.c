@@ -33,21 +33,38 @@ Value value_create_array(size_t initial_capacity) {
 void value_array_push(Value* array, Value element) {
     if (!array || array->type != VALUE_ARRAY) return;
     
+    // Ensure array has valid elements pointer
+    if (!array->data.array_value.elements || array->data.array_value.capacity == 0) {
+        size_t new_capacity = 4;
+        array->data.array_value.elements = (void**)shared_malloc_safe(new_capacity * sizeof(void*), "interpreter", "unknown_function", 2849);
+        if (!array->data.array_value.elements) {
+            return;
+        }
+        memset(array->data.array_value.elements, 0, new_capacity * sizeof(void*));
+        array->data.array_value.capacity = new_capacity;
+    }
+    
     // Check if we need to resize
     if (array->data.array_value.count >= array->data.array_value.capacity) {
-        size_t new_capacity = array->data.array_value.capacity > 0 ? array->data.array_value.capacity * 2 : 4;
+        size_t new_capacity = array->data.array_value.capacity * 2;
         void** new_elements = shared_realloc_safe(array->data.array_value.elements, new_capacity * sizeof(void*), "interpreter", "unknown_function", 2850);
-        if (!new_elements) return;
+        if (!new_elements) {
+            return;
+        }
         
         array->data.array_value.elements = new_elements;
         array->data.array_value.capacity = new_capacity;
+        
+        for (size_t i = array->data.array_value.count; i < new_capacity; i++) {
+            array->data.array_value.elements[i] = NULL;
+        }
     }
     
     // Add the element
     Value* stored_element = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 2860);
     if (stored_element) {
         Value cloned_element = value_clone(&element);
-        *stored_element = cloned_element; // Store the cloned element
+        *stored_element = cloned_element;
         array->data.array_value.elements[array->data.array_value.count] = stored_element;
         array->data.array_value.count++;
     }

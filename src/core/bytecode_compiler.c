@@ -591,20 +591,40 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
                 // Compile the object
                 compile_node_to_function(p, func, member_access->data.member_access.object);
                 
-                // Compile arguments
-                for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
-                    compile_node_to_function(p, func, n->data.function_call_expr.arguments[i]);
-                }
-                
-                // Handle common property access patterns (like .type, .toString)
-                if (method_name && strcmp(method_name, "toString") == 0 && n->data.function_call_expr.argument_count == 0) {
-                    bc_emit_to_function(func, BC_TO_STRING, 0, 0, 0);
-                } else if (method_name && strcmp(method_name, "type") == 0 && n->data.function_call_expr.argument_count == 0) {
-                    bc_emit_to_function(func, BC_GET_TYPE, 0, 0, 0);
+                // Check for array methods that modify in place
+                if (method_name && strcmp(method_name, "push") == 0 && n->data.function_call_expr.argument_count == 1) {
+                    // For arr.push(val), we need to:
+                    // 1. Array is already on stack from compile_node_to_function above
+                    // 2. Load val onto stack
+                    // 3. Call BC_ARRAY_PUSH (modifies arr and returns it)
+                    // 4. Store the result back to arr variable
+                    // Compile argument (array is already on stack)
+                    compile_node_to_function(p, func, n->data.function_call_expr.arguments[0]);
+                    // Now stack has: [array, value]
+                    bc_emit_to_function(func, BC_ARRAY_PUSH, 0, 0, 0);
+                    // Stack now has: [modified_array]
+                    // Store result back to variable if member access is a simple identifier
+                    if (member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
+                        const char* var_name = member_access->data.member_access.object->data.identifier_value;
+                        int var_name_idx = bc_add_const(p, value_create_string(var_name));
+                        bc_emit_to_function(func, BC_STORE_GLOBAL, var_name_idx, 0, 0);
+                    }
                 } else {
-                    // General method call - use BC_METHOD_CALL
-                    int method_name_idx = bc_add_const(p, value_create_string(method_name ? method_name : ""));
-                    bc_emit_to_function(func, BC_METHOD_CALL, method_name_idx, (int)n->data.function_call_expr.argument_count, 0);
+                    // Compile arguments
+                    for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                        compile_node_to_function(p, func, n->data.function_call_expr.arguments[i]);
+                    }
+                    
+                    // Handle common property access patterns (like .type, .toString)
+                    if (method_name && strcmp(method_name, "toString") == 0 && n->data.function_call_expr.argument_count == 0) {
+                        bc_emit_to_function(func, BC_TO_STRING, 0, 0, 0);
+                    } else if (method_name && strcmp(method_name, "type") == 0 && n->data.function_call_expr.argument_count == 0) {
+                        bc_emit_to_function(func, BC_GET_TYPE, 0, 0, 0);
+                    } else {
+                        // General method call - use BC_METHOD_CALL
+                        int method_name_idx = bc_add_const(p, value_create_string(method_name ? method_name : ""));
+                        bc_emit_to_function(func, BC_METHOD_CALL, method_name_idx, (int)n->data.function_call_expr.argument_count, 0);
+                    }
                 }
             } else {
                 // Function call expression not yet fully supported in bytecode
@@ -1745,9 +1765,16 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                         }
                         bc_emit(p, BC_MATH_ROUND, 0, 0);
                     } else if (strcmp(method_name, "push") == 0 && n->data.function_call_expr.argument_count == 1) {
-                        // Compile argument
+                        // For arr.push(val), we need to:
+                        // 1. Array is already on stack from line 1598
+                        // 2. Load val onto stack
+                        // 3. Call BC_ARRAY_PUSH (modifies arr and returns it)
+                        // 4. Store the result back to arr variable
+                        // Compile argument (array is already on stack from compile_node above)
                         compile_node(p, n->data.function_call_expr.arguments[0]);
+                        // Now stack has: [array, value]
                         bc_emit(p, BC_ARRAY_PUSH, 0, 0);
+                        // Stack now has: [modified_array]
                         // Store result back to variable if member access is a simple identifier
                         if (member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
                             const char* var_name = member_access->data.member_access.object->data.identifier_value;
@@ -1785,6 +1812,26 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                         bc_emit(p, BC_METHOD_CALL, method_name_idx, (int)n->data.function_call_expr.argument_count);
                     }
                 }
+            } else if (n->data.function_call_expr.function->type == AST_NODE_IDENTIFIER) {
+                // Function variable call: f(args...)
+                // Compile arguments first
+                for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                    compile_node(p, n->data.function_call_expr.arguments[i]);
+                }
+                // Load function from environment
+                const char* func_name = n->data.function_call_expr.function->data.identifier_value;
+                // Check if it's a local variable first
+                int local_idx = lookup_local(p, func_name);
+                if (local_idx >= 0) {
+                    // Load from local storage
+                    bc_emit(p, BC_LOAD_LOCAL, local_idx, 0);
+                } else {
+                    // Load from global environment
+                    int name_idx = bc_add_const(p, value_create_string(func_name));
+                    bc_emit(p, BC_LOAD_GLOBAL, name_idx, 0);
+                }
+                // Call the function value
+                bc_emit(p, BC_CALL_FUNCTION_VALUE, (int)n->data.function_call_expr.argument_count, 0);
             } else {
                 // Regular function call expression not yet fully supported in bytecode
                 if (p->interpreter) {
@@ -1927,9 +1974,16 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                         for (size_t i = 0; i < n->data.function_call.argument_count; i++) {
                             compile_node(p, n->data.function_call.arguments[i]);
                         }
-                        // Load function from global environment
-                        int name_idx = bc_add_const(p, value_create_string(n->data.function_call.function_name));
-                        bc_emit(p, BC_LOAD_GLOBAL, name_idx, 0);
+                        // Check if it's a local variable first
+                        int local_idx = lookup_local(p, n->data.function_call.function_name);
+                        if (local_idx >= 0) {
+                            // Load from local storage
+                            bc_emit(p, BC_LOAD_LOCAL, local_idx, 0);
+                        } else {
+                            // Load function from global environment
+                            int name_idx = bc_add_const(p, value_create_string(n->data.function_call.function_name));
+                            bc_emit(p, BC_LOAD_GLOBAL, name_idx, 0);
+                        }
                         // Call the function value
                         bc_emit(p, BC_CALL_FUNCTION_VALUE, (int)n->data.function_call.argument_count, 0);
                     } else {

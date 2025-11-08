@@ -1681,21 +1681,24 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 } else if (func_value.type == VALUE_FUNCTION) {
                     // Check if this is a bytecode function
                     // Bytecode functions have the function ID stored in the body field (cast as pointer)
+                    // Check if this is a bytecode function (function ID stored in body field)
+                    // Note: function ID 0 is valid (NULL pointer), so we check body_addr first
                     ASTNode* body_ptr = (ASTNode*)func_value.data.function_value.body;
-                    if (body_ptr && (uintptr_t)body_ptr < 10000) {
+                    uintptr_t body_addr = (uintptr_t)body_ptr;
+                    if (body_addr < 10000) {
                         // This looks like a function ID (small integer cast as pointer)
                         // Extract the function ID
-                        int func_id = (int)(uintptr_t)body_ptr;
+                        int func_id = (int)body_addr;
                         if (func_id >= 0 && func_id < (int)program->function_count) {
                             // Found bytecode function - execute it directly
                             BytecodeFunction* bc_func = &program->functions[func_id];
                             result = bytecode_execute_function_bytecode(interpreter, bc_func, args, arg_count, program);
                         } else {
-                            // Invalid function ID
-                            result = value_create_null();
+                            // Invalid function ID - fall through to value_function_call
+                            result = value_function_call(&func_value, args, arg_count, interpreter, 0, 0);
                         }
                     } else {
-                        // Regular AST function - use value_function_call
+                        // Regular AST function or NULL body - use value_function_call
                         result = value_function_call(&func_value, args, arg_count, interpreter, 0, 0);
                     }
                 }
@@ -3645,7 +3648,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 // instr->b = function ID (for bytecode execution)
                 // Find the lambda AST node by searching for one with this body
                 
-                if (instr->a < program->ast_count) {
+                if (instr->a < program->ast_count && instr->b >= 0) {
                     ASTNode* lambda_body = program->ast_nodes[instr->a];
                     
                     // Get lambda parameters - find the lambda AST node by searching for one with this body
@@ -3662,22 +3665,15 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         }
                     }
                     
-                    // Create lambda function value (like AST interpreter)
+                    // For bytecode functions, pass the function ID directly as the body
+                    // This allows value_create_function to detect it as a bytecode function ID
                     Value lambda_value = value_create_function(
-                        lambda_body,
+                        (ASTNode*)(uintptr_t)instr->b, // Pass function ID as body (will be detected as bytecode function)
                         lambda_params,
                         lambda_param_count,
                         NULL, // No return type for lambdas
                         interpreter ? interpreter->current_environment : NULL
                     );
-                    
-                    // If this is a bytecode function (instr->b >= 0), store the function ID in the body
-                    // This allows BC_CALL_FUNCTION_VALUE to detect and call bytecode functions
-                    if (instr->b >= 0 && lambda_value.type == VALUE_FUNCTION) {
-                        // Store the function ID as a pointer in the body field
-                        // This is a special marker for bytecode functions
-                        lambda_value.data.function_value.body = (void*)(uintptr_t)instr->b;
-                    }
                     
                     value_stack_push(lambda_value);
                 } else {

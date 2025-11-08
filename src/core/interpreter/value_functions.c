@@ -17,11 +17,12 @@ Value value_create_function(ASTNode* body, ASTNode** params, size_t param_count,
     v.type = VALUE_FUNCTION;
     
     // Check if body is actually a bytecode function ID (small integer cast as pointer)
-    // Bytecode function IDs are stored as small integers (typically < 1000) cast to pointers
+    // Bytecode function IDs are stored as small integers (< 10000) cast to pointers
     // Real ASTNode pointers are much larger addresses
+    // Note: function ID 0 is valid, so we check body_addr first, not body pointer
     uintptr_t body_addr = (uintptr_t)body;
-    if (body && body_addr < 0x1000) {
-        // This is likely a bytecode function ID, not a real ASTNode
+    if (body_addr < 10000) {
+        // This is likely a bytecode function ID (including 0), not a real ASTNode
         // Store it directly without cloning
         v.data.function_value.body = body;
     } else {
@@ -351,16 +352,17 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
         return result;
     }
     
-    // Regular function call
-    if (!func->data.function_value.body) {
-        return value_create_null();
-    }
-    
     // Check if this is a bytecode function (function ID stored in body field)
-    // Bytecode function IDs are small integers (< 0x1000) cast as pointers
+    // Bytecode function IDs are small integers (< 10000) cast as pointers
+    // Note: function ID 0 is valid (NULL pointer), so we check body_addr first, not body pointer
     ASTNode* body_ptr = (ASTNode*)func->data.function_value.body;
     uintptr_t body_addr = (uintptr_t)body_ptr;
-    int is_bytecode_function = (body_addr < 0x1000);
+    int is_bytecode_function = (body_addr < 10000);
+    
+    // If body is NULL and not a function ID, return null
+    if (!body_ptr && !is_bytecode_function) {
+        return value_create_null();
+    }
     
     if (is_bytecode_function) {
         // This is a bytecode function - execute it directly
@@ -447,8 +449,8 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
     
     // This is an AST function - check if body is valid AST node
     ASTNode* body_node = (ASTNode*)func->data.function_value.body;
-    if (body_node->type < 1 || body_node->type > 100) {
-        // This looks like a function pointer, not an AST node
+    if (!body_node || body_node->type < 1 || body_node->type > 100) {
+        // This looks like a function pointer or invalid node, not an AST node
         // This shouldn't happen for user-defined functions
         return value_create_null();
     }

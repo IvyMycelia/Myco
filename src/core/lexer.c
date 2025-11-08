@@ -745,8 +745,21 @@ static int lexer_scan_token(Lexer* lexer) {
             break;
             
         case '|':
-            lexer_add_token(lexer, TOKEN_PIPE, "|", lexer->line, lexer->column);
             lexer_advance(lexer);
+            if (lexer_match(lexer, '|')) {
+                lexer_add_token(lexer, TOKEN_OR, "||", lexer->line, lexer->column - 2);
+            } else {
+                lexer_add_token(lexer, TOKEN_PIPE, "|", lexer->line, lexer->column - 1);
+            }
+            break;
+            
+        case '&':
+            lexer_advance(lexer);
+            if (lexer_match(lexer, '&')) {
+                lexer_add_token(lexer, TOKEN_AND, "&&", lexer->line, lexer->column - 2);
+            } else {
+                lexer_add_token(lexer, TOKEN_AMPERSAND, "&", lexer->line, lexer->column - 1);
+            }
             break;
             
         case '?':

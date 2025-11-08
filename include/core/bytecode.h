@@ -25,6 +25,8 @@ typedef enum {
     BC_LE,
     BC_GT,
     BC_GE,
+    BC_AND,         // Logical AND: a && b
+    BC_OR,          // Logical OR: a || b
     BC_JUMP,
     BC_JUMP_IF_FALSE,
     BC_LOOP_START,     // Start while loop
@@ -37,6 +39,7 @@ typedef enum {
     BC_PROPERTY_ACCESS, // Access object property: obj.name
     BC_CALL_BUILTIN,  // Call built-in function by name
     BC_CALL_USER_FUNCTION, // Call user-defined function: func(args...)
+    BC_CALL_FUNCTION_VALUE, // Call function value from stack: func(args...) where func is on stack
     BC_DEFINE_FUNCTION, // Define function in environment: func_name -> function_value
     BC_TO_STRING,     // Convert value to string
     BC_GET_TYPE,      // Get value type
@@ -50,6 +53,8 @@ typedef enum {
     BC_IS_NULL,       // Check if value is null
     BC_IS_OBJECT,     // Check if value is object
     BC_IS_FUNCTION,   // Check if value is function
+    BC_ARRAY_GET,     // Get array element: arr[index]
+    BC_ARRAY_SET,     // Set array element: arr[index] = value
     BC_ARRAY_PUSH,    // Push value to array
     BC_ARRAY_POP,     // Pop value from array
     BC_ARRAY_CONTAINS, // Check if array contains value
@@ -62,6 +67,7 @@ typedef enum {
     BC_ARRAY_CONCAT,   // Concatenate arrays: arr1 + arr2
     BC_CREATE_OBJECT,  // Create object from key-value pairs on stack
     BC_CREATE_MAP,     // Create hash map from key-value pairs on stack
+    BC_CREATE_SET,     // Create set from elements on stack
     BC_IMPORT_LIB,     // Import library: use library_name
     BC_STRING_UPPER,  // Convert string to uppercase
     BC_STRING_LOWER,  // Convert string to lowercase
@@ -92,14 +98,26 @@ typedef enum {
     BC_SET_UNION,     // Set union method
     BC_SET_INTERSECTION, // Set intersection method
     BC_EVAL_AST,      // Fallback: evaluate referenced AST subtree via eval_node()
-    BC_MATCH,         // Pattern matching: match expr with cases
-    BC_MATCH_CASE,    // Match case: case pattern => body
+    BC_MATCH,         // Pattern matching: match expr with cases (spore)
+    BC_MATCH_CASE,    // Match case: case pattern => body (spore)
+    BC_MATCH_PATTERN, // Match pattern: check if pattern matches expression
+    BC_MATCH_END,     // Match expression end: clean up and return result
     BC_PATTERN_LITERAL, // Pattern: literal pattern (string, number, etc.)
     BC_PATTERN_WILDCARD, // Pattern: wildcard pattern (_)
     BC_PATTERN_TYPE,  // Pattern: type pattern (e.g., String, Int)
     BC_CREATE_CLASS,  // Create class definition
     BC_INSTANTIATE_CLASS, // Instantiate class: ClassName(args...)
     BC_FOR_LOOP,      // For loop: for i in collection
+    BC_BREAK,         // Break statement - exit loop
+    BC_CONTINUE,      // Continue statement - next iteration
+    BC_THROW,         // Throw statement - throw exception
+    BC_TRY_START,     // Start try block
+    BC_TRY_END,       // End try block
+    BC_CATCH,         // Catch block handler
+    BC_SWITCH,        // Switch statement: switch expr { cases }
+    BC_SWITCH_CASE,   // Switch case: case value => body
+    BC_SWITCH_DEFAULT,// Switch default case
+    BC_CREATE_LAMBDA, // Create lambda function: (params) => body
     BC_POP,
     BC_HALT,
     // Specialized numeric operations (bypass Value boxing)
@@ -117,6 +135,7 @@ typedef enum {
     BC_EQ_NUM,        // Direct numeric equality
     BC_NE_NUM,        // Direct numeric inequality
     BC_VALUE_TO_NUM,  // Convert Value to numeric
+    BC_NOT,           // Logical NOT operation
     // Superinstructions (register-like, numeric locals only)
     BC_INC_LOCAL,     // a: num_locals[a] += 1
     BC_ADD_LLL,       // a,b,c: a = b + c
@@ -236,6 +255,7 @@ int bytecode_compile_program(BytecodeProgram* program, ASTNode* root, Interprete
 
 // Execution
 Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int debug);
+Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunction* func, Value* args, int arg_count, BytecodeProgram* program);
 
 #endif // BYTECODE_H
 

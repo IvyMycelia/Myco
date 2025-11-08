@@ -98,6 +98,7 @@ Interpreter* interpreter_create(void) {
     interpreter->try_depth = 0;
     interpreter->current_function_return_type = NULL;
     interpreter->self_context = NULL;
+    interpreter->bytecode_program_cache = NULL;
     
     // Test mode - disabled by default
     interpreter->test_mode = 0;
@@ -224,43 +225,32 @@ Value interpreter_execute_program(Interpreter* interpreter, ASTNode* node) {
         interpreter_clear_error(interpreter);
     }
     
-    // Try bytecode compilation (non-breaking, no caching to avoid memory overhead)
-    // Only compile to bytecode if not already executing bytecode (prevents recursion)
-    // For BLOCK nodes, we need to ensure all statements execute, so we'll be more careful
-    // For now, only use bytecode if the node is not a BLOCK (to avoid early stop issues)
-    // TODO: Fix bytecode execution to ensure all statements in BLOCK nodes execute
-    if (node->type != AST_NODE_BLOCK) {
-        BytecodeProgram* bytecode = bytecode_compile_ast(node, interpreter);
-        if (bytecode) {
-            Value result = interpreter_execute_bytecode(interpreter, bytecode);
-            // Free bytecode immediately after execution to avoid memory overhead
-            bytecode_program_free(bytecode);
-            // Check if bytecode execution had an error
-            if (interpreter_has_error(interpreter)) {
-                // If bytecode execution had error, fall back to AST
-                interpreter_clear_error(interpreter);
-                // Continue to AST fallback below
-            } else {
-                // Bytecode executed successfully - return result
-                return result;
-            }
-        }
-    }
-    
-    // Fall back to AST execution (existing behavior)
-    if (node->type == AST_NODE_BLOCK) {
-        for (size_t i = 0; i < node->data.block.statement_count; i++) {
-            if (i % 1000 == 0) {
-            }
-            // Stop execution if there's an error (like Python)
-            eval_node(interpreter, node->data.block.statements[i]);
-            if (interpreter_has_error(interpreter)) {
-                return value_create_null();
-            }
+    // Bytecode is the ONLY execution path (like LuaJIT)
+    // If bytecode compilation or execution fails, the program fails
+    BytecodeProgram* bytecode = bytecode_compile_ast(node, interpreter);
+    if (!bytecode) {
+        // Bytecode compilation failed - report error and fail
+        if (interpreter) {
+            interpreter_set_error(interpreter, "Bytecode compilation failed", 0, 0);
         }
         return value_create_null();
     }
-    return eval_node(interpreter, node);
+    
+    Value result = interpreter_execute_bytecode(interpreter, bytecode);
+    
+    // Store bytecode program in interpreter cache for function calls
+    // Free the old cached program if it exists
+    if (interpreter->bytecode_program_cache) {
+        bytecode_program_free(interpreter->bytecode_program_cache);
+    }
+    interpreter->bytecode_program_cache = bytecode; // Keep program alive for function calls
+    
+    // If execution had an error, return null (error is already set in interpreter)
+    if (interpreter_has_error(interpreter)) {
+        return value_create_null();
+    }
+    
+    return result;
 }
 Value interpreter_execute_statement(Interpreter* interpreter, ASTNode* node) { Value v = {0}; return v; }
 Value interpreter_execute_expression(Interpreter* interpreter, ASTNode* node) { Value v = {0}; return v; }

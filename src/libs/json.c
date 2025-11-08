@@ -402,115 +402,181 @@ static void json_stringify_value(const JsonValue* value, char** output, size_t* 
     if (!value) return;
     
     switch (value->type) {
-        case JSON_NULL:
-            *length += 4;
-            if (*length >= *capacity) {
-                *capacity = *length + 1;
+        case JSON_NULL: {
+            size_t add_len = 4;
+            if (*length + add_len >= *capacity) {
+                *capacity = *length + add_len + 1;
                 *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 407);
             }
-            strcat(*output, "null");
+            if (*output && *capacity > *length) {
+                size_t remaining = *capacity - *length;
+                strncat(*output, "null", remaining - 1);
+                *length += add_len;
+            }
             break;
+        }
             
-        case JSON_BOOLEAN:
-            *length += value->data.boolean_value ? 4 : 5;
-            if (*length >= *capacity) {
-                *capacity = *length + 1;
+        case JSON_BOOLEAN: {
+            size_t bool_str_len = value->data.boolean_value ? 4 : 5;
+            if (*length + bool_str_len >= *capacity) {
+                *capacity = *length + bool_str_len + 1;
                 *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 416);
             }
-            strcat(*output, value->data.boolean_value ? "true" : "false");
+            if (*output && *capacity > *length) {
+                size_t remaining = *capacity - *length;
+                strncat(*output, value->data.boolean_value ? "true" : "false", remaining - 1);
+                *length += bool_str_len;
+            }
             break;
+        }
             
         case JSON_NUMBER: {
             char number_str[64];
             snprintf(number_str, sizeof(number_str), "%.15g", value->data.number_value);
-            *length += strlen(number_str);
-            if (*length >= *capacity) {
-                *capacity = *length + 1;
+            size_t number_str_len = strlen(number_str);
+            if (*length + number_str_len >= *capacity) {
+                *capacity = *length + number_str_len + 1;
                 *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 427);
             }
-            strcat(*output, number_str);
+            if (*output && *capacity > *length) {
+                size_t remaining = *capacity - *length;
+                strncat(*output, number_str, remaining - 1);
+                *length += number_str_len;
+            }
             break;
         }
         
         case JSON_STRING: {
-            *length += strlen(value->data.string_value) + 2; // +2 for quotes
-            if (*length >= *capacity) {
-                *capacity = *length + 1;
+            size_t str_val_len = strlen(value->data.string_value);
+            size_t add_len = str_val_len + 2; // +2 for quotes
+            if (*length + add_len >= *capacity) {
+                *capacity = *length + add_len + 1;
                 *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 437);
             }
-            strcat(*output, "\"");
-            strcat(*output, value->data.string_value);
-            strcat(*output, "\"");
+            if (*output) {
+                size_t current_len = *length;
+                size_t remaining = *capacity - current_len;
+                if (remaining > 1) {
+                    strncat(*output, "\"", remaining - 1);
+                    current_len++;
+                }
+                remaining = *capacity - current_len;
+                if (remaining > str_val_len) {
+                    strncat(*output, value->data.string_value, remaining - 1);
+                    current_len += str_val_len;
+                }
+                remaining = *capacity - current_len;
+                if (remaining > 1) {
+                    strncat(*output, "\"", remaining - 1);
+                    current_len++;
+                }
+                *length = current_len;
+            }
             break;
         }
         
         case JSON_ARRAY: {
-            *length += 2; // for []
-            if (*length >= *capacity) {
-                *capacity = *length + 1;
+            if (*length + 1 >= *capacity) {
+                *capacity = *length + 2;
                 *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 449);
             }
-            strcat(*output, "[");
+            if (*output && *capacity > *length) {
+                size_t remaining = *capacity - *length;
+                strncat(*output, "[", remaining - 1);
+                *length += 1;
+            }
             
             for (size_t i = 0; i < value->data.array_value.count; i++) {
                 if (i > 0) {
-                    *length += 1;
-                    if (*length >= *capacity) {
-                        *capacity = *length + 1;
+                    if (*length + 1 >= *capacity) {
+                        *capacity = *length + 2;
                         *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 458);
                     }
-                    strcat(*output, ",");
+                    if (*output && *capacity > *length) {
+                        size_t remaining = *capacity - *length;
+                        strncat(*output, ",", remaining - 1);
+                        *length += 1;
+                    }
                 }
                 json_stringify_value(value->data.array_value.elements[i], output, capacity, length);
             }
             
-            *length += 1;
-            if (*length >= *capacity) {
-                *capacity = *length + 1;
+            if (*length + 1 >= *capacity) {
+                *capacity = *length + 2;
                 *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 468);
             }
-            strcat(*output, "]");
+            if (*output && *capacity > *length) {
+                size_t remaining = *capacity - *length;
+                strncat(*output, "]", remaining - 1);
+                *length += 1;
+            }
             break;
         }
         
         case JSON_OBJECT: {
-            *length += 2; // for {}
-            if (*length >= *capacity) {
-                *capacity = *length + 1;
+            if (*length + 1 >= *capacity) {
+                *capacity = *length + 2;
                 *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 478);
             }
-            strcat(*output, "{");
+            if (*output && *capacity > *length) {
+                size_t remaining = *capacity - *length;
+                strncat(*output, "{", remaining - 1);
+                *length += 1;
+            }
             
             for (size_t i = 0; i < value->data.object_value.count; i++) {
                 if (i > 0) {
-                    *length += 1;
-                    if (*length >= *capacity) {
-                        *capacity = *length + 1;
+                    if (*length + 1 >= *capacity) {
+                        *capacity = *length + 2;
                         *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 487);
                     }
-                    strcat(*output, ",");
+                    if (*output && *capacity > *length) {
+                        size_t remaining = *capacity - *length;
+                        strncat(*output, ",", remaining - 1);
+                        *length += 1;
+                    }
                 }
                 
                 // Key
-                *length += strlen(value->data.object_value.keys[i]) + 2;
-                if (*length >= *capacity) {
-                    *capacity = *length + 1;
+                size_t key_len = strlen(value->data.object_value.keys[i]);
+                size_t add_len = key_len + 3; // +3 for "": 
+                if (*length + add_len >= *capacity) {
+                    *capacity = *length + add_len + 1;
                     *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 496);
                 }
-                strcat(*output, "\"");
-                strcat(*output, value->data.object_value.keys[i]);
-                strcat(*output, "\":");
+                if (*output) {
+                    size_t current_len = *length;
+                    size_t remaining = *capacity - current_len;
+                    if (remaining > 1) {
+                        strncat(*output, "\"", remaining - 1);
+                        current_len++;
+                    }
+                    remaining = *capacity - current_len;
+                    if (remaining > key_len) {
+                        strncat(*output, value->data.object_value.keys[i], remaining - 1);
+                        current_len += key_len;
+                    }
+                    remaining = *capacity - current_len;
+                    if (remaining > 2) {
+                        strncat(*output, "\":", remaining - 1);
+                        current_len += 2;
+                    }
+                    *length = current_len;
+                }
                 
                 // Value
                 json_stringify_value(value->data.object_value.values[i], output, capacity, length);
             }
             
-            *length += 1;
-            if (*length >= *capacity) {
-                *capacity = *length + 1;
+            if (*length + 1 >= *capacity) {
+                *capacity = *length + 2;
                 *output = shared_realloc_safe(*output, *capacity, "libs", "unknown_function", 509);
             }
-            strcat(*output, "}");
+            if (*output && *capacity > *length) {
+                size_t remaining = *capacity - *length;
+                strncat(*output, "}", remaining - 1);
+                *length += 1;
+            }
             break;
         }
     }
@@ -577,6 +643,37 @@ void json_free(JsonValue* value) {
     }
     
     shared_free_safe(value, "libs", "unknown_function", 577);
+}
+
+// Internal JSON parsing function that doesn't report errors (for use in server request body parsing)
+Value json_parse_silent(const char* json_str) {
+    if (!json_str) {
+        return value_create_null();
+    }
+    
+    JsonContext context = {0};
+    context.input = json_str;
+    context.position = 0;
+    context.length = strlen(json_str);
+    context.error_message = NULL;
+    context.has_error = false;
+    
+    // Parse the JSON string
+    JsonValue* json_result = json_parse_value(&context);
+    if (!json_result || context.has_error) {
+        if (context.error_message) {
+            shared_free_safe(context.error_message, "libs", "json_parse_silent", 0);
+        }
+        return value_create_null();
+    }
+    
+    // Convert JsonValue to Myco Value
+    Value result = json_to_myco_value(json_result);
+    
+    // Clean up the JsonValue
+    json_free(json_result);
+    
+    return result;
 }
 
 // Myco library functions
@@ -655,8 +752,17 @@ static void json_string_builder_append(JsonStringBuilder* builder, const char* s
         builder->buffer = shared_realloc_safe(builder->buffer, builder->capacity, "libs", "json_string_builder_append", 0);
     }
     
-    strcat(builder->buffer, str);
-    builder->length += str_len;
+    size_t remaining = builder->capacity - builder->length;
+    if (str_len < remaining) {
+        strncat(builder->buffer, str, remaining - 1);
+        builder->length += str_len;
+                } else {
+        // Buffer would overflow - truncate
+        if (remaining > 1) {
+            strncat(builder->buffer, str, remaining - 1);
+            builder->length = builder->capacity - 1;
+        }
+    }
 }
 
 static void json_string_builder_append_char(JsonStringBuilder* builder, char c) {
@@ -1110,3 +1216,5 @@ void json_library_register(Interpreter* interpreter) {
     // Register the library in global environment
     environment_define(interpreter->global_environment, "json", json_lib);
 }
+
+

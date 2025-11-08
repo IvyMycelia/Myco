@@ -1367,8 +1367,12 @@ char* template_render(Template* tmpl, Value* context) {
                 result = new_result;
             }
             
-            strcat(result, node_result);
-            length += node_len;
+            size_t remaining = length + node_len + 1;
+            if (remaining > length) {
+                size_t avail = remaining - length;
+                strncat(result, node_result, avail - 1);
+                length += node_len;
+            }
             shared_free_safe(node_result, "web", "template_render", 1140);
         }
         
@@ -1421,7 +1425,8 @@ char* template_render_node(TemplateNode* node, Value* context) {
                         char* new_result = shared_realloc_safe(result, old_len + child_len + 1, "web", "template_render_node", 1160);
                         if (new_result) {
                             result = new_result;
-                            strcat(result, child_result);
+                            size_t remaining = old_len + child_len + 1 - old_len;
+                            strncat(result, child_result, remaining - 1);
                         }
                         shared_free_safe(child_result, "web", "template_render_node", 1170);
                     }
@@ -1466,7 +1471,8 @@ char* template_render_node(TemplateNode* node, Value* context) {
                         char* new_result = shared_realloc_safe(result, old_len + child_len + 1, "web", "template_render_node", 1180);
                         if (new_result) {
                             result = new_result;
-                            strcat(result, child_result);
+                            size_t remaining = old_len + child_len + 1 - old_len;
+                            strncat(result, child_result, remaining - 1);
                         }
                         shared_free_safe(child_result, "web", "template_render_node", 1190);
                     }

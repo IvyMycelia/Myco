@@ -41,10 +41,11 @@ HttpRequest* http_create_request(HttpMethod method, const char* url) {
 void http_add_header(HttpRequest* request, const char* name, const char* value) {
     if (!request || !name || !value) return;
     
-    char* header = shared_malloc_safe(strlen(name) + strlen(value) + 3, "libs", "unknown_function", 89);
+    size_t header_len = strlen(name) + strlen(value) + 3; // +3 for ": " and null terminator
+    char* header = shared_malloc_safe(header_len, "libs", "unknown_function", 89);
     if (!header) return;
     
-    sprintf(header, "%s: %s", name, value);
+    snprintf(header, header_len, "%s: %s", name, value);
     
     request->headers = shared_realloc_safe(request->headers, (request->header_count + 1) * sizeof(char*), "libs", "unknown_function", 94);
     request->headers[request->header_count] = header;
@@ -101,9 +102,19 @@ HttpResponse* http_request(HttpRequest* request) {
         headers_str = shared_malloc_safe(total_len + 1, "libs", "unknown_function", 150);
         if (headers_str) {
             headers_str[0] = '\0';
+            size_t current_pos = 0;
             for (size_t i = 0; i < request->header_count; i++) {
-                strcat(headers_str, request->headers[i]);
-                strcat(headers_str, "\r\n");
+                size_t header_len = strlen(request->headers[i]);
+                size_t remaining = total_len - current_pos;
+                if (header_len < remaining) {
+                    strncat(headers_str, request->headers[i], remaining - 1);
+                    current_pos += header_len;
+                }
+                remaining = total_len - current_pos;
+                if (remaining >= 3) {
+                    strncat(headers_str, "\r\n", remaining - 1);
+                    current_pos += 2;
+                }
             }
         }
     }

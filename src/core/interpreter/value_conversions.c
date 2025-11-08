@@ -460,26 +460,35 @@ Value value_clone(Value* value) {
         } 
         case VALUE_RANGE: return value_create_range(value->data.range_value.start, value->data.range_value.end, value->data.range_value.step, value->data.range_value.inclusive); 
         case VALUE_ARRAY: {
-            // Deep copy array with all elements
-            Value v = value_create_array(value->data.array_value.count);
+            size_t element_count = value->data.array_value.count;
+            size_t source_capacity = value->data.array_value.capacity;
+            size_t new_capacity = element_count > 0 ? element_count : (source_capacity > 0 ? source_capacity : 4);
+            if (new_capacity < element_count) {
+                new_capacity = element_count;
+            }
+            Value v = value_create_array(new_capacity);
+            v.data.array_value.count = element_count;
             
-            
-            for (size_t i = 0; i < value->data.array_value.count; i++) {
+            if (value->data.array_value.elements && element_count > 0) {
+            for (size_t i = 0; i < element_count; i++) {
                 Value* element = (Value*)value->data.array_value.elements[i];
                 if (element) {
                     Value cloned_element = value_clone(element);
-                    // Store the element directly without using value_array_push
-                    // to avoid the memory management issues
-                    if (v.data.array_value.count < v.data.array_value.capacity) {
+                        if (i < v.data.array_value.capacity) {
                         Value* stored_element = shared_malloc_safe(sizeof(Value), "interpreter", "value_clone", 0);
                         if (stored_element) {
                             *stored_element = cloned_element;
-                            v.data.array_value.elements[v.data.array_value.count] = stored_element;
-                            v.data.array_value.count++;
+                                v.data.array_value.elements[i] = stored_element;
+                            } else {
+                                value_free(&cloned_element);
+                            }
+                        } else {
+                            value_free(&cloned_element);
                         }
                     }
                 }
             }
+            v.data.array_value.count = element_count;
             return v;
         }
         case VALUE_OBJECT: {
@@ -524,6 +533,7 @@ Value value_clone(Value* value) {
                 return v;
             } else {
                 // Clone function with all its data
+                // value_create_function will handle bytecode function IDs correctly
                 Value v = value_create_function(
                     value->data.function_value.body,
                     value->data.function_value.parameters,

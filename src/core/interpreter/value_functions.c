@@ -1,9 +1,11 @@
 #include "interpreter/value_operations.h"
 #include "../../include/core/interpreter.h"
+#include "../../include/core/bytecode.h"
 #include "../../include/utils/shared_utilities.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdint.h>
 
 
 // ============================================================================
@@ -13,7 +15,20 @@
 Value value_create_function(ASTNode* body, ASTNode** params, size_t param_count, const char* return_type, Environment* captured_env) {
     Value v = {0};
     v.type = VALUE_FUNCTION;
-    v.data.function_value.body = body ? ast_clone(body) : NULL;
+    
+    // Check if body is actually a bytecode function ID (small integer cast as pointer)
+    // Bytecode function IDs are stored as small integers (typically < 1000) cast to pointers
+    // Real ASTNode pointers are much larger addresses
+    uintptr_t body_addr = (uintptr_t)body;
+    if (body && body_addr < 0x1000) {
+        // This is likely a bytecode function ID, not a real ASTNode
+        // Store it directly without cloning
+        v.data.function_value.body = body;
+    } else {
+        // This is a real ASTNode - clone it
+        v.data.function_value.body = body ? ast_clone(body) : NULL;
+    }
+    
     v.data.function_value.parameter_count = param_count;
     v.data.function_value.return_type = return_type ? shared_strdup(return_type) : NULL;
     v.data.function_value.captured_environment = captured_env;
@@ -319,24 +334,21 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
     }
     
     // Check if this is a built-in function
-    // Built-in functions have a function pointer as body, user functions have AST nodes
-    // We can distinguish by checking if the body is a valid AST node (has a valid type)
-    if (func->data.function_value.body && func->data.function_value.parameters == NULL && func->data.function_value.parameter_count == 0) {
-        // Check if this looks like a function pointer vs AST node by checking if it's a valid AST node
-        ASTNode* body_node = (ASTNode*)func->data.function_value.body;
-        // Valid AST node types are typically 1-100, function pointers will have invalid types
-        // But we need to be more careful - check if it's actually a function pointer
-        if (body_node->type < 1 || body_node->type > 100) { 
-            // This is likely a built-in function - the body field contains the function pointer
-            Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = (Value (*)(Interpreter*, Value*, size_t, int, int))func->data.function_value.body;
-            
-            // Push a frame for built-in call (Python-like traceback)
-            interpreter_push_call_frame(interpreter, "<builtin>", interpreter->current_file ? interpreter->current_file : "<stdin>", line, column);
-            Value result = builtin_func(interpreter, args, arg_count, line, column);
-            interpreter_pop_call_frame(interpreter);
-            
-            return result;
-        }
+    // Built-in functions are marked with VALUE_FLAG_CACHED and have function pointer in body field
+    if ((func->flags & VALUE_FLAG_CACHED) &&
+        func->data.function_value.body && 
+        func->data.function_value.parameters == NULL && 
+        func->data.function_value.parameter_count == 0) {
+        // This is a built-in function - the body field contains the function pointer
+        Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = 
+            (Value (*)(Interpreter*, Value*, size_t, int, int))func->data.function_value.body;
+        
+        // Push a frame for built-in call (Python-like traceback)
+        interpreter_push_call_frame(interpreter, "<builtin>", interpreter->current_file ? interpreter->current_file : "<stdin>", line, column);
+        Value result = builtin_func(interpreter, args, arg_count, line, column);
+        interpreter_pop_call_frame(interpreter);
+        
+        return result;
     }
     
     // Regular function call
@@ -344,8 +356,96 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
         return value_create_null();
     }
     
-    // Debug: Check if this is a user-defined function
-    // User-defined functions should have a valid AST node as body
+    // Check if this is a bytecode function (function ID stored in body field)
+    // Bytecode function IDs are small integers (< 0x1000) cast as pointers
+    ASTNode* body_ptr = (ASTNode*)func->data.function_value.body;
+    uintptr_t body_addr = (uintptr_t)body_ptr;
+    int is_bytecode_function = (body_addr < 0x1000);
+    
+    if (is_bytecode_function) {
+        // This is a bytecode function - execute it directly
+        int func_id = (int)body_addr;
+        
+        // Get the bytecode program from interpreter cache
+        if (!interpreter || !interpreter->bytecode_program_cache) {
+            interpreter_set_error(interpreter, "Bytecode program not available for function call", line, column);
+            return value_create_null();
+        }
+        
+        struct BytecodeProgram* program_struct = interpreter->bytecode_program_cache;
+        BytecodeProgram* program = (BytecodeProgram*)program_struct;
+        if (func_id < 0 || func_id >= (int)program->function_count) {
+            interpreter_set_error(interpreter, "Invalid bytecode function ID", line, column);
+            return value_create_null();
+        }
+        
+        BytecodeFunction* bc_func = &program->functions[func_id];
+        
+        // Create new environment for function execution
+        Environment* captured_env = func->data.function_value.captured_environment;
+        Environment* func_env = environment_create(captured_env ? captured_env : interpreter->current_environment);
+        
+        if (!func_env) {
+            interpreter_set_error(interpreter, "Failed to create function environment", line, column);
+            return value_create_null();
+        }
+        
+        // If this is a method call, add 'self' to the environment
+        if (self) {
+            environment_define(func_env, "self", *self);
+            interpreter_set_self_context(interpreter, self);
+        }
+        
+        // Bind parameters to arguments
+        size_t param_count = bc_func->param_count;
+        for (size_t i = 0; i < param_count && i < arg_count; i++) {
+            if (bc_func->param_names && bc_func->param_names[i]) {
+                const char* param_name = bc_func->param_names[i];
+                environment_define(func_env, param_name, args[i]);
+            }
+        }
+        
+        // Save current environment and set function environment
+        Environment* old_env = interpreter->current_environment;
+        interpreter->current_environment = func_env;
+        
+        // Execute bytecode function
+        // Note: args need to be cloned since bytecode_execute_function_bytecode will free them
+        Value* cloned_args = NULL;
+        if (arg_count > 0) {
+            cloned_args = (Value*)shared_malloc_safe(arg_count * sizeof(Value), "value_functions", "value_function_call", 1);
+            if (cloned_args) {
+                for (size_t i = 0; i < arg_count; i++) {
+                    cloned_args[i] = value_clone(&args[i]);
+                }
+            }
+        }
+        Value result = bytecode_execute_function_bytecode(interpreter, bc_func, cloned_args, (int)arg_count, program);
+        if (cloned_args) {
+            shared_free_safe(cloned_args, "value_functions", "value_function_call", 2);
+        }
+        
+        // Check if the function returned a value
+        if (interpreter->has_return) {
+            result = interpreter->return_value;
+            interpreter->has_return = 0;
+        }
+        
+        // Restore environment
+        interpreter->current_environment = old_env;
+        
+        // Clear self context if it was set
+        if (self) {
+            interpreter_set_self_context(interpreter, NULL);
+        }
+        
+        // Clean up function environment
+        environment_free(func_env);
+        
+        return result;
+    }
+    
+    // This is an AST function - check if body is valid AST node
     ASTNode* body_node = (ASTNode*)func->data.function_value.body;
     if (body_node->type < 1 || body_node->type > 100) {
         // This looks like a function pointer, not an AST node

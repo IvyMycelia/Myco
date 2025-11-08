@@ -718,9 +718,9 @@ ASTNode* parser_parse_logical_or(Parser* parser) {
         return NULL;
     }
     
-    // Check for logical OR operators
+    // Check for logical OR operators (both 'or' keyword and '||' operator)
     while (parser_check(parser, TOKEN_OR)) {
-        parser_advance(parser);  // Consume the 'or' token
+        parser_advance(parser);  // Consume the 'or' or '||' token
         
         // Parse the right operand
         ASTNode* right = parser_parse_logical_and(parser);
@@ -761,9 +761,9 @@ ASTNode* parser_parse_logical_and(Parser* parser) {
         return NULL;
     }
     
-    // Check for logical AND operators
+    // Check for logical AND operators (both 'and' keyword and '&&' operator)
     while (parser_check(parser, TOKEN_AND)) {
-        parser_advance(parser);  // Consume the 'and' token
+        parser_advance(parser);  // Consume the 'and' or '&&' token
         
         // Parse the right operand
         ASTNode* right = parser_parse_equality(parser);

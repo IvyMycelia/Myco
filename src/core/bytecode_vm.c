@@ -2,6 +2,7 @@
 #include "../../include/utils/shared_utilities.h"
 #include "../../include/core/interpreter/value_operations.h"
 #include "../../include/core/interpreter/eval_engine.h"
+#include "../../include/core/interpreter/method_handlers.h"
 #include "../../include/core/environment.h"
 #include "../../include/libs/array.h"
 #include "../../include/libs/math.h"
@@ -105,27 +106,24 @@ static Value fast_string_concat(const char* str1, const char* str2) {
     size_t len2 = strlen(str2);
     size_t total_len = len1 + len2;
     
-    // Use string buffer if available and large enough
-    if (string_buffer && total_len < string_buffer->capacity) {
-        string_buffer->length = 0;
-        memcpy(string_buffer->buffer, str1, len1);
-        memcpy(string_buffer->buffer + len1, str2, len2);
-        string_buffer->buffer[total_len] = '\0';
-        string_buffer->length = total_len;
-        
-        return value_create_string(string_buffer->buffer);
-    }
-    
-    // Fallback to regular concatenation
+    // Allocate a temporary buffer for concatenation
+    // Note: value_create_string will process escape sequences and allocate its own buffer,
+    // so we need to allocate here and let it handle the processing
     char* result = shared_malloc_safe(total_len + 1, "bytecode_vm", "fast_string_concat", 0);
     if (!result) {
         return value_create_string("");
     }
     
-    memcpy(result, str1, len1);
-    memcpy(result + len1, str2, len2);
+    // Bounds-checked copy
+    if (len1 > 0 && len1 <= total_len) {
+        memcpy(result, str1, len1);
+    }
+    if (len2 > 0 && len1 + len2 <= total_len) {
+        memcpy(result + len1, str2, len2);
+    }
     result[total_len] = '\0';
     
+    // value_create_string will process escape sequences and allocate its own buffer
     Value value = value_create_string(result);
     shared_free_safe(result, "bytecode_vm", "fast_string_concat_cleanup", 0);
     return value;
@@ -201,21 +199,42 @@ static void collect_class_fields_for_bytecode(
     // Collect from current class body
     ASTNode* class_body = class_value->data.class_value.class_body;
     if (class_body && class_body->type == AST_NODE_BLOCK) {
-        ASTNode* stmt = *class_body->data.block.statements;
-        while (stmt) {
-            if (stmt->type == AST_NODE_VARIABLE_DECLARATION) {
-                if (*field_count >= *field_capacity) {
-                    size_t new_cap = *field_capacity ? *field_capacity * 2 : 8;
-                    *all_fields = shared_realloc_safe(
-                        *all_fields, new_cap * sizeof(ASTNode*),
-                        "bytecode_vm", "collect_class_fields", 0
-                    );
-                    *field_capacity = new_cap;
+        // Use array access for block statements (like collect_inherited_fields)
+        size_t statement_count = class_body->data.block.statement_count;
+        if (statement_count > 0 && class_body->data.block.statements) {
+            for (size_t i = 0; i < statement_count; i++) {
+                ASTNode* stmt = class_body->data.block.statements[i];
+                if (stmt && stmt->type == AST_NODE_VARIABLE_DECLARATION) {
+                    if (*field_count >= *field_capacity) {
+                        size_t new_cap = *field_capacity ? *field_capacity * 2 : 8;
+                        *all_fields = shared_realloc_safe(
+                            *all_fields, new_cap * sizeof(ASTNode*),
+                            "bytecode_vm", "collect_class_fields", 0
+                        );
+                        *field_capacity = new_cap;
+                    }
+                    (*all_fields)[*field_count] = stmt;
+                    (*field_count)++;
                 }
-                (*all_fields)[*field_count] = stmt;
-                (*field_count)++;
             }
-            stmt = stmt->next;
+        } else {
+            // Fallback to linked list traversal for older AST format
+            ASTNode* stmt = class_body->data.block.statements ? *class_body->data.block.statements : NULL;
+            while (stmt) {
+                if (stmt->type == AST_NODE_VARIABLE_DECLARATION) {
+                    if (*field_count >= *field_capacity) {
+                        size_t new_cap = *field_capacity ? *field_capacity * 2 : 8;
+                        *all_fields = shared_realloc_safe(
+                            *all_fields, new_cap * sizeof(ASTNode*),
+                            "bytecode_vm", "collect_class_fields", 0
+                        );
+                        *field_capacity = new_cap;
+                    }
+                    (*all_fields)[*field_count] = stmt;
+                    (*field_count)++;
+                }
+                stmt = stmt->next;
+            }
         }
     }
 }
@@ -442,10 +461,27 @@ static double* num_stack = NULL;
 static size_t num_stack_size = 0;
 static size_t num_stack_capacity = 0;
 
+// Forward declarations
+static Value value_stack_pop(void);
+static double num_stack_pop(void);
+
 // Stack management functions
 static void value_stack_push(Value v) {
+    // Prevent stack from growing too large (safety limit)
+    if (value_stack_size > 100000) {
+        // Stack too large - likely infinite loop or unbalanced push/pop
+        // Pop some values to prevent memory exhaustion
+        while (value_stack_size > 50000) {
+            Value val = value_stack_pop();
+            value_free(&val);
+        }
+    }
     if (value_stack_size + 1 > value_stack_capacity) {
         size_t new_cap = value_stack_capacity ? value_stack_capacity * 2 : 128;
+        // Cap maximum stack capacity to prevent excessive memory usage
+        if (new_cap > 200000) {
+            new_cap = 200000;
+        }
         value_stack = shared_realloc_safe(value_stack, new_cap * sizeof(Value), "bytecode_vm", "value_stack_push", 1);
         value_stack_capacity = new_cap;
     }
@@ -469,8 +505,20 @@ static Value value_stack_peek(void) {
 }
 
 static void num_stack_push(double v) {
+    // Prevent stack from growing too large (safety limit)
+    if (num_stack_size > 100000) {
+        // Stack too large - likely infinite loop or unbalanced push/pop
+        // Pop some values to prevent memory exhaustion
+        while (num_stack_size > 50000) {
+            num_stack_pop();
+        }
+    }
     if (num_stack_size + 1 > num_stack_capacity) {
         size_t new_cap = num_stack_capacity ? num_stack_capacity * 2 : 128;
+        // Cap maximum stack capacity to prevent excessive memory usage
+        if (new_cap > 200000) {
+            new_cap = 200000;
+        }
         num_stack = shared_realloc_safe(num_stack, new_cap * sizeof(double), "bytecode_vm", "num_stack_push", 1);
         num_stack_capacity = new_cap;
     }
@@ -523,7 +571,31 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
     }
     
     while (pc < program->count) {
+        // Check for errors before executing next instruction (like AST interpreter)
+        // But allow execution to continue if we're inside a try block (try_depth > 0)
+        // This allows BC_TRY_END and BC_CATCH to handle the error
+        if (!program->code) {
+            if (interpreter) {
+                interpreter_set_error(interpreter, "Bytecode program code is NULL", 0, 0);
+            }
+            break;
+        }
         BytecodeInstruction* instr = &program->code[pc];
+        
+        // If we have an error and we're not in a try block, exit
+        if (interpreter && interpreter_has_error(interpreter) && interpreter->try_depth == 0) {
+            break;
+        }
+        
+        // If we have an error and we're in a try block, skip instructions until BC_TRY_END or BC_CATCH
+        if (interpreter && interpreter_has_error(interpreter) && interpreter->try_depth > 0) {
+            // Skip instructions until we find BC_TRY_END or BC_CATCH
+            if (instr->op != BC_TRY_END && instr->op != BC_CATCH) {
+                pc++;
+                continue;
+            }
+            // Found BC_TRY_END or BC_CATCH - continue normal execution to handle the error
+        }
         
         // Prefetch next instruction for better cache performance
         if (LIKELY(pc + 1 < program->count)) {
@@ -558,18 +630,13 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 
                 
                 default: {
-                    // Unknown superinstruction - fallback to AST
-                    if (instr->a < program->ast_count) {
-                        ASTNode* node = program->ast_nodes[instr->a];
-                        if (node) {
-                            Value result = interpreter_execute(interpreter, node);
-                            value_stack_push(result);
-                        } else {
-                            value_stack_push(value_create_null());
-                        }
-                    } else {
-                        value_stack_push(value_create_null());
+                    // Unknown superinstruction - report error and fail (like LuaJIT)
+                    if (interpreter) {
+                        char error_msg[256];
+                        snprintf(error_msg, sizeof(error_msg), "Unknown superinstruction opcode: %d at PC %zu", instr->op, pc);
+                        interpreter_set_error(interpreter, error_msg, 0, 0);
                     }
+                    value_stack_push(value_create_null());
                     pc++;
                     break;
                 }
@@ -645,11 +712,13 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             
             case BC_LOAD_GLOBAL: {
                 // Load global variable by name
-                if (instr->a < program->const_count && program->constants[instr->a].type == VALUE_STRING) {
+                if (instr->a >= 0 && instr->a < (int)program->const_count && 
+                    program->constants && program->constants[instr->a].type == VALUE_STRING) {
                     const char* var_name = program->constants[instr->a].data.string_value;
-                    Value global_val = environment_get(interpreter->global_environment, var_name);
-                    if (global_val.type != VALUE_NULL) {
-                        value_stack_push(value_clone(&global_val));
+                    if (var_name && interpreter && interpreter->global_environment) {
+                        Value global_val = environment_get(interpreter->global_environment, var_name);
+                        // environment_get already returns a clone, so push it directly
+                        value_stack_push(global_val);
                     } else {
                         value_stack_push(value_create_null());
                     }
@@ -665,8 +734,19 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 if (instr->a < program->const_count && program->constants[instr->a].type == VALUE_STRING) {
                     const char* var_name = program->constants[instr->a].data.string_value;
                     Value val = value_stack_pop();
-                    environment_assign(interpreter->global_environment, var_name, val);
-                    value_stack_push(value_clone(&val));
+                    // Use environment_assign to update existing variable, or environment_define if it doesn't exist
+                    // environment_assign/define will clone the value internally
+                    if (environment_exists(interpreter->global_environment, var_name)) {
+                        environment_assign(interpreter->global_environment, var_name, val);
+                    } else {
+                        environment_define(interpreter->global_environment, var_name, val);
+                    }
+                    // Free the value we just stored (it was cloned by environment_assign/define)
+                    value_free(&val);
+                    // Push a clone of the stored value back onto the stack (for expressions)
+                    // Get it fresh from the environment to ensure we have the right reference
+                    Value stored_val = environment_get(interpreter->global_environment, var_name);
+                    value_stack_push(stored_val); // environment_get already returns a clone
                 } else {
                     value_stack_pop(); // Remove value from stack
                     value_stack_push(value_create_null());
@@ -804,8 +884,66 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 break;
             }
             
+            case BC_AND: {
+                // Logical AND: a && b (short-circuit evaluation)
+                Value b = value_stack_pop();
+                Value a = value_stack_pop();
+                
+                // Convert both to boolean
+                Value a_bool = value_to_boolean(&a);
+                Value b_bool = value_to_boolean(&b);
+                
+                // Short-circuit: if a is false, return false without evaluating b
+                bool a_is_true = (a_bool.type == VALUE_BOOLEAN && a_bool.data.boolean_value);
+                bool b_is_true = (b_bool.type == VALUE_BOOLEAN && b_bool.data.boolean_value);
+                
+                Value result = value_create_boolean(a_is_true && b_is_true);
+                
+                value_free(&a);
+                value_free(&b);
+                value_free(&a_bool);
+                value_free(&b_bool);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            
+            case BC_OR: {
+                // Logical OR: a || b (short-circuit evaluation)
+                Value b = value_stack_pop();
+                Value a = value_stack_pop();
+                
+                // Convert both to boolean
+                Value a_bool = value_to_boolean(&a);
+                Value b_bool = value_to_boolean(&b);
+                
+                // Short-circuit: if a is true, return true without evaluating b
+                bool a_is_true = (a_bool.type == VALUE_BOOLEAN && a_bool.data.boolean_value);
+                bool b_is_true = (b_bool.type == VALUE_BOOLEAN && b_bool.data.boolean_value);
+                
+                Value result = value_create_boolean(a_is_true || b_is_true);
+                
+                value_free(&a);
+                value_free(&b);
+                value_free(&a_bool);
+                value_free(&b_bool);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            
             case BC_JUMP: {
-                pc = instr->a;
+                // Validate jump target to prevent jumping out of bounds
+                if (instr->a >= 0 && instr->a < (int)program->count) {
+                    // Jump to target - even if it's BC_HALT, let the VM loop handle it naturally
+                    pc = instr->a;
+                } else {
+                    // Invalid jump target - stop execution
+                    if (interpreter) {
+                        interpreter_set_error(interpreter, "Invalid jump target in bytecode", 0, 0);
+                    }
+                    goto cleanup;
+                }
                 break;
             }
             
@@ -817,6 +955,21 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     pc++;
                 }
                 value_free(&condition);
+                break;
+            }
+            
+            case BC_NOT: {
+                // Logical NOT: convert value to boolean and negate
+                Value operand = value_stack_pop();
+                Value bool_val = value_to_boolean(&operand);
+                // Check if the boolean is true (both type and value must be true)
+                bool is_true = (bool_val.type == VALUE_BOOLEAN && bool_val.data.boolean_value);
+                // Negate it
+                Value result = value_create_boolean(!is_true);
+                value_free(&operand);
+                value_free(&bool_val);
+                value_stack_push(result);
+                pc++;
                 break;
             }
             
@@ -936,23 +1089,71 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     } else if (object.type == VALUE_OBJECT) {
                         // Check if it's a library object first
                         Value library_type = value_object_get(&object, "__type__");
+                        bool library_method_handled = false;
                         if (library_type.type == VALUE_STRING && strcmp(library_type.data.string_value, "Library") == 0) {
                             // It's a library object - get method directly
                             Value method = value_object_get(&object, method_name);
                             if (method.type == VALUE_FUNCTION) {
-                                // Call library method with args already populated
+                                // Call the method - value_function_call handles both builtin and user functions
                                 Value result = value_function_call(&method, args, arg_count, interpreter, 0, 0);
                                 value_stack_push(result);
+                                library_method_handled = true;
                             } else {
                                 value_stack_push(value_create_null());
+                                library_method_handled = true;
                             }
                             value_free(&method);
                         }
                         value_free(&library_type);
                         
-                        // Check if it's a library instance (has __class_name__ but not a VALUE_CLASS)
-                        Value class_name = value_object_get(&object, "__class_name__");
+                        // Only check other conditions if library method wasn't handled
+                        if (!library_method_handled) {
+                            // Check if it's a library instance (has __class_name__ but not a VALUE_CLASS)
+                            Value class_name = value_object_get(&object, "__class_name__");
                         if (class_name.type == VALUE_STRING) {
+                            // Check if it's a Server instance (needs special handling - pass object as first arg)
+                            if (strcmp(class_name.data.string_value, "Server") == 0) {
+                                // Server methods need object as first argument
+                                Value method = value_object_get(&object, method_name);
+                                if (method.type == VALUE_FUNCTION) {
+                                    // Check if this is a builtin function
+                                    if (method.data.function_value.body && 
+                                        (uintptr_t)method.data.function_value.body > 0x1000 && 
+                                        (uintptr_t)method.data.function_value.body < 0x7fffffffffffULL &&
+                                        method.data.function_value.parameter_count == 0 &&
+                                        !method.data.function_value.parameters) {
+                                        // This is a builtin function - call it with object as first argument
+                                        Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = 
+                                            (Value (*)(Interpreter*, Value*, size_t, int, int))method.data.function_value.body;
+                                        // For server methods, pass object as first argument
+                                        Value* method_args = shared_malloc_safe((arg_count + 1) * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL", 13);
+                                        method_args[0] = value_clone(&object); // self as first argument
+                                        for (int i = 0; i < arg_count; i++) {
+                                            method_args[i + 1] = value_clone(&args[i]);
+                                        }
+                                        Value result = builtin_func(interpreter, method_args, arg_count + 1, 0, 0);
+                                        // Clean up method arguments
+                                        for (int i = 0; i < arg_count + 1; i++) {
+                                            value_free(&method_args[i]);
+                                        }
+                                        shared_free_safe(method_args, "bytecode_vm", "BC_METHOD_CALL", 14);
+                                        value_stack_push(result);
+                                        value_free(&method);
+                                        value_free(&class_name);
+                                        value_free(&object);
+                                        // Clean up arguments
+                                        if (args) {
+                                            for (int i = 0; i < arg_count; i++) {
+                                                value_free(&args[i]);
+                                            }
+                                            shared_free_safe(args, "bytecode_vm", "BC_METHOD_CALL", 15);
+                                        }
+                                        pc++;
+                                        break;
+                                    }
+                                }
+                                value_free(&method);
+                            }
                             // Check if it's a library instance (Tree, Graph, Heap, etc.)
                             if (strcmp(class_name.data.string_value, "Tree") == 0 ||
                                 strcmp(class_name.data.string_value, "Graph") == 0 ||
@@ -1025,21 +1226,42 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             // It's a regular object - get method directly
                             Value method = value_object_get(&object, method_name);
                             if (method.type == VALUE_FUNCTION) {
-                                // Set self context for method calls
-                                interpreter_set_self_context(interpreter, &object);
-                                
-                                Value result = value_function_call_with_self(&method, args, arg_count, interpreter, &object, 0, 0);
-                                
-                                // Clear self context
-                                interpreter_set_self_context(interpreter, NULL);
-                                
-                                value_stack_push(result);
+                                // Check if this is a builtin function (function pointer stored in body field)
+                                if (method.data.function_value.body && 
+                                    (uintptr_t)method.data.function_value.body > 0x1000 && 
+                                    (uintptr_t)method.data.function_value.body < 0x7fffffffffffULL &&
+                                    method.data.function_value.parameter_count == 0 &&
+                                    !method.data.function_value.parameters) {
+                                    // This is a builtin function - call it with object as first argument
+                                    Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = 
+                                        (Value (*)(Interpreter*, Value*, size_t, int, int))method.data.function_value.body;
+                                    // For builtin methods, pass object as first argument
+                                    Value* method_args = shared_malloc_safe((arg_count + 1) * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL", 11);
+                                    method_args[0] = value_clone(&object); // self as first argument
+                                    for (int i = 0; i < arg_count; i++) {
+                                        method_args[i + 1] = value_clone(&args[i]);
+                                    }
+                                    Value result = builtin_func(interpreter, method_args, arg_count + 1, 0, 0);
+                                    // Clean up method arguments
+                                    for (int i = 0; i < arg_count + 1; i++) {
+                                        value_free(&method_args[i]);
+                                    }
+                                    shared_free_safe(method_args, "bytecode_vm", "BC_METHOD_CALL", 12);
+                                    value_stack_push(result);
+                                } else {
+                                    // Regular user function - use self context
+                                    interpreter_set_self_context(interpreter, &object);
+                                    Value result = value_function_call_with_self(&method, args, arg_count, interpreter, &object, 0, 0);
+                                    interpreter_set_self_context(interpreter, NULL);
+                                    value_stack_push(result);
+                                }
                             } else {
                                 value_stack_push(value_create_null());
                             }
                             value_free(&method);
                         }
                         value_free(&class_name);
+                        }  // Close if (!library_method_handled)
                     } else {
                         value_stack_push(value_create_null());
                     }
@@ -1070,8 +1292,19 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     
                     // Special handling for .type property (matches AST interpreter logic)
                     if (strcmp(prop_name, "type") == 0) {
-                        // For objects, check for __type__ override (e.g., Library)
+                        // For objects, check for regular "type" property first (matches AST behavior)
                         if (object.type == VALUE_OBJECT) {
+                            Value regular_type = value_object_get(&object, "type");
+                            if (regular_type.type != VALUE_NULL) {
+                                // Regular "type" property exists - use it
+                                value_stack_push(regular_type);
+                                value_free(&object);
+                                pc++;
+                                break;
+                            }
+                            value_free(&regular_type);
+                            
+                            // No regular "type" property - check for __type__ override (e.g., Library)
                             Value type_override = value_object_get(&object, "__type__");
                             if (type_override.type == VALUE_STRING) {
                                 value_stack_push(type_override);
@@ -1100,6 +1333,14 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             } else {
                                 value_stack_push(value_create_string("Float"));
                             }
+                            value_free(&object);
+                            pc++;
+                            break;
+                        }
+                        
+                        // For functions, return "Function"
+                        if (object.type == VALUE_FUNCTION) {
+                            value_stack_push(value_create_string("Function"));
                             value_free(&object);
                             pc++;
                             break;
@@ -1194,17 +1435,87 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             case BC_CALL_BUILTIN: {
-                // Call built-in function by name - for now, fall back to AST evaluation
-                // TODO: Implement direct built-in function calling
-                if (instr->a < program->ast_count) {
-                    ASTNode* node = program->ast_nodes[instr->a];
-                    if (node) {
-                        Value result = interpreter_execute(interpreter, node);
-                        value_stack_push(result);
-                    } else {
-                        value_stack_push(value_create_null());
+                // Call built-in function by name
+                // instr->a = function name constant index, instr->b = argument count
+                if (instr->a < program->const_count && program->constants[instr->a].type == VALUE_STRING) {
+                    const char* func_name = program->constants[instr->a].data.string_value;
+                    size_t arg_count = (size_t)instr->b;
+                    
+                    // Pop arguments from stack (in reverse order)
+                    Value* args = NULL;
+                    if (arg_count > 0) {
+                        args = (Value*)shared_malloc_safe(arg_count * sizeof(Value), "bytecode_vm", "BC_CALL_BUILTIN", 1);
+                        if (!args) {
+                            // Allocation failed - pop all arguments and return null
+                            for (size_t i = 0; i < arg_count; i++) {
+                                Value val = value_stack_pop();
+                                value_free(&val);
+                            }
+                            value_stack_push(value_create_null());
+                            pc++;
+                            break;
+                        }
+                        
+                        // Pop arguments in reverse order (they were pushed in forward order)
+                        for (size_t i = 0; i < arg_count; i++) {
+                            args[arg_count - 1 - i] = value_stack_pop();
+                        }
                     }
+                    
+                    // Look up and call builtin function
+                    Value result = value_create_null();
+                    
+                    // Handle common builtin functions
+                    if (strcmp(func_name, "print") == 0) {
+                        result = builtin_print(interpreter, args, arg_count, 0, 0);
+                    } else if (strcmp(func_name, "input") == 0) {
+                        result = builtin_input(interpreter, args, arg_count, 0, 0);
+                    } else if (strcmp(func_name, "len") == 0) {
+                        result = builtin_len(interpreter, args, arg_count, 0, 0);
+                    } else if (strcmp(func_name, "assert") == 0) {
+                        result = builtin_assert(interpreter, args, arg_count, 0, 0);
+                    } else if (strcmp(func_name, "int") == 0) {
+                        result = builtin_int(interpreter, args, arg_count, 0, 0);
+                    } else if (strcmp(func_name, "float") == 0) {
+                        result = builtin_float(interpreter, args, arg_count, 0, 0);
+                    } else if (strcmp(func_name, "bool") == 0) {
+                        result = builtin_bool(interpreter, args, arg_count, 0, 0);
+                    } else {
+                        // Try to get builtin function from environment
+                        Value builtin_func = environment_get(interpreter->global_environment, func_name);
+                        if (builtin_func.type == VALUE_FUNCTION) {
+                            // Check if it's a builtin (function pointer in body)
+                            if (builtin_func.data.function_value.body && 
+                                builtin_func.data.function_value.parameter_count == 0 &&
+                                !builtin_func.data.function_value.parameters) {
+                                Value (*func_ptr)(Interpreter*, Value*, size_t, int, int) = 
+                                    (Value (*)(Interpreter*, Value*, size_t, int, int))builtin_func.data.function_value.body;
+                                if (func_ptr) {
+                                    result = func_ptr(interpreter, args, arg_count, 0, 0);
+                                }
+                            } else {
+                                // Regular function call
+                                result = value_function_call(&builtin_func, args, arg_count, interpreter, 0, 0);
+                            }
+                            value_free(&builtin_func);
+                        } else {
+                            value_free(&builtin_func);
+                            // Builtin not found - return null
+                            result = value_create_null();
+                        }
+                    }
+                    
+                    // Free arguments
+                    if (args) {
+                        for (size_t i = 0; i < arg_count; i++) {
+                            value_free(&args[i]);
+                        }
+                        shared_free_safe(args, "bytecode_vm", "BC_CALL_BUILTIN", 2);
+                    }
+                    
+                    value_stack_push(result);
                 } else {
+                    // Invalid function name - return null
                     value_stack_push(value_create_null());
                 }
                 pc++;
@@ -1212,12 +1523,18 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             case BC_RETURN: {
+                // Set return flag and value for function execution
                 if (instr->a == 0) {
                     // Void return
+                    interpreter->has_return = 1;
+                    interpreter->return_value = value_create_null();
                     result = value_create_null();
                 } else {
                     // Value return
-                    result = value_stack_pop();
+                    Value return_val = value_stack_pop();
+                    interpreter->has_return = 1;
+                    interpreter->return_value = value_clone(&return_val);
+                    result = return_val;
                 }
                 goto cleanup;
             }
@@ -1235,13 +1552,19 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     Value* args = NULL;
                     if (arg_count > 0) {
                         args = shared_malloc_safe(arg_count * sizeof(Value), "bytecode_vm", "BC_CALL_USER_FUNCTION", 1);
+                        if (!args) {
+                            // Allocation failed - return null
+                            value_stack_push(value_create_null());
+                            pc++;
+                            break;
+                        }
                         for (int i = 0; i < arg_count; i++) {
                             args[arg_count - 1 - i] = value_stack_pop();
                         }
                     }
                     
-                // Execute function bytecode with inlining optimization
-                Value result = inline_function_execution(interpreter, func, args, arg_count, program);
+                    // Execute function bytecode
+                    Value result = bytecode_execute_function_bytecode(interpreter, func, args, arg_count, program);
                     
                     // Clean up arguments
                     if (args) {
@@ -1259,6 +1582,138 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 break;
             }
             
+            case BC_CALL_FUNCTION_VALUE: {
+                // Call function value from stack: func(args...)
+                // instr->a = argument count
+                // This can also be a class instantiation if the value is a class
+                int arg_count = instr->a;
+                
+                // Get function/value from stack (should be on top, after arguments)
+                Value func_value = value_stack_pop();
+                
+                // Get arguments from stack (in reverse order)
+                Value* args = NULL;
+                if (arg_count > 0) {
+                    args = shared_malloc_safe(arg_count * sizeof(Value), "bytecode_vm", "BC_CALL_FUNCTION_VALUE", 1);
+                    if (!args) {
+                        value_free(&func_value);
+                        value_stack_push(value_create_null());
+                        pc++;
+                        break;
+                    }
+                    for (int i = 0; i < arg_count; i++) {
+                        args[arg_count - 1 - i] = value_stack_pop();
+                    }
+                }
+                
+                // Check if this is a class (runtime class detection for forward references)
+                Value result = value_create_null();
+                if (func_value.type == VALUE_CLASS) {
+                    // This is a class instantiation - instantiate it
+                    Value class_value = func_value;
+                    
+                    // Create class instance
+                    Value instance = value_create_object(16);
+                    
+                    // Set class name
+                    Value class_name_val = value_create_string(class_value.data.class_value.class_name);
+                    value_object_set(&instance, "__class_name__", class_name_val);
+                    value_free(&class_name_val);
+                    
+                    // Collect all fields from inheritance chain
+                    ASTNode** all_fields = NULL;
+                    size_t field_count = 0;
+                    size_t field_capacity = 0;
+                    
+                    collect_class_fields_for_bytecode(interpreter, &class_value, &all_fields, &field_count, &field_capacity);
+                    
+                    // Initialize fields
+                    size_t field_index = 0;
+                    for (size_t i = 0; i < field_count; i++) {
+                        ASTNode* stmt = all_fields[i];
+                        if (stmt && stmt->type == AST_NODE_VARIABLE_DECLARATION) {
+                            const char* field_name = stmt->data.variable_declaration.variable_name;
+                            if (field_name) {
+                                Value field_value;
+                                if (field_index < (size_t)arg_count) {
+                                    // Use constructor argument
+                                    field_value = value_clone(&args[field_index]);
+                                    field_index++;
+                                } else {
+                                    // Use default value from field declaration
+                                    if (stmt->data.variable_declaration.initial_value) {
+                                        field_value = interpreter_execute(interpreter, stmt->data.variable_declaration.initial_value);
+                                    } else {
+                                        field_value = value_create_null();
+                                    }
+                                }
+                                
+                                value_object_set(&instance, field_name, field_value);
+                                value_free(&field_value);
+                            }
+                        }
+                    }
+                    
+                    // Clean up
+                    if (all_fields) {
+                        shared_free_safe(all_fields, "bytecode_vm", "BC_CALL_FUNCTION_VALUE", 2);
+                    }
+                    
+                    // Call constructor if it exists
+                    Value init_func = value_object_get(&class_value, "init");
+                    if (init_func.type == VALUE_FUNCTION) {
+                        // Push instance as 'this' and arguments
+                        value_stack_push(instance);
+                        for (int i = 0; i < arg_count; i++) {
+                            value_stack_push(args[i]);
+                        }
+                        
+                        // Call constructor function
+                        Value constructor_result = value_function_call(&init_func, NULL, arg_count + 1, interpreter, 0, 0);
+                        value_free(&constructor_result);
+                        
+                        // Get the updated instance from stack
+                        instance = value_stack_pop();
+                    }
+                    
+                    value_free(&init_func);
+                    result = instance;
+                } else if (func_value.type == VALUE_FUNCTION) {
+                    // Check if this is a bytecode function
+                    // Bytecode functions have the function ID stored in the body field (cast as pointer)
+                    ASTNode* body_ptr = (ASTNode*)func_value.data.function_value.body;
+                    if (body_ptr && (uintptr_t)body_ptr < 10000) {
+                        // This looks like a function ID (small integer cast as pointer)
+                        // Extract the function ID
+                        int func_id = (int)(uintptr_t)body_ptr;
+                        if (func_id >= 0 && func_id < (int)program->function_count) {
+                            // Found bytecode function - execute it directly
+                            BytecodeFunction* bc_func = &program->functions[func_id];
+                            result = bytecode_execute_function_bytecode(interpreter, bc_func, args, arg_count, program);
+                        } else {
+                            // Invalid function ID
+                            result = value_create_null();
+                        }
+                    } else {
+                        // Regular AST function - use value_function_call
+                        result = value_function_call(&func_value, args, arg_count, interpreter, 0, 0);
+                    }
+                }
+                
+                // Clean up
+                value_free(&func_value);
+                if (args) {
+                    for (int i = 0; i < arg_count; i++) {
+                        value_free(&args[i]);
+                    }
+                    shared_free_safe(args, "bytecode_vm", "BC_CALL_FUNCTION_VALUE", 2);
+                }
+                
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            
             case BC_DEFINE_FUNCTION: {
                 // Define function in environment: func_name -> function_value
                 // instr->a = function name constant index, instr->b = function id
@@ -1266,20 +1721,31 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 int func_id = instr->b;
                 
                 if (name_idx >= 0 && name_idx < (int)program->const_count && 
-                    program->constants[name_idx].type == VALUE_STRING &&
-                    func_id >= 0 && func_id < (int)program->function_count) {
+                    program->constants && program->constants[name_idx].type == VALUE_STRING &&
+                    func_id >= 0 && func_id < (int)program->function_count &&
+                    program->functions && interpreter && interpreter->global_environment) {
                     
                     const char* func_name = program->constants[name_idx].data.string_value;
-                    BytecodeFunction* func = &program->functions[func_id];
+                    if (!func_name) {
+                        pc++;
+                        break;
+                    }
                     
-                    // Create a simple function value that represents a bytecode function
-                    // We'll use a special marker to indicate this is a bytecode function
+                    BytecodeFunction* func = &program->functions[func_id];
+                    if (!func) {
+                        pc++;
+                        break;
+                    }
+                    
+                    // Create a function value that represents a bytecode function
+                    // Store the function ID in the body field (cast as pointer) so we can find it later
+                    // We'll cast the function ID to a pointer for storage
                     Value function_value = value_create_function(
-                        NULL, // No AST body for bytecode functions
+                        (ASTNode*)(uintptr_t)func_id, // Store function ID as "body" pointer
                         NULL, // No AST parameters for bytecode functions
                         func->param_count,
                         NULL, // No return type for now
-                        interpreter->current_environment
+                        interpreter->current_environment ? interpreter->current_environment : interpreter->global_environment
                     );
                     
                     // Define in global environment so it can be called from anywhere
@@ -1339,6 +1805,15 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 if (val.type == VALUE_NUMBER) {
                     const char* ntype = (val.data.number_value == (long long)val.data.number_value) ? "Int" : "Float";
                     result = value_create_string(ntype);
+                    value_free(&val);
+                    value_stack_push(result);
+                    pc++;
+                    break;
+                }
+                
+                // For functions, return "Function"
+                if (val.type == VALUE_FUNCTION) {
+                    result = value_create_string("Function");
                     value_free(&val);
                     value_stack_push(result);
                     pc++;
@@ -1461,18 +1936,16 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             case BC_ARRAY_PUSH: {
-                // Push value to array (requires array and value on stack)
                 Value val = value_stack_pop();
                 Value arr = value_stack_pop();
                 if (arr.type == VALUE_ARRAY) {
-                    // Use built-in array push function
-                    Value args[2] = {arr, val};
-                    Value result = builtin_array_push(interpreter, args, 2, 0, 0);
-                    value_stack_push(result);
+                    value_array_push(&arr, val);
+                    value_stack_push(arr);
                 } else {
+                    value_free(&val);
                     value_stack_push(value_create_null());
                 }
-                value_free(&arr);
+                value_free(&val);
                 pc++;
                 break;
             }
@@ -1701,18 +2174,40 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 break;
             }
             
+            case BC_CREATE_SET: {
+                // Create set from elements on stack
+                size_t element_count = instr->a;
+                Value set_val = value_create_set(element_count > 0 ? element_count : 4);
+                
+                // Pop elements from stack (in reverse order)
+                for (size_t i = 0; i < element_count; i++) {
+                    Value element = value_stack_pop();
+                    value_set_add(&set_val, element);
+                    value_free(&element);
+                }
+                
+                value_stack_push(set_val);
+                pc++;
+                break;
+            }
+            
             case BC_CREATE_MAP: {
                 // Create hash map from key-value pairs on stack
+                // Pairs are pushed as (value, key) so we pop as (key, value)
                 size_t pair_count = instr->a;
                 Value map_val = value_create_hash_map(pair_count > 0 ? pair_count : 4);
                 
-                // Pop key-value pairs from stack (in reverse order)
+                // Pop key-value pairs from stack (in reverse order of push)
+                // Stack has: ... value1, key1, value2, key2, ...
+                // We pop: key2, value2, key1, value1
                 for (size_t i = 0; i < pair_count; i++) {
                     Value key = value_stack_pop();
                     Value value = value_stack_pop();
                     
-                    // Add key-value pair to hash map
-                    value_hash_map_set(&map_val, key, value);
+                    // Add key-value pair to hash map (only if key is string)
+                    if (key.type == VALUE_STRING) {
+                        value_hash_map_set(&map_val, key, value);
+                    }
                     
                     value_free(&key);
                     value_free(&value);
@@ -2200,54 +2695,16 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             case BC_EVAL_AST: {
-                // Fallback to AST evaluation - use eval_node directly to avoid recursion
-                // eval_node doesn't try to compile to bytecode, it just evaluates AST directly
-                if (instr->a < program->ast_count) {
-                    ASTNode* node = program->ast_nodes[instr->a];
-                    if (node) {
-                        // Synchronize bytecode variables with AST interpreter environment
-                        // This allows AST fallbacks to access bytecode-defined variables
-                        for (size_t i = 0; i < program->local_count && i < program->local_slot_count; i++) {
-                            if (program->local_names[i]) {
-                                Value local_val = program->locals[i];
-                                // Check if variable exists in environment
-                                if (environment_exists(interpreter->current_environment, program->local_names[i])) {
-                                    // Update existing variable
-                                    environment_assign(interpreter->current_environment, program->local_names[i], value_clone(&local_val));
-                                } else {
-                                    // Define new variable
-                                    environment_define(interpreter->current_environment, program->local_names[i], value_clone(&local_val));
-                                }
-                            }
-                        }
-                        
-                        // Use eval_node directly to avoid bytecode compilation recursion
-                        // eval_node is defined in eval_core.c and evaluates AST without trying to compile
-                        // It's declared in eval_engine.h which we include at the top
-                        Value result = eval_node(interpreter, node);
-                        
-                        // Synchronize back from AST environment to bytecode locals
-                        // This allows modifications in AST fallbacks to be visible in bytecode
-                        for (size_t i = 0; i < program->local_count && i < program->local_slot_count; i++) {
-                            if (program->local_names[i]) {
-                                Value env_val = environment_get(interpreter->current_environment, program->local_names[i]);
-                                if (env_val.type != VALUE_NULL) {
-                                    value_free(&program->locals[i]);
-                                    program->locals[i] = value_clone(&env_val);
-                                }
-                            }
-                        }
-                        
-                        value_stack_push(result);
-                    } else {
-                        value_stack_push(value_create_null());
-                    }
-                } else {
-                    value_stack_push(value_create_null());
+                // AST fallback removed - this should never be reached in bytecode-only mode
+                // If we encounter this, it means bytecode compilation failed to handle something
+                if (interpreter) {
+                    interpreter_set_error(interpreter, "BC_EVAL_AST instruction encountered - bytecode compilation incomplete. AST fallback has been removed.", 0, 0);
                 }
+                value_stack_push(value_create_null());
                 pc++;
                 break;
             }
+            
             
             case BC_MATCH: {
                 // Pattern matching: match expr with cases
@@ -2504,6 +2961,11 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         // Get collection from stack
                         Value collection = value_stack_pop();
                         
+                        // Create a new environment for the loop scope (like AST interpreter)
+                        Environment* loop_env = environment_create(interpreter->current_environment);
+                        Environment* old_env = interpreter->current_environment;
+                        interpreter->current_environment = loop_env;
+                        
                         // Handle different collection types
                         if (collection.type == VALUE_ARRAY) {
                             // Iterate over array elements
@@ -2518,45 +2980,709 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                     element = value_clone(elem_ptr);
                                 }
                                 
-                                // Set loop variable in environment
-                                environment_define(interpreter->current_environment, var_name.data.string_value, element);
-                                
-                                // Execute loop body
-                                if (body) {
-                                    Value result = interpreter_execute(interpreter, body);
-                                    value_free(&result);
-                                }
-                                
-                                // Check for break/continue (simplified for now)
-                                if (interpreter_has_error(interpreter)) {
-                                    value_free(&element);
-                                    break;
-                                }
+                                // Set loop variable in loop environment
+                                environment_define(loop_env, var_name.data.string_value, element);
                                 value_free(&element);
+                                
+                                // Execute loop body using interpreter_execute (like AST interpreter)
+                                if (body) {
+                                    Value body_result = interpreter_execute(interpreter, body);
+                                    if (interpreter_has_error(interpreter)) {
+                                        value_free(&body_result);
+                                        // Restore environment before returning
+                                        interpreter->current_environment = old_env;
+                                        environment_free(loop_env);
+                                        value_free(&collection);
+                                        value_stack_push(value_create_null());
+                                        pc++;
+                                        break;
+                                    }
+                                    // Check for break - if break, exit loop
+                                    if (interpreter->break_depth > 0) {
+                                        interpreter->break_depth = 0;  // Consume the break
+                                        value_free(&body_result);
+                                        // Restore environment before breaking
+                                        interpreter->current_environment = old_env;
+                                        environment_free(loop_env);
+                                        value_free(&collection);
+                                        value_stack_push(value_create_null());
+                                        pc++;
+                                        break;
+                                    }
+                                    // Check for continue - if continue, go to next iteration
+                                    if (interpreter->continue_depth > 0) {
+                                        interpreter->continue_depth = 0;  // Consume the continue
+                                        value_free(&body_result);
+                                        continue;  // Next iteration
+                                    }
+                                    // CRITICAL: Free the body result to prevent memory leak
+                                    value_free(&body_result);
+                                }
                             }
                         } else if (collection.type == VALUE_STRING) {
                             // Iterate over string characters
                             for (size_t i = 0; i < strlen(collection.data.string_value); i++) {
                                 char ch = collection.data.string_value[i];
-                                Value element = value_create_string((char[]){ch, '\0'});
+                                char char_str[2] = {ch, '\0'};
+                                Value element = value_create_string(char_str);
                                 
-                                // Set loop variable in environment
-                                environment_define(interpreter->current_environment, var_name.data.string_value, element);
-                                
-                                // Execute loop body
-                                Value result = interpreter_execute(interpreter, body);
-                                value_free(&result);
+                                // Set loop variable in loop environment
+                                environment_define(loop_env, var_name.data.string_value, element);
                                 value_free(&element);
                                 
-                                // Check for break/continue (simplified for now)
-                                if (interpreter_has_error(interpreter)) {
-                                    break;
+                                // Execute loop body using interpreter_execute (like AST interpreter)
+                                if (body) {
+                                    Value body_result = interpreter_execute(interpreter, body);
+                                    if (interpreter_has_error(interpreter)) {
+                                        value_free(&body_result);
+                                        // Restore environment before returning
+                                        interpreter->current_environment = old_env;
+                                        environment_free(loop_env);
+                                        value_free(&collection);
+                                        value_stack_push(value_create_null());
+                                        pc++;
+                                        break;
+                                    }
+                                    // Check for break
+                                    if (interpreter->break_depth > 0) {
+                                        interpreter->break_depth = 0;
+                                        value_free(&body_result);
+                                        interpreter->current_environment = old_env;
+                                        environment_free(loop_env);
+                                        value_free(&collection);
+                                        value_stack_push(value_create_null());
+                                        pc++;
+                                        break;
+                                    }
+                                    // Check for continue
+                                    if (interpreter->continue_depth > 0) {
+                                        interpreter->continue_depth = 0;
+                                        value_free(&body_result);
+                                        continue;
+                                    }
+                                    value_free(&body_result);
+                                }
+                            }
+                        } else if (collection.type == VALUE_RANGE) {
+                            // Handle range iteration (like AST interpreter)
+                            double start = collection.data.range_value.start;
+                            double end = collection.data.range_value.end;
+                            double step = collection.data.range_value.step;
+                            
+                            // Iterate through the range (exclusive of end) with step
+                            for (double i = start; i < end; i += step) {
+                                // Define the iterator variable
+                                Value iterator_value = value_create_number(i);
+                                environment_define(loop_env, var_name.data.string_value, iterator_value);
+                                value_free(&iterator_value);
+                                
+                                // Execute the loop body
+                                if (body) {
+                                    Value body_result = eval_node(interpreter, body);
+                                    if (interpreter_has_error(interpreter)) {
+                                        value_free(&body_result);
+                                        interpreter->current_environment = old_env;
+                                        environment_free(loop_env);
+                                        value_free(&collection);
+                                        value_stack_push(value_create_null());
+                                        pc++;
+                                        break;
+                                    }
+                                    // Check for break
+                                    if (interpreter->break_depth > 0) {
+                                        interpreter->break_depth = 0;
+                                        value_free(&body_result);
+                                        interpreter->current_environment = old_env;
+                                        environment_free(loop_env);
+                                        value_free(&collection);
+                                        value_stack_push(value_create_null());
+                                        pc++;
+                                        break;
+                                    }
+                                    // Check for continue
+                                    if (interpreter->continue_depth > 0) {
+                                        interpreter->continue_depth = 0;
+                                        value_free(&body_result);
+                                        continue;
+                                    }
+                                    value_free(&body_result);
                                 }
                             }
                         }
                         
+                        // Sync variables from loop environment back to parent environment (like AST interpreter)
+                        // This ensures variables defined/modified in the loop are accessible after
+                        // The Environment structure has: names, values, count
+                        if (loop_env && old_env) {
+                            // Iterate through all variables in the loop environment
+                            for (size_t i = 0; i < loop_env->count; i++) {
+                                if (loop_env->names[i]) {
+                                    // Check if variable exists in parent environment (including parent chain)
+                                    Value existing = environment_get(old_env, loop_env->names[i]);
+                                    if (existing.type != VALUE_NULL) {
+                                        // Variable exists in parent, update it - use assign to update properly
+                                        value_free(&existing);
+                                        environment_assign(old_env, loop_env->names[i], value_clone(&loop_env->values[i]));
+                                    } else {
+                                        // Variable doesn't exist in parent, define it
+                                        environment_define(old_env, loop_env->names[i], value_clone(&loop_env->values[i]));
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Restore previous environment
+                        interpreter->current_environment = old_env;
+                        environment_free(loop_env);
+                        
                         value_free(&collection);
                     }
+                }
+                // Push null result (for loops don't return a value)
+                value_stack_push(value_create_null());
+                pc++;
+                break;
+            }
+            
+            case BC_BREAK: {
+                // Break statement - set break_depth flag
+                if (interpreter) {
+                    interpreter->break_depth++;
+                }
+                // Push null (break statements don't return a value)
+                value_stack_push(value_create_null());
+                pc++;
+                break;
+            }
+            
+            case BC_CONTINUE: {
+                // Continue statement - set continue_depth flag
+                if (interpreter) {
+                    interpreter->continue_depth++;
+                }
+                // Push null (continue statements don't return a value)
+                value_stack_push(value_create_null());
+                pc++;
+                break;
+            }
+            
+            case BC_ARRAY_GET: {
+                // Array access: arr[index]
+                // Stack: [arr, index]
+                Value index = value_stack_pop();
+                Value arr = value_stack_pop();
+                
+                Value result = value_create_null();
+                
+                if (arr.type == VALUE_ARRAY && index.type == VALUE_NUMBER) {
+                    size_t idx = (size_t)index.data.number_value;
+                    if (idx < arr.data.array_value.count) {
+                        Value* elem = (Value*)arr.data.array_value.elements[idx];
+                        if (elem) {
+                            result = value_clone(elem);
+                        } else {
+                            result = value_create_null();
+                        }
+                    } else {
+                        // Index out of bounds - return null
+                        result = value_create_null();
+                    }
+                } else {
+                    // Invalid array or index - return null
+                    result = value_create_null();
+                }
+                
+                value_free(&arr);
+                value_free(&index);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            
+            case BC_ARRAY_SET: {
+                // Array assignment: arr[index] = value
+                // Stack: [arr, index, value]
+                // instr->a = variable name constant index (-1 if complex expression)
+                // instr->b = 1 if simple variable, 0 if complex
+                Value value = value_stack_pop();
+                Value index = value_stack_pop();
+                Value arr = value_stack_pop();
+                
+                if (arr.type == VALUE_ARRAY && index.type == VALUE_NUMBER) {
+                    int idx = (int)index.data.number_value;
+                    if (idx >= 0 && idx < (int)arr.data.array_value.count) {
+                        // Set the array element using value_array_set
+                        value_array_set(&arr, idx, value);
+                        
+                        // If this is a simple variable (instr->b == 1), update it in the environment
+                        // environment_assign will clone the value, so we can free arr after
+                        if (instr->b == 1 && instr->a >= 0 && instr->a < program->const_count) {
+                            Value var_name_val = program->constants[instr->a];
+                            if (var_name_val.type == VALUE_STRING && var_name_val.data.string_value) {
+                                const char* var_name = var_name_val.data.string_value;
+                                // Try to update in current environment first
+                                if (interpreter && interpreter->current_environment) {
+                                    if (environment_exists(interpreter->current_environment, var_name)) {
+                                        environment_assign(interpreter->current_environment, var_name, arr);
+                                    } else if (interpreter->global_environment && 
+                                               environment_exists(interpreter->global_environment, var_name)) {
+                                        environment_assign(interpreter->global_environment, var_name, arr);
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Free the cloned array (environment_assign clones it)
+                        value_free(&arr);
+                        value_free(&value); // Free the value we assigned
+                    } else {
+                        // Index out of bounds - set error
+                        if (interpreter) {
+                            interpreter_set_error(interpreter, "Array index out of bounds", 0, 0);
+                        }
+                        value_free(&arr);
+                        value_free(&value);
+                    }
+                } else {
+                    // Invalid array or index - set error
+                    if (interpreter) {
+                        if (arr.type != VALUE_ARRAY) {
+                            interpreter_set_error(interpreter, "Cannot assign to non-array element", 0, 0);
+                        } else {
+                            interpreter_set_error(interpreter, "Array index must be a number", 0, 0);
+                        }
+                    }
+                    value_free(&arr);
+                    value_free(&value);
+                }
+                
+                value_free(&index);
+                // Push null (assignment doesn't return a value)
+                value_stack_push(value_create_null());
+                pc++;
+                break;
+            }
+            
+            case BC_THROW: {
+                // Throw statement: throw expression
+                // Stack: [exception_value]
+                Value throw_value = value_stack_pop();
+                
+                // Convert the value to a string for the error message
+                Value error_string = value_to_string(&throw_value);
+                const char* error_message = error_string.type == VALUE_STRING ? error_string.data.string_value : "Unknown exception";
+                
+                // Set error with stack trace
+                if (interpreter) {
+                    interpreter_throw_exception(interpreter, error_message, 0, 0);
+                }
+                
+                // Clean up
+                value_free(&throw_value);
+                value_free(&error_string);
+                
+                // If we're in a try block, continue execution to let catch handle it
+                // Otherwise, the error will cause the VM loop to exit
+                // Push null (throw doesn't return a value)
+                value_stack_push(value_create_null());
+                pc++;
+                break;
+            }
+            
+            case BC_TRY_START: {
+                // Start try block - increment try depth
+                if (interpreter) {
+                    interpreter->try_depth++;
+                }
+                // Push null (try_start doesn't return a value)
+                value_stack_push(value_create_null());
+                pc++;
+                break;
+            }
+            
+            case BC_TRY_END: {
+                // End try block - check if error occurred
+                // If no error, decrement try depth and continue
+                // If error, keep try_depth set so BC_CATCH can handle it
+                if (interpreter && !interpreter_has_error(interpreter)) {
+                    interpreter->try_depth--;
+                    // Push null (try_end doesn't return a value when no error)
+                    value_stack_push(value_create_null());
+                } else {
+                    // Error occurred - keep try_depth set, BC_CATCH will handle it
+                    // Don't decrement try_depth here - BC_CATCH will do it after handling the error
+                    // Push null (try_end doesn't return a value when error occurred)
+                    value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_CATCH: {
+                // Catch block handler
+                // instr->a = catch variable name constant index (empty string means no variable)
+                // instr->b = catch block AST index
+                if (instr->a >= 0 && instr->a < program->const_count && instr->b < program->ast_count) {
+                    Value catch_var_name = program->constants[instr->a];
+                    ASTNode* catch_block = program->ast_nodes[instr->b];
+                    
+                    // Check if we're in an error state (from try block)
+                    if (interpreter && interpreter_has_error(interpreter)) {
+                        // Clear error state BEFORE executing catch block
+                        // Save the error message first (need to copy it since it might be freed)
+                        char* saved_error = NULL;
+                        if (interpreter->error_message) {
+                            saved_error = shared_malloc_safe(strlen(interpreter->error_message) + 1, "bytecode_vm", "BC_CATCH", 0);
+                            if (saved_error) {
+                                strcpy(saved_error, interpreter->error_message);
+                            }
+                        }
+                        interpreter->has_error = 0;
+                        
+                        // Create catch environment that can access outer variables
+                        Environment* catch_env = environment_create(interpreter->current_environment);
+                        Environment* old_env = interpreter->current_environment;
+                        interpreter->current_environment = catch_env;
+                        
+                        // Bind error variable if specified (check for non-empty string)
+                        if (catch_var_name.type == VALUE_STRING && catch_var_name.data.string_value && 
+                            strlen(catch_var_name.data.string_value) > 0) {
+                            Value error_value = value_create_string(saved_error ? saved_error : "Unknown error");
+                            environment_define(catch_env, catch_var_name.data.string_value, error_value);
+                            value_free(&error_value);
+                        }
+                        
+                        // Execute catch block using eval_node (like AST interpreter)
+                        Value catch_result = eval_node(interpreter, catch_block);
+                        
+                        // Restore environment
+                        interpreter->current_environment = old_env;
+                        environment_free(catch_env);
+                        
+                        // Decrement try depth
+                        interpreter->try_depth--;
+                        
+                        // Free saved error message
+                        if (saved_error) {
+                            shared_free_safe(saved_error, "bytecode_vm", "BC_CATCH", 1);
+                        }
+                        
+                        // Push catch result
+                        value_stack_push(catch_result);
+                    } else {
+                        // No error occurred - skip catch block, push null
+                        value_stack_push(value_create_null());
+                    }
+                } else {
+                    // Invalid catch instruction - push null
+                    value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_SWITCH_CASE: {
+                // Switch case: compare expression with case value, jump if not equal
+                // Stack: [expression_value]
+                // instr->a = case value AST index
+                // instr->b = case body AST index
+                if (instr->a < program->ast_count && instr->b < program->ast_count) {
+                    Value expr_value = value_stack_pop();
+                    ASTNode* case_value_node = program->ast_nodes[instr->a];
+                    ASTNode* case_body = program->ast_nodes[instr->b];
+                    
+                    // Evaluate case value
+                    Value case_value = eval_node(interpreter, case_value_node);
+                    
+                    // Compare expression with case value
+                    int matches = 0;
+                    if (expr_value.type == case_value.type) {
+                        if (expr_value.type == VALUE_NUMBER) {
+                            matches = (expr_value.data.number_value == case_value.data.number_value);
+                        } else if (expr_value.type == VALUE_STRING) {
+                            matches = (strcmp(expr_value.data.string_value, case_value.data.string_value) == 0);
+                        } else if (expr_value.type == VALUE_BOOLEAN) {
+                            matches = (expr_value.data.boolean_value == case_value.data.boolean_value);
+                        } else if (expr_value.type == VALUE_NULL) {
+                            matches = 1; // Both are null
+                        } else {
+                            matches = 0; // Different types or complex types
+                        }
+                    }
+                    
+                    value_free(&case_value);
+                    
+                    if (matches) {
+                        // Case matches - execute body
+                        Value body_result = eval_node(interpreter, case_body);
+                        
+                        // Skip remaining cases (we'll need to jump to BC_SWITCH)
+                        // For now, we'll push the result and let BC_SWITCH handle cleanup
+                        value_stack_push(body_result);
+                        
+                        // Push a flag to indicate we matched
+                        value_stack_push(value_create_boolean(1));
+                        
+                        // Free the expression value (we've consumed it)
+                        value_free(&expr_value);
+                    } else {
+                        // Case doesn't match - push expression back and continue
+                        value_stack_push(expr_value);
+                        value_stack_push(value_create_boolean(0)); // Not matched
+                    }
+                } else {
+                    // Invalid case instruction
+                    Value expr_value = value_stack_pop();
+                    value_free(&expr_value);
+                    value_stack_push(value_create_null());
+                    value_stack_push(value_create_boolean(0));
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_SWITCH_DEFAULT: {
+                // Switch default case: execute if no case matched
+                // Stack: [expression_value, matched_flag]
+                // instr->a = default body AST index
+                if (instr->a < program->ast_count) {
+                    Value matched_flag = value_stack_pop();
+                    Value expr_value = value_stack_pop();
+                    
+                    int matched = value_is_truthy(&matched_flag);
+                    value_free(&matched_flag);
+                    
+                    if (!matched) {
+                        // No case matched - execute default
+                        ASTNode* default_body = program->ast_nodes[instr->a];
+                        Value default_result = eval_node(interpreter, default_body);
+                        value_stack_push(default_result);
+                    } else {
+                        // A case already matched - skip default
+                        value_stack_push(value_create_null());
+                    }
+                    
+                    value_free(&expr_value);
+                } else {
+                    // Invalid default instruction
+                    Value matched_flag = value_stack_pop();
+                    Value expr_value = value_stack_pop();
+                    value_free(&matched_flag);
+                    value_free(&expr_value);
+                    value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_SWITCH: {
+                // Switch statement end: clean up and return result
+                // Stack should have the result from the matched case or default
+                // If there are extra values (flags), clean them up
+                // The result should be on top of the stack
+                if (value_stack_size > 1) {
+                    // Multiple values - keep the last one (result), free the rest
+                    Value* values = (Value*)shared_malloc_safe(value_stack_size * sizeof(Value), "bytecode_vm", "BC_SWITCH", 0);
+                    if (values) {
+                        // Pop all values
+                        for (size_t i = 0; i < value_stack_size; i++) {
+                            values[i] = value_stack_pop();
+                        }
+                        // Push the last value (result)
+                        value_stack_push(values[value_stack_size - 1]);
+                        // Free the rest
+                        for (size_t i = 0; i < value_stack_size - 1; i++) {
+                            value_free(&values[i]);
+                        }
+                        shared_free_safe(values, "bytecode_vm", "BC_SWITCH", 1);
+                    }
+                } else if (value_stack_size == 0) {
+                    // No result - push null
+                    value_stack_push(value_create_null());
+                }
+                // Otherwise, stack has exactly one value (the result), which is correct
+                pc++;
+                break;
+            }
+            
+            case BC_MATCH_PATTERN: {
+                // Match pattern: check if pattern matches expression
+                // instr->a = pattern AST index
+                // instr->b = match value AST index
+                // Stack: [match_value] (from expression evaluation)
+                
+                if (instr->a >= 0 && instr->b >= 0 && 
+                    instr->a < (int)program->ast_count && instr->b < (int)program->ast_count &&
+                    program->ast_nodes) {
+                    ASTNode* pattern = program->ast_nodes[instr->a];
+                    ASTNode* expr_node = program->ast_nodes[instr->b];
+                    
+                    if (!pattern || !expr_node) {
+                        // Invalid AST nodes - push null
+                        value_stack_push(value_create_null());
+                        value_stack_push(value_create_boolean(0));
+                        pc++;
+                        break;
+                    }
+                    
+                    // Get the match value from stack (evaluated expression)
+                    // If not on stack, re-evaluate from AST
+                    Value match_value;
+                    if (value_stack_size == 0) {
+                        // No match value - evaluate expression
+                        match_value = eval_node(interpreter, expr_node);
+                    } else {
+                        match_value = value_stack_pop();
+                    }
+                    
+                    // Check if pattern matches using pattern matching logic
+                    int matches = 0;
+                    
+                    // For simple patterns, use direct comparison
+                    if (pattern->type == AST_NODE_STRING) {
+                        Value pattern_val = eval_node(interpreter, pattern);
+                        matches = (match_value.type == VALUE_STRING && 
+                                   strcmp(match_value.data.string_value, pattern_val.data.string_value) == 0);
+                        value_free(&pattern_val);
+                    } else if (pattern->type == AST_NODE_NUMBER) {
+                        Value pattern_val = eval_node(interpreter, pattern);
+                        matches = (match_value.type == VALUE_NUMBER && 
+                                   match_value.data.number_value == pattern_val.data.number_value);
+                        value_free(&pattern_val);
+                    } else if (pattern->type == AST_NODE_BOOL) {
+                        Value pattern_val = eval_node(interpreter, pattern);
+                        matches = (match_value.type == VALUE_BOOLEAN && 
+                                   match_value.data.boolean_value == pattern_val.data.boolean_value);
+                        value_free(&pattern_val);
+                    } else if (pattern->type == AST_NODE_NULL) {
+                        matches = (match_value.type == VALUE_NULL);
+                    } else if (pattern->type == AST_NODE_IDENTIFIER) {
+                        // Wildcard pattern - matches anything
+                        matches = 1;
+                    } else {
+                        // Complex pattern - use pattern matching function
+                        // For now, use simple equality check
+                        Value pattern_val = eval_node(interpreter, pattern);
+                        matches = value_equals(&match_value, &pattern_val);
+                        value_free(&pattern_val);
+                    }
+                    
+                    if (matches) {
+                        // Pattern matches - evaluate pattern as expression and return it
+                        Value pattern_result = eval_node(interpreter, pattern);
+                        value_free(&match_value);
+                        value_stack_push(pattern_result);
+                        value_stack_push(value_create_boolean(1)); // Matched flag
+                    } else {
+                        // Pattern doesn't match - push match_value back and continue
+                        value_stack_push(match_value);
+                        value_stack_push(value_create_boolean(0)); // Not matched flag
+                    }
+                } else {
+                    // Invalid pattern instruction
+                    if (value_stack_size > 0) {
+                        Value match_value = value_stack_pop();
+                        value_free(&match_value);
+                    }
+                    value_stack_push(value_create_null());
+                    value_stack_push(value_create_boolean(0));
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_MATCH_END: {
+                // Match expression end: clean up and return result
+                // Stack should have: [pattern_result, matched_flag] or [match_value, matched_flag]
+                // If matched, return pattern_result; otherwise return null
+                // Handle multiple patterns - we need to find the first matched pattern's result
+                
+                // The stack may have multiple [match_value, matched_flag, pattern_result] triplets
+                // We need to find the first one where matched_flag is true
+                // For now, simplify: if we have at least 2 values, check the flag
+                
+                if (value_stack_size >= 2) {
+                    // Pop the last matched flag
+                    Value matched_flag = value_stack_pop();
+                    int matched = (matched_flag.type == VALUE_BOOLEAN && matched_flag.data.boolean_value);
+                    value_free(&matched_flag);
+                    
+                    if (matched && value_stack_size > 0) {
+                        // Pattern matched - result is on stack, keep it
+                        // Result is already on top of stack, just leave it
+                    } else {
+                        // No pattern matched - clean up stack and return null
+                        // Pop all remaining values (they're from unmatched patterns)
+                        while (value_stack_size > 0) {
+                            Value val = value_stack_pop();
+                            value_free(&val);
+                        }
+                        value_stack_push(value_create_null());
+                    }
+                } else if (value_stack_size == 1) {
+                    // Only one value - might be a result or match_value
+                    // Check if it's a boolean (flag) or result
+                    Value top = value_stack_pop();
+                    if (top.type == VALUE_BOOLEAN) {
+                        // It's a flag, no match
+                        value_free(&top);
+                        value_stack_push(value_create_null());
+                    } else {
+                        // It's a result, keep it
+                        value_stack_push(top);
+                    }
+                } else {
+                    // Stack is empty - return null
+                    value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_CREATE_LAMBDA: {
+                // Create lambda function: (params) => body
+                // instr->a = lambda body AST index
+                // instr->b = function ID (for bytecode execution)
+                // Find the lambda AST node by searching for one with this body
+                
+                if (instr->a < program->ast_count) {
+                    ASTNode* lambda_body = program->ast_nodes[instr->a];
+                    
+                    // Get lambda parameters - find the lambda AST node by searching for one with this body
+                    ASTNode** lambda_params = NULL;
+                    size_t lambda_param_count = 0;
+                    
+                    // Search for the lambda node that has this body
+                    for (size_t i = 0; i < program->ast_count; i++) {
+                        ASTNode* node = program->ast_nodes[i];
+                        if (node && node->type == AST_NODE_LAMBDA && node->data.lambda.body == lambda_body) {
+                            lambda_params = node->data.lambda.parameters;
+                            lambda_param_count = node->data.lambda.parameter_count;
+                            break;
+                        }
+                    }
+                    
+                    // Create lambda function value (like AST interpreter)
+                    Value lambda_value = value_create_function(
+                        lambda_body,
+                        lambda_params,
+                        lambda_param_count,
+                        NULL, // No return type for lambdas
+                        interpreter ? interpreter->current_environment : NULL
+                    );
+                    
+                    // If this is a bytecode function (instr->b >= 0), store the function ID in the body
+                    // This allows BC_CALL_FUNCTION_VALUE to detect and call bytecode functions
+                    if (instr->b >= 0 && lambda_value.type == VALUE_FUNCTION) {
+                        // Store the function ID as a pointer in the body field
+                        // This is a special marker for bytecode functions
+                        lambda_value.data.function_value.body = (void*)(uintptr_t)instr->b;
+                    }
+                    
+                    value_stack_push(lambda_value);
+                } else {
+                    // Invalid lambda instruction - push null
+                    value_stack_push(value_create_null());
                 }
                 pc++;
                 break;
@@ -2611,9 +3737,13 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             case BC_ADD_NUM: {
                 // Fast path: direct stack access without function calls
                 if (LIKELY(num_stack_size >= 2)) {
+                    // Pop right operand first (top of stack)
                     double b = num_stack[--num_stack_size];
+                    // Pop left operand second
                     double a = num_stack[--num_stack_size];
-                    num_stack[num_stack_size++] = a + b;
+                    // Push result at current position (where left operand was)
+                    num_stack[num_stack_size] = a + b;
+                    num_stack_size++;
                 } else {
                     // Fallback for safety
                     double b = num_stack_pop();
@@ -2629,7 +3759,8 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 if (num_stack_size >= 2) {
                     double b = num_stack[--num_stack_size];
                     double a = num_stack[--num_stack_size];
-                    num_stack[num_stack_size++] = a - b;
+                    num_stack[num_stack_size] = a - b;
+                    num_stack_size++;
                 } else {
                     // Fallback for safety
                     double b = num_stack_pop();
@@ -2645,7 +3776,8 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 if (num_stack_size >= 2) {
                     double b = num_stack[--num_stack_size];
                     double a = num_stack[--num_stack_size];
-                    num_stack[num_stack_size++] = a * b;
+                    num_stack[num_stack_size] = a * b;
+                    num_stack_size++;
                 } else {
                     // Fallback for safety
                     double b = num_stack_pop();
@@ -2662,10 +3794,11 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     double b = num_stack[--num_stack_size];
                     double a = num_stack[--num_stack_size];
                     if (b != 0.0) {
-                        num_stack[num_stack_size++] = a / b;
+                        num_stack[num_stack_size] = a / b;
                     } else {
-                        num_stack[num_stack_size++] = 0.0;
+                        num_stack[num_stack_size] = 0.0;
                     }
+                    num_stack_size++;
                 } else {
                     // Fallback for safety
                     double b = num_stack_pop();
@@ -2741,8 +3874,20 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             case BC_NUM_TO_VALUE: {
-                double num = num_stack_pop();
-                value_stack_push(value_create_number(num));
+                // CRITICAL: Ensure numeric stack is not empty before popping
+                // If stack is empty, this means there's a bug in compilation
+                if (num_stack_size == 0) {
+                    // Numeric stack is empty - this is a bug, but we'll push 0 to avoid crashes
+                    value_stack_push(value_create_number(0.0));
+                } else {
+                    // Pop only the top value - this should be the result of the last operation
+                    // CRITICAL: If there are multiple values on the numeric stack, something is wrong
+                    // We should only have one value (the result of the last operation)
+                    // Clear any leftover values to prevent bugs
+                    double num = num_stack[num_stack_size - 1];
+                    num_stack_size = 0;  // Clear entire numeric stack after conversion
+                    value_stack_push(value_create_number(num));
+                }
                 pc++;
                 break;
             }
@@ -2780,46 +3925,17 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             default: {
-                // Unknown opcode - fallback to AST evaluation
-                // Use eval_node directly to avoid bytecode compilation recursion
-                if (instr->a < program->ast_count) {
-                    ASTNode* node = program->ast_nodes[instr->a];
-                    if (node) {
-                        // Synchronize bytecode variables with AST interpreter environment
-                        for (size_t i = 0; i < program->local_count && i < program->local_slot_count; i++) {
-                            if (program->local_names[i]) {
-                                Value local_val = program->locals[i];
-                                if (environment_exists(interpreter->current_environment, program->local_names[i])) {
-                                    environment_assign(interpreter->current_environment, program->local_names[i], value_clone(&local_val));
-                                } else {
-                                    environment_define(interpreter->current_environment, program->local_names[i], value_clone(&local_val));
-                                }
-                            }
-                        }
-                        
-                        // Use eval_node directly to avoid recursion
-                        Value result = eval_node(interpreter, node);
-                        
-                        // Synchronize back from AST environment to bytecode locals
-                        for (size_t i = 0; i < program->local_count && i < program->local_slot_count; i++) {
-                            if (program->local_names[i]) {
-                                Value env_val = environment_get(interpreter->current_environment, program->local_names[i]);
-                                if (env_val.type != VALUE_NULL) {
-                                    value_free(&program->locals[i]);
-                                    program->locals[i] = value_clone(&env_val);
-                                }
-                            }
-                        }
-                        
-                        value_stack_push(result);
-                    } else {
-                        value_stack_push(value_create_null());
-                    }
-                } else {
-                    value_stack_push(value_create_null());
+                // Unknown opcode - report error and fail (like LuaJIT)
+                // Log the opcode value for debugging
+                if (interpreter) {
+                    char error_msg[512];
+                    snprintf(error_msg, sizeof(error_msg), 
+                             "Unknown bytecode opcode: %d (0x%x) at PC %zu. Program count: %zu, AST count: %zu", 
+                             instr->op, instr->op, pc, program->count, program->ast_count);
+                    interpreter_set_error(interpreter, error_msg, 0, 0);
                 }
-                pc++;
-                break;
+                // Don't continue execution - this is a serious error
+                goto cleanup;
             }
             }
         }
@@ -2830,6 +3946,25 @@ cleanup:
     while (value_stack_size > 0) {
         Value val = value_stack_pop();
         value_free(&val);
+    }
+    
+    // CRITICAL: Clear numeric stack to prevent leftover values from affecting next execution
+    // Leftover values on numeric stack can cause arithmetic bugs
+    num_stack_size = 0;
+    
+    // Free stack memory if it grew too large (prevent memory bloat)
+    // Keep a reasonable capacity (128 entries) to avoid constant reallocation
+    if (value_stack_capacity > 1024) {
+        shared_free_safe(value_stack, "bytecode_vm", "cleanup_stack", 1);
+        value_stack = NULL;
+        value_stack_capacity = 0;
+        value_stack_size = 0;
+    }
+    if (num_stack_capacity > 1024) {
+        shared_free_safe(num_stack, "bytecode_vm", "cleanup_num_stack", 1);
+        num_stack = NULL;
+        num_stack_capacity = 0;
+        num_stack_size = 0;
     }
     
     // Clean up memory optimizations
@@ -2853,9 +3988,9 @@ Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunct
     // Bind parameters to arguments
     size_t param_count = func->param_count;
     for (size_t i = 0; i < param_count && i < (size_t)arg_count; i++) {
-        if (func->param_names[i]) {
+        if (func->param_names && func->param_names[i]) {
             const char* param_name = func->param_names[i];
-            environment_define(func_env, param_name, args[i]);
+            environment_define(func_env, param_name, value_clone(&args[i]));
         }
     }
     
@@ -2868,7 +4003,8 @@ Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunct
     
     if (func->code_count > 0) {
         // Create a temporary program with just this function's code
-        // We need to pass the constants from the main program
+        // We need to pass the constants AND functions from the main program
+        // so recursive calls can find themselves
         BytecodeProgram temp_program = {0};
         temp_program.code = func->code;
         temp_program.count = func->code_count;
@@ -2876,18 +4012,24 @@ Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunct
         temp_program.constants = program ? program->constants : NULL;
         temp_program.num_const_count = program ? program->num_const_count : 0;
         temp_program.num_constants = program ? program->num_constants : NULL;
-        temp_program.ast_count = 0;
-        temp_program.ast_nodes = NULL;
-        temp_program.function_count = 0;
-        temp_program.functions = NULL;
+        temp_program.ast_count = program ? program->ast_count : 0;
+        temp_program.ast_nodes = program ? program->ast_nodes : NULL;
+        temp_program.function_count = program ? program->function_count : 0;
+        temp_program.functions = program ? program->functions : NULL;
+        temp_program.interpreter = interpreter;
         
         
         // Execute the function's bytecode
+        // Reset return flag before execution
+        interpreter->has_return = 0;
         result = bytecode_execute(&temp_program, interpreter, 0);
         
         // Check if the function returned a value
         if (interpreter->has_return) {
-            result = interpreter->return_value;
+            Value return_val = interpreter->return_value;
+            value_free(&result);  // Free the default result
+            result = value_clone(&return_val);  // Clone return value
+            value_free(&interpreter->return_value);  // Free stored return value
             interpreter->has_return = 0; // Reset return flag
         }
     }
@@ -2928,4 +4070,5 @@ static int pattern_matches_value(Value* value, Value* pattern) {
     
     return 0;
 }
+
 

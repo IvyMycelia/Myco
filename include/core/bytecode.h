@@ -65,6 +65,8 @@ typedef enum {
     BC_ARRAY_CONCAT_METHOD, // Array concat method: arr.concat(other)
     BC_CREATE_ARRAY,   // Create array from stack elements
     BC_ARRAY_CONCAT,   // Concatenate arrays: arr1 + arr2
+    BC_CREATE_RANGE,   // Create range: pops end, start from stack, creates range(start..end)
+    BC_CREATE_RANGE_STEP, // Create range with step: pops step, end, start from stack
     BC_CREATE_OBJECT,  // Create object from key-value pairs on stack
     BC_CREATE_MAP,     // Create hash map from key-value pairs on stack
     BC_CREATE_SET,     // Create set from elements on stack

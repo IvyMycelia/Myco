@@ -1689,12 +1689,14 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         // This looks like a function ID (small integer cast as pointer)
                         // Extract the function ID
                         int func_id = (int)body_addr;
-                        if (func_id >= 0 && func_id < (int)program->function_count) {
+                        // Use program cache for consistency - it contains all functions from the main program
+                        BytecodeProgram* cache_program = interpreter ? interpreter->bytecode_program_cache : NULL;
+                        if (cache_program && func_id >= 0 && func_id < (int)cache_program->function_count) {
                             // Found bytecode function - execute it directly
-                            BytecodeFunction* bc_func = &program->functions[func_id];
-                            result = bytecode_execute_function_bytecode(interpreter, bc_func, args, arg_count, program);
+                            BytecodeFunction* bc_func = &cache_program->functions[func_id];
+                            result = bytecode_execute_function_bytecode(interpreter, bc_func, args, arg_count, cache_program);
                         } else {
-                            // Invalid function ID - fall through to value_function_call
+                            // Invalid function ID or no cache - fall through to value_function_call
                             result = value_function_call(&func_value, args, arg_count, interpreter, 0, 0);
                         }
                     } else {
@@ -2108,6 +2110,58 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 
                 // Free the elements array (values are now owned by the array)
                 shared_free_safe(elements, "bytecode_vm", "BC_CREATE_ARRAY", 2);
+                pc++;
+                break;
+            }
+            
+            case BC_CREATE_RANGE: {
+                // Create range: start..end (step = 1.0)
+                // Stack: end (top), start
+                Value end_val = value_stack_pop();
+                Value start_val = value_stack_pop();
+                
+                if (end_val.type == VALUE_NUMBER && start_val.type == VALUE_NUMBER) {
+                    Value range_val = value_create_range(
+                        start_val.data.number_value,
+                        end_val.data.number_value,
+                        1.0,  // default step
+                        0     // exclusive
+                    );
+                    value_stack_push(range_val);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&end_val);
+                value_free(&start_val);
+                pc++;
+                break;
+            }
+            
+            case BC_CREATE_RANGE_STEP: {
+                // Create range with step: start..end..step
+                // Stack: step (top), end, start
+                Value step_val = value_stack_pop();
+                Value end_val = value_stack_pop();
+                Value start_val = value_stack_pop();
+                
+                if (step_val.type == VALUE_NUMBER && 
+                    end_val.type == VALUE_NUMBER && 
+                    start_val.type == VALUE_NUMBER) {
+                    Value range_val = value_create_range(
+                        start_val.data.number_value,
+                        end_val.data.number_value,
+                        step_val.data.number_value,
+                        0  // exclusive
+                    );
+                    value_stack_push(range_val);
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                
+                value_free(&step_val);
+                value_free(&end_val);
+                value_free(&start_val);
                 pc++;
                 break;
             }

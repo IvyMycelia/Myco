@@ -1125,6 +1125,20 @@ static void compile_binary(BytecodeProgram* p, ASTNode* n) {
         compile_node(p, right_node);
         bc_emit(p, BC_ARRAY_CONCAT, 0, 0);
     }
+    // Check for range operator (..)
+    else if (n->data.binary.op == OP_RANGE || n->data.binary.op == OP_RANGE_STEP) {
+        // Range: start..end or start..end..step
+        compile_node(p, left_node);
+        compile_node(p, right_node);
+        if (n->data.binary.op == OP_RANGE_STEP && n->data.binary.step) {
+            // Range with step: start..end..step
+            compile_node(p, n->data.binary.step);
+            bc_emit(p, BC_CREATE_RANGE_STEP, 0, 0);
+        } else {
+            // Simple range: start..end (step = 1.0)
+            bc_emit(p, BC_CREATE_RANGE, 0, 0);
+        }
+    }
     // Check if this is a pure numeric operation
     else if (is_numeric_binary_op(p, n)) {
         // Use fast numeric operations

@@ -386,33 +386,24 @@ if window != Null:
                 # Text at approximately 12px from top of button (for 18px font, roughly centered)
                 let text_offset_y = 12;
                 
-                # Set color for button text (explicitly set to ensure batching works)
+                # Draw button text in a loop to ensure consistency
                 graphics.setColor(255, 255, 255, 255);  # White text for contrast
                 
-                # EASY button (button starts at y=150)
-                let easy_text = "EASY";
-                if difficulty == "EASY":
-                    easy_text = easy_text + " (Selected)";
+                let button_texts = ["EASY", "MEDIUM", "HARD", "START GAME"];
+                let j = 0;
+                while j < 4:
+                    let button_text = button_texts[j];
+                    if j == 0 and difficulty == "EASY":
+                        button_text = button_text + " (Selected)";
+                    else if j == 1 and difficulty == "MEDIUM":
+                        button_text = button_text + " (Selected)";
+                    else if j == 2 and difficulty == "HARD":
+                        button_text = button_text + " (Selected)";
+                    end
+                    let text_y = menu_y + j * menu_item_height + text_offset_y;
+                    graphics.drawText(window_width / 2 - 80, text_y, button_text, font_id);
+                    j = j + 1;
                 end
-                graphics.drawText(window_width / 2 - 80, menu_y + text_offset_y, easy_text, font_id);
-                
-                # MEDIUM button (button starts at y=200)
-                let medium_text = "MEDIUM";
-                if difficulty == "MEDIUM":
-                    medium_text = medium_text + " (Selected)";
-                end
-                graphics.drawText(window_width / 2 - 80, menu_y + menu_item_height + text_offset_y, medium_text, font_id);
-                
-                # HARD button (button starts at y=250)
-                let hard_text = "HARD";
-                if difficulty == "HARD":
-                    hard_text = hard_text + " (Selected)";
-                end
-                graphics.drawText(window_width / 2 - 80, menu_y + 2 * menu_item_height + text_offset_y, hard_text, font_id);
-                
-                # START GAME button (button starts at y=300)
-                let start_text = "START GAME";
-                graphics.drawText(window_width / 2 - 80, menu_y + 3 * menu_item_height + text_offset_y, start_text, font_id);
                 
                 # Instructions at bottom (different color, will flush previous batch)
                 graphics.setColor(200, 200, 200, 255);

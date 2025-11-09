@@ -563,21 +563,51 @@ end
 
 print("\n6. String Operations...");
 total_tests = total_tests + 1;
-let str1 = "Hello";
-let str2 = "World";
-let combined = str1 + " " + str2;
-print("✓ String concatenation: " + combined);
-tests_passed = tests_passed + 1;
+try:
+    let str1 = "Hello";
+    let str2 = "World";
+    let combined = str1 + " " + str2;
+    if combined == "Hello World":
+        print("✓ String concatenation: " + combined);
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ String concatenation failed");
+        tests_failed.push("String concatenation");
+    end
+catch e:
+    print("✗ String concatenation error: " + e.toString());
+    tests_failed.push("String concatenation");
+end
 
 total_tests = total_tests + 1;
-let num_str = 42.toString();
-print("✓ Number to string: " + num_str);
-tests_passed = tests_passed + 1;
+try:
+    let num_str = 42.toString();
+    if num_str == "42":
+        print("✓ Number to string: " + num_str);
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Number to string failed");
+        tests_failed.push("Number to string");
+    end
+catch e:
+    print("✗ Number to string error: " + e.toString());
+    tests_failed.push("Number to string");
+end
 
 total_tests = total_tests + 1;
-let bool_str = True.toString();
-print("✓ Boolean to string: " + bool_str);
-tests_passed = tests_passed + 1;
+try:
+    let bool_str = True.toString();
+    if bool_str == "True":
+        print("✓ Boolean to string: " + bool_str);
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Boolean to string failed");
+        tests_failed.push("Boolean to string");
+    end
+catch e:
+    print("✗ Boolean to string error: " + e.toString());
+    tests_failed.push("Boolean to string");
+end
 
 print("\n=== 7. STRING OPERATIONS ===");
 print("7.1. String concatenation...");
@@ -771,69 +801,179 @@ end
 
 print("\n10. Math Library Functions...");
 total_tests = total_tests + 1;
-let pi_value = math.Pi;
-print("✓ Math.Pi: " + pi_value.toString());
-tests_passed = tests_passed + 1;
+try:
+    let pi_value = math.Pi;
+    if pi_value > 3.14 and pi_value < 3.15:
+        print("✓ Math.Pi: " + pi_value.toString());
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Math.Pi failed");
+        tests_failed.push("Math.Pi");
+    end
+catch e:
+    print("✗ Math.Pi error: " + e.toString());
+    tests_failed.push("Math.Pi");
+end
 
 total_tests = total_tests + 1;
-let e_value = math.E;
-print("✓ Math.E: " + e_value.toString());
-tests_passed = tests_passed + 1;
+try:
+    let e_value = math.E;
+    if e_value > 2.71 and e_value < 2.72:
+        print("✓ Math.E: " + e_value.toString());
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Math.E failed");
+        tests_failed.push("Math.E");
+    end
+catch e:
+    print("✗ Math.E error: " + e.toString());
+    tests_failed.push("Math.E");
+end
 
 total_tests = total_tests + 1;
-let abs_result = math.abs(-5);
-print("✓ Math.abs(-5): " + abs_result.toString());
-tests_passed = tests_passed + 1;
+try:
+    let abs_result = math.abs(-5);
+    if abs_result == 5:
+        print("✓ Math.abs(-5): " + abs_result.toString());
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Math.abs(-5) failed");
+        tests_failed.push("Math.abs(-5)");
+    end
+catch e:
+    print("✗ Math.abs(-5) error: " + e.toString());
+    tests_failed.push("Math.abs(-5)");
+end
 
 total_tests = total_tests + 1;
-let min_result = math.min(10, 5);
-print("✓ Math.min(10, 5): " + min_result.toString());
-tests_passed = tests_passed + 1;
+try:
+    let min_result = math.min(10, 5);
+    if min_result == 5:
+        print("✓ Math.min(10, 5): " + min_result.toString());
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Math.min(10, 5) failed");
+        tests_failed.push("Math.min(10, 5)");
+    end
+catch e:
+    print("✗ Math.min(10, 5) error: " + e.toString());
+    tests_failed.push("Math.min(10, 5)");
+end
 
 total_tests = total_tests + 1;
-let max_result = math.max(10, 5);
-print("✓ Math.max(10, 5): " + max_result.toString());
-tests_passed = tests_passed + 1;
+try:
+    let max_result = math.max(10, 5);
+    if max_result == 10:
+        print("✓ Math.max(10, 5): " + max_result.toString());
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Math.max(10, 5) failed");
+        tests_failed.push("Math.max(10, 5)");
+    end
+catch e:
+    print("✗ Math.max(10, 5) error: " + e.toString());
+    tests_failed.push("Math.max(10, 5)");
+end
 
 total_tests = total_tests + 1;
-let sqrt_result = math.sqrt(16);
-print("✓ Math.sqrt(16): " + sqrt_result.toString());
-tests_passed = tests_passed + 1;
+try:
+    let sqrt_result = math.sqrt(16);
+    if sqrt_result == 4:
+        print("✓ Math.sqrt(16): " + sqrt_result.toString());
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Math.sqrt(16) failed");
+        tests_failed.push("Math.sqrt(16)");
+    end
+catch e:
+    print("✗ Math.sqrt(16) error: " + e.toString());
+    tests_failed.push("Math.sqrt(16)");
+end
 
 print("\n11. String Library Functions...");
 total_tests = total_tests + 1;
-let test_str = "hello world";
-let upper_str = test_str.upper();
-print("✓ String.upper('hello world'): " + upper_str);
-tests_passed = tests_passed + 1;
+try:
+    let test_str = "hello world";
+    let upper_str = test_str.upper();
+    if upper_str == "HELLO WORLD":
+        print("✓ String.upper('hello world'): " + upper_str);
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ String.upper('hello world') failed");
+        tests_failed.push("String.upper('hello world')");
+    end
+catch e:
+    print("✗ String.upper('hello world') error: " + e.toString());
+    tests_failed.push("String.upper('hello world')");
+end
 
 total_tests = total_tests + 1;
-let lower_str_var = "HELLO WORLD";
-let lower_str = lower_str_var.lower();
-print("✓ String.lower('HELLO WORLD'): " + lower_str);
-tests_passed = tests_passed + 1;
+try:
+    let lower_str_var = "HELLO WORLD";
+    let lower_str = lower_str_var.lower();
+    if lower_str == "hello world":
+        print("✓ String.lower('HELLO WORLD'): " + lower_str);
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ String.lower('HELLO WORLD') failed");
+        tests_failed.push("String.lower('HELLO WORLD')");
+    end
+catch e:
+    print("✗ String.lower('HELLO WORLD') error: " + e.toString());
+    tests_failed.push("String.lower('HELLO WORLD')");
+end
 
 total_tests = total_tests + 1;
-let trim_str_var = "  hello  ";
-let trim_str = trim_str_var.trim();
-print("✓ String.trim('  hello  '): '" + trim_str + "'");
-tests_passed = tests_passed + 1;
+try:
+    let trim_str_var = "  hello  ";
+    let trim_str = trim_str_var.trim();
+    if trim_str == "hello":
+        print("✓ String.trim('  hello  '): '" + trim_str + "'");
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ String.trim('  hello  ') failed");
+        tests_failed.push("String.trim('  hello  ')");
+    end
+catch e:
+    print("✗ String.trim('  hello  ') error: " + e.toString());
+    tests_failed.push("String.trim('  hello  ')");
+end
 
 total_tests = total_tests + 1;
-let len_result = "hello".length;
-print("✓ len('hello'): " + len_result.toString());
-tests_passed = tests_passed + 1;
+try:
+    let len_result = "hello".length;
+    if len_result == 5:
+        print("✓ len('hello'): " + len_result.toString());
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ len('hello') failed");
+        tests_failed.push("len('hello')");
+    end
+catch e:
+    print("✗ len('hello') error: " + e.toString());
+    tests_failed.push("len('hello')");
+end
 
 print("\n12. Input Function...");
 total_tests = total_tests + 1;
-# Note: input() function is available but not tested interactively in automated tests
-print("✓ Input function available (tested manually)");
-tests_passed = tests_passed + 1;
+try:
+    # Note: input() function is available but not tested interactively in automated tests
+    print("✓ Input function available (tested manually)");
+    tests_passed = tests_passed + 1;
+catch e:
+    print("✗ Input function error: " + e.toString());
+    tests_failed.push("Input function");
+end
 
 print("\n13. Array Library Functions...");
 total_tests = total_tests + 1;
-print("✓ Array library imported successfully");
-tests_passed = tests_passed + 1;
+try:
+    print("✓ Array library imported successfully");
+    tests_passed = tests_passed + 1;
+catch e:
+    print("✗ Array library import failed: " + e.toString());
+    tests_failed.push("Array library import");
+end
 
 print("\n13.1. Enhanced Array Operations...");
 total_tests = total_tests + 1;
@@ -4355,54 +4495,79 @@ end
 
 # Set up GET route (matching example: app.get("/api/events", handle_get_events))
 total_tests = total_tests + 1;
-func get_handler():
-    set_response_body(json.stringify({"method": "GET", "message": "GET request received"}));
-    set_response_status(200);
+try:
+    func get_handler():
+        set_response_body(json.stringify({"method": "GET", "message": "GET request received"}));
+        set_response_status(200);
+    end
+    test_server.get("/api/test", get_handler);
+    print("✓ GET route registered");
+    tests_passed = tests_passed + 1;
+catch e:
+    print("✗ GET route registration failed: " + e.toString());
+    tests_failed.push("GET route registration");
 end
-test_server.get("/api/test", get_handler);
-print("✓ GET route registered");
-tests_passed = tests_passed + 1;
 
 # Set up POST route
 total_tests = total_tests + 1;
-func post_handler():
-    set_response_body(json.stringify({"method": "POST", "message": "POST request received"}));
-    set_response_status(200);
+try:
+    func post_handler():
+        set_response_body(json.stringify({"method": "POST", "message": "POST request received"}));
+        set_response_status(200);
+    end
+    test_server.post("/api/test", post_handler);
+    print("✓ POST route registered");
+    tests_passed = tests_passed + 1;
+catch e:
+    print("✗ POST route registration failed: " + e.toString());
+    tests_failed.push("POST route registration");
 end
-test_server.post("/api/test", post_handler);
-print("✓ POST route registered");
-tests_passed = tests_passed + 1;
 
 # Set up PUT route
 total_tests = total_tests + 1;
-func put_handler():
-    set_response_body(json.stringify({"method": "PUT", "message": "PUT request received"}));
-    set_response_status(200);
+try:
+    func put_handler():
+        set_response_body(json.stringify({"method": "PUT", "message": "PUT request received"}));
+        set_response_status(200);
+    end
+    test_server.put("/api/test", put_handler);
+    print("✓ PUT route registered");
+    tests_passed = tests_passed + 1;
+catch e:
+    print("✗ PUT route registration failed: " + e.toString());
+    tests_failed.push("PUT route registration");
 end
-test_server.put("/api/test", put_handler);
-print("✓ PUT route registered");
-tests_passed = tests_passed + 1;
 
 # Set up DELETE route
 total_tests = total_tests + 1;
-func delete_handler():
-    set_response_body(json.stringify({"method": "DELETE", "message": "DELETE request received"}));
-    set_response_status(200);
+try:
+    func delete_handler():
+        set_response_body(json.stringify({"method": "DELETE", "message": "DELETE request received"}));
+        set_response_status(200);
+    end
+    test_server.delete("/api/test", delete_handler);
+    print("✓ DELETE route registered");
+    tests_passed = tests_passed + 1;
+catch e:
+    print("✗ DELETE route registration failed: " + e.toString());
+    tests_failed.push("DELETE route registration");
 end
-test_server.delete("/api/test", delete_handler);
-print("✓ DELETE route registered");
-tests_passed = tests_passed + 1;
 
 # Start the server (matching example: app.listen())
 total_tests = total_tests + 1;
-test_server.listen();
-print("Server listening on port 8888...");
-# Note: server.listen() is non-blocking, so tests continue immediately
-# The server starts in a background thread
-# Wait a moment for the server to be ready (small delay to ensure server thread has started)
-server.sleep(0.2);  # Wait 200ms for server to start
-print("✓ Server started (non-blocking)");
-tests_passed = tests_passed + 1;
+try:
+    test_server.listen();
+    print("Server listening on port 8888...");
+    # Note: server.listen() is non-blocking, so tests continue immediately
+    # The server starts in a background thread
+    # Wait a moment for the server to be ready (small delay to ensure server thread has started)
+    server.sleep(0.2);  # Wait 200ms for server to start
+    print("✓ Server started (non-blocking)");
+    tests_passed = tests_passed + 1;
+catch e:
+    print("✗ Server start failed: " + e.toString());
+    tests_failed.push("Server start");
+end
 
 # Make HTTP GET request to the server
 total_tests = total_tests + 1;
@@ -4576,9 +4741,14 @@ print("21.1. Compression Library...");
 
 # Test compression library availability (may not be available by default)
 total_tests = total_tests + 1;
-# Compression library is currently not exposed globally
-print("⊘ Compression library not available (expected)");
-tests_passed = tests_passed + 1;
+try:
+    # Compression library is currently not exposed globally
+    print("⊘ Compression library not available (expected)");
+    tests_passed = tests_passed + 1;
+catch e:
+    print("✗ Compression library test error: " + e.toString());
+    tests_failed.push("Compression library test");
+end
 
 # Test database library availability
 total_tests = total_tests + 1;

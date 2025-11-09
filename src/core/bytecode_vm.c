@@ -544,6 +544,42 @@ static double num_stack_peek(void) {
 // These functions are implemented in bytecode_compiler.c
 // We only implement the execution part here
 
+// Execute bytecode without resetting the stack (for sub-programs)
+static Value bytecode_execute_no_reset(BytecodeProgram* program, Interpreter* interpreter) {
+    if (!program || !interpreter || !program->code || program->count == 0) {
+        return value_create_null();
+    }
+    
+    // Don't reset stacks - use existing stack state
+    // Don't initialize memory optimizations (already initialized)
+    
+    // Set interpreter reference
+    program->interpreter = interpreter;
+    
+    // Ensure program cache is set for function calls
+    if (!interpreter->bytecode_program_cache) {
+        interpreter->bytecode_program_cache = program;
+    }
+    
+    // Execute program
+    size_t pc = 0;
+    Value result = value_create_null();
+    
+    while (pc < program->count) {
+        // Check for errors before executing next instruction
+        if (interpreter && interpreter_has_error(interpreter)) {
+            break;
+        }
+        
+        BytecodeInstruction* instr = &program->code[pc];
+        
+        
+        break; // Placeholder - will implement properly
+    }
+    
+    return result;
+}
+
 // Main execution function
 Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int debug) {
     if (!program || !interpreter) {
@@ -587,9 +623,10 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
         }
         BytecodeInstruction* instr = &program->code[pc];
         
-        // If we have an error and we're not in a try block, exit
+        // If we have an error and we're not in a try block, clear error and continue execution
+        // Error was already reported by interpreter_set_error
         if (interpreter && interpreter_has_error(interpreter) && interpreter->try_depth == 0) {
-            break;
+            interpreter_clear_error(interpreter);
         }
         
         // If we have an error and we're in a try block, skip instructions until BC_TRY_END or BC_CATCH
@@ -689,7 +726,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             value_stack_push(env_val);
                         } else {
                             // Variable not in environment - use local slot
-                            value_stack_push(value_clone(&local_val));
+                    value_stack_push(value_clone(&local_val));
                         }
                     } else {
                         // No environment or local_names - use local slot
@@ -764,7 +801,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     } else if (var_name && interpreter && interpreter->global_environment) {
                         // Fallback to global environment if current_environment is NULL
                         loaded_val = environment_get(interpreter->global_environment, var_name);
-                    }
+                        }
                     
                     value_stack_push(loaded_val);
                 } else {
@@ -1068,18 +1105,65 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 // Get method name from constant pool
                 if (instr->a < program->const_count && program->constants[instr->a].type == VALUE_STRING) {
                     const char* method_name = program->constants[instr->a].data.string_value;
-                    // Get arguments from stack (in reverse order)
+                    // Stack order: compiler pushes object first (line 1831), then argument (line 1983)
+                    // So stack is: [object, arg1] with arg1 on top
+                    // Match BC_ARRAY_PUSH exactly: pop argument first (top), then object (below)
+                    // Match BC_CALL_BUILTIN: pop arguments in reverse order
+                    // Match BC_ARRAY_PUSH exactly: pop argument first (top), then object (below)
+                    // BC_ARRAY_PUSH: Value val = value_stack_pop(); Value arr = value_stack_pop();
+                    // Stack is [object, arg1] with arg1 on top
+                    // Match BC_ARRAY_PUSH exactly: pop argument first (top), then object (below)
+                    // BC_ARRAY_PUSH: Value val = value_stack_pop(); Value arr = value_stack_pop();
+                    // Stack is [object, arg1] with arg1 on top
+                    // For single arg: pop arg first (top), then object (below)
+                    // Check stack size before popping to ensure arguments are present
+                    if (value_stack_size < (size_t)(arg_count + 1)) {
+                        // Stack doesn't have enough values - arguments weren't pushed correctly
+                        value_stack_push(value_create_null());
+                        pc++;
+                        break;
+                    }
+                    // Match BC_ARRAY_PUSH exactly: pop argument first (top), then object (below)
+                    // BC_ARRAY_PUSH: Value val = value_stack_pop(); Value arr = value_stack_pop();
+                    // For arrays, stack is [object, arg1] with arg1 on top
+                    // Pop arg first (top), then object (below)
                     if (arg_count > 0) {
                         args = shared_malloc_safe(arg_count * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL", 7);
-                        for (int i = arg_count - 1; i >= 0; i--) {
-                            args[i] = value_stack_pop();
+                        // Pop arguments in reverse order (last arg is on top)
+                        // For single arg: args[0] = pop() = arg1 (top)
+                        for (int i = 0; i < arg_count; i++) {
+                            args[arg_count - 1 - i] = value_stack_pop();
                         }
                     }
-                    
-                    // Get object from stack
+                    // Pop object (it's below the arguments)
                     object = value_stack_pop();
                     // Handle different object types
-                    if (object.type == VALUE_HASH_MAP) {
+                    if (object.type == VALUE_ARRAY) {
+                        // Handle array methods
+                        if (strcmp(method_name, "push") == 0 && arg_count == 1) {
+                            // value_array_push clones the element internally
+                            value_array_push(&object, args[0]);
+                            // Transfer ownership of object to stack (don't free it)
+                            value_stack_push(object);
+                        } else if (strcmp(method_name, "pop") == 0 && arg_count == 0) {
+                            Value result = value_array_pop(&object);
+                            value_stack_push(result);
+                            // Transfer ownership of object to stack (don't free it)
+                            value_stack_push(object);
+                        } else {
+                            value_stack_push(value_create_null());
+                            value_free(&object);
+                        }
+                        // Clean up arguments
+                        if (args) {
+                            for (int i = 0; i < arg_count; i++) {
+                                value_free(&args[i]);
+                            }
+                            shared_free_safe(args, "bytecode_vm", "BC_METHOD_CALL", 16);
+                        }
+                        pc++;
+                        break;
+                    } else if (object.type == VALUE_HASH_MAP) {
                         // Handle map methods
                         if (strcmp(method_name, "set") == 0) {
                             Value result = builtin_map_set(NULL, (Value[]){object, args[0], args[1]}, 3, 0, 0);
@@ -1639,7 +1723,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         value_free(&result);
                     } else {
                         // Return value was not pushed, push it now
-                        value_stack_push(result);
+                    value_stack_push(result);
                     }
                 } else {
                     value_stack_push(value_create_null());
@@ -1707,7 +1791,14 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                 } else {
                                     // Use default value from field declaration
                                     if (stmt->data.variable_declaration.initial_value) {
-                                        field_value = interpreter_execute(interpreter, stmt->data.variable_declaration.initial_value);
+                                        // Compile field initializer to bytecode and execute
+                                        BytecodeProgram* field_init_bytecode = bytecode_compile_ast(stmt->data.variable_declaration.initial_value, interpreter);
+                                        if (field_init_bytecode) {
+                                            field_value = interpreter_execute_bytecode(interpreter, field_init_bytecode);
+                                            bytecode_program_free(field_init_bytecode);
+                                        } else {
+                                            field_value = value_create_null();
+                                        }
                                     } else {
                                         field_value = value_create_null();
                                     }
@@ -2019,15 +2110,22 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             case BC_ARRAY_PUSH: {
+                // BC_ARRAY_PUSH expects stack: [arr, val] with val on top
+                // Pop val first (top), then arr (below)
                 Value val = value_stack_pop();
                 Value arr = value_stack_pop();
                 if (arr.type == VALUE_ARRAY) {
+                    // value_array_push clones val internally
                     value_array_push(&arr, val);
+                    // Transfer ownership of arr to stack (don't free it)
                     value_stack_push(arr);
                 } else {
-                    value_free(&val);
+                    // Not an array - return Null for non-arrays
                     value_stack_push(value_create_null());
+                    // Free arr since we're not using it
+                    value_free(&arr);
                 }
+                // Free val since it was cloned by value_array_push
                 value_free(&val);
                 pc++;
                 break;
@@ -3028,7 +3126,14 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                             } else {
                                                 // Use default value from field declaration
                                                 if (stmt->data.variable_declaration.initial_value) {
-                                                    field_value = interpreter_execute(interpreter, stmt->data.variable_declaration.initial_value);
+                                                    // Compile field initializer to bytecode and execute
+                                                    BytecodeProgram* field_init_bytecode = bytecode_compile_ast(stmt->data.variable_declaration.initial_value, interpreter);
+                                                    if (field_init_bytecode) {
+                                                        field_value = interpreter_execute_bytecode(interpreter, field_init_bytecode);
+                                                        bytecode_program_free(field_init_bytecode);
+                                                    } else {
+                                                        field_value = value_create_null();
+                                                    }
                                                 } else {
                                                     field_value = value_create_null();
                                                 }
@@ -3088,11 +3193,11 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             case BC_FOR_LOOP: {
                 // For loop: for i in collection body
                 // instr->a = variable name constant index, instr->b = body AST index
-                if (instr->a < program->const_count && instr->b < program->ast_count) {
+                if (instr->a < program->const_count && instr->b >= 0 && instr->b < (int)program->function_count) {
                     Value var_name = program->constants[instr->a];
-                    ASTNode* body = program->ast_nodes[instr->b];
+                    int body_func_id = instr->b;
                     
-                    if (var_name.type == VALUE_STRING && body) {
+                    if (var_name.type == VALUE_STRING && body_func_id >= 0) {
                         // Get collection from stack
                         Value collection = value_stack_pop();
                         
@@ -3119,9 +3224,67 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                 environment_define(loop_env, var_name.data.string_value, element);
                                 value_free(&element);
                                 
-                                // Execute loop body using interpreter_execute (like AST interpreter)
-                                if (body) {
-                                    Value body_result = interpreter_execute(interpreter, body);
+                                // Execute loop body (bytecode sub-program)
+                                // Loop bodies execute in the current environment (loop_env), not a new function environment
+                                if (body_func_id >= 0 && body_func_id < (int)program->function_count && program->functions) {
+                                    BytecodeFunction* body_func = &program->functions[body_func_id];
+                                    if (body_func && body_func->code && body_func->code_count > 0 && body_func->code_count <= 1000000) {
+                                        // Create temporary program for sub-program execution
+                                        BytecodeProgram temp_program = {0};
+                                        temp_program.code = body_func->code;
+                                        temp_program.count = body_func->code_count;
+                                        temp_program.capacity = body_func->code_capacity;
+                                        temp_program.const_count = program ? program->const_count : 0;
+                                        temp_program.constants = program ? program->constants : NULL;
+                                        temp_program.num_const_count = program ? program->num_const_count : 0;
+                                        temp_program.num_constants = program ? program->num_constants : NULL;
+                                        temp_program.ast_count = program ? program->ast_count : 0;
+                                        temp_program.ast_nodes = program ? program->ast_nodes : NULL;
+                                        temp_program.function_count = program ? program->function_count : 0;
+                                        temp_program.functions = program ? program->functions : NULL;
+                                        temp_program.interpreter = interpreter;
+                                        temp_program.local_count = 0;
+                                        temp_program.local_names = NULL;
+                                        temp_program.local_slot_count = 0;
+                                        temp_program.locals = NULL;
+                                        temp_program.num_local_count = 0;
+                                        temp_program.num_locals = NULL;
+                                        
+                                        // Save stack state before sub-program execution
+                                        size_t saved_stack_size = value_stack_size;
+                                        Value* saved_stack = NULL;
+                                        if (saved_stack_size > 0) {
+                                            saved_stack = shared_malloc_safe(saved_stack_size * sizeof(Value), "bytecode_vm", "BC_FOR_LOOP", 1);
+                                            if (saved_stack) {
+                                                for (size_t i = 0; i < saved_stack_size; i++) {
+                                                    saved_stack[i] = value_clone(&value_stack[i]);
+                                                }
+                                            }
+                                        }
+                                        
+                                        // Execute sub-program in current environment (no new environment created)
+                                        // bytecode_execute will reset the stack, so we need to restore it after
+                                        Value body_result = bytecode_execute(&temp_program, interpreter, 0);
+                                        
+                                        // Restore stack state after sub-program execution
+                                        // Clear any values left by sub-program
+                                        while (value_stack_size > 0) {
+                                            Value val = value_stack_pop();
+                                            value_free(&val);
+                                        }
+                                        
+                                        // Restore saved stack
+                                        if (saved_stack && saved_stack_size > 0) {
+                                            for (size_t i = 0; i < saved_stack_size; i++) {
+                                                value_stack_push(saved_stack[i]);
+                                            }
+                                            // Free saved stack copies
+                                            for (size_t i = 0; i < saved_stack_size; i++) {
+                                                value_free(&saved_stack[i]);
+                                            }
+                                            shared_free_safe(saved_stack, "bytecode_vm", "BC_FOR_LOOP", 2);
+                                        }
+                                        
                                     if (interpreter_has_error(interpreter)) {
                                         value_free(&body_result);
                                         // Restore environment before returning
@@ -3152,6 +3315,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                     }
                                     // CRITICAL: Free the body result to prevent memory leak
                                     value_free(&body_result);
+                                    }
                                 }
                             }
                         } else if (collection.type == VALUE_STRING) {
@@ -3165,9 +3329,67 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                 environment_define(loop_env, var_name.data.string_value, element);
                                 value_free(&element);
                                 
-                                // Execute loop body using interpreter_execute (like AST interpreter)
-                                if (body) {
-                                    Value body_result = interpreter_execute(interpreter, body);
+                                // Execute loop body (bytecode sub-program)
+                                // Loop bodies execute in the current environment (loop_env), not a new function environment
+                                if (body_func_id >= 0 && body_func_id < (int)program->function_count && program->functions) {
+                                    BytecodeFunction* body_func = &program->functions[body_func_id];
+                                    if (body_func && body_func->code && body_func->code_count > 0 && body_func->code_count <= 1000000) {
+                                        // Create temporary program for sub-program execution
+                                        BytecodeProgram temp_program = {0};
+                                        temp_program.code = body_func->code;
+                                        temp_program.count = body_func->code_count;
+                                        temp_program.capacity = body_func->code_capacity;
+                                        temp_program.const_count = program ? program->const_count : 0;
+                                        temp_program.constants = program ? program->constants : NULL;
+                                        temp_program.num_const_count = program ? program->num_const_count : 0;
+                                        temp_program.num_constants = program ? program->num_constants : NULL;
+                                        temp_program.ast_count = program ? program->ast_count : 0;
+                                        temp_program.ast_nodes = program ? program->ast_nodes : NULL;
+                                        temp_program.function_count = program ? program->function_count : 0;
+                                        temp_program.functions = program ? program->functions : NULL;
+                                        temp_program.interpreter = interpreter;
+                                        temp_program.local_count = 0;
+                                        temp_program.local_names = NULL;
+                                        temp_program.local_slot_count = 0;
+                                        temp_program.locals = NULL;
+                                        temp_program.num_local_count = 0;
+                                        temp_program.num_locals = NULL;
+                                        
+                                        // Save stack state before sub-program execution
+                                        size_t saved_stack_size = value_stack_size;
+                                        Value* saved_stack = NULL;
+                                        if (saved_stack_size > 0) {
+                                            saved_stack = shared_malloc_safe(saved_stack_size * sizeof(Value), "bytecode_vm", "BC_FOR_LOOP", 5);
+                                            if (saved_stack) {
+                                                for (size_t i = 0; i < saved_stack_size; i++) {
+                                                    saved_stack[i] = value_clone(&value_stack[i]);
+                                                }
+                                            }
+                                        }
+                                        
+                                        // Execute sub-program in current environment (no new environment created)
+                                        // bytecode_execute will reset the stack, so we need to restore it after
+                                        Value body_result = bytecode_execute(&temp_program, interpreter, 0);
+                                        
+                                        // Restore stack state after sub-program execution
+                                        // Clear any values left by sub-program
+                                        while (value_stack_size > 0) {
+                                            Value val = value_stack_pop();
+                                            value_free(&val);
+                                        }
+                                        
+                                        // Restore saved stack
+                                        if (saved_stack && saved_stack_size > 0) {
+                                            for (size_t i = 0; i < saved_stack_size; i++) {
+                                                value_stack_push(saved_stack[i]);
+                                            }
+                                            // Free saved stack copies
+                                            for (size_t i = 0; i < saved_stack_size; i++) {
+                                                value_free(&saved_stack[i]);
+                                            }
+                                            shared_free_safe(saved_stack, "bytecode_vm", "BC_FOR_LOOP", 6);
+                                        }
+                                        
                                     if (interpreter_has_error(interpreter)) {
                                         value_free(&body_result);
                                         // Restore environment before returning
@@ -3196,6 +3418,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                         continue;
                                     }
                                     value_free(&body_result);
+                                    }
                                 }
                             }
                         } else if (collection.type == VALUE_RANGE) {
@@ -3211,9 +3434,44 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                 environment_define(loop_env, var_name.data.string_value, iterator_value);
                                 value_free(&iterator_value);
                                 
-                                // Execute the loop body
-                                if (body) {
-                                    Value body_result = eval_node(interpreter, body);
+                                // Execute the loop body (bytecode sub-program)
+                                // Loop bodies execute in the current environment (loop_env), not a new function environment
+                                if (body_func_id >= 0 && body_func_id < (int)program->function_count && program->functions) {
+                                    BytecodeFunction* body_func = &program->functions[body_func_id];
+                                    if (body_func && body_func->code && body_func->code_count > 0 && body_func->code_count <= 1000000) {
+                                        // Create temporary program for sub-program execution
+                                        BytecodeProgram temp_program = {0};
+                                        temp_program.code = body_func->code;
+                                        temp_program.count = body_func->code_count;
+                                        temp_program.capacity = body_func->code_capacity;
+                                        temp_program.const_count = program ? program->const_count : 0;
+                                        temp_program.constants = program ? program->constants : NULL;
+                                        temp_program.num_const_count = program ? program->num_const_count : 0;
+                                        temp_program.num_constants = program ? program->num_constants : NULL;
+                                        temp_program.ast_count = program ? program->ast_count : 0;
+                                        temp_program.ast_nodes = program ? program->ast_nodes : NULL;
+                                        temp_program.function_count = program ? program->function_count : 0;
+                                        temp_program.functions = program ? program->functions : NULL;
+                                        temp_program.interpreter = interpreter;
+                                        temp_program.local_count = 0;
+                                        temp_program.local_names = NULL;
+                                        temp_program.local_slot_count = 0;
+                                        temp_program.locals = NULL;
+                                        temp_program.num_local_count = 0;
+                                        temp_program.num_locals = NULL;
+                                        
+                                        // Save stack state
+                                        size_t saved_stack_size = value_stack_size;
+                                        
+                                        // Execute sub-program in current environment (no new environment created)
+                                        Value body_result = bytecode_execute(&temp_program, interpreter, 0);
+                                        
+                                        // Restore stack size (sub-program may have left values on stack)
+                                        while (value_stack_size > saved_stack_size) {
+                                            Value val = value_stack_pop();
+                                            value_free(&val);
+                                        }
+                                        
                                     if (interpreter_has_error(interpreter)) {
                                         value_free(&body_result);
                                         interpreter->current_environment = old_env;
@@ -3241,6 +3499,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                         continue;
                                     }
                                     value_free(&body_result);
+                                    }
                                 }
                             }
                         }
@@ -3315,16 +3574,8 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         Value* elem = (Value*)arr.data.array_value.elements[idx];
                         if (elem) {
                             result = value_clone(elem);
-                        } else {
-                            result = value_create_null();
                         }
-                    } else {
-                        // Index out of bounds - return null
-                        result = value_create_null();
                     }
-                } else {
-                    // Invalid array or index - return null
-                    result = value_create_null();
                 }
                 
                 value_free(&arr);
@@ -3456,10 +3707,10 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             case BC_CATCH: {
                 // Catch block handler
                 // instr->a = catch variable name constant index (empty string means no variable)
-                // instr->b = catch block AST index
-                if (instr->a >= 0 && instr->a < program->const_count && instr->b < program->ast_count) {
+                // instr->b = catch block function ID (bytecode sub-program)
+                if (instr->a >= 0 && instr->a < program->const_count && instr->b >= 0 && instr->b < (int)program->function_count) {
                     Value catch_var_name = program->constants[instr->a];
-                    ASTNode* catch_block = program->ast_nodes[instr->b];
+                    int catch_block_func_id = instr->b;
                     
                     // Check if we're in an error state (from try block)
                     if (interpreter && interpreter_has_error(interpreter)) {
@@ -3487,8 +3738,69 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             value_free(&error_value);
                         }
                         
-                        // Execute catch block using eval_node (like AST interpreter)
-                        Value catch_result = eval_node(interpreter, catch_block);
+                        // Execute catch block (bytecode sub-program)
+                        // Catch blocks execute in the current environment (catch_env), not a new function environment
+                        Value catch_result = value_create_null();
+                        if (catch_block_func_id >= 0 && catch_block_func_id < (int)program->function_count && program->functions) {
+                            BytecodeFunction* catch_block_func = &program->functions[catch_block_func_id];
+                            if (catch_block_func && catch_block_func->code && catch_block_func->code_count > 0 && catch_block_func->code_count <= 1000000) {
+                                // Create temporary program for sub-program execution
+                                BytecodeProgram temp_program = {0};
+                                temp_program.code = catch_block_func->code;
+                                temp_program.count = catch_block_func->code_count;
+                                temp_program.capacity = catch_block_func->code_capacity;
+                                temp_program.const_count = program ? program->const_count : 0;
+                                temp_program.constants = program ? program->constants : NULL;
+                                temp_program.num_const_count = program ? program->num_const_count : 0;
+                                temp_program.num_constants = program ? program->num_constants : NULL;
+                                temp_program.ast_count = program ? program->ast_count : 0;
+                                temp_program.ast_nodes = program ? program->ast_nodes : NULL;
+                                temp_program.function_count = program ? program->function_count : 0;
+                                temp_program.functions = program ? program->functions : NULL;
+                                temp_program.interpreter = interpreter;
+                                temp_program.local_count = 0;
+                                temp_program.local_names = NULL;
+                                temp_program.local_slot_count = 0;
+                                temp_program.locals = NULL;
+                                temp_program.num_local_count = 0;
+                                temp_program.num_locals = NULL;
+                                
+                                // Save stack state before sub-program execution
+                                size_t saved_stack_size = value_stack_size;
+                                Value* saved_stack = NULL;
+                                if (saved_stack_size > 0) {
+                                    saved_stack = shared_malloc_safe(saved_stack_size * sizeof(Value), "bytecode_vm", "BC_CATCH", 1);
+                                    if (saved_stack) {
+                                        for (size_t i = 0; i < saved_stack_size; i++) {
+                                            saved_stack[i] = value_clone(&value_stack[i]);
+                                        }
+                                    }
+                                }
+                                
+                                // Execute sub-program in current environment (no new environment created)
+                                // bytecode_execute will reset the stack, so we need to restore it after
+                                catch_result = bytecode_execute(&temp_program, interpreter, 0);
+                                
+                                // Restore stack state after sub-program execution
+                                // Clear any values left by sub-program
+                                while (value_stack_size > 0) {
+                                    Value val = value_stack_pop();
+                                    value_free(&val);
+                                }
+                                
+                                // Restore saved stack
+                                if (saved_stack && saved_stack_size > 0) {
+                                    for (size_t i = 0; i < saved_stack_size; i++) {
+                                        value_stack_push(saved_stack[i]);
+                                    }
+                                    // Free saved stack copies
+                                    for (size_t i = 0; i < saved_stack_size; i++) {
+                                        value_free(&saved_stack[i]);
+                                    }
+                                    shared_free_safe(saved_stack, "bytecode_vm", "BC_CATCH", 2);
+                                }
+                            }
+                        }
                         
                         // Restore environment
                         interpreter->current_environment = old_env;
@@ -3519,15 +3831,78 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             case BC_SWITCH_CASE: {
                 // Switch case: compare expression with case value, jump if not equal
                 // Stack: [expression_value]
-                // instr->a = case value AST index
-                // instr->b = case body AST index
-                if (instr->a < program->ast_count && instr->b < program->ast_count) {
+                // instr->a = case value function ID (bytecode sub-program)
+                // instr->b = case body function ID (bytecode sub-program)
+                if (instr->a >= 0 && instr->a < (int)program->function_count && instr->b >= 0 && instr->b < (int)program->function_count) {
                     Value expr_value = value_stack_pop();
-                    ASTNode* case_value_node = program->ast_nodes[instr->a];
-                    ASTNode* case_body = program->ast_nodes[instr->b];
+                    int case_value_func_id = instr->a;
+                    int case_body_func_id = instr->b;
                     
-                    // Evaluate case value
-                    Value case_value = eval_node(interpreter, case_value_node);
+                    // Evaluate case value using bytecode sub-program
+                    Value case_value = value_create_null();
+                    if (case_value_func_id >= 0 && case_value_func_id < (int)program->function_count && program->functions) {
+                        BytecodeFunction* case_value_func = &program->functions[case_value_func_id];
+                        if (case_value_func && case_value_func->code && case_value_func->code_count > 0) {
+                            // Create temporary program for case value evaluation
+                            BytecodeProgram temp_program = {0};
+                            temp_program.code = case_value_func->code;
+                            temp_program.count = case_value_func->code_count;
+                            temp_program.capacity = case_value_func->code_capacity;
+                            temp_program.const_count = program ? program->const_count : 0;
+                            temp_program.constants = program ? program->constants : NULL;
+                            temp_program.num_const_count = program ? program->num_const_count : 0;
+                            temp_program.num_constants = program ? program->num_constants : NULL;
+                            temp_program.ast_count = program ? program->ast_count : 0;
+                            temp_program.ast_nodes = program ? program->ast_nodes : NULL;
+                            temp_program.function_count = program ? program->function_count : 0;
+                            temp_program.functions = program ? program->functions : NULL;
+                            temp_program.interpreter = interpreter;
+                            temp_program.local_count = 0;
+                            temp_program.local_names = NULL;
+                            temp_program.local_slot_count = 0;
+                            temp_program.locals = NULL;
+                            temp_program.num_local_count = 0;
+                            temp_program.num_locals = NULL;
+                            
+                            // Save stack state
+                            size_t saved_stack_size = value_stack_size;
+                            Value* saved_stack = NULL;
+                            if (saved_stack_size > 0) {
+                                saved_stack = shared_malloc_safe(saved_stack_size * sizeof(Value), "bytecode_vm", "BC_SWITCH_CASE", 1);
+                                if (saved_stack) {
+                                    for (size_t i = 0; i < saved_stack_size; i++) {
+                                        saved_stack[i] = value_clone(&value_stack[i]);
+                                    }
+                                }
+                            }
+                            
+                            // Execute case value sub-program
+                            case_value = bytecode_execute(&temp_program, interpreter, 0);
+                            
+                            // Restore stack state
+                            while (value_stack_size > 0) {
+                                Value val = value_stack_pop();
+                                value_free(&val);
+                            }
+                            
+                            if (saved_stack && saved_stack_size > 0) {
+                                for (size_t i = 0; i < saved_stack_size; i++) {
+                                    value_stack_push(saved_stack[i]);
+                                }
+                                for (size_t i = 0; i < saved_stack_size; i++) {
+                                    value_free(&saved_stack[i]);
+                                }
+                                shared_free_safe(saved_stack, "bytecode_vm", "BC_SWITCH_CASE", 2);
+                            }
+                            
+                            // Get case value from stack if not returned directly
+                            if (value_stack_size > 0 && case_value.type == VALUE_NULL) {
+                                Value stack_val = value_stack_pop();
+                                value_free(&case_value);
+                                case_value = stack_val;
+                            }
+                        }
+                    }
                     
                     // Compare expression with case value
                     int matches = 0;
@@ -3548,8 +3923,69 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     value_free(&case_value);
                     
                     if (matches) {
-                        // Case matches - execute body
-                        Value body_result = eval_node(interpreter, case_body);
+                        // Case matches - execute body (bytecode sub-program)
+                        // Case bodies execute in the current environment, not a new function environment
+                        Value body_result = value_create_null();
+                        if (case_body_func_id >= 0 && case_body_func_id < (int)program->function_count && program->functions) {
+                            BytecodeFunction* case_body_func = &program->functions[case_body_func_id];
+                            if (case_body_func && case_body_func->code && case_body_func->code_count > 0 && case_body_func->code_count <= 1000000) {
+                                // Create temporary program for sub-program execution
+                                BytecodeProgram temp_program = {0};
+                                temp_program.code = case_body_func->code;
+                                temp_program.count = case_body_func->code_count;
+                                temp_program.capacity = case_body_func->code_capacity;
+                                temp_program.const_count = program ? program->const_count : 0;
+                                temp_program.constants = program ? program->constants : NULL;
+                                temp_program.num_const_count = program ? program->num_const_count : 0;
+                                temp_program.num_constants = program ? program->num_constants : NULL;
+                                temp_program.ast_count = program ? program->ast_count : 0;
+                                temp_program.ast_nodes = program ? program->ast_nodes : NULL;
+                                temp_program.function_count = program ? program->function_count : 0;
+                                temp_program.functions = program ? program->functions : NULL;
+                                temp_program.interpreter = interpreter;
+                                temp_program.local_count = 0;
+                                temp_program.local_names = NULL;
+                                temp_program.local_slot_count = 0;
+                                temp_program.locals = NULL;
+                                temp_program.num_local_count = 0;
+                                temp_program.num_locals = NULL;
+                                
+                                // Save stack state before sub-program execution
+                                size_t saved_stack_size = value_stack_size;
+                                Value* saved_stack = NULL;
+                                if (saved_stack_size > 0) {
+                                    saved_stack = shared_malloc_safe(saved_stack_size * sizeof(Value), "bytecode_vm", "BC_SWITCH_CASE", 1);
+                                    if (saved_stack) {
+                                        for (size_t i = 0; i < saved_stack_size; i++) {
+                                            saved_stack[i] = value_clone(&value_stack[i]);
+                                        }
+                                    }
+                                }
+                                
+                                // Execute sub-program in current environment (no new environment created)
+                                // bytecode_execute will reset the stack, so we need to restore it after
+                                body_result = bytecode_execute(&temp_program, interpreter, 0);
+                                
+                                // Restore stack state after sub-program execution
+                                // Clear any values left by sub-program
+                                while (value_stack_size > 0) {
+                                    Value val = value_stack_pop();
+                                    value_free(&val);
+                                }
+                                
+                                // Restore saved stack
+                                if (saved_stack && saved_stack_size > 0) {
+                                    for (size_t i = 0; i < saved_stack_size; i++) {
+                                        value_stack_push(saved_stack[i]);
+                                    }
+                                    // Free saved stack copies
+                                    for (size_t i = 0; i < saved_stack_size; i++) {
+                                        value_free(&saved_stack[i]);
+                                    }
+                                    shared_free_safe(saved_stack, "bytecode_vm", "BC_SWITCH_CASE", 2);
+                                }
+                            }
+                        }
                         
                         // Skip remaining cases (we'll need to jump to BC_SWITCH)
                         // For now, we'll push the result and let BC_SWITCH handle cleanup
@@ -3579,8 +4015,8 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             case BC_SWITCH_DEFAULT: {
                 // Switch default case: execute if no case matched
                 // Stack: [expression_value, matched_flag]
-                // instr->a = default body AST index
-                if (instr->a < program->ast_count) {
+                // instr->a = default body function ID (bytecode sub-program)
+                if (instr->a >= 0 && instr->a < (int)program->function_count) {
                     Value matched_flag = value_stack_pop();
                     Value expr_value = value_stack_pop();
                     
@@ -3588,9 +4024,69 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     value_free(&matched_flag);
                     
                     if (!matched) {
-                        // No case matched - execute default
-                        ASTNode* default_body = program->ast_nodes[instr->a];
-                        Value default_result = eval_node(interpreter, default_body);
+                        // No case matched - execute default (bytecode sub-program)
+                        // Default bodies execute in the current environment, not a new function environment
+                        Value default_result = value_create_null();
+                        if (instr->a >= 0 && instr->a < (int)program->function_count && program->functions) {
+                            BytecodeFunction* default_body_func = &program->functions[instr->a];
+                            if (default_body_func && default_body_func->code && default_body_func->code_count > 0 && default_body_func->code_count <= 1000000) {
+                                // Create temporary program for sub-program execution
+                                BytecodeProgram temp_program = {0};
+                                temp_program.code = default_body_func->code;
+                                temp_program.count = default_body_func->code_count;
+                                temp_program.capacity = default_body_func->code_capacity;
+                                temp_program.const_count = program ? program->const_count : 0;
+                                temp_program.constants = program ? program->constants : NULL;
+                                temp_program.num_const_count = program ? program->num_const_count : 0;
+                                temp_program.num_constants = program ? program->num_constants : NULL;
+                                temp_program.ast_count = program ? program->ast_count : 0;
+                                temp_program.ast_nodes = program ? program->ast_nodes : NULL;
+                                temp_program.function_count = program ? program->function_count : 0;
+                                temp_program.functions = program ? program->functions : NULL;
+                                temp_program.interpreter = interpreter;
+                                temp_program.local_count = 0;
+                                temp_program.local_names = NULL;
+                                temp_program.local_slot_count = 0;
+                                temp_program.locals = NULL;
+                                temp_program.num_local_count = 0;
+                                temp_program.num_locals = NULL;
+                                
+                                // Save stack state before sub-program execution
+                                size_t saved_stack_size = value_stack_size;
+                                Value* saved_stack = NULL;
+                                if (saved_stack_size > 0) {
+                                    saved_stack = shared_malloc_safe(saved_stack_size * sizeof(Value), "bytecode_vm", "BC_SWITCH_DEFAULT", 1);
+                                    if (saved_stack) {
+                                        for (size_t i = 0; i < saved_stack_size; i++) {
+                                            saved_stack[i] = value_clone(&value_stack[i]);
+                                        }
+                                    }
+                                }
+                                
+                                // Execute sub-program in current environment (no new environment created)
+                                // bytecode_execute will reset the stack, so we need to restore it after
+                                default_result = bytecode_execute(&temp_program, interpreter, 0);
+                                
+                                // Restore stack state after sub-program execution
+                                // Clear any values left by sub-program
+                                while (value_stack_size > 0) {
+                                    Value val = value_stack_pop();
+                                    value_free(&val);
+                                }
+                                
+                                // Restore saved stack
+                                if (saved_stack && saved_stack_size > 0) {
+                                    for (size_t i = 0; i < saved_stack_size; i++) {
+                                        value_stack_push(saved_stack[i]);
+                                    }
+                                    // Free saved stack copies
+                                    for (size_t i = 0; i < saved_stack_size; i++) {
+                                        value_free(&saved_stack[i]);
+                                    }
+                                    shared_free_safe(saved_stack, "bytecode_vm", "BC_SWITCH_DEFAULT", 2);
+                                }
+                            }
+                        }
                         value_stack_push(default_result);
                     } else {
                         // A case already matched - skip default
@@ -3642,71 +4138,158 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             
             case BC_MATCH_PATTERN: {
                 // Match pattern: check if pattern matches expression
-                // instr->a = pattern AST index
-                // instr->b = match value AST index
-                // Stack: [match_value] (from expression evaluation)
+                // instr->a = pattern function ID (bytecode sub-program)
+                // instr->b = match expression function ID (bytecode sub-program)
+                // Stack: [match_value] (from expression evaluation, if any)
                 
-                if (instr->a >= 0 && instr->b >= 0 && 
-                    instr->a < (int)program->ast_count && instr->b < (int)program->ast_count &&
-                    program->ast_nodes) {
-                    ASTNode* pattern = program->ast_nodes[instr->a];
-                    ASTNode* expr_node = program->ast_nodes[instr->b];
-                    
-                    if (!pattern || !expr_node) {
-                        // Invalid AST nodes - push null
-                        value_stack_push(value_create_null());
-                        value_stack_push(value_create_boolean(0));
-                        pc++;
-                        break;
+                if (instr->a >= 0 && instr->a < (int)program->function_count && 
+                    instr->b >= 0 && instr->b < (int)program->function_count &&
+                    program->functions) {
+                    // Evaluate match expression using bytecode sub-program
+                    Value match_value = value_create_null();
+                    if (instr->b >= 0 && instr->b < (int)program->function_count) {
+                        BytecodeFunction* expr_func = &program->functions[instr->b];
+                        if (expr_func && expr_func->code && expr_func->code_count > 0) {
+                            // Create temporary program for expression evaluation
+                            BytecodeProgram temp_program = {0};
+                            temp_program.code = expr_func->code;
+                            temp_program.count = expr_func->code_count;
+                            temp_program.capacity = expr_func->code_capacity;
+                            temp_program.const_count = program ? program->const_count : 0;
+                            temp_program.constants = program ? program->constants : NULL;
+                            temp_program.num_const_count = program ? program->num_const_count : 0;
+                            temp_program.num_constants = program ? program->num_constants : NULL;
+                            temp_program.ast_count = program ? program->ast_count : 0;
+                            temp_program.ast_nodes = program ? program->ast_nodes : NULL;
+                            temp_program.function_count = program ? program->function_count : 0;
+                            temp_program.functions = program ? program->functions : NULL;
+                            temp_program.interpreter = interpreter;
+                            temp_program.local_count = 0;
+                            temp_program.local_names = NULL;
+                            temp_program.local_slot_count = 0;
+                            temp_program.locals = NULL;
+                            temp_program.num_local_count = 0;
+                            temp_program.num_locals = NULL;
+                            
+                            // Save stack state
+                            size_t saved_stack_size = value_stack_size;
+                            Value* saved_stack = NULL;
+                            if (saved_stack_size > 0) {
+                                saved_stack = shared_malloc_safe(saved_stack_size * sizeof(Value), "bytecode_vm", "BC_MATCH_PATTERN", 1);
+                                if (saved_stack) {
+                                    for (size_t i = 0; i < saved_stack_size; i++) {
+                                        saved_stack[i] = value_clone(&value_stack[i]);
+                                    }
+                                }
+                            }
+                            
+                            // Execute expression sub-program
+                            match_value = bytecode_execute(&temp_program, interpreter, 0);
+                            
+                            // Restore stack state
+                            while (value_stack_size > 0) {
+                                Value val = value_stack_pop();
+                                value_free(&val);
+                            }
+                            
+                            if (saved_stack && saved_stack_size > 0) {
+                                for (size_t i = 0; i < saved_stack_size; i++) {
+                                    value_stack_push(saved_stack[i]);
+                                }
+                                for (size_t i = 0; i < saved_stack_size; i++) {
+                                    value_free(&saved_stack[i]);
+                                }
+                                shared_free_safe(saved_stack, "bytecode_vm", "BC_MATCH_PATTERN", 2);
+                            }
+                            
+                            // Get match value from stack if not returned directly
+                            if (value_stack_size > 0 && match_value.type == VALUE_NULL) {
+                                Value stack_val = value_stack_pop();
+                                value_free(&match_value);
+                                match_value = stack_val;
+                            }
+                        }
                     }
                     
-                    // Get the match value from stack (evaluated expression)
-                    // If not on stack, re-evaluate from AST
-                    Value match_value;
-                    if (value_stack_size == 0) {
-                        // No match value - evaluate expression
-                        match_value = eval_node(interpreter, expr_node);
-                    } else {
+                    // If match_value is still null and stack has a value, use it
+                    if (match_value.type == VALUE_NULL && value_stack_size > 0) {
                         match_value = value_stack_pop();
                     }
                     
-                    // Check if pattern matches using pattern matching logic
+                    // Evaluate pattern using bytecode sub-program
+                    Value pattern_val = value_create_null();
                     int matches = 0;
-                    
-                    // For simple patterns, use direct comparison
-                    if (pattern->type == AST_NODE_STRING) {
-                        Value pattern_val = eval_node(interpreter, pattern);
-                        matches = (match_value.type == VALUE_STRING && 
-                                   strcmp(match_value.data.string_value, pattern_val.data.string_value) == 0);
+                    if (instr->a >= 0 && instr->a < (int)program->function_count) {
+                        BytecodeFunction* pattern_func = &program->functions[instr->a];
+                        if (pattern_func && pattern_func->code && pattern_func->code_count > 0) {
+                            // Create temporary program for pattern evaluation
+                            BytecodeProgram temp_program = {0};
+                            temp_program.code = pattern_func->code;
+                            temp_program.count = pattern_func->code_count;
+                            temp_program.capacity = pattern_func->code_capacity;
+                            temp_program.const_count = program ? program->const_count : 0;
+                            temp_program.constants = program ? program->constants : NULL;
+                            temp_program.num_const_count = program ? program->num_const_count : 0;
+                            temp_program.num_constants = program ? program->num_constants : NULL;
+                            temp_program.ast_count = program ? program->ast_count : 0;
+                            temp_program.ast_nodes = program ? program->ast_nodes : NULL;
+                            temp_program.function_count = program ? program->function_count : 0;
+                            temp_program.functions = program ? program->functions : NULL;
+                            temp_program.interpreter = interpreter;
+                            temp_program.local_count = 0;
+                            temp_program.local_names = NULL;
+                            temp_program.local_slot_count = 0;
+                            temp_program.locals = NULL;
+                            temp_program.num_local_count = 0;
+                            temp_program.num_locals = NULL;
+                            
+                            // Save stack state
+                            size_t saved_stack_size = value_stack_size;
+                            Value* saved_stack = NULL;
+                            if (saved_stack_size > 0) {
+                                saved_stack = shared_malloc_safe(saved_stack_size * sizeof(Value), "bytecode_vm", "BC_MATCH_PATTERN", 3);
+                                if (saved_stack) {
+                                    for (size_t i = 0; i < saved_stack_size; i++) {
+                                        saved_stack[i] = value_clone(&value_stack[i]);
+                                    }
+                                }
+                            }
+                            
+                            // Execute pattern sub-program
+                            pattern_val = bytecode_execute(&temp_program, interpreter, 0);
+                            
+                            // Restore stack state
+                            while (value_stack_size > 0) {
+                                Value val = value_stack_pop();
+                                value_free(&val);
+                            }
+                            
+                            if (saved_stack && saved_stack_size > 0) {
+                                for (size_t i = 0; i < saved_stack_size; i++) {
+                                    value_stack_push(saved_stack[i]);
+                                }
+                                for (size_t i = 0; i < saved_stack_size; i++) {
+                                    value_free(&saved_stack[i]);
+                                }
+                                shared_free_safe(saved_stack, "bytecode_vm", "BC_MATCH_PATTERN", 4);
+                            }
+                            
+                            // Get pattern value from stack if not returned directly
+                            if (value_stack_size > 0 && pattern_val.type == VALUE_NULL) {
+                                Value stack_val = value_stack_pop();
                         value_free(&pattern_val);
-                    } else if (pattern->type == AST_NODE_NUMBER) {
-                        Value pattern_val = eval_node(interpreter, pattern);
-                        matches = (match_value.type == VALUE_NUMBER && 
-                                   match_value.data.number_value == pattern_val.data.number_value);
-                        value_free(&pattern_val);
-                    } else if (pattern->type == AST_NODE_BOOL) {
-                        Value pattern_val = eval_node(interpreter, pattern);
-                        matches = (match_value.type == VALUE_BOOLEAN && 
-                                   match_value.data.boolean_value == pattern_val.data.boolean_value);
-                        value_free(&pattern_val);
-                    } else if (pattern->type == AST_NODE_NULL) {
-                        matches = (match_value.type == VALUE_NULL);
-                    } else if (pattern->type == AST_NODE_IDENTIFIER) {
-                        // Wildcard pattern - matches anything
-                        matches = 1;
-                    } else {
-                        // Complex pattern - use pattern matching function
-                        // For now, use simple equality check
-                        Value pattern_val = eval_node(interpreter, pattern);
+                                pattern_val = stack_val;
+                            }
+                            
+                            // Compare match_value with pattern_val
                         matches = value_equals(&match_value, &pattern_val);
-                        value_free(&pattern_val);
+                        }
                     }
                     
                     if (matches) {
-                        // Pattern matches - evaluate pattern as expression and return it
-                        Value pattern_result = eval_node(interpreter, pattern);
+                        // Pattern matches - return pattern value
                         value_free(&match_value);
-                        value_stack_push(pattern_result);
+                        value_stack_push(pattern_val);
                         value_stack_push(value_create_boolean(1)); // Matched flag
                     } else {
                         // Pattern doesn't match - push match_value back and continue

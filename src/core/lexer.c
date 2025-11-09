@@ -658,7 +658,9 @@ static int lexer_scan_token(Lexer* lexer) {
             
         case '+':
             lexer_advance(lexer);
-            if (lexer_match(lexer, '=')) {
+            if (lexer_match(lexer, '+')) {
+                lexer_add_token(lexer, TOKEN_INCREMENT, "++", lexer->line, lexer->column - 2);
+            } else if (lexer_match(lexer, '=')) {
                 lexer_add_token(lexer, TOKEN_PLUS_ASSIGN, "+=", lexer->line, lexer->column - 2);
             } else {
                 lexer_add_token(lexer, TOKEN_PLUS, "+", lexer->line, lexer->column - 1);
@@ -669,6 +671,8 @@ static int lexer_scan_token(Lexer* lexer) {
             lexer_advance(lexer);
             if (lexer_match(lexer, '>')) {
                 lexer_add_token(lexer, TOKEN_RETURN_ARROW, "->", lexer->line, lexer->column - 2);
+            } else if (lexer_match(lexer, '-')) {
+                lexer_add_token(lexer, TOKEN_DECREMENT, "--", lexer->line, lexer->column - 2);
             } else if (lexer_match(lexer, '=')) {
                 lexer_add_token(lexer, TOKEN_MINUS_ASSIGN, "-=", lexer->line, lexer->column - 2);
             } else {

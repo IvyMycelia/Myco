@@ -671,8 +671,8 @@ else if 2 > 1:
     print("✓ Else-if statement works");
     tests_passed = tests_passed + 1;
 else:
-    print("✗ This should not print");
-    tests_failed.push("This should not print");
+    print("✗ Else-if statement failed");
+    tests_failed.push("Else-if statement failed");
 end
 
 print("\n9. Built-in Libraries...");
@@ -2252,7 +2252,7 @@ print("\n18.3. Undefined variable (should continue execution)...");
 total_tests = total_tests + 1;
 # Try to access undefined variable - should not crash
 let undefined_var = Null;
-if true:
+if undefined_var:
     # Intentionally try to use non-existent variable
 end
 print("✓ Undefined variable check passed (no crash)");
@@ -3325,6 +3325,7 @@ if time.type == "Library":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Time library import failed");
+    tests_failed.push("Time library import failed");
 end
 
 # Test time.now()
@@ -3335,6 +3336,7 @@ if current_time.type == "Object":
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.now() failed");
+    tests_failed.push("time.now() failed");
 end
 
 # Test time.create()
@@ -3345,6 +3347,7 @@ if specific_time.type == "Object":
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.create() failed");
+    tests_failed.push("time.create() failed");
 end
 
 # Test time.format()
@@ -3355,6 +3358,7 @@ if formatted == "2024-01-15 14:30:00":
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.format() failed");
+    tests_failed.push("time.format() failed");
 end
 
 # Test time.year()
@@ -3365,6 +3369,7 @@ if year == 2024:
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.year() failed");
+    tests_failed.push("time.year() failed");
 end
 
 # Test time.month()
@@ -3375,6 +3380,7 @@ if month == 1:
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.month() failed");
+    tests_failed.push("time.month() failed");
 end
 
 # Test time.day()
@@ -3385,6 +3391,7 @@ if day == 15:
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.day() failed");
+    tests_failed.push("time.day() failed");
 end
 
 # Test time.hour()
@@ -3395,6 +3402,7 @@ if hour == 14:
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.hour() failed");
+    tests_failed.push("time.hour() failed");
 end
 
 # Test time.minute()
@@ -3405,6 +3413,7 @@ if minute == 30:
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.minute() failed");
+    tests_failed.push("time.minute() failed");
 end
 
 # Test time.second()
@@ -3415,6 +3424,7 @@ if second == 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.second() failed");
+    tests_failed.push("time.second() failed");
 end
 
 # Test time.iso_string()
@@ -3425,6 +3435,7 @@ if iso == "2024-01-15T14:30:00":
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.iso_string() failed");
+    tests_failed.push("time.iso_string() failed");
 end
 
 # Test time.unix_timestamp()
@@ -3435,6 +3446,7 @@ if unix == 1705347000:
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.unix_timestamp() failed");
+    tests_failed.push("time.unix_timestamp() failed");
 end
 
 # Test time.add()
@@ -3446,6 +3458,7 @@ if future_hour == 15:
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.add() failed");
+    tests_failed.push("time.add() failed");
 end
 
 # Test time.subtract()
@@ -3457,6 +3470,7 @@ if past_hour == 13:
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.subtract() failed");
+    tests_failed.push("time.subtract() failed");
 end
 
 # Test time.difference()
@@ -3469,6 +3483,7 @@ if diff == 3600:
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.difference() failed");
+    tests_failed.push("time.difference() failed");
 end
 
 # 24. Regex Library Functions
@@ -4403,7 +4418,7 @@ else:
         status_str = local_get_response.status_code.toString();
     end
     print("✗ HTTP GET request to local server failed (status: " + status_str + ")");
-    tests_failed.push("HTTP GET request to local server failed (status");
+    tests_failed.push("HTTP GET request to local server failed (status: " + status_str + ")");
 end
 
 # Make HTTP POST request to the server
@@ -4419,7 +4434,7 @@ else:
         status_str = local_post_response.status_code.toString();
     end
     print("✗ HTTP POST request to local server failed (status: " + status_str + ")");
-    tests_failed.push("HTTP POST request to local server failed (status");
+    tests_failed.push("HTTP POST request to local server failed (status: " + status_str + ")");
 end
 
 # Make HTTP PUT request to the server
@@ -4437,7 +4452,7 @@ else:
         status_str = local_put_response.status_code.toString();
     end
     print("✗ HTTP PUT request to local server failed (status: " + status_str + ")");
-    tests_failed.push("HTTP PUT request to local server failed (status");
+    tests_failed.push("HTTP PUT request to local server failed (status: " + status_str + ")");
 end
 
 # Make HTTP DELETE request to the server
@@ -4452,7 +4467,7 @@ else:
         status_str = local_delete_response.status_code.toString();
     end
     print("✗ HTTP DELETE request to local server failed (status: " + status_str + ")");
-    tests_failed.push("HTTP DELETE request to local server failed (status");
+    tests_failed.push("HTTP DELETE request to local server failed (status: " + status_str + ")");
 end
 
 # Test 404 route
@@ -4467,7 +4482,7 @@ else:
         status_str = not_found_response.status_code.toString();
     end
     print("✗ 404 handling failed (status: " + status_str + ")");
-    tests_failed.push("404 handling failed (status");
+    tests_failed.push("404 handling failed (status: " + status_str + ")");
 end
 
 # Stop the server

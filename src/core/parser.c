@@ -541,14 +541,17 @@ ASTNode* parser_parse_statement(Parser* parser) {
         parser_advance(parser);
     }
 
-    // Check if this looks like an assignment statement (identifier followed by =)
+    // Check if this looks like an assignment statement (identifier followed by =, +=, -=, ++, --)
     if (parser_check(parser, TOKEN_IDENTIFIER)) {
         // Peek ahead to see if the next token is an assignment operator
         // We need to temporarily advance to check the next token
         Token* current_id = parser->current_token;
         parser_advance(parser);
         
-        if (parser_check(parser, TOKEN_ASSIGN)) {
+        if (parser_check(parser, TOKEN_ASSIGN) || parser_check(parser, TOKEN_PLUS_ASSIGN) || 
+            parser_check(parser, TOKEN_MINUS_ASSIGN) || parser_check(parser, TOKEN_MULTIPLY_ASSIGN) ||
+            parser_check(parser, TOKEN_DIVIDE_ASSIGN) || parser_check(parser, TOKEN_INCREMENT) ||
+            parser_check(parser, TOKEN_DECREMENT)) {
             // This is definitely an assignment, go back and parse it properly
             parser->current_position--;
             parser->current_token = current_id;
@@ -677,24 +680,80 @@ ASTNode* parser_parse_assignment(Parser* parser) {
     char* var_name = (var_token->text ? shared_strdup(var_token->text) : NULL);
     parser_advance(parser);  // Consume the identifier
     
-    // Expect an equals sign
-    if (!parser_check(parser, TOKEN_ASSIGN)) {
-        parser_error(parser, "Expected '=' in assignment");
+    // Check for assignment operator
+    AssignmentOperator assign_op = ASSIGN_OP_EQUAL;
+    int is_prefix = 0;
+    
+    if (parser_check(parser, TOKEN_ASSIGN)) {
+        parser_advance(parser);  // Consume the '='
+    } else if (parser_check(parser, TOKEN_PLUS_ASSIGN)) {
+        assign_op = ASSIGN_OP_PLUS_EQUAL;
+        parser_advance(parser);
+    } else if (parser_check(parser, TOKEN_MINUS_ASSIGN)) {
+        assign_op = ASSIGN_OP_MINUS_EQUAL;
+        parser_advance(parser);
+    } else if (parser_check(parser, TOKEN_MULTIPLY_ASSIGN)) {
+        assign_op = ASSIGN_OP_MULTIPLY_EQUAL;
+        parser_advance(parser);
+    } else if (parser_check(parser, TOKEN_DIVIDE_ASSIGN)) {
+        assign_op = ASSIGN_OP_DIVIDE_EQUAL;
+        parser_advance(parser);
+    } else if (parser_check(parser, TOKEN_INCREMENT)) {
+        assign_op = ASSIGN_OP_INCREMENT;
+        is_prefix = 0;  // Postfix: x++
+        parser_advance(parser);
+        // For postfix increment, return the old value, then increment
+        // Create assignment: x = x + 1
+        ASTNode* var_ref = ast_create_identifier(var_name, 0, 0);
+        ASTNode* one = ast_create_number(1.0, 0, 0);
+        ASTNode* add_expr = ast_create_binary_op(OP_ADD, var_ref, one, 0, 0);
+        return ast_create_assignment_with_op(var_name, add_expr, ASSIGN_OP_EQUAL, 0, 0, 0);
+    } else if (parser_check(parser, TOKEN_DECREMENT)) {
+        assign_op = ASSIGN_OP_DECREMENT;
+        is_prefix = 0;  // Postfix: x--
+        parser_advance(parser);
+        // For postfix decrement, return the old value, then decrement
+        ASTNode* var_ref = ast_create_identifier(var_name, 0, 0);
+        ASTNode* one = ast_create_number(1.0, 0, 0);
+        ASTNode* sub_expr = ast_create_binary_op(OP_SUBTRACT, var_ref, one, 0, 0);
+        return ast_create_assignment_with_op(var_name, sub_expr, ASSIGN_OP_EQUAL, 0, 0, 0);
+    } else {
+        parser_error(parser, "Expected assignment operator");
         shared_free_safe(var_name, "parser", "unknown_function", 588);
         return NULL;
     }
-    parser_advance(parser);  // Consume the '='
     
-    // Parse the right side (value)
-    ASTNode* value = parser_parse_expression(parser);
-    if (!value) {
-        parser_error(parser, "Expected expression after '='");
-        shared_free_safe(var_name, "parser", "unknown_function", 597);
-        return NULL;
+    // For prefix ++/--, check if we already consumed them
+    // (They would be handled before the identifier)
+    
+    // Parse the right side (value) - not needed for ++/-- postfix
+    ASTNode* value = NULL;
+    if (assign_op == ASSIGN_OP_EQUAL || assign_op == ASSIGN_OP_PLUS_EQUAL || 
+        assign_op == ASSIGN_OP_MINUS_EQUAL || assign_op == ASSIGN_OP_MULTIPLY_EQUAL || 
+        assign_op == ASSIGN_OP_DIVIDE_EQUAL) {
+        value = parser_parse_expression(parser);
+        if (!value) {
+            parser_error(parser, "Expected expression after assignment operator");
+            shared_free_safe(var_name, "parser", "unknown_function", 597);
+            return NULL;
+        }
+    }
+    
+    // For compound assignments (+=, -=, etc.), create x = x op value
+    if (assign_op == ASSIGN_OP_PLUS_EQUAL || assign_op == ASSIGN_OP_MINUS_EQUAL ||
+        assign_op == ASSIGN_OP_MULTIPLY_EQUAL || assign_op == ASSIGN_OP_DIVIDE_EQUAL) {
+        ASTNode* var_ref = ast_create_identifier(var_name, 0, 0);
+        BinaryOperator bin_op;
+        if (assign_op == ASSIGN_OP_PLUS_EQUAL) bin_op = OP_ADD;
+        else if (assign_op == ASSIGN_OP_MINUS_EQUAL) bin_op = OP_SUBTRACT;
+        else if (assign_op == ASSIGN_OP_MULTIPLY_EQUAL) bin_op = OP_MULTIPLY;
+        else bin_op = OP_DIVIDE;
+        ASTNode* bin_expr = ast_create_binary_op(bin_op, var_ref, value, 0, 0);
+        return ast_create_assignment_with_op(var_name, bin_expr, ASSIGN_OP_EQUAL, 0, 0, 0);
     }
     
     // Create assignment node
-    return ast_create_assignment(var_name, value, 0, 0);
+    return ast_create_assignment_with_op(var_name, value, assign_op, is_prefix, 0, 0);
 }
 
 /**
@@ -1099,6 +1158,46 @@ ASTNode* parser_parse_unary(Parser* parser) {
         return NULL;  // Invalid parser
     }
     
+    // Check for prefix increment/decrement operators
+    if (parser_check(parser, TOKEN_INCREMENT)) {
+        parser_advance(parser);  // Consume '++'
+        
+        // Parse the operand (must be an identifier)
+        ASTNode* operand = parser_parse_unary(parser);
+        if (!operand || operand->type != AST_NODE_IDENTIFIER) {
+            parser_error(parser, "Expected identifier after '++'");
+            return NULL;
+        }
+        
+        // Create ++x: x = x + 1, return new value
+        char* var_name = (operand->data.identifier_value ? shared_strdup(operand->data.identifier_value) : NULL);
+        ASTNode* var_ref = ast_create_identifier(var_name, 0, 0);
+        ASTNode* one = ast_create_number(1.0, 0, 0);
+        ASTNode* add_expr = ast_create_binary_op(OP_ADD, var_ref, one, 0, 0);
+        ASTNode* assign = ast_create_assignment_with_op(var_name, add_expr, ASSIGN_OP_EQUAL, 1, 0, 0);
+        // Return the new value (the assignment result)
+        return assign;
+    }
+    
+    if (parser_check(parser, TOKEN_DECREMENT)) {
+        parser_advance(parser);  // Consume '--'
+        
+        // Parse the operand (must be an identifier)
+        ASTNode* operand = parser_parse_unary(parser);
+        if (!operand || operand->type != AST_NODE_IDENTIFIER) {
+            parser_error(parser, "Expected identifier after '--'");
+            return NULL;
+        }
+        
+        // Create --x: x = x - 1, return new value
+        char* var_name = (operand->data.identifier_value ? shared_strdup(operand->data.identifier_value) : NULL);
+        ASTNode* var_ref = ast_create_identifier(var_name, 0, 0);
+        ASTNode* one = ast_create_number(1.0, 0, 0);
+        ASTNode* sub_expr = ast_create_binary_op(OP_SUBTRACT, var_ref, one, 0, 0);
+        ASTNode* assign = ast_create_assignment_with_op(var_name, sub_expr, ASSIGN_OP_EQUAL, 1, 0, 0);
+        return assign;
+    }
+    
     // Check for unary operators
     if (parser_check(parser, TOKEN_MINUS) || 
         parser_check(parser, TOKEN_NOT)) {
@@ -1399,6 +1498,11 @@ ASTNode* parser_parse_primary(Parser* parser) {
         if (!base) {
             return NULL;
         }
+        
+        // Check for postfix increment/decrement operators
+        // Note: These are handled in the statement parser for statements like "x++;"
+        // For expressions, we'd need special handling, but for now we'll skip them here
+        // and let them be handled as statements
         
         // Check if this is array indexing
         if (parser_check(parser, TOKEN_LEFT_BRACKET)) {
@@ -2108,6 +2212,7 @@ static ASTNode* parser_parse_else_if_statement(Parser* parser) {
         }
     }
 
+    // Note: We don't consume 'end' here - the calling parser_parse_if_statement will consume it
     return ast_create_if_statement(condition, then_block, else_block, else_if_chain, 0, 0);
 }
 

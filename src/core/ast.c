@@ -137,6 +137,25 @@ ASTNode* ast_create_assignment(const char* variable, ASTNode* value, int line, i
     node->data.assignment.variable_name = (variable ? shared_strdup(variable) : NULL);
     node->data.assignment.target = NULL;  // For simple assignments, target is NULL
     node->data.assignment.value = value;
+    node->data.assignment.op = ASSIGN_OP_EQUAL;
+    node->data.assignment.is_prefix = 0;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
+ASTNode* ast_create_assignment_with_op(const char* variable, ASTNode* value, AssignmentOperator op, int is_prefix, int line, int column) {
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 133);
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_ASSIGNMENT;
+    node->data.assignment.variable_name = (variable ? shared_strdup(variable) : NULL);
+    node->data.assignment.target = NULL;
+    node->data.assignment.value = value;
+    node->data.assignment.op = op;
+    node->data.assignment.is_prefix = is_prefix;
     node->line = line;
     node->column = column;
     node->next = NULL;

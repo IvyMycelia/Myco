@@ -196,7 +196,43 @@ static void collect_class_fields_for_bytecode(
         }
     }
     
-    // Collect from current class body
+    // Ensure metadata is compiled
+    if (!class_value->data.class_value.metadata) {
+        compile_class_metadata(interpreter, class_value);
+    }
+    
+    // Use metadata if available (preferred path)
+    if (class_value->data.class_value.metadata) {
+        ClassMetadata* metadata = class_value->data.class_value.metadata;
+        for (size_t i = 0; i < metadata->field_count; i++) {
+            // Need to find the AST node for this field to maintain compatibility
+            // Search in class body for the variable declaration node
+            ASTNode* class_body = class_value->data.class_value.class_body;
+            if (class_body && class_body->type == AST_NODE_BLOCK) {
+                for (size_t j = 0; j < class_body->data.block.statement_count; j++) {
+                    ASTNode* stmt = class_body->data.block.statements[j];
+                    if (stmt && stmt->type == AST_NODE_VARIABLE_DECLARATION &&
+                        stmt->data.variable_declaration.variable_name &&
+                        strcmp(stmt->data.variable_declaration.variable_name, metadata->fields[i].name) == 0) {
+                        if (*field_count >= *field_capacity) {
+                            size_t new_cap = *field_capacity ? *field_capacity * 2 : 8;
+                            *all_fields = shared_realloc_safe(
+                                *all_fields, new_cap * sizeof(ASTNode*),
+                                "bytecode_vm", "collect_class_fields", 0
+                            );
+                            *field_capacity = new_cap;
+                        }
+                        (*all_fields)[*field_count] = stmt;
+                        (*field_count)++;
+                        break;
+                    }
+                }
+            }
+        }
+        return;  // Metadata path complete
+    }
+    
+    // Fallback: Collect from current class body AST
     ASTNode* class_body = class_value->data.class_value.class_body;
     if (class_body && class_body->type == AST_NODE_BLOCK) {
         // Use array access for block statements (like collect_inherited_fields)
@@ -3065,6 +3101,9 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             class_body,
                             interpreter->current_environment
                         );
+                        
+                        // Compile class metadata to bytecode (methods and fields)
+                        compile_class_metadata(interpreter, &class_value);
                         
                         // Store class in global environment so it can be accessed from anywhere
                         environment_define(interpreter->global_environment, class_name.data.string_value, class_value);

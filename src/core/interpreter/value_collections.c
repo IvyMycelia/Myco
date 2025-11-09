@@ -176,7 +176,21 @@ void value_object_set_member(Value* object, const char* member_name, Value membe
 void value_object_set(Value* obj, const char* key, Value value) {
     if (!obj || obj->type != VALUE_OBJECT || !key) return;
     
-    // For now, just a simple implementation - don't expand, just add if there's space
+    // Check if key already exists - overwrite it
+    for (size_t i = 0; i < obj->data.object_value.count; i++) {
+        if (obj->data.object_value.keys[i] && 
+            strcmp(obj->data.object_value.keys[i], key) == 0) {
+            // Update existing member
+            Value* existing_value = (Value*)obj->data.object_value.values[i];
+            if (existing_value) {
+                value_free(existing_value);
+                *existing_value = value_clone(&value);
+            }
+            return;
+        }
+    }
+    
+    // Add new member if there's space
     if (obj->data.object_value.count < obj->data.object_value.capacity) {
         obj->data.object_value.keys[obj->data.object_value.count] = key ? shared_strdup(key) : NULL;
         Value* new_value = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 2912);

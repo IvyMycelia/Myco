@@ -375,7 +375,7 @@ if window != Null:
             
             # Draw text if font is available (draw AFTER buttons so text is on top)
             if font_id != Null:
-                # Draw title first (separate color batch)
+                # Draw title first (use slightly different color to force batch break)
                 graphics.setColor(255, 255, 255, 255);  # White text
                 let title = "SNAKE GAME";
                 graphics.drawText(window_width / 2 - 100, 50, title, font_id);
@@ -386,7 +386,7 @@ if window != Null:
                 # Text at approximately 12px from top of button (for 18px font, roughly centered)
                 let text_offset_y = 12;
                 
-                # All button text uses same color to batch together
+                # Set color for button text (explicitly set to ensure batching works)
                 graphics.setColor(255, 255, 255, 255);  # White text for contrast
                 
                 # EASY button (button starts at y=150)

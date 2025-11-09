@@ -1291,21 +1291,22 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             // Check if it's a library instance (has __class_name__ but not a VALUE_CLASS)
                             Value class_name = value_object_get(&object, "__class_name__");
                         if (class_name.type == VALUE_STRING) {
-                            // Check if it's a Server instance (needs special handling - pass object as first arg)
-                            if (strcmp(class_name.data.string_value, "Server") == 0) {
-                                // Server methods need object as first argument
+                            // Check if it's a Server or Window instance (needs special handling - pass object as first arg)
+                            if (strcmp(class_name.data.string_value, "Server") == 0 ||
+                                strcmp(class_name.data.string_value, "Window") == 0) {
+                                // Server and Window methods need object as first argument
                                 Value method = value_object_get(&object, method_name);
                                 if (method.type == VALUE_FUNCTION) {
                                     // Check if this is a builtin function
-                                    if (method.data.function_value.body && 
-                                        (uintptr_t)method.data.function_value.body > 0x1000 && 
-                                        (uintptr_t)method.data.function_value.body < 0x7fffffffffffULL &&
+                                    bool is_builtin = (method.data.function_value.body != NULL &&
                                         method.data.function_value.parameter_count == 0 &&
-                                        !method.data.function_value.parameters) {
+                                                       !method.data.function_value.parameters &&
+                                                       (uintptr_t)method.data.function_value.body > 0x100);
+                                    if (is_builtin) {
                                         // This is a builtin function - call it with object as first argument
                                         Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = 
                                             (Value (*)(Interpreter*, Value*, size_t, int, int))method.data.function_value.body;
-                                        // For server methods, pass object as first argument
+                                        // For server/window methods, pass object as first argument
                                         Value* method_args = shared_malloc_safe((arg_count + 1) * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL", 13);
                                         method_args[0] = value_clone(&object); // self as first argument
                                         for (int i = 0; i < arg_count; i++) {
@@ -1407,11 +1408,13 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             Value method = value_object_get(&object, method_name);
                             if (method.type == VALUE_FUNCTION) {
                                 // Check if this is a builtin function (function pointer stored in body field)
-                                if (method.data.function_value.body && 
-                                    (uintptr_t)method.data.function_value.body > 0x1000 && 
-                                    (uintptr_t)method.data.function_value.body < 0x7fffffffffffULL &&
+                                // Builtin functions have parameter_count == 0, no parameters, and body is a function pointer
+                                // Function pointers are typically in the code segment, not heap-allocated AST nodes
+                                bool is_builtin = (method.data.function_value.body != NULL &&
                                     method.data.function_value.parameter_count == 0 &&
-                                    !method.data.function_value.parameters) {
+                                                   !method.data.function_value.parameters &&
+                                                   (uintptr_t)method.data.function_value.body > 0x100);
+                                if (is_builtin) {
                                     // This is a builtin function - call it with object as first argument
                                     Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = 
                                         (Value (*)(Interpreter*, Value*, size_t, int, int))method.data.function_value.body;

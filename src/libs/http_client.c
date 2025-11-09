@@ -419,14 +419,46 @@ static HttpResponse* parse_http_response(const char* response_data, size_t data_
         return response;
     }
     
-    // Parse status line
-    const char* status_line_end = strchr(response_data, '\r');
-    if (status_line_end) {
-        // Extract status code
-        const char* status_start = strchr(response_data, ' ');
-        if (status_start) {
-            response->status_code = atoi(status_start + 1);
+    // Parse status line - must start with "HTTP/"
+    if (strncmp(response_data, "HTTP/", 5) != 0) {
+        // Invalid HTTP response - no status line
+        response->success = false;
+        return response;
+    }
+    
+    // Status line format: "HTTP/1.1 404 Not Found\r\n"
+    // Find first space (after "HTTP/1.1")
+    const char* first_space = strchr(response_data, ' ');
+    if (first_space) {
+        // Find second space (after status code)
+        const char* second_space = strchr(first_space + 1, ' ');
+        if (second_space) {
+            // Status code is between first and second space
+            char status_code_str[4] = {0};
+            size_t code_len = second_space - first_space - 1;
+            if (code_len < sizeof(status_code_str)) {
+                strncpy(status_code_str, first_space + 1, code_len);
+                response->status_code = atoi(status_code_str);
+            }
+        } else {
+            // No second space - status code might be at end of line
+            // Try to parse from first space to end of status line
+            const char* status_line_end = strchr(response_data, '\r');
+            if (status_line_end && status_line_end > first_space + 1) {
+                char status_code_str[4] = {0};
+                size_t code_len = status_line_end - first_space - 1;
+                if (code_len < sizeof(status_code_str)) {
+                    strncpy(status_code_str, first_space + 1, code_len);
+                    response->status_code = atoi(status_code_str);
+                }
+            }
         }
+    }
+    
+    // Validate status code was parsed correctly (should be 100-599)
+    if (response->status_code < 100 || response->status_code > 599) {
+        response->status_code = 0; // Reset to 0 if invalid
+        response->success = false;
     }
     
     // Extract headers
@@ -593,15 +625,77 @@ HttpResponse* http_client_request(const char* url, const char* method,
             total_received = strlen(response_buffer);
         }
     } else {
-        // For HTTP, read normally
-        while ((received = recv(sock, response_buffer + total_received, 
-                              sizeof(response_buffer) - total_received - 1, 0)) > 0) {
+        // For HTTP, read until we get complete response
+        // First, read until we get headers (double CRLF)
+        int header_complete = 0;
+        while (!header_complete && total_received < sizeof(response_buffer) - 1) {
+            received = recv(sock, response_buffer + total_received, 
+                          sizeof(response_buffer) - total_received - 1, 0);
+            if (received <= 0) {
+                // Connection closed or error - check if we have at least status line
+                if (total_received > 0 && strstr(response_buffer, "HTTP/") != NULL) {
+                    // We have at least a partial response, break and try to parse
+                    break;
+                }
+                // No valid response received
+                shared_free_safe(request, "http_client", "http_client_request", 0);
+                close(sock);
+                return NULL;
+            }
             total_received += received;
-            if (total_received >= sizeof(response_buffer) - 1) break;
+            response_buffer[total_received] = '\0';
+            
+            // Check if we have complete headers
+            if (strstr(response_buffer, "\r\n\r\n") != NULL) {
+                header_complete = 1;
+                
+                // Check for Content-Length header to read full body
+                const char* content_length_str = strstr(response_buffer, "Content-Length:");
+                if (content_length_str) {
+                    int content_length = atoi(content_length_str + 15); // Skip "Content-Length: "
+                    const char* body_start = strstr(response_buffer, "\r\n\r\n");
+                    if (body_start) {
+                        size_t body_received = total_received - (body_start - response_buffer) - 4;
+                        // Continue reading until we have the full body
+                        while (body_received < (size_t)content_length && 
+                               total_received < sizeof(response_buffer) - 1) {
+                            received = recv(sock, response_buffer + total_received, 
+                                          sizeof(response_buffer) - total_received - 1, 0);
+                            if (received <= 0) break;
+                            total_received += received;
+                            response_buffer[total_received] = '\0';
+                            body_received = total_received - (body_start - response_buffer) - 4;
+                        }
+                    }
+                }
+                break;
+            }
+        }
+        
+        // If we didn't get complete headers, try one more read with a small timeout
+        if (!header_complete && total_received < sizeof(response_buffer) - 1) {
+            // Set a short timeout for final read attempt
+            struct timeval timeout;
+            timeout.tv_sec = 0;
+            timeout.tv_usec = 100000; // 100ms
+            setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+            
+            received = recv(sock, response_buffer + total_received, 
+                          sizeof(response_buffer) - total_received - 1, 0);
+            if (received > 0) {
+                total_received += received;
+            }
         }
     }
     
     response_buffer[total_received] = '\0';
+    
+    // Validate we have at least a status line before parsing
+    if (total_received == 0 || strstr(response_buffer, "HTTP/") == NULL) {
+        shared_free_safe(request, "http_client", "http_client_request", 0);
+        close(sock);
+        return NULL;
+    }
     
     // Parse response
     HttpResponse* response = parse_http_response(response_buffer, total_received);

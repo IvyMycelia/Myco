@@ -33,11 +33,6 @@ Value value_create_array(size_t initial_capacity) {
 void value_array_push(Value* array, Value element) {
     if (!array || array->type != VALUE_ARRAY) return;
     
-    fprintf(stderr, "[DEBUG value_array_push] element type: %d\n", element.type);
-    if (element.type == VALUE_STRING) {
-        fprintf(stderr, "[DEBUG value_array_push] element string: %s\n", element.data.string_value ? element.data.string_value : "NULL");
-    }
-    
     // Ensure array has valid elements pointer
     if (!array->data.array_value.elements || array->data.array_value.capacity == 0) {
         size_t new_capacity = 4;
@@ -69,10 +64,6 @@ void value_array_push(Value* array, Value element) {
     Value* stored_element = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 2860);
     if (stored_element) {
         Value cloned_element = value_clone(&element);
-        fprintf(stderr, "[DEBUG value_array_push] cloned element type: %d\n", cloned_element.type);
-        if (cloned_element.type == VALUE_STRING) {
-            fprintf(stderr, "[DEBUG value_array_push] cloned string: %s\n", cloned_element.data.string_value ? cloned_element.data.string_value : "NULL");
-        }
         *stored_element = cloned_element;
         array->data.array_value.elements[array->data.array_value.count] = stored_element;
         array->data.array_value.count++;

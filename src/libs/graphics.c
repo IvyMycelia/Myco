@@ -324,10 +324,10 @@ Value builtin_graphics_poll_events(Interpreter* interpreter, Value* args, size_t
     // Process ALL events in the queue to find close events (even if keyboard events are present)
     // This ensures we don't miss close events when keyboard events are also in the queue
     while (SDL_PollEvent(&event)) {
-        // Skip keyboard events - push them back for getKey() to handle
-        // But continue processing other events to find close events
+        // Skip keyboard events - don't push them back, just consume them
+        // getKey() will pump events itself and process keyboard events
+        // This prevents event queue buildup when pollEvents() is called every frame
         if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP || event.type == SDL_TEXTINPUT) {
-            SDL_PushEvent(&event);
             continue;  // Skip keyboard events, keep processing other events
         }
         

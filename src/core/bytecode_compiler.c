@@ -1776,40 +1776,30 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                         }
                         bc_emit(p, BC_MATH_ROUND, 0, 0);
                     } else if (strcmp(method_name, "push") == 0 && n->data.function_call_expr.argument_count == 1) {
-                        // For arr.push(val), we need to:
-                        // 1. Array is already on stack from line 1598
-                        // 2. Load val onto stack
-                        // 3. Call BC_ARRAY_PUSH (modifies arr and returns it)
-                        // 4. Store the result back to arr variable
-                        // Compile argument (array is already on stack from compile_node above)
-                        compile_node(p, n->data.function_call_expr.arguments[0]);
-                        // Now stack has: [array, value]
-                        bc_emit(p, BC_ARRAY_PUSH, 0, 0);
-                        // Stack now has: [modified_array]
-                        // Store result back to variable if member access is a simple identifier
-                        if (member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
-                            const char* var_name = member_access->data.member_access.object->data.identifier_value;
-                            int local_idx = lookup_local(p, var_name);
-                            if (local_idx >= 0) {
-                                bc_emit(p, BC_STORE_LOCAL, local_idx, 0);
-                            } else {
-                                int var_name_idx = bc_add_const(p, value_create_string(var_name));
-                                bc_emit(p, BC_STORE_GLOBAL, var_name_idx, 0);
-                            }
+                        // Check if this is an array or a stack/queue/heap
+                        // For now, we can't determine at compile time, so use method call for non-array objects
+                        // Arrays will be handled by BC_ARRAY_PUSH at runtime
+                        // For library objects (Stack, Queue, Heap), use method call
+                        // Compile arguments
+                        for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                            compile_node(p, n->data.function_call_expr.arguments[i]);
                         }
+                        
+                        // Add method name to constants
+                        int method_name_idx = bc_add_const(p, value_create_string(method_name));
+                        
+                        // Emit method call instruction (runtime will determine if it's array or library object)
+                        bc_emit(p, BC_METHOD_CALL, method_name_idx, (int)n->data.function_call_expr.argument_count);
                     } else if (strcmp(method_name, "pop") == 0 && n->data.function_call_expr.argument_count == 0) {
-                        bc_emit(p, BC_ARRAY_POP, 0, 0);
-                        // Store result back to variable if member access is a simple identifier
-                        if (member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
-                            const char* var_name = member_access->data.member_access.object->data.identifier_value;
-                            int local_idx = lookup_local(p, var_name);
-                            if (local_idx >= 0) {
-                                bc_emit(p, BC_STORE_LOCAL, local_idx, 0);
-                            } else {
-                                int var_name_idx = bc_add_const(p, value_create_string(var_name));
-                                bc_emit(p, BC_STORE_GLOBAL, var_name_idx, 0);
-                            }
-                        }
+                        // Check if this is an array or a stack/queue/heap
+                        // For now, we can't determine at compile time, so use method call for non-array objects
+                        // Arrays will be handled by BC_ARRAY_POP at runtime
+                        // For library objects (Stack, Queue, Heap), use method call
+                        // Add method name to constants
+                        int method_name_idx = bc_add_const(p, value_create_string(method_name));
+                        
+                        // Emit method call instruction (runtime will determine if it's array or library object)
+                        bc_emit(p, BC_METHOD_CALL, method_name_idx, 0);
                     } else {
                         // Compile arguments
                         for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {

@@ -123,8 +123,11 @@ Value builtin_stack_pop(Interpreter* interpreter, Value* args, size_t arg_count,
     if (elements.data.array_value.count == 1) {
         // Return empty stack
         Value empty_stack = value_create_object(16);
+        value_object_set_member(&empty_stack, "__class_name__", value_create_string(("Stack" ? strdup("Stack") : NULL)));
+        value_object_set(&empty_stack, "type", value_create_string("Stack"));
         value_object_set_member(&empty_stack, "elements", value_create_array(0));
         value_object_set_member(&empty_stack, "size", value_create_number(0.0));
+        add_stack_methods(&empty_stack);
         return empty_stack;
     }
     
@@ -258,6 +261,9 @@ Value builtin_stack_clear(Interpreter* interpreter, Value* args, size_t arg_coun
     value_object_set(&empty_stack, "type", value_create_string("Stack"));
     value_object_set_member(&empty_stack, "elements", value_create_array(0));
     value_object_set_member(&empty_stack, "size", value_create_number(0.0));
+    
+    // Add methods to the new stack
+    add_stack_methods(&empty_stack);
     
     return empty_stack;
 }

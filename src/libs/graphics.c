@@ -367,17 +367,6 @@ Value builtin_graphics_get_key(Interpreter* interpreter, Value* args, size_t arg
         return value_create_null();
     }
     
-    // Ensure window has focus (helps with keyboard input on some platforms)
-    // Note: SDL doesn't have SetWindowInputFocus, but we can raise the window occasionally
-    // to help ensure it has focus (user may need to click on window first)
-    if (g_window->window) {
-        // OPTIMIZATION: Reduce window raising frequency to save CPU
-        static int focus_counter = 0;
-        if ((focus_counter++ % 300) == 0) {  // Every ~5 seconds at 60fps (was 60 = ~1 second)
-            SDL_RaiseWindow(g_window->window);
-        }
-    }
-    
     SDL_Event event;
     // Don't pump events here - pollEvents() already handles it
     // Multiple SDL_PumpEvents() calls are expensive

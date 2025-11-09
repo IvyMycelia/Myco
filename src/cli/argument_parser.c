@@ -19,8 +19,7 @@ int parse_arguments(int argc, char* argv[], ArgumentConfig* config) {
     config->optimization_level = OPTIMIZATION_NONE;
     config->jit_enabled = 0;
     config->jit_mode = 0;
-    config->ast_only = 0;
-    config->bytecode_enabled = 0; // Default to AST execution
+    config->bytecode_enabled = 1; // Bytecode is the only execution path
     config->run_tests = 0;
     config->input_source = NULL;
     config->output_file = NULL;
@@ -64,12 +63,6 @@ int parse_arguments(int argc, char* argv[], ArgumentConfig* config) {
             config->emit_arduino = 1;
         } else if (strcmp(argv[i], "--debug") == 0 || strcmp(argv[i], "-d") == 0) {
             config->debug = 1;
-        } else if (strcmp(argv[i], "--ast") == 0) {
-            // Force pure AST interpreter; disable bytecode VM
-            config->ast_only = 1;
-        } else if (strcmp(argv[i], "--bc") == 0 || strcmp(argv[i], "--bytecode") == 0) {
-            // Enable bytecode VM execution
-            config->bytecode_enabled = 1;
         } else if (strcmp(argv[i], "--optimize") == 0 || strcmp(argv[i], "-O") == 0) {
             if (i + 1 < argc) {
                 i++;
@@ -179,8 +172,6 @@ void print_usage(const char* program_name) {
    printf("       --target <target>     Set compilation target (c, x86_64, arm64, wasm, bytecode)\n");
    printf("   -a, --architecture <arch> Set target architecture (arm64, x86_64, arm, x86)\n");
    printf("   -o, --output <file>       Set output file\n");
-   printf("       --ast                  Force AST interpreter only (default)\n");
-   printf("       --bc, --bytecode      Enable bytecode VM execution (optional)\n");
     printf("\n");
     printf("Examples:\n");
     printf("  %s script.myco                    # Run with AST interpreter (default)\n", program_name);

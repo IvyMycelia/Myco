@@ -189,9 +189,7 @@ int adaptive_executor_promote_to_specialized(AdaptiveExecutor* executor, ASTNode
 int adaptive_executor_demote_tier(AdaptiveExecutor* executor, ASTNode* node, DecisionReason reason);
 
 // Execution routing
-Value adaptive_executor_execute_ast(AdaptiveExecutor* executor, 
-                                  Interpreter* interpreter, 
-                                  ASTNode* node);
+// adaptive_executor_execute_ast removed - bytecode is the only execution path
 
 Value adaptive_executor_execute_bytecode(AdaptiveExecutor* executor, 
                                        Interpreter* interpreter, 

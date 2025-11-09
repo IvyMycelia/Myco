@@ -162,10 +162,7 @@ int interpret_source(const char* source, const char* filename, int debug) {
         return MYCO_ERROR_MEMORY;
     }
     
-    // Enable test mode for test suite files
-    if (strstr(filename, "pass.myco") != NULL || strstr(filename, "test_") != NULL) {
-        interpreter_set_test_mode(interpreter, 1);
-    }
+    // Bytecode execution continues after errors
     
     // Configure JIT if enabled
     // TODO: Re-enable JIT integration once parameter issue is resolved
@@ -177,19 +174,8 @@ int interpret_source(const char* source, const char* filename, int debug) {
     // Set source for line extraction in error traces
     interpreter_set_source(interpreter, source, filename);
     
-    Value result;
-    
-    // Check execution mode flags
-    if (g_force_ast_only) {
-        // Force AST execution (for --ast flag)
-        // TODO: In future, add flag to force AST-only in interpreter_execute_program
-        // For now, interpreter_execute_program will try bytecode first, then fall back to AST
-        result = interpreter_execute_program(interpreter, program);
-    } else {
-        // Default: Try bytecode compilation and execution (with AST fallback)
-        // interpreter_execute_program() will handle bytecode compilation internally
-        result = interpreter_execute_program(interpreter, program);
-    }
+    // Bytecode is the only execution path
+    Value result = interpreter_execute_program(interpreter, program);
     
     if (interpreter_has_error(interpreter)) {
         // Errors are now printed live, so we just need to clean up

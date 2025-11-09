@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <stdint.h>
 
+// Forward declaration
+int bc_compile_ast_to_subprogram(BytecodeProgram* p, ASTNode* node, const char* name);
 
 // ============================================================================
 // FUNCTION VALUE CREATION FUNCTIONS
@@ -142,7 +144,43 @@ Value find_method_in_inheritance_chain(Interpreter* interpreter, Value* class_va
             if (stmt && stmt->type == AST_NODE_FUNCTION && 
                 stmt->data.function_definition.function_name &&
                 strcmp(stmt->data.function_definition.function_name, method_name) == 0) {
-                // Found the method! Return it without cloning to avoid issues
+                // Found the method! Compile body to bytecode on-the-fly
+                ASTNode* method_body = stmt->data.function_definition.body;
+                if (method_body && interpreter && interpreter->bytecode_program_cache) {
+                    // Compile method body to bytecode
+                    BytecodeProgram* program = (BytecodeProgram*)interpreter->bytecode_program_cache;
+                    int func_id = bc_compile_ast_to_subprogram(program, method_body, method_name);
+                    if (func_id >= 0 && func_id < (int)program->function_count) {
+                        // Store parameter names in bytecode function
+                        BytecodeFunction* bc_func = &program->functions[func_id];
+                        bc_func->param_count = stmt->data.function_definition.parameter_count;
+                        if (stmt->data.function_definition.parameter_count > 0 && stmt->data.function_definition.parameters) {
+                            bc_func->param_names = (char**)shared_malloc_safe(
+                                stmt->data.function_definition.parameter_count * sizeof(char*),
+                                "value_functions", "find_method_in_inheritance_chain", 1
+                            );
+                            if (bc_func->param_names) {
+                                for (size_t j = 0; j < stmt->data.function_definition.parameter_count; j++) {
+                                    if (stmt->data.function_definition.parameters[j] &&
+                                        stmt->data.function_definition.parameters[j]->data.identifier_value) {
+                                        bc_func->param_names[j] = shared_strdup(stmt->data.function_definition.parameters[j]->data.identifier_value);
+                                    } else {
+                                        bc_func->param_names[j] = shared_strdup("");
+                                    }
+                                }
+                            }
+                        }
+                        // Return function with bytecode function ID
+                        return value_create_function(
+                            (ASTNode*)(uintptr_t)func_id,  // Store function ID as pointer
+                            stmt->data.function_definition.parameters,
+                            stmt->data.function_definition.parameter_count,
+                            stmt->data.function_definition.return_type,
+                            class_value->data.class_value.class_environment
+                        );
+                    }
+                }
+                // Fallback: return AST-based function (will be compiled on-the-fly during execution)
                 return value_create_function(
                     stmt->data.function_definition.body,
                     stmt->data.function_definition.parameters,

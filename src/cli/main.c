@@ -12,10 +12,6 @@
 MemoryTracker* g_memory_tracker = NULL;
 int g_myco_error_code = MYCO_SUCCESS;
 char* g_myco_error_message = NULL;
-// Controls whether interpreter forces AST-only execution (disables bytecode VM)
-int g_force_ast_only = 0;
-// Controls whether bytecode VM execution is enabled (optional with --bc/--bytecode flag)
-int g_bytecode_enabled = 0;
 
 // Function prototypes
 static void print_banner(void);
@@ -30,9 +26,7 @@ int main(int argc, char* argv[]) {
         return result;
     }
 
-    // Apply global execution toggles
-    g_force_ast_only = config.ast_only ? 1 : 0;
-    g_bytecode_enabled = config.bytecode_enabled ? 1 : 0;
+    // Bytecode is the only execution path (no flags needed)
     
     if (config.help) {
         print_usage(argv[0]);
@@ -47,9 +41,6 @@ int main(int argc, char* argv[]) {
     }
     
     if (config.run_tests) {
-        // Force AST-only mode for reliable testing BEFORE any processing
-        g_force_ast_only = 1;
-        
         // Run the built-in test suite (pass.myco)
         printf("MYCO COMPREHENSIVE TEST SUITE\n");
         printf("=====================================\n");

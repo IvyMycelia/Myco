@@ -199,7 +199,7 @@ Value adaptive_executor_execute(AdaptiveExecutor* executor,
     
     // Check if optimization is disabled
     if (!executor->optimization_enabled) {
-        return adaptive_executor_execute_ast(executor, interpreter, node);
+        return adaptive_executor_execute_bytecode(executor, interpreter, node);
     }
     
     // Decide execution tier
@@ -216,14 +216,11 @@ Value adaptive_executor_execute(AdaptiveExecutor* executor,
     uint64_t start_time = get_current_time_ns();
     
     switch (tier) {
-        case EXECUTION_TIER_AST:
-            result = adaptive_executor_execute_ast(executor, interpreter, node);
-            break;
         case EXECUTION_TIER_BYTECODE:
             result = adaptive_executor_execute_bytecode(executor, interpreter, node);
             break;
         case EXECUTION_TIER_TRACE_RECORDING:
-            result = adaptive_executor_execute_ast(executor, interpreter, node); // Start recording
+            result = adaptive_executor_execute_bytecode(executor, interpreter, node); // Start recording with bytecode
             break;
         case EXECUTION_TIER_TRACE_COMPILED:
             result = adaptive_executor_execute_jit(executor, interpreter, node);
@@ -234,8 +231,10 @@ Value adaptive_executor_execute(AdaptiveExecutor* executor,
         case EXECUTION_TIER_VECTORIZED:
             result = adaptive_executor_execute_specialized(executor, interpreter, node); // Use specialized for now
             break;
+        case EXECUTION_TIER_AST:
         default:
-            result = adaptive_executor_execute_ast(executor, interpreter, node);
+            // AST tier removed - fallback to bytecode
+            result = adaptive_executor_execute_bytecode(executor, interpreter, node);
             break;
     }
     
@@ -249,11 +248,8 @@ Value adaptive_executor_execute(AdaptiveExecutor* executor,
     if (interpreter->has_error) {
         adaptive_executor_record_error(executor, DECISION_ERROR_FALLBACK);
         
-        // Fallback to AST interpreter
-        if (tier != EXECUTION_TIER_AST) {
-            interpreter->has_error = 0; // Clear error
-            result = adaptive_executor_execute_ast(executor, interpreter, node);
-        }
+        // AST fallback removed - bytecode is the only execution path
+        // If bytecode fails, the program fails
     }
     
     return result;
@@ -383,25 +379,8 @@ int adaptive_executor_should_deoptimize(AdaptiveExecutor* executor, ASTNode* nod
 // EXECUTION ROUTING
 // ============================================================================
 
-Value adaptive_executor_execute_ast(AdaptiveExecutor* executor, 
-                                  Interpreter* interpreter, 
-                                  ASTNode* node) {
-    if (!executor || !interpreter || !node) {
-        return value_create_null();
-    }
-    
-    // Temporarily disable adaptive executor to prevent infinite recursion
-    void* saved_adaptive_executor = interpreter->adaptive_executor;
-    interpreter->adaptive_executor = NULL;
-    
-    // Use the original AST interpreter
-    Value result = eval_node(interpreter, node);
-    
-    // Restore adaptive executor
-    interpreter->adaptive_executor = saved_adaptive_executor;
-    
-    return result;
-}
+// AST execution removed - bytecode is the only execution path
+// adaptive_executor_execute_ast has been removed
 
 Value adaptive_executor_execute_bytecode(AdaptiveExecutor* executor, 
                                        Interpreter* interpreter, 
@@ -420,9 +399,12 @@ Value adaptive_executor_execute_bytecode(AdaptiveExecutor* executor,
             }
         }
         
-        // Fallback to AST if compilation failed
+        // Bytecode compilation failed - report error
         if (!node->cached_bytecode) {
-            return adaptive_executor_execute_ast(executor, interpreter, node);
+            if (interpreter) {
+                interpreter_set_error(interpreter, "Bytecode compilation failed in adaptive executor", 0, 0);
+            }
+            return value_create_null();
         }
     }
     

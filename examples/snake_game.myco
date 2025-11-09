@@ -376,7 +376,7 @@ if window != Null:
             # Draw text if font is available (draw AFTER buttons so text is on top)
             if font_id != Null:
                 # Draw title first (use slightly different color to force batch break)
-                graphics.setColor(255, 255, 255, 255);  # White text
+                graphics.setColor(254, 255, 255, 255);  # Almost white to force batch break
                 let title = "SNAKE GAME";
                 graphics.drawText(window_width / 2 - 100, 50, title, font_id);
                 

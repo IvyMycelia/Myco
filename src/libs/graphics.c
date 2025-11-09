@@ -395,8 +395,7 @@ Value builtin_graphics_get_key(Interpreter* interpreter, Value* args, size_t arg
                 // Don't push this back - close events should be consumed
                 return value_create_null();  // Return null to indicate no key (window closing)
             }
-            // Not our window - push back and continue
-            SDL_PushEvent(&event);
+            // Not our window - consume it to prevent accumulation
             continue;
         }
         
@@ -440,7 +439,7 @@ Value builtin_graphics_get_key(Interpreter* interpreter, Value* args, size_t arg
                         value_free(&key_obj);
                         return value_create_null();
                     }
-                    SDL_PushEvent(&next_event);
+                    // Not our window - consume it to prevent accumulation
                     continue;
                 }
                 

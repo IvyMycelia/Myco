@@ -482,7 +482,7 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
             // Compile condition
             compile_node_to_function(p, func, n->data.if_statement.condition);
             
-            // Jump if false to else/end
+            // Jump if false to else-if/else/end
             int jmp_false_pos = (int)func->code_count;
             bc_emit_to_function(func, BC_JUMP_IF_FALSE, 0, 0, 0); // Placeholder
             
@@ -491,13 +491,19 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
                 compile_node_to_function(p, func, n->data.if_statement.then_block);
             }
             
-            // Jump to end (skip else block)
+            // Jump to end (skip else-if/else block)
             int jmp_end_pos = (int)func->code_count;
             bc_emit_to_function(func, BC_JUMP, 0, 0, 0); // Placeholder
             
-            // Patch the false jump to point to else block or end
+            // Patch the false jump to point to else-if chain, else block, or end
             int else_start = (int)func->code_count;
-            if (n->data.if_statement.else_block) {
+            
+            // Handle else-if chain first (if present)
+            if (n->data.if_statement.else_if_chain) {
+                // Compile the else-if chain (which is itself an if statement)
+                compile_node_to_function(p, func, n->data.if_statement.else_if_chain);
+            } else if (n->data.if_statement.else_block) {
+                // Compile else block
                 compile_node_to_function(p, func, n->data.if_statement.else_block);
             }
             int end_pos = (int)func->code_count;
@@ -1431,38 +1437,35 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             // Compile condition
             compile_node(p, n->data.if_statement.condition);
             
-            // Jump if false to else/end
+            // Jump if false to else/else-if/end
             int jmp_false_pos = (int)p->count;
             bc_emit(p, BC_JUMP_IF_FALSE, 0, 0); // Placeholder, will be patched
             
             // Compile then block
             if (n->data.if_statement.then_block) {
                 compile_node(p, n->data.if_statement.then_block);
-                // BLOCK nodes don't leave a value on the stack (they're compiled as statements)
-                // So we don't need to pop anything here
             }
             
-            // Jump to end (skip else block) - this jumps to after the entire IF statement
+            // Jump to end (skip else/else-if block)
             int jmp_end_pos = (int)p->count;
             bc_emit(p, BC_JUMP, 0, 0); // Placeholder, will be patched
             
-            // Patch the false jump to point to else block or end (after the entire IF)
+            // Patch the false jump to point to else-if chain, else block, or end
             int else_start = (int)p->count;
-            if (n->data.if_statement.else_block) {
+            
+            // Handle else-if chain first (if present)
+            if (n->data.if_statement.else_if_chain) {
+                // Compile the else-if chain (which is itself an if statement)
+                compile_node(p, n->data.if_statement.else_if_chain);
+            } else if (n->data.if_statement.else_block) {
+                // Compile else block
                 compile_node(p, n->data.if_statement.else_block);
-                // BLOCK nodes don't leave a value on the stack (they're compiled as statements)
-                // So we don't need to pop anything here
             }
-            // end_pos is where execution continues after the IF statement
-            // This should be where the next statement in the BLOCK will be compiled
-            // Since BLOCK nodes compile statements sequentially, end_pos will point to
-            // where the next statement starts (which is correct)
-            // However, if the IF is the last statement in the BLOCK, end_pos will point
-            // to where BC_HALT will be added, which is correct - execution should stop there
+            
             int end_pos = (int)p->count;
             
             // Patch jumps
-            p->code[jmp_false_pos].a = else_start; // Jump to else (or end if no else)
+            p->code[jmp_false_pos].a = else_start; // Jump to else-if/else (or end if neither)
             p->code[jmp_end_pos].a = end_pos;      // Jump to after the entire IF statement
         } break;
         case AST_NODE_BLOCK: {

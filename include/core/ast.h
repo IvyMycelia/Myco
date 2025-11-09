@@ -92,6 +92,17 @@ typedef enum {
     OP_RANGE_STEP
 } BinaryOperator;
 
+// Assignment Operators
+typedef enum {
+    ASSIGN_OP_EQUAL,      // =
+    ASSIGN_OP_PLUS_EQUAL, // +=
+    ASSIGN_OP_MINUS_EQUAL, // -=
+    ASSIGN_OP_MULTIPLY_EQUAL, // *=
+    ASSIGN_OP_DIVIDE_EQUAL,   // /=
+    ASSIGN_OP_INCREMENT,  // ++ (postfix)
+    ASSIGN_OP_DECREMENT   // -- (postfix)
+} AssignmentOperator;
+
 // Unary Operators
 typedef enum {
     OP_POSITIVE,
@@ -136,6 +147,8 @@ typedef struct ASTNode {
             char* variable_name;        // For simple assignments: variable = value
             struct ASTNode* target;     // For array element assignments: array[index] = value (target is AST_NODE_ARRAY_ACCESS)
             struct ASTNode* value;      // The value being assigned
+            AssignmentOperator op;      // Assignment operator type (=, +=, -=, ++, --)
+            int is_prefix;              // For ++/--: 1 if prefix (++x), 0 if postfix (x++)
         } assignment;
         
         // Function call
@@ -462,6 +475,7 @@ ASTNode* ast_create_binary_op(BinaryOperator op, ASTNode* left, ASTNode* right, 
 ASTNode* ast_create_range_with_step(ASTNode* start, ASTNode* end, ASTNode* step, int line, int column);
 ASTNode* ast_create_unary_op(UnaryOperator op, ASTNode* operand, int line, int column);
 ASTNode* ast_create_assignment(const char* variable, ASTNode* value, int line, int column);
+ASTNode* ast_create_assignment_with_op(const char* variable, ASTNode* value, AssignmentOperator op, int is_prefix, int line, int column);
 ASTNode* ast_create_function_call(const char* name, ASTNode** args, size_t arg_count, int line, int column);
 ASTNode* ast_create_function_call_expr(ASTNode* function, ASTNode** args, size_t arg_count, int line, int column);
 ASTNode* ast_create_variable_declaration(const char* name, const char* type, ASTNode* initial_value, int is_mutable, int line, int column);

@@ -76,6 +76,8 @@ typedef enum {
     TOKEN_MINUS_ASSIGN, // Subtract and assign (-=)
     TOKEN_MULTIPLY_ASSIGN, // Multiply and assign (*=)
     TOKEN_DIVIDE_ASSIGN,   // Divide and assign (/=)
+    TOKEN_INCREMENT,   // Increment operator (++)
+    TOKEN_DECREMENT,   // Decrement operator (--)
     
     // Punctuation and structure
     TOKEN_LEFT_PAREN,  // Left parenthesis (

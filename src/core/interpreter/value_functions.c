@@ -136,7 +136,29 @@ Value find_method_in_inheritance_chain(Interpreter* interpreter, Value* class_va
         return value_create_null();
     }
     
-    // Search in current class
+    // Ensure metadata is compiled
+    if (!class_value->data.class_value.metadata) {
+        compile_class_metadata(interpreter, class_value);
+    }
+    
+    // Search in current class metadata
+    if (class_value->data.class_value.metadata) {
+        ClassMetadata* metadata = class_value->data.class_value.metadata;
+        for (size_t i = 0; i < metadata->method_count; i++) {
+            if (metadata->methods[i].name && strcmp(metadata->methods[i].name, method_name) == 0) {
+                // Found the method! Return function with bytecode function ID
+                return value_create_function(
+                    (ASTNode*)(uintptr_t)metadata->methods[i].bytecode_func_id,  // Store function ID as pointer
+                    NULL,  // No AST parameters for bytecode functions
+                    metadata->methods[i].param_count,
+                    metadata->methods[i].return_type,
+                    class_value->data.class_value.class_environment
+                );
+            }
+        }
+    }
+    
+    // Fallback: search in AST if metadata not available
     ASTNode* class_body = class_value->data.class_value.class_body;
     if (class_body && class_body->type == AST_NODE_BLOCK) {
         for (size_t i = 0; i < class_body->data.block.statement_count; i++) {
@@ -144,14 +166,12 @@ Value find_method_in_inheritance_chain(Interpreter* interpreter, Value* class_va
             if (stmt && stmt->type == AST_NODE_FUNCTION && 
                 stmt->data.function_definition.function_name &&
                 strcmp(stmt->data.function_definition.function_name, method_name) == 0) {
-                // Found the method! Compile body to bytecode on-the-fly
+                // Found in AST - compile on-the-fly (shouldn't happen if metadata compiled correctly)
                 ASTNode* method_body = stmt->data.function_definition.body;
                 if (method_body && interpreter && interpreter->bytecode_program_cache) {
-                    // Compile method body to bytecode
                     BytecodeProgram* program = (BytecodeProgram*)interpreter->bytecode_program_cache;
                     int func_id = bc_compile_ast_to_subprogram(program, method_body, method_name);
                     if (func_id >= 0 && func_id < (int)program->function_count) {
-                        // Store parameter names in bytecode function
                         BytecodeFunction* bc_func = &program->functions[func_id];
                         bc_func->param_count = stmt->data.function_definition.parameter_count;
                         if (stmt->data.function_definition.parameter_count > 0 && stmt->data.function_definition.parameters) {
@@ -170,24 +190,15 @@ Value find_method_in_inheritance_chain(Interpreter* interpreter, Value* class_va
                                 }
                             }
                         }
-                        // Return function with bytecode function ID
                         return value_create_function(
-                            (ASTNode*)(uintptr_t)func_id,  // Store function ID as pointer
-                            stmt->data.function_definition.parameters,
+                            (ASTNode*)(uintptr_t)func_id,
+                            NULL,
                             stmt->data.function_definition.parameter_count,
                             stmt->data.function_definition.return_type,
                             class_value->data.class_value.class_environment
                         );
                     }
                 }
-                // Fallback: return AST-based function (will be compiled on-the-fly during execution)
-                return value_create_function(
-                    stmt->data.function_definition.body,
-                    stmt->data.function_definition.parameters,
-                    stmt->data.function_definition.parameter_count,
-                    stmt->data.function_definition.return_type,
-                    class_value->data.class_value.class_environment
-                );
             }
         }
     }
@@ -217,7 +228,119 @@ Value value_create_class(const char* name, const char* parent_name, ASTNode* cla
     // Store the class body directly without cloning
     v.data.class_value.class_body = class_body;
     v.data.class_value.class_environment = class_env;
+    v.data.class_value.metadata = NULL;  // Will be compiled on demand
     return v;
+}
+
+// Compile class body to bytecode metadata
+void compile_class_metadata(Interpreter* interpreter, Value* class_value) {
+    if (!interpreter || !class_value || class_value->type != VALUE_CLASS) {
+        return;
+    }
+    
+    // Already compiled
+    if (class_value->data.class_value.metadata) {
+        return;
+    }
+    
+    // Need bytecode program cache
+    if (!interpreter->bytecode_program_cache) {
+        return;
+    }
+    
+    ASTNode* class_body = class_value->data.class_value.class_body;
+    if (!class_body || class_body->type != AST_NODE_BLOCK) {
+        return;
+    }
+    
+    BytecodeProgram* program = (BytecodeProgram*)interpreter->bytecode_program_cache;
+    
+    // Allocate metadata structure
+    ClassMetadata* metadata = (ClassMetadata*)shared_malloc_safe(sizeof(ClassMetadata), "value_functions", "compile_class_metadata", 1);
+    
+    if (!metadata) {
+        return;
+    }
+    
+    metadata->field_count = 0;
+    metadata->method_count = 0;
+    metadata->fields = NULL;
+    metadata->methods = NULL;
+    
+    // Allocate arrays
+    size_t field_capacity = 8;
+    size_t method_capacity = 8;
+    metadata->fields = (ClassFieldMetadata*)shared_malloc_safe(field_capacity * sizeof(ClassFieldMetadata), "value_functions", "compile_class_metadata", 2);
+    metadata->methods = (ClassMethodMetadata*)shared_malloc_safe(method_capacity * sizeof(ClassMethodMetadata), "value_functions", "compile_class_metadata", 3);
+    
+    if (!metadata->fields || !metadata->methods) {
+        if (metadata->fields) shared_free_safe(metadata->fields, "value_functions", "compile_class_metadata", 4);
+        if (metadata->methods) shared_free_safe(metadata->methods, "value_functions", "compile_class_metadata", 5);
+        shared_free_safe(metadata, "value_functions", "compile_class_metadata", 6);
+        return;
+    }
+    
+    // Parse class body
+    for (size_t i = 0; i < class_body->data.block.statement_count; i++) {
+        ASTNode* stmt = class_body->data.block.statements[i];
+        if (!stmt) continue;
+        
+        if (stmt->type == AST_NODE_VARIABLE_DECLARATION) {
+            // Field declaration
+            if (metadata->field_count >= field_capacity) {
+                field_capacity *= 2;
+                metadata->fields = (ClassFieldMetadata*)shared_realloc_safe(metadata->fields, field_capacity * sizeof(ClassFieldMetadata), "value_functions", "compile_class_metadata", 7);
+                if (!metadata->fields) break;
+            }
+            
+            metadata->fields[metadata->field_count].name = stmt->data.variable_declaration.variable_name;
+            metadata->fields[metadata->field_count].type = stmt->data.variable_declaration.type_name;
+            metadata->fields[metadata->field_count].default_value = stmt->data.variable_declaration.initial_value;
+            metadata->field_count++;
+        } else if (stmt->type == AST_NODE_FUNCTION && stmt->data.function_definition.function_name) {
+            // Method definition - compile to bytecode
+            if (metadata->method_count >= method_capacity) {
+                method_capacity *= 2;
+                metadata->methods = (ClassMethodMetadata*)shared_realloc_safe(metadata->methods, method_capacity * sizeof(ClassMethodMetadata), "value_functions", "compile_class_metadata", 8);
+                if (!metadata->methods) break;
+            }
+            
+            ASTNode* method_body = stmt->data.function_definition.body;
+            int func_id = bc_compile_ast_to_subprogram(program, method_body, stmt->data.function_definition.function_name);
+            
+            if (func_id >= 0 && func_id < (int)program->function_count) {
+                BytecodeFunction* bc_func = &program->functions[func_id];
+                bc_func->param_count = stmt->data.function_definition.parameter_count;
+                
+                // Store parameter names
+                const char** param_names = NULL;
+                if (stmt->data.function_definition.parameter_count > 0 && stmt->data.function_definition.parameters) {
+                    param_names = (const char**)shared_malloc_safe(stmt->data.function_definition.parameter_count * sizeof(const char*), "value_functions", "compile_class_metadata", 9);
+                    if (param_names) {
+                        for (size_t j = 0; j < stmt->data.function_definition.parameter_count; j++) {
+                            if (stmt->data.function_definition.parameters[j] &&
+                                stmt->data.function_definition.parameters[j]->data.identifier_value) {
+                                param_names[j] = shared_strdup(stmt->data.function_definition.parameters[j]->data.identifier_value);
+                            } else {
+                                param_names[j] = shared_strdup("");
+                            }
+                        }
+                    }
+                    bc_func->param_names = (char**)param_names;
+                }
+                
+                metadata->methods[metadata->method_count].name = shared_strdup(stmt->data.function_definition.function_name);
+                metadata->methods[metadata->method_count].bytecode_func_id = func_id;
+                metadata->methods[metadata->method_count].param_names = param_names;
+                metadata->methods[metadata->method_count].param_count = stmt->data.function_definition.parameter_count;
+                metadata->methods[metadata->method_count].return_type = stmt->data.function_definition.return_type ? shared_strdup(stmt->data.function_definition.return_type) : NULL;
+                metadata->method_count++;
+            }
+        }
+    }
+    
+    // Store metadata in class value
+    class_value->data.class_value.metadata = (void*)metadata;
 }
 
 // Helper function to collect all fields from the inheritance chain

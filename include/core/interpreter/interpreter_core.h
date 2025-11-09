@@ -16,6 +16,28 @@
 struct Environment;
 typedef struct Environment Environment;
 
+// Class metadata structure (compiled from AST at definition time)
+typedef struct {
+    const char* name;
+    const char* type;  // Type annotation (e.g., "Int", "String")
+    ASTNode* default_value;  // Default value AST (compiled on instantiation)
+} ClassFieldMetadata;
+
+typedef struct {
+    const char* name;
+    int bytecode_func_id;  // Bytecode function ID
+    const char** param_names;
+    size_t param_count;
+    const char* return_type;
+} ClassMethodMetadata;
+
+typedef struct {
+    ClassFieldMetadata* fields;
+    size_t field_count;
+    ClassMethodMetadata* methods;
+    size_t method_count;
+} ClassMetadata;
+
 // Value optimization flags
 #define VALUE_FLAG_CACHED     0x01    // Value has cached data
 #define VALUE_FLAG_IMMUTABLE  0x02    // Value cannot be modified
@@ -97,8 +119,9 @@ typedef union {
     struct {
         char* class_name;
         char* parent_class_name;  // Name of parent class for inheritance
-        ASTNode* class_body;  // The class definition body (fields and methods)
+        ASTNode* class_body;  // The class definition body (fields and methods) - DEPRECATED, use metadata instead
         struct Environment* class_environment;  // Environment for class scope
+        ClassMetadata* metadata;  // NULL if not compiled yet, non-NULL if compiled to bytecode
     } class_value;
     struct {
         char* module_name;

@@ -89,6 +89,7 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
 
 // Class creation
 Value value_create_class(const char* name, const char* parent_name, ASTNode* class_body, Environment* class_env);
+void compile_class_metadata(Interpreter* interpreter, Value* class_value);
 
 // Class instantiation
 Value create_class_instance(Interpreter* interpreter, Value* class_value, ASTNode* call_node);

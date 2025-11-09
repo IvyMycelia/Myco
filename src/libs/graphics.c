@@ -457,15 +457,13 @@ Value builtin_graphics_get_key(Interpreter* interpreter, Value* args, size_t arg
                         // Special key - push back for next call to getKey()
                         SDL_PushEvent(&next_event);
                     }
-                } else if (next_event.type == SDL_TEXTINPUT) {
-                    // Another TEXTINPUT - push back for next call
+                } else if (next_event.type == SDL_TEXTINPUT || next_event.type == SDL_KEYUP) {
+                    // Another keyboard event - push back for next call
                     SDL_PushEvent(&next_event);
-                } else if (next_event.type == SDL_WINDOWEVENT) {
-                    // Push window events back
-                    SDL_PushEvent(&next_event);
-                } else if (next_event.type != SDL_QUIT) {
-                    // Push other events back
-                    SDL_PushEvent(&next_event);
+                } else {
+                    // Non-keyboard events (window, mouse, etc.) - consume them
+                    // pollEvents() will handle these, so we don't push them back
+                    // This prevents event queue buildup
                 }
             }
             
@@ -562,18 +560,10 @@ Value builtin_graphics_get_key(Interpreter* interpreter, Value* args, size_t arg
                 return key_obj;
             }
         } else {
-            // If event is not a keyboard event and not a close event, push it back for pollEvents() to handle
-            // Note: close events are handled above and consumed, so we don't push them back
-            if (event.type == SDL_WINDOWEVENT) {
-                // Push window events back (except close events which are handled above)
-                if (event.window.event != SDL_WINDOWEVENT_CLOSE) {
-                    SDL_PushEvent(&event);
-                }
-            } else if (event.type != SDL_QUIT) {
-                // Push other events back (mouse, etc.), but not QUIT (already handled above)
-                SDL_PushEvent(&event);
-            }
-            // Close events (SDL_QUIT and SDL_WINDOWEVENT_CLOSE) are consumed and not pushed back
+            // If event is not a keyboard event and not a close event, consume it
+            // pollEvents() will handle these events, so we don't need to push them back
+            // This prevents event queue buildup and memory leaks
+            // Close events are already handled above and consumed
         }
     }
     

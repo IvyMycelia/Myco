@@ -321,64 +321,38 @@ Value builtin_graphics_poll_events(Interpreter* interpreter, Value* args, size_t
     SDL_PumpEvents();
     
     SDL_Event event;
-    // Use SDL_PeepEvents to peek at events without removing them from the queue
-    // This allows us to check for close events without consuming keyboard events
-    int event_count = SDL_PeepEvents(&event, 1, SDL_PEEKEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT);
+    // Check for close events by peeking at the event queue
+    // Use SDL_PeepEvents with SDL_PEEKEVENT to peek without removing
+    // Then only remove close events, leaving keyboard events for getKey()
+    int peeked = SDL_PeepEvents(&event, 1, SDL_PEEKEVENT, SDL_QUIT, SDL_QUIT);
+    if (peeked > 0) {
+        // Remove and consume the close event
+        SDL_PollEvent(&event);
+        g_window->is_open = false;
+        return value_create_boolean(true);
+    }
+    
+    // Check for window close events by scanning the queue
+    // We need to check all window events to find close events
+    int event_count = SDL_PeepEvents(NULL, 0, SDL_PEEKEVENT, SDL_WINDOWEVENT, SDL_WINDOWEVENT);
     if (event_count > 0) {
-        // Found an event - check if it's a close event
-        if (event.type == SDL_QUIT) {
-            // Remove and consume the close event
-            SDL_PollEvent(&event);
-            g_window->is_open = false;
-            return value_create_boolean(true);
-        }
-        
-        if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE) {
-            if (event.window.windowID == SDL_GetWindowID(g_window->window)) {
-                // Remove and consume the close event
-                SDL_PollEvent(&event);
-                g_window->is_open = false;
-                return value_create_boolean(true);
+        // Peek at window events to find close events
+        SDL_Event events[10];
+        int peeked_count = SDL_PeepEvents(events, 10, SDL_PEEKEVENT, SDL_WINDOWEVENT, SDL_WINDOWEVENT);
+        for (int i = 0; i < peeked_count; i++) {
+            if (events[i].window.event == SDL_WINDOWEVENT_CLOSE) {
+                if (events[i].window.windowID == SDL_GetWindowID(g_window->window)) {
+                    // Remove the close event
+                    SDL_PollEvent(&event);
+                    g_window->is_open = false;
+                    return value_create_boolean(true);
+                }
             }
         }
     }
     
-    // Process events to find close events, but push keyboard events back
-    // Only process a limited number to prevent infinite loops
-    int processed = 0;
-    while (SDL_PollEvent(&event) && processed < 10) {
-        processed++;
-        // Push keyboard events back for getKey() to handle
-        if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP || event.type == SDL_TEXTINPUT) {
-            SDL_PushEvent(&event);
-            continue;
-        }
-        
-        // Handle close and window events - these are priority
-        if (event.type == SDL_QUIT) {
-            // Window close button clicked (cross-platform)
-            g_window->is_open = false;
-            return value_create_boolean(true);
-        }
-        
-        if (event.type == SDL_WINDOWEVENT) {
-            // Handle window close event specifically
-            if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
-                // Only close if this is actually the close event for our window
-                if (event.window.windowID == SDL_GetWindowID(g_window->window)) {
-                    g_window->is_open = false;
-                    return value_create_boolean(true);
-                }
-                // Not our window - continue processing other events
-                continue;
-            }
-            // Other window events - just continue (they don't close the window)
-            continue;
-        }
-        
-        // Other event types - ignore for now
-        // Continue processing to find close events
-    }
+    // Don't process other events - leave them for getKey() and other handlers
+    // This prevents event queue buildup and ensures keyboard events are available
     
     // No close event found - window should stay open
     return value_create_boolean(false);

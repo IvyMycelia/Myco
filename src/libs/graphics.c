@@ -321,14 +321,37 @@ Value builtin_graphics_poll_events(Interpreter* interpreter, Value* args, size_t
     SDL_PumpEvents();
     
     SDL_Event event;
-    // Process ALL events in the queue to find close events (even if keyboard events are present)
-    // This ensures we don't miss close events when keyboard events are also in the queue
-    while (SDL_PollEvent(&event)) {
-        // Skip keyboard events - don't push them back, just consume them
-        // getKey() will pump events itself and process keyboard events
-        // This prevents event queue buildup when pollEvents() is called every frame
+    // Use SDL_PeepEvents to peek at events without removing them from the queue
+    // This allows us to check for close events without consuming keyboard events
+    int event_count = SDL_PeepEvents(&event, 1, SDL_PEEKEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT);
+    if (event_count > 0) {
+        // Found an event - check if it's a close event
+        if (event.type == SDL_QUIT) {
+            // Remove and consume the close event
+            SDL_PollEvent(&event);
+            g_window->is_open = false;
+            return value_create_boolean(true);
+        }
+        
+        if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE) {
+            if (event.window.windowID == SDL_GetWindowID(g_window->window)) {
+                // Remove and consume the close event
+                SDL_PollEvent(&event);
+                g_window->is_open = false;
+                return value_create_boolean(true);
+            }
+        }
+    }
+    
+    // Process events to find close events, but push keyboard events back
+    // Only process a limited number to prevent infinite loops
+    int processed = 0;
+    while (SDL_PollEvent(&event) && processed < 10) {
+        processed++;
+        // Push keyboard events back for getKey() to handle
         if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP || event.type == SDL_TEXTINPUT) {
-            continue;  // Skip keyboard events, keep processing other events
+            SDL_PushEvent(&event);
+            continue;
         }
         
         // Handle close and window events - these are priority

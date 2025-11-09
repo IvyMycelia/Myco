@@ -438,6 +438,9 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
                 case OP_DIVIDE:
                     bc_emit_to_function(func, BC_DIV, 0, 0, 0);
                     break;
+                case OP_MODULO:
+                    bc_emit_to_function(func, BC_MOD, 0, 0, 0);
+                    break;
                 case OP_EQUAL:
                     bc_emit_to_function(func, BC_EQ, 0, 0, 0);
                     break;
@@ -484,7 +487,6 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
                     }
                     bc_emit_to_function(func, BC_CREATE_RANGE_STEP, 0, 0, 0);
                     break;
-                case OP_MODULO:
                 case OP_POWER:
                 case OP_LOGICAL_XOR:
                 case OP_BITWISE_AND:
@@ -1253,6 +1255,7 @@ static void compile_numeric_node(BytecodeProgram* p, ASTNode* n) {
                     case OP_SUBTRACT: bc_emit(p, BC_SUB_NUM, 0, 0); break;
                     case OP_MULTIPLY: bc_emit(p, BC_MUL_NUM, 0, 0); break;
                     case OP_DIVIDE: bc_emit(p, BC_DIV_NUM, 0, 0); break;
+                    case OP_MODULO: bc_emit(p, BC_MOD_NUM, 0, 0); break;
                     default: {
                         // Convert to value and fall back
                         bc_emit(p, BC_NUM_TO_VALUE, 0, 0);
@@ -1375,6 +1378,7 @@ static void compile_binary(BytecodeProgram* p, ASTNode* n) {
             case OP_SUBTRACT: bc_emit(p, BC_SUB_NUM, 0, 0); break;
             case OP_MULTIPLY: bc_emit(p, BC_MUL_NUM, 0, 0); break;
             case OP_DIVIDE: bc_emit(p, BC_DIV_NUM, 0, 0); break;
+            case OP_MODULO: bc_emit(p, BC_MOD_NUM, 0, 0); break;
             case OP_EQUAL: bc_emit(p, BC_EQ_NUM, 0, 0); break;
             case OP_NOT_EQUAL: bc_emit(p, BC_NE_NUM, 0, 0); break;
             case OP_LESS_THAN: bc_emit(p, BC_LT_NUM, 0, 0); break;
@@ -1393,7 +1397,8 @@ static void compile_binary(BytecodeProgram* p, ASTNode* n) {
         
         // Convert numeric result back to value for storage (only for arithmetic operations)
         if (n->data.binary.op == OP_ADD || n->data.binary.op == OP_SUBTRACT || 
-            n->data.binary.op == OP_MULTIPLY || n->data.binary.op == OP_DIVIDE) {
+            n->data.binary.op == OP_MULTIPLY || n->data.binary.op == OP_DIVIDE ||
+            n->data.binary.op == OP_MODULO) {
             bc_emit(p, BC_NUM_TO_VALUE, 0, 0);
         }
     } else {
@@ -1405,6 +1410,7 @@ static void compile_binary(BytecodeProgram* p, ASTNode* n) {
                 case OP_SUBTRACT: bc_emit(p, BC_SUB, 0, 0); break;
                 case OP_MULTIPLY: bc_emit(p, BC_MUL, 0, 0); break;
                 case OP_DIVIDE: bc_emit(p, BC_DIV, 0, 0); break;
+                case OP_MODULO: bc_emit(p, BC_MOD, 0, 0); break;
                 case OP_EQUAL: bc_emit(p, BC_EQ, 0, 0); break;
                 case OP_NOT_EQUAL: bc_emit(p, BC_NE, 0, 0); break;
                 case OP_LESS_THAN: bc_emit(p, BC_LT, 0, 0); break;

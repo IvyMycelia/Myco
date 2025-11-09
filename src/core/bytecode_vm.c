@@ -13,6 +13,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 // Branch prediction hints for better CPU performance
 #ifdef __GNUC__
@@ -922,6 +923,17 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 Value b = value_stack_pop();
                 Value a = value_stack_pop();
                 Value result = value_divide(&a, &b);
+                value_free(&a);
+                value_free(&b);
+                value_stack_push(result);
+                pc++;
+                break;
+            }
+            
+            case BC_MOD: {
+                Value b = value_stack_pop();
+                Value a = value_stack_pop();
+                Value result = value_modulo(&a, &b);
                 value_free(&a);
                 value_free(&b);
                 value_stack_push(result);
@@ -4555,6 +4567,31 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     double a = num_stack_pop();
                     if (b != 0.0) {
                         num_stack_push(a / b);
+                    } else {
+                        num_stack_push(0.0);
+                    }
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_MOD_NUM: {
+                // Fast path: direct stack access without function calls
+                if (num_stack_size >= 2) {
+                    double b = num_stack[--num_stack_size];
+                    double a = num_stack[--num_stack_size];
+                    if (b != 0.0) {
+                        num_stack[num_stack_size] = fmod(a, b);
+                    } else {
+                        num_stack[num_stack_size] = 0.0;
+                    }
+                    num_stack_size++;
+                } else {
+                    // Fallback for safety
+                    double b = num_stack_pop();
+                    double a = num_stack_pop();
+                    if (b != 0.0) {
+                        num_stack_push(fmod(a, b));
                     } else {
                         num_stack_push(0.0);
                     }

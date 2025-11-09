@@ -673,9 +673,28 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             
             case BC_LOAD_LOCAL: {
                 if (LIKELY(instr->a < program->local_slot_count)) {
+                    // Check if variable exists in environment (may have been updated by AST interpreter)
+                    // If so, use the environment value; otherwise use local slot
                     Value local_val = program->locals[instr->a];
-                    // Always clone to avoid memory issues
-                    value_stack_push(value_clone(&local_val));
+                    if (interpreter && interpreter->current_environment && program->local_names && 
+                        instr->a >= 0 && (size_t)instr->a < program->local_count) {
+                        const char* var_name = program->local_names[instr->a];
+                        if (var_name && environment_exists(interpreter->current_environment, var_name)) {
+                            // Variable exists in environment - use that (may be newer)
+                            Value env_val = environment_get(interpreter->current_environment, var_name);
+                            // Update local slot to match environment
+                            value_free(&program->locals[instr->a]);
+                            program->locals[instr->a] = value_clone(&env_val);
+                            // Push the environment value
+                            value_stack_push(env_val);
+                        } else {
+                            // Variable not in environment - use local slot
+                            value_stack_push(value_clone(&local_val));
+                        }
+                    } else {
+                        // No environment or local_names - use local slot
+                        value_stack_push(value_clone(&local_val));
+                    }
                 } else {
                     value_stack_push(value_create_null());
                 }
@@ -710,6 +729,21 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     // Also update numeric locals if this is a number
                     if (val.type == VALUE_NUMBER && instr->a < program->num_local_count) {
                         program->num_locals[instr->a] = val.data.number_value;
+                    }
+                    
+                    // Also store in environment so AST-interpreted code (like for loop bodies) can access it
+                    // Find the variable name from the local slot index
+                    if (interpreter && interpreter->current_environment && program->local_names && 
+                        instr->a >= 0 && (size_t)instr->a < program->local_count) {
+                        const char* var_name = program->local_names[instr->a];
+                        if (var_name) {
+                            // Store in environment (clones the value)
+                            if (environment_exists(interpreter->current_environment, var_name)) {
+                                environment_assign(interpreter->current_environment, var_name, val);
+                            } else {
+                                environment_define(interpreter->current_environment, var_name, val);
+                            }
+                        }
                     }
                 }
                 pc++;
@@ -3990,6 +4024,27 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             case BC_INC_LOCAL: {
                 if (instr->a < program->num_local_count) {
                     program->num_locals[instr->a] += 1.0;
+                    
+                    // Also update the value locals array for consistency
+                    if (instr->a < program->local_slot_count) {
+                        value_free(&program->locals[instr->a]);
+                        program->locals[instr->a] = value_create_number(program->num_locals[instr->a]);
+                    }
+                    
+                    // Also update environment so AST-interpreted code can access it
+                    if (interpreter && interpreter->current_environment && program->local_names && 
+                        instr->a >= 0 && (size_t)instr->a < program->local_count) {
+                        const char* var_name = program->local_names[instr->a];
+                        if (var_name) {
+                            Value updated_val = value_create_number(program->num_locals[instr->a]);
+                            if (environment_exists(interpreter->current_environment, var_name)) {
+                                environment_assign(interpreter->current_environment, var_name, updated_val);
+                            } else {
+                                environment_define(interpreter->current_environment, var_name, updated_val);
+                            }
+                            value_free(&updated_val);
+                        }
+                    }
                 }
                 pc++;
                 break;
@@ -4003,6 +4058,21 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     if (instr->a < program->local_slot_count) {
                         value_free(&program->locals[instr->a]);
                         program->locals[instr->a] = value_create_number(program->num_locals[instr->a]);
+                    }
+                    
+                    // Also update environment so AST-interpreted code can access it
+                    if (interpreter && interpreter->current_environment && program->local_names && 
+                        instr->a >= 0 && (size_t)instr->a < program->local_count) {
+                        const char* var_name = program->local_names[instr->a];
+                        if (var_name) {
+                            Value updated_val = value_create_number(program->num_locals[instr->a]);
+                            if (environment_exists(interpreter->current_environment, var_name)) {
+                                environment_assign(interpreter->current_environment, var_name, updated_val);
+                            } else {
+                                environment_define(interpreter->current_environment, var_name, updated_val);
+                            }
+                            value_free(&updated_val);
+                        }
                     }
                 }
                 pc++;

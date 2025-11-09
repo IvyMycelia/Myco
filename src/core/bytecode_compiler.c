@@ -1378,41 +1378,52 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             } else {
                 // Regular variable assignment
                 const char* var = n->data.assignment.variable_name;
-                int dst = define_local(p, var);
+                int dst = lookup_local(p, var);
                 ASTNode* v = n->data.assignment.value;
                 
-                
-                // dst = dst + id
-                if (v && v->type == AST_NODE_BINARY_OP && v->data.binary.op == OP_ADD &&
-                    v->data.binary.left && v->data.binary.left->type == AST_NODE_IDENTIFIER &&
-                    strcmp(v->data.binary.left->data.identifier_value, var) == 0 &&
-                    v->data.binary.right && v->data.binary.right->type == AST_NODE_IDENTIFIER) {
-                    // 
-                    int right = define_local(p, v->data.binary.right->data.identifier_value);
-                    bc_emit_super(p, BC_ADD_LLL, dst, dst, right); // a = b + c with a=dst, b=dst, c=right
-                }
-                // dst = dst + IMM
-                else if (v && v->type == AST_NODE_BINARY_OP && v->data.binary.op == OP_ADD &&
-                         v->data.binary.left && v->data.binary.left->type == AST_NODE_IDENTIFIER &&
-                         strcmp(v->data.binary.left->data.identifier_value, var) == 0 &&
-                         v->data.binary.right && v->data.binary.right->type == AST_NODE_NUMBER) {
-                    int imm_idx = bc_add_num_const(p, v->data.binary.right->data.number_value);
-                    // 
-                    bc_emit_super(p, BC_ADD_LOCAL_IMM, dst, imm_idx, 0);
-                }
-                // dst = dst + 1
-                else if (v && v->type == AST_NODE_BINARY_OP && v->data.binary.op == OP_ADD &&
-                         v->data.binary.left && v->data.binary.left->type == AST_NODE_IDENTIFIER &&
-                         strcmp(v->data.binary.left->data.identifier_value, var) == 0 &&
-                         v->data.binary.right && v->data.binary.right->type == AST_NODE_NUMBER &&
-                         v->data.binary.right->data.number_value == 1.0) {
-                    // 
-                    bc_emit_super(p, BC_INC_LOCAL, dst, 0, 0);
-                }
-                else {
-                    // Fallback - compile the right-hand side and store the result
+                // Check if variable is a local or global
+                int is_local = (dst >= 0);
+                if (!is_local) {
+                    // Variable is not a local - treat as global
+                    // Compile the right-hand side (this will correctly handle x + 1)
                     compile_node(p, v);
-                    bc_emit(p, BC_STORE_LOCAL, dst, 0);
+                    // Store as global
+                    int var_name_idx = bc_add_const(p, value_create_string(var));
+                    bc_emit(p, BC_STORE_GLOBAL, var_name_idx, 0);
+                } else {
+                    // Variable is a local - use optimized local operations
+                    // dst = dst + id
+                    if (v && v->type == AST_NODE_BINARY_OP && v->data.binary.op == OP_ADD &&
+                        v->data.binary.left && v->data.binary.left->type == AST_NODE_IDENTIFIER &&
+                        strcmp(v->data.binary.left->data.identifier_value, var) == 0 &&
+                        v->data.binary.right && v->data.binary.right->type == AST_NODE_IDENTIFIER) {
+                        // 
+                        int right = define_local(p, v->data.binary.right->data.identifier_value);
+                        bc_emit_super(p, BC_ADD_LLL, dst, dst, right); // a = b + c with a=dst, b=dst, c=right
+                    }
+                    // dst = dst + IMM
+                    else if (v && v->type == AST_NODE_BINARY_OP && v->data.binary.op == OP_ADD &&
+                             v->data.binary.left && v->data.binary.left->type == AST_NODE_IDENTIFIER &&
+                             strcmp(v->data.binary.left->data.identifier_value, var) == 0 &&
+                             v->data.binary.right && v->data.binary.right->type == AST_NODE_NUMBER) {
+                        int imm_idx = bc_add_num_const(p, v->data.binary.right->data.number_value);
+                        // 
+                        bc_emit_super(p, BC_ADD_LOCAL_IMM, dst, imm_idx, 0);
+                    }
+                    // dst = dst + 1
+                    else if (v && v->type == AST_NODE_BINARY_OP && v->data.binary.op == OP_ADD &&
+                             v->data.binary.left && v->data.binary.left->type == AST_NODE_IDENTIFIER &&
+                             strcmp(v->data.binary.left->data.identifier_value, var) == 0 &&
+                             v->data.binary.right && v->data.binary.right->type == AST_NODE_NUMBER &&
+                             v->data.binary.right->data.number_value == 1.0) {
+                        // 
+                        bc_emit_super(p, BC_INC_LOCAL, dst, 0, 0);
+                    }
+                    else {
+                        // Fallback - compile the right-hand side and store the result
+                        compile_node(p, v);
+                        bc_emit(p, BC_STORE_LOCAL, dst, 0);
+                    }
                 }
             }
         } break;

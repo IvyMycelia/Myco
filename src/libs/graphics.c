@@ -367,9 +367,11 @@ Value builtin_graphics_get_key(Interpreter* interpreter, Value* args, size_t arg
         return value_create_null();
     }
     
+    // Pump events to ensure keyboard events are available
+    // This is necessary because events might not be in the queue if window just gained focus
+    SDL_PumpEvents();
+    
     SDL_Event event;
-    // Don't pump events here - pollEvents() already handles it
-    // Multiple SDL_PumpEvents() calls are expensive
     
     // Check for keyboard events - only process ONE keyboard event per call
     // We need to filter through events to find keyboard events

@@ -19,6 +19,7 @@ typedef enum {
     BC_SUB,
     BC_MUL,
     BC_DIV,
+    BC_MOD,
     BC_EQ,
     BC_NE,
     BC_LT,
@@ -130,6 +131,7 @@ typedef enum {
     BC_SUB_NUM,       // Direct numeric subtraction
     BC_MUL_NUM,       // Direct numeric multiplication
     BC_DIV_NUM,       // Direct numeric division
+    BC_MOD_NUM,       // Direct numeric modulo
     BC_LT_NUM,        // Direct numeric less than
     BC_LE_NUM,        // Direct numeric less equal
     BC_GT_NUM,        // Direct numeric greater than

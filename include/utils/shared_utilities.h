@@ -36,6 +36,7 @@ void shared_memory_report_all(void);
 // Memory tracking control
 void shared_memory_tracking_enable(bool enable);
 bool shared_memory_tracking_is_enabled(void);
+size_t shared_get_tracked_allocation_count(void);
 
 // ============================================================================
 // SHARED MEMORY MANAGEMENT UTILITIES

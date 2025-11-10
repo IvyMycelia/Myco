@@ -726,11 +726,12 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             case BC_LOAD_CONST: {
                 if (LIKELY(instr->a < program->const_count)) {
                     Value const_val = program->constants[instr->a];
-                    // Use fast value creation with caching
-                    if (LIKELY(const_val.type == VALUE_NUMBER)) {
+                    // String constants are already processed during compilation, so just clone them
+                    // This avoids reprocessing escape sequences and allocating new buffers every time
+                    if (LIKELY(const_val.type == VALUE_STRING)) {
+                        value_stack_push(value_clone(&const_val));
+                    } else if (LIKELY(const_val.type == VALUE_NUMBER)) {
                         value_stack_push(fast_create_number(program, const_val.data.number_value));
-                    } else if (const_val.type == VALUE_STRING) {
-                        value_stack_push(fast_create_string(program, const_val.data.string_value));
                     } else if (const_val.type == VALUE_BOOLEAN) {
                         value_stack_push(fast_create_boolean(program, const_val.data.boolean_value));
                     } else if (const_val.type == VALUE_NULL) {
@@ -1276,7 +1277,9 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             if (method.type == VALUE_FUNCTION) {
                                 // Call the method - value_function_call handles both builtin and user functions
                                 Value result = value_function_call(&method, args, arg_count, interpreter, 0, 0);
-                                value_stack_push(result);
+                                Value cloned_result = value_clone(&result);
+                                value_free(&result);  // Free original result
+                                value_stack_push(cloned_result);  // Push cloned result (stack doesn't clone)
                                 library_method_handled = true;
                             } else {
                                 value_stack_push(value_create_null());
@@ -2002,8 +2005,20 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 Value val = value_stack_pop();
                 Value result;
                 
-                // For objects, check for __type__ override (e.g., Library)
+                // For objects, check for regular "type" property first
                 if (val.type == VALUE_OBJECT) {
+                    Value regular_type = value_object_get(&val, "type");
+                    if (regular_type.type != VALUE_NULL) {
+                        // Regular "type" property exists - use it
+                        result = regular_type;
+                        value_free(&val);
+                        value_stack_push(result);
+                        pc++;
+                        break;
+                    }
+                    value_free(&regular_type);
+                    
+                    // No regular "type" property - check for __type__ override (e.g., Library)
                     Value type_override = value_object_get(&val, "__type__");
                     if (type_override.type == VALUE_STRING) {
                         result = type_override;
@@ -2024,6 +2039,13 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         break;
                     }
                     value_free(&class_name);
+                    
+                    // Fallback: return "Object" for plain objects
+                    result = value_create_string("Object");
+                    value_free(&val);
+                    value_stack_push(result);
+                    pc++;
+                    break;
                 }
                 
                 // For numbers, distinguish Int vs Float (consistent with AST interpreter)

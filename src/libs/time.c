@@ -11,7 +11,6 @@
 static Value create_time_value(time_t timestamp) {
     Value time_val = value_create_object(10);
     value_object_set_member(&time_val, "timestamp", value_create_number((double)timestamp));
-    value_object_set_member(&time_val, "type", value_create_string("time"));
     return time_val;
 }
 

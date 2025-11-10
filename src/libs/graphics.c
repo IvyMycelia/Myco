@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
+#include <time.h>
 
 #ifdef HAS_SDL_TTF
 // Font structure for text rendering
@@ -310,15 +311,38 @@ Value builtin_graphics_is_open(Interpreter* interpreter, Value* args, size_t arg
     return value_create_boolean(g_window->is_open);
 }
 
+// Memory monitoring
+static time_t g_memory_last_report = 0;
+static int g_memory_report_interval = 1; // Report every 1 second
+static int g_memory_report_count = 0;
+static size_t g_memory_last_count = 0;
+
 // Poll events (returns true if window should close)
 Value builtin_graphics_poll_events(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
     if (!g_window || !g_window->is_open) {
         return value_create_boolean(false);
     }
     
+    // Memory monitoring - report every second for 30 seconds
+    time_t now = time(NULL);
+    if (g_memory_last_report == 0) {
+        g_memory_last_report = now;
+        g_memory_last_count = shared_get_tracked_allocation_count();
+    }
+    if (now - g_memory_last_report >= g_memory_report_interval && g_memory_report_count < 30) {
+        size_t current_count = shared_get_tracked_allocation_count();
+        size_t delta = current_count - g_memory_last_count;
+        fprintf(stderr, "[MEMORY] T+%ds: tracked_allocations=%zu (delta=%+zu)\n",
+                g_memory_report_count + 1, current_count, delta);
+        g_memory_last_report = now;
+        g_memory_last_count = current_count;
+        g_memory_report_count++;
+    }
+    
     // Pump events to ensure window system events are processed
     // This is critical for the window to appear and stay visible
     SDL_PumpEvents();
+    
     
     SDL_Event event;
     // Check for close events by peeking at the event queue
@@ -328,10 +352,10 @@ Value builtin_graphics_poll_events(Interpreter* interpreter, Value* args, size_t
     if (peeked > 0) {
         // Remove and consume the close event
         SDL_PollEvent(&event);
-        g_window->is_open = false;
-        return value_create_boolean(true);
-    }
-    
+            g_window->is_open = false;
+            return value_create_boolean(true);
+        }
+        
     // Check for window close events by scanning the queue
     // We need to check all window events to find close events
     int event_count = SDL_PeepEvents(NULL, 0, SDL_PEEKEVENT, SDL_WINDOWEVENT, SDL_WINDOWEVENT);
@@ -349,29 +373,6 @@ Value builtin_graphics_poll_events(Interpreter* interpreter, Value* args, size_t
                 }
             }
         }
-    }
-    
-    // Consume all events except close events to prevent accumulation
-    // getKey() will pump events itself and see new keyboard events when keys are pressed
-    // This prevents the event queue from growing indefinitely
-    int consumed = 0;
-    while (SDL_PollEvent(&event) && consumed < 20) {
-        consumed++;
-        // Skip close events - already handled above, push back in case we missed it
-        if (event.type == SDL_QUIT) {
-            SDL_PushEvent(&event);
-            continue;
-        }
-        if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE) {
-            if (event.window.windowID == SDL_GetWindowID(g_window->window)) {
-                g_window->is_open = false;
-                return value_create_boolean(true);
-            }
-            SDL_PushEvent(&event);
-            continue;
-        }
-        // Consume all other events (keyboard, window, mouse, etc.)
-        // getKey() will pump events and see new keyboard events when keys are pressed
     }
     
     // No close event found - window should stay open
@@ -393,13 +394,14 @@ Value builtin_graphics_get_key(Interpreter* interpreter, Value* args, size_t arg
     // Check for keyboard events - only process ONE keyboard event per call
     // We need to filter through events to find keyboard events
     // but we only want to consume ONE keyboard event per call
-    int found_keyboard = 0;
+    int events_processed = 0;
     
     // Process events one at a time until we find a keyboard event or queue is empty
     // CRITICAL: When text input is enabled, both KEYDOWN and TEXTINPUT fire for the same key
     // We process the entire queue in one pass and prioritize TEXTINPUT for printable characters
     // This ensures we consume both events and only return one key object
     while (SDL_PollEvent(&event)) {
+        events_processed++;
         // Check for close events FIRST - these take priority over keyboard events
         if (event.type == SDL_QUIT) {
             // Window close button clicked - mark window as closed
@@ -465,6 +467,7 @@ Value builtin_graphics_get_key(Interpreter* interpreter, Value* args, size_t arg
             char key_type_str[16] = "SPECIAL";  // Use array to allow modification
             const char* key_type = key_type_str;
             
+            
             // Map special keys
             if (keycode == SDLK_RETURN || keycode == SDLK_KP_ENTER) {
                 key_name = "ENTER";
@@ -499,8 +502,8 @@ Value builtin_graphics_get_key(Interpreter* interpreter, Value* args, size_t arg
             }
             
             if (key_name) {
-                // Use value_object_set_member which checks for existing keys and updates them
-                // Also handles capacity expansion better
+                
+                // Set all properties on the key object
                 Value type_val = value_create_string(key_type);
                 Value key_val = value_create_string(key_name);
                 Value shift_val = value_create_boolean((mod & KMOD_SHIFT) != 0);
@@ -508,15 +511,14 @@ Value builtin_graphics_get_key(Interpreter* interpreter, Value* args, size_t arg
                 Value alt_val = value_create_boolean((mod & (KMOD_LALT | KMOD_RALT)) != 0);
                 Value cmd_val = value_create_boolean((mod & (KMOD_LGUI | KMOD_RGUI)) != 0);
                 
-                // Set all properties on the key object using set_member (handles updates)
-                value_object_set_member(&key_obj, "type", type_val);
-                value_object_set_member(&key_obj, "key", key_val);
-                value_object_set_member(&key_obj, "shift", shift_val);
-                value_object_set_member(&key_obj, "ctrl", ctrl_val);
-                value_object_set_member(&key_obj, "alt", alt_val);
-                value_object_set_member(&key_obj, "cmd", cmd_val);
+                value_object_set(&key_obj, "type", type_val);
+                value_object_set(&key_obj, "key", key_val);
+                value_object_set(&key_obj, "shift", shift_val);
+                value_object_set(&key_obj, "ctrl", ctrl_val);
+                value_object_set(&key_obj, "alt", alt_val);
+                value_object_set(&key_obj, "cmd", cmd_val);
                 
-                // Free the values (value_object_set_member clones them)
+                // Free the values (value_object_set clones them)
                 value_free(&type_val);
                 value_free(&key_val);
                 value_free(&shift_val);
@@ -529,8 +531,13 @@ Value builtin_graphics_get_key(Interpreter* interpreter, Value* args, size_t arg
                     shared_free_safe((void*)key_name, "libs", "graphics", 0);
                 }
                 
+                
                 return key_obj;
             }
+        } else if (event.type == SDL_KEYUP) {
+            // KEYUP events - consume them but don't return (games typically only care about KEYDOWN)
+            // This prevents KEYUP events from accumulating in the queue
+            continue;
         } else {
             // If event is not a keyboard event and not a close event, consume it
             // pollEvents() will handle these events, so we don't need to push them back
@@ -538,6 +545,7 @@ Value builtin_graphics_get_key(Interpreter* interpreter, Value* args, size_t arg
             // Close events are already handled above and consumed
         }
     }
+    
     
     return value_create_null();
 }

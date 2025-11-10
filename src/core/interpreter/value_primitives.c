@@ -19,6 +19,23 @@ static char* process_escape_sequences(const char* input) {
     if (!input) return NULL;
     
     size_t input_len = strlen(input);
+    
+    // Fast path: check if there are any escape sequences first
+    // If no backslashes, just return a copy (no processing needed)
+    int has_escape = 0;
+    for (size_t i = 0; i < input_len; i++) {
+        if (input[i] == '\\' && i + 1 < input_len) {
+            has_escape = 1;
+            break;
+        }
+    }
+    
+    if (!has_escape) {
+        // No escape sequences - just return a copy
+        return shared_strdup(input);
+    }
+    
+    // Has escape sequences - process them
     // Allocate buffer with worst-case size: input_len * 2 + 1
     // (worst case: every character is an unprocessed escape sequence)
     char* output = shared_malloc_safe(input_len * 2 + 1, "interpreter", "unknown_function", 214);

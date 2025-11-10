@@ -51,6 +51,11 @@ static int myco_tracked_capacity = 0;
 // Forward declaration
 static int myco_find_tracked_index(void* ptr);
 
+// Get current memory tracking stats
+size_t shared_get_tracked_allocation_count(void) {
+    return myco_tracked_count;
+}
+
 static void myco_track_alloc(void* ptr) {
     if (!ptr) return;
     

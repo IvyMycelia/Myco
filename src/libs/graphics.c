@@ -418,52 +418,8 @@ Value builtin_graphics_get_key(Interpreter* interpreter, Value* args, size_t arg
             value_object_set(&key_obj, "alt", value_create_boolean(false));
             value_object_set(&key_obj, "cmd", value_create_boolean(false));
             
-            // Mark that we found a keyboard event
-            found_keyboard = 1;
-            
-            // Continue processing the rest of the queue to consume any KEYDOWN for this same character
-            // KEYDOWN may appear before or after TEXTINPUT in the queue, so we need to process all
-            // remaining events and skip any printable KEYDOWN events
-            SDL_Event next_event;
-            while (SDL_PollEvent(&next_event)) {
-                // Check for close events
-                if (next_event.type == SDL_QUIT) {
-                    g_window->is_open = false;
-                    value_free(&key_obj);
-                    return value_create_null();
-                }
-                
-                if (next_event.type == SDL_WINDOWEVENT && next_event.window.event == SDL_WINDOWEVENT_CLOSE) {
-                    if (next_event.window.windowID == SDL_GetWindowID(g_window->window)) {
-                        g_window->is_open = false;
-                        value_free(&key_obj);
-                        return value_create_null();
-                    }
-                    // Not our window - consume it to prevent accumulation
-                    continue;
-                }
-                
-                // Skip any KEYDOWN events for printable characters (they correspond to this TEXTINPUT)
-                if (next_event.type == SDL_KEYDOWN) {
-                    SDL_Keycode keycode = next_event.key.keysym.sym;
-                    if (keycode >= 32 && keycode <= 126) {
-                        // Printable character KEYDOWN - consume it (TEXTINPUT handles it)
-                        continue;  // Don't push back, just consume
-                    } else {
-                        // Special key - push back for next call to getKey()
-                        SDL_PushEvent(&next_event);
-                    }
-                } else if (next_event.type == SDL_TEXTINPUT || next_event.type == SDL_KEYUP) {
-                    // Another keyboard event - push back for next call
-                    SDL_PushEvent(&next_event);
-                } else {
-                    // Non-keyboard events (window, mouse, etc.) - consume them
-                    // pollEvents() will handle these, so we don't push them back
-                    // This prevents event queue buildup
-                }
-            }
-            
-            // Return the key object - we've consumed the corresponding KEYDOWN
+            // Return the key object immediately
+            // The matching KEYDOWN (if any) will be skipped on next getKey() call since it's printable
             return key_obj;
         } else if (event.type == SDL_KEYDOWN) {
             // Handle the keyboard event

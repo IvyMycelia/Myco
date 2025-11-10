@@ -49,6 +49,8 @@ Value builtin_stack_push(Interpreter* interpreter, Value* args, size_t arg_count
     
     if (elements.type != VALUE_ARRAY || size.type != VALUE_NUMBER) {
         std_error_report(ERROR_INTERNAL_ERROR, "unknown", "unknown_function", "Invalid stack object structure", line, column);
+        value_free(&elements);
+        value_free(&size);
         return value_create_null();
     }
     
@@ -70,11 +72,15 @@ Value builtin_stack_push(Interpreter* interpreter, Value* args, size_t arg_count
     Value cloned_value = value_clone(&value);
     value_array_push(&new_elements, cloned_value);
     
-    // Set the new stack components
-    value_object_set_member(&new_stack, "__class_name__", value_create_string(("Stack" ? strdup("Stack") : NULL)));
+    // Set the new stack components (use value_object_set for consistency)
+    value_object_set(&new_stack, "__class_name__", value_create_string(("Stack" ? strdup("Stack") : NULL)));
     value_object_set(&new_stack, "type", value_create_string("Stack"));
-    value_object_set_member(&new_stack, "elements", new_elements);
-    value_object_set_member(&new_stack, "size", new_size);
+    value_object_set(&new_stack, "elements", new_elements);
+    value_object_set(&new_stack, "size", new_size);
+    
+    // Free the cloned values from value_object_get
+    value_free(&elements);
+    value_free(&size);
     
     // Add methods to the new stack
     add_stack_methods(&new_stack);

@@ -21,11 +21,13 @@ static time_t get_timestamp(Value* time_val) {
     }
     
     Value timestamp_val = value_object_get(time_val, "timestamp");
-    if (timestamp_val.type != VALUE_NUMBER) {
-        return 0;
+    time_t result = 0;
+    if (timestamp_val.type == VALUE_NUMBER) {
+        result = (time_t)timestamp_val.data.number_value;
     }
-    
-    return (time_t)timestamp_val.data.number_value;
+    // Free the cloned value returned by value_object_get
+    value_free(&timestamp_val);
+    return result;
 }
 
 // time.now() - Get current timestamp

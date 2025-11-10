@@ -452,8 +452,17 @@ Value value_clone(Value* value) {
         case VALUE_NUMBER: return value_create_number(value->data.number_value); 
         case VALUE_BOOLEAN: return value_create_boolean(value->data.boolean_value); 
         case VALUE_STRING: {
+            // Strings are immutable, so we can reuse the pointer instead of duplicating
+            // This prevents memory leaks from repeated cloning (e.g., in property access)
             if (value->data.string_value) {
-                return value_create_string(value->data.string_value);
+                Value v = {0};
+                v.type = VALUE_STRING;
+                v.flags = VALUE_FLAG_IMMUTABLE | VALUE_FLAG_CACHED;
+                v.ref_count = 1;
+                v.data.string_value = value->data.string_value;  // Reuse pointer for immutable strings
+                v.cache.cached_length = value->cache.cached_length;
+                v.cache.cached_ptr = NULL;
+                return v;
             } else {
                 return value_create_string("");
             }

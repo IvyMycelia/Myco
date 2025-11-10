@@ -8,6 +8,7 @@
 #include "../../include/libs/math.h"
 #include "../../include/libs/maps.h"
 #include "../../include/libs/sets.h"
+#include "../../include/libs/graphics.h"
 #include "../../include/core/optimization/hot_spot_tracker.h"
 #include <ctype.h>
 #include <string.h>
@@ -491,8 +492,8 @@ Value interpreter_execute_bytecode(Interpreter* interpreter, BytecodeProgram* by
 
 // Stack operations
 static Value* value_stack = NULL;
-static size_t value_stack_size = 0;
-static size_t value_stack_capacity = 0;
+size_t value_stack_size = 0;  // Made non-static for debugging
+size_t value_stack_capacity = 0;  // Made non-static for debugging
 
 static double* num_stack = NULL;
 static size_t num_stack_size = 0;
@@ -757,11 +758,18 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         if (var_name && environment_exists(interpreter->current_environment, var_name)) {
                             // Variable exists in environment - use that (may be newer)
                             Value env_val = environment_get(interpreter->current_environment, var_name);
-                            // Update local slot to match environment
-                            value_free(&program->locals[instr->a]);
-                            program->locals[instr->a] = value_clone(&env_val);
-                            // Push the environment value
-                            value_stack_push(env_val);
+                            
+                            // Update local slot to match environment if local is Null or different
+                            if (local_val.type == VALUE_NULL || 
+                                (local_val.type == VALUE_OBJECT && env_val.type == VALUE_OBJECT && 
+                                 local_val.data.object_value.count != env_val.data.object_value.count)) {
+                                value_free(&program->locals[instr->a]);
+                                program->locals[instr->a] = value_clone(&env_val);
+                            }
+                            // Push the environment value (clone it since value_stack_push does shallow copy)
+                            Value cloned_env_val = value_clone(&env_val);
+                            value_free(&env_val);
+                            value_stack_push(cloned_env_val);
                         } else {
                             // Variable not in environment - use local slot
                     value_stack_push(value_clone(&local_val));
@@ -797,14 +805,25 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             case BC_STORE_LOCAL: {
                 if (instr->a < program->local_slot_count) {
                     Value val = value_stack_pop();
+                    
                     value_free(&program->locals[instr->a]);
-                    // Store the value directly (don't clone) - the value on stack is already a clone from BC_LOAD_LOCAL
-                    program->locals[instr->a] = val;
                     
                     // Also update numeric locals if this is a number
                     if (val.type == VALUE_NUMBER && instr->a < program->num_local_count) {
                         program->num_locals[instr->a] = val.data.number_value;
                     }
+                    
+                    // For complex types (objects, arrays), clone to ensure internal pointers are valid
+                    // For simple types (numbers, booleans, null), store directly
+                    Value stored_val;
+                    if (val.type == VALUE_OBJECT || val.type == VALUE_ARRAY || val.type == VALUE_FUNCTION) {
+                        stored_val = value_clone(&val);
+                        value_free(&val);
+                    } else {
+                        // Store the value directly (don't clone) - the value on stack is already a clone from BC_LOAD_LOCAL
+                        stored_val = val;
+                    }
+                    program->locals[instr->a] = stored_val;
                     
                     // Also store in environment so AST-interpreted code (like for loop bodies) can access it
                     // Find the variable name from the local slot index
@@ -813,12 +832,18 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         const char* var_name = program->local_names[instr->a];
                         if (var_name) {
                             // Store in environment (clones the value)
+                            // Use stored_val which is already cloned for complex types
                             if (environment_exists(interpreter->current_environment, var_name)) {
-                                environment_assign(interpreter->current_environment, var_name, val);
+                                environment_assign(interpreter->current_environment, var_name, stored_val);
                             } else {
-                                environment_define(interpreter->current_environment, var_name, val);
+                                environment_define(interpreter->current_environment, var_name, stored_val);
                             }
                         }
+                    }
+                    
+                    // Free val only if we cloned it (stored_val is a separate copy)
+                    if (val.type == VALUE_OBJECT || val.type == VALUE_ARRAY || val.type == VALUE_FUNCTION) {
+                        value_free(&val);
                     }
                 }
                 pc++;
@@ -866,10 +891,8 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     }
                     // Free the value we just stored (it was cloned by environment_assign/define)
                     value_free(&val);
-                    // Push a clone of the stored value back onto the stack (for expressions)
-                    // Get it fresh from the environment to ensure we have the right reference
-                    Value stored_val = environment_get(target_env, var_name);
-                    value_stack_push(stored_val); // environment_get already returns a clone
+                    // Don't push the value back - BC_STORE_GLOBAL is a statement, not an expression
+                    // The value is already stored in the environment, no need to keep it on the stack // environment_get already returns a clone
                 } else {
                     value_stack_pop(); // Remove value from stack
                     value_stack_push(value_create_null());
@@ -1291,6 +1314,44 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         
                         // Only check other conditions if library method wasn't handled
                         if (!library_method_handled) {
+                            // CRITICAL OPTIMIZATION: For known Window.isOpen() calls, skip all lookups
+                            // This avoids value_object_get allocations for both class_name and method
+                            // Only apply this for Window objects - check __class_name__ first to avoid false matches
+                            // We do a minimal check: if it's an object with isOpen method and 0 args,
+                            // and it has a __class_name__ property that we can quickly verify
+                            if (arg_count == 0 && strcmp(method_name, "isOpen") == 0 && object.type == VALUE_OBJECT) {
+                                // Quick check: peek at __class_name__ without cloning to see if it's "Window"
+                                // This is a minimal check to avoid false matches with other objects
+                                bool is_window = false;
+                                for (size_t i = 0; i < object.data.object_value.count; i++) {
+                                    if (object.data.object_value.keys[i] && 
+                                        strcmp(object.data.object_value.keys[i], "__class_name__") == 0) {
+                                        Value* class_name_val = (Value*)object.data.object_value.values[i];
+                                        if (class_name_val && class_name_val->type == VALUE_STRING &&
+                                            strcmp(class_name_val->data.string_value, "Window") == 0) {
+                                            is_window = true;
+                                        }
+                                        break;
+                                    }
+                                }
+                                
+                                if (is_window) {
+                                    // Fast path: Direct call to isOpen without any lookups
+                                    Value method_args[1];
+                                    method_args[0] = object; // Pass object directly without cloning
+                                    Value result = builtin_graphics_is_open(interpreter, method_args, 1, 0, 0);
+                                    value_stack_push(result);
+                                    // Free object - it was popped from stack and we're done with it
+                                    value_free(&object);
+                                    // Don't free args - there are none (arg_count == 0)
+                                    if (args) {
+                                        shared_free_safe(args, "bytecode_vm", "BC_METHOD_CALL", 16);
+                                    }
+                                    pc++;
+                                    break;
+                                }
+                            }
+                            
                             // Check if it's a library instance (has __class_name__ but not a VALUE_CLASS)
                             Value class_name = value_object_get(&object, "__class_name__");
                         if (class_name.type == VALUE_STRING) {
@@ -1298,29 +1359,48 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             if (strcmp(class_name.data.string_value, "Server") == 0 ||
                                 strcmp(class_name.data.string_value, "Window") == 0) {
                                 // Server and Window methods need object as first argument
-                                Value method = value_object_get(&object, method_name);
+                                Value method = {0};
+                                bool method_found = false;
+                                bool is_builtin = false;
+                                
+                                // Look up the method
+                                method = value_object_get(&object, method_name);
                                 if (method.type == VALUE_FUNCTION) {
-                                    // Check if this is a builtin function
-                                    bool is_builtin = (method.data.function_value.body != NULL &&
+                                    method_found = true;
+                                    is_builtin = (method.data.function_value.body != NULL &&
                                         method.data.function_value.parameter_count == 0 &&
                                                        !method.data.function_value.parameters &&
                                                        (uintptr_t)method.data.function_value.body > 0x100);
-                                    if (is_builtin) {
+                                }
+                                
+                                if (method_found && is_builtin) {
                                         // This is a builtin function - call it with object as first argument
                                         Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = 
                                             (Value (*)(Interpreter*, Value*, size_t, int, int))method.data.function_value.body;
-                                        // For server/window methods, pass object as first argument
+                                    
+                                    // Optimize zero-argument method calls to avoid allocations in tight loops
+                                    Value result;
+                                    if (arg_count == 0) {
+                                        // Zero arguments - use stack-allocated array to avoid malloc
+                                        // CRITICAL: Don't clone the object - builtin functions don't modify it
+                                        Value method_args[1];
+                                        method_args[0] = object; // Pass object directly without cloning
+                                        result = builtin_func(interpreter, method_args, 1, 0, 0);
+                                        // Don't free method_args[0] - it's the original object, not a clone
+                                    } else {
+                                        // Has arguments - allocate array
                                         Value* method_args = shared_malloc_safe((arg_count + 1) * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL", 13);
                                         method_args[0] = value_clone(&object); // self as first argument
                                         for (int i = 0; i < arg_count; i++) {
                                             method_args[i + 1] = value_clone(&args[i]);
                                         }
-                                        Value result = builtin_func(interpreter, method_args, arg_count + 1, 0, 0);
+                                        result = builtin_func(interpreter, method_args, arg_count + 1, 0, 0);
                                         // Clean up method arguments
                                         for (int i = 0; i < arg_count + 1; i++) {
                                             value_free(&method_args[i]);
                                         }
                                         shared_free_safe(method_args, "bytecode_vm", "BC_METHOD_CALL", 14);
+                                    }
                                         value_stack_push(result);
                                         value_free(&method);
                                         value_free(&class_name);
@@ -1334,7 +1414,6 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                         }
                                         pc++;
                                         break;
-                                    }
                                 }
                                 value_free(&method);
                             }
@@ -1347,9 +1426,6 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                 // It's a library instance - get method directly from object
                                 Value method = value_object_get(&object, method_name);
                                 if (method.type == VALUE_FUNCTION) {
-                                    // Set self context and call method
-                                    interpreter_set_self_context(interpreter, &object);
-                                    
                                     // Check if this is a method that uses self_context (heaps, queues, stacks)
                                     // vs explicit self argument (trees, graphs)
                                     bool uses_self_context = (strcmp(class_name.data.string_value, "Heap") == 0 ||
@@ -1358,8 +1434,12 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                     
                                     Value result;
                                     if (uses_self_context) {
-                                        // For heaps/queues/stacks, don't pass self as argument
-                                        result = value_function_call(&method, args, arg_count, interpreter, 0, 0);
+                                        // For heaps/queues/stacks, use self_context
+                                        // The _method versions will get self from interpreter_get_self_context
+                                        // value_function_call_with_self now sets self_context for builtin functions
+                                        result = value_function_call_with_self(&method, args, arg_count, interpreter, &object, 0, 0);
+                                        // Now safe to free object
+                                        value_free(&object);
                                     } else {
                                         // For trees/graphs, pass self as first argument
                                         Value* method_args = shared_malloc_safe((arg_count + 1) * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL", 9);
@@ -1375,13 +1455,20 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                             value_free(&method_args[i]);
                                         }
                                         shared_free_safe(method_args, "bytecode_vm", "BC_METHOD_CALL", 10);
+                                        // Free object after call
+                                        value_free(&object);
                                     }
                                     
+                                    // Push result directly - don't clone or free
+                                    // BC_STORE_LOCAL will clone when storing, which is sufficient
                                     value_stack_push(result);
                                 } else {
                                     value_stack_push(value_create_null());
+                                    // Free object if method not found
+                                    value_free(&object);
                                 }
                                 value_free(&method);
+                                value_free(&class_name);
                             } else {
                                 // It's a regular class instance - find method in inheritance chain
                                 Value class_def = environment_get(interpreter->global_environment, class_name.data.string_value);
@@ -1421,18 +1508,28 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                     // This is a builtin function - call it with object as first argument
                                     Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = 
                                         (Value (*)(Interpreter*, Value*, size_t, int, int))method.data.function_value.body;
-                                    // For builtin methods, pass object as first argument
+                                    // Optimize zero-argument method calls to avoid allocations in tight loops
+                                    Value result;
+                                    if (arg_count == 0) {
+                                        // Zero arguments - use stack-allocated array to avoid malloc
+                                        Value method_args[1];
+                                        method_args[0] = value_clone(&object); // self as first argument
+                                        result = builtin_func(interpreter, method_args, 1, 0, 0);
+                                        value_free(&method_args[0]);
+                                    } else {
+                                        // Has arguments - allocate array
                                     Value* method_args = shared_malloc_safe((arg_count + 1) * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL", 11);
                                     method_args[0] = value_clone(&object); // self as first argument
                                     for (int i = 0; i < arg_count; i++) {
                                         method_args[i + 1] = value_clone(&args[i]);
                                     }
-                                    Value result = builtin_func(interpreter, method_args, arg_count + 1, 0, 0);
+                                        result = builtin_func(interpreter, method_args, arg_count + 1, 0, 0);
                                     // Clean up method arguments
                                     for (int i = 0; i < arg_count + 1; i++) {
                                         value_free(&method_args[i]);
                                     }
                                     shared_free_safe(method_args, "bytecode_vm", "BC_METHOD_CALL", 12);
+                                    }
                                     value_stack_push(result);
                                 } else {
                                     // Regular user function - use self context
@@ -4803,11 +4900,19 @@ cleanup:
     
     // Free stack memory if it grew too large (prevent memory bloat)
     // Keep a reasonable capacity (128 entries) to avoid constant reallocation
+    // But don't free if capacity is reasonable - just reset size to prevent leaks
     if (value_stack_capacity > 1024) {
         shared_free_safe(value_stack, "bytecode_vm", "cleanup_stack", 1);
         value_stack = NULL;
         value_stack_capacity = 0;
         value_stack_size = 0;
+    } else if (value_stack_capacity > 128) {
+        // If capacity is between 128 and 1024, shrink it back to 128 to prevent bloat
+        Value* new_stack = shared_realloc_safe(value_stack, 128 * sizeof(Value), "bytecode_vm", "shrink_stack", 1);
+        if (new_stack) {
+            value_stack = new_stack;
+            value_stack_capacity = 128;
+        }
     }
     if (num_stack_capacity > 1024) {
         shared_free_safe(num_stack, "bytecode_vm", "cleanup_num_stack", 1);

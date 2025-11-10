@@ -1991,12 +1991,7 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                         // Use BC_METHOD_CALL to dispatch to correct push implementation at runtime
                         int method_name_idx = bc_add_const(p, value_create_string(method_name));
                         bc_emit(p, BC_METHOD_CALL, method_name_idx, n->data.function_call_expr.argument_count);
-                        // Store result back to variable if object is a simple identifier
-                        if (member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
-                            const char* var_name = member_access->data.member_access.object->data.identifier_value;
-                            int var_name_idx = bc_add_const(p, value_create_string(var_name));
-                            bc_emit(p, BC_STORE_GLOBAL, var_name_idx, 0);
-                        }
+                        // Don't auto-store result - let the caller (assignment or expression context) handle it
                     } else if (strcmp(method_name, "pop") == 0 && n->data.function_call_expr.argument_count == 0) {
                         // Check if this is an array or a stack/queue/heap
                         // For now, we can't determine at compile time, so use method call for non-array objects

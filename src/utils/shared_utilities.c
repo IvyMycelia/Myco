@@ -45,6 +45,8 @@ static const uint64_t MYCO_CANARY_MAGIC = 0xC0FFEEBADC0DEULL;
 // Use dynamic allocation for large tracking arrays to avoid stack overflow
 static void** myco_tracked_ptrs = NULL;
 static size_t* myco_tracked_sizes = NULL;
+static char (*myco_tracked_components)[64] = NULL;  // Track component for each allocation
+static char (*myco_tracked_functions)[64] = NULL;   // Track function for each allocation
 static int myco_tracked_count = 0;
 static int myco_tracked_capacity = 0;
 
@@ -56,7 +58,74 @@ size_t shared_get_tracked_allocation_count(void) {
     return myco_tracked_count;
 }
 
-static void myco_track_alloc(void* ptr) {
+// Print allocation statistics by component and function
+void shared_print_allocation_stats(void) {
+    if (!myco_tracked_ptrs || myco_tracked_count == 0 || !myco_tracked_components || !myco_tracked_functions) {
+        fprintf(stderr, "[MEMORY STATS] No tracked allocations\n");
+        return;
+    }
+    
+    // Count allocations by component/function
+    #define MAX_STATS 100
+    typedef struct {
+        char component[64];
+        char function[64];
+        int count;
+        size_t total_size;
+    } AllocStat;
+    
+    AllocStat stats[MAX_STATS] = {0};
+    int stats_count = 0;
+    
+    for (int i = 0; i < myco_tracked_count; i++) {
+        const char* comp = myco_tracked_components[i];
+        const char* func = myco_tracked_functions[i];
+        size_t size = myco_tracked_sizes ? myco_tracked_sizes[i] : 0;
+        
+        // Find or create stat entry
+        int found = -1;
+        for (int j = 0; j < stats_count; j++) {
+            if (strcmp(stats[j].component, comp) == 0 && strcmp(stats[j].function, func) == 0) {
+                found = j;
+                break;
+            }
+        }
+        
+        if (found >= 0) {
+            stats[found].count++;
+            stats[found].total_size += size;
+        } else if (stats_count < MAX_STATS) {
+            strncpy(stats[stats_count].component, comp, 63);
+            stats[stats_count].component[63] = '\0';
+            strncpy(stats[stats_count].function, func, 63);
+            stats[stats_count].function[63] = '\0';
+            stats[stats_count].count = 1;
+            stats[stats_count].total_size = size;
+            stats_count++;
+        }
+    }
+    
+    // Sort by count (descending)
+    for (int i = 0; i < stats_count - 1; i++) {
+        for (int j = i + 1; j < stats_count; j++) {
+            if (stats[j].count > stats[i].count) {
+                AllocStat temp = stats[i];
+                stats[i] = stats[j];
+                stats[j] = temp;
+            }
+        }
+    }
+    
+    // Print top 20
+    fprintf(stderr, "[MEMORY STATS] Top allocators (count, total_size):\n");
+    int print_count = stats_count < 20 ? stats_count : 20;
+    for (int i = 0; i < print_count; i++) {
+        fprintf(stderr, "  %s::%s: %d allocations, %zu bytes\n",
+                stats[i].component, stats[i].function, stats[i].count, stats[i].total_size);
+    }
+}
+
+static void myco_track_alloc_with_info(void* ptr, const char* component, const char* function) {
     if (!ptr) return;
     
     // Initialize tracking arrays if needed
@@ -65,12 +134,18 @@ static void myco_track_alloc(void* ptr) {
         myco_tracked_capacity = MYCO_MAX_TRACKED_PTRS;
         myco_tracked_ptrs = (void**)malloc(sizeof(void*) * myco_tracked_capacity);
         myco_tracked_sizes = (size_t*)malloc(sizeof(size_t) * myco_tracked_capacity);
-        if (!myco_tracked_ptrs || !myco_tracked_sizes) {
+        myco_tracked_components = (char(*)[64])malloc(sizeof(char[64]) * myco_tracked_capacity);
+        myco_tracked_functions = (char(*)[64])malloc(sizeof(char[64]) * myco_tracked_capacity);
+        if (!myco_tracked_ptrs || !myco_tracked_sizes || !myco_tracked_components || !myco_tracked_functions) {
             // Free whatever was allocated
             if (myco_tracked_ptrs) free(myco_tracked_ptrs);
             if (myco_tracked_sizes) free(myco_tracked_sizes);
+            if (myco_tracked_components) free(myco_tracked_components);
+            if (myco_tracked_functions) free(myco_tracked_functions);
             myco_tracked_ptrs = NULL;
             myco_tracked_sizes = NULL;
+            myco_tracked_components = NULL;
+            myco_tracked_functions = NULL;
             return; // Can't track if allocation fails
         }
         myco_tracked_count = 0;
@@ -93,9 +168,13 @@ static void myco_track_alloc(void* ptr) {
             // Use raw realloc to avoid recursion
             void** new_ptrs = (void**)realloc(myco_tracked_ptrs, sizeof(void*) * new_capacity);
             size_t* new_sizes = (size_t*)realloc(myco_tracked_sizes, sizeof(size_t) * new_capacity);
-            if (new_ptrs && new_sizes) {
+            char (*new_components)[64] = (char(*)[64])realloc(myco_tracked_components, sizeof(char[64]) * new_capacity);
+            char (*new_functions)[64] = (char(*)[64])realloc(myco_tracked_functions, sizeof(char[64]) * new_capacity);
+            if (new_ptrs && new_sizes && new_components && new_functions) {
                 myco_tracked_ptrs = new_ptrs;
                 myco_tracked_sizes = new_sizes;
+                myco_tracked_components = new_components;
+                myco_tracked_functions = new_functions;
                 myco_tracked_capacity = new_capacity;
             }
         }
@@ -107,9 +186,27 @@ static void myco_track_alloc(void* ptr) {
         }
     }
     
+    // Store component and function info
+    if (component && myco_tracked_components) {
+        strncpy(myco_tracked_components[myco_tracked_count], component, 63);
+        myco_tracked_components[myco_tracked_count][63] = '\0';
+    } else if (myco_tracked_components) {
+        myco_tracked_components[myco_tracked_count][0] = '\0';
+    }
+    if (function && myco_tracked_functions) {
+        strncpy(myco_tracked_functions[myco_tracked_count], function, 63);
+        myco_tracked_functions[myco_tracked_count][63] = '\0';
+    } else if (myco_tracked_functions) {
+        myco_tracked_functions[myco_tracked_count][0] = '\0';
+    }
+    
     myco_tracked_ptrs[myco_tracked_count] = ptr;
     myco_tracked_sizes[myco_tracked_count] = 0;  // Size will be set by myco_track_allocation
     myco_tracked_count++;
+}
+
+static void myco_track_alloc(void* ptr) {
+    myco_track_alloc_with_info(ptr, NULL, NULL);
 }
 
 static int myco_find_tracked_index(void* ptr) {
@@ -136,14 +233,26 @@ static int myco_untrack_alloc(void* ptr) {
     int idx = myco_find_tracked_index(ptr);
     if (idx >= 0) {
         // Found it - remove from tracking BEFORE freeing
-        // Also remove the size information
+        // Also remove the size information and component/function info
         // This ensures that if free() is called, we've already removed it from tracking
         // This prevents double-frees from appearing as tracked
         // Swap with last element for O(1) removal
         myco_tracked_ptrs[idx] = myco_tracked_ptrs[--myco_tracked_count];
         myco_tracked_sizes[idx] = myco_tracked_sizes[myco_tracked_count];
+        if (myco_tracked_components) {
+            strncpy(myco_tracked_components[idx], myco_tracked_components[myco_tracked_count], 64);
+        }
+        if (myco_tracked_functions) {
+            strncpy(myco_tracked_functions[idx], myco_tracked_functions[myco_tracked_count], 64);
+        }
         myco_tracked_ptrs[myco_tracked_count] = NULL;
         myco_tracked_sizes[myco_tracked_count] = 0;
+        if (myco_tracked_components) {
+            myco_tracked_components[myco_tracked_count][0] = '\0';
+        }
+        if (myco_tracked_functions) {
+            myco_tracked_functions[myco_tracked_count][0] = '\0';
+        }
         return 1;
     }
     return 0;  // Not found in registry - don't free
@@ -254,7 +363,7 @@ void* shared_malloc_safe(size_t size, const char* component, const char* functio
     // if (size > 1024) {
     // }
     
-    myco_track_alloc(ptr);
+    myco_track_alloc_with_info(ptr, component, function);
     // Store size for overflow checks
     if (myco_tracked_count > 0) {
         myco_tracked_sizes[myco_tracked_count - 1] = size;
@@ -268,7 +377,7 @@ void* shared_malloc_safe(size_t size, const char* component, const char* functio
 
 void* shared_realloc_safe(void* ptr, size_t size, const char* component, const char* function, int line) {
     if (size == 0) {
-        shared_free(ptr);
+        shared_free_safe(ptr, component, function, line);
         return NULL;
     }
     // Simplify: allocate new with canary and copy
@@ -285,7 +394,9 @@ void* shared_realloc_safe(void* ptr, size_t size, const char* component, const c
         if (ptr && new_ptr && copy_sz > 0) {
             memcpy(new_ptr, ptr, copy_sz);
         }
+        // Untrack and free the old buffer
         myco_untrack_alloc(ptr);
+        free(ptr);
     }
     if (shared_config_get_component_debug(component)) {
         shared_debug_printf(component, function, "Reallocated %zu bytes at %p", size, new_ptr);

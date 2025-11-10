@@ -351,8 +351,28 @@ Value builtin_graphics_poll_events(Interpreter* interpreter, Value* args, size_t
         }
     }
     
-    // Don't process other events - leave them for getKey() and other handlers
-    // This prevents event queue buildup and ensures keyboard events are available
+    // Consume all events except close events to prevent accumulation
+    // getKey() will pump events itself and see new keyboard events when keys are pressed
+    // This prevents the event queue from growing indefinitely
+    int consumed = 0;
+    while (SDL_PollEvent(&event) && consumed < 20) {
+        consumed++;
+        // Skip close events - already handled above, push back in case we missed it
+        if (event.type == SDL_QUIT) {
+            SDL_PushEvent(&event);
+            continue;
+        }
+        if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE) {
+            if (event.window.windowID == SDL_GetWindowID(g_window->window)) {
+                g_window->is_open = false;
+                return value_create_boolean(true);
+            }
+            SDL_PushEvent(&event);
+            continue;
+        }
+        // Consume all other events (keyboard, window, mouse, etc.)
+        // getKey() will pump events and see new keyboard events when keys are pressed
+    }
     
     // No close event found - window should stay open
     return value_create_boolean(false);

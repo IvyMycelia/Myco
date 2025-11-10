@@ -13,6 +13,24 @@
 #include <math.h>
 #include <time.h>
 
+// String cache for common key names and types to reduce allocations
+// These strings are used frequently and don't need to be allocated every time
+static const char* KEY_TYPE_SPECIAL = "SPECIAL";
+static const char* KEY_TYPE_CHAR = "CHAR";
+static const char* KEY_NAME_ENTER = "ENTER";
+static const char* KEY_NAME_BACKSPACE = "BACKSPACE";
+static const char* KEY_NAME_DELETE = "DELETE";
+static const char* KEY_NAME_TAB = "TAB";
+static const char* KEY_NAME_ESCAPE = "ESCAPE";
+static const char* KEY_NAME_UP = "UP";
+static const char* KEY_NAME_DOWN = "DOWN";
+static const char* KEY_NAME_LEFT = "LEFT";
+static const char* KEY_NAME_RIGHT = "RIGHT";
+static const char* KEY_NAME_HOME = "HOME";
+static const char* KEY_NAME_END = "END";
+static const char* KEY_NAME_PAGEUP = "PAGEUP";
+static const char* KEY_NAME_PAGEDOWN = "PAGEDOWN";
+
 #ifdef HAS_SDL_TTF
 // Font structure for text rendering
 typedef struct {
@@ -303,12 +321,35 @@ Value builtin_graphics_close_window(Interpreter* interpreter, Value* args, size_
     return value_create_boolean(true);
 }
 
-// Check if window is open
-Value builtin_graphics_is_open(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
-    if (!g_window) {
-        return value_create_boolean(false);
+// Cached boolean values to avoid repeated allocations in tight loops
+static Value cached_true_boolean = {0};
+static Value cached_false_boolean = {0};
+static bool boolean_cache_initialized = false;
+
+static void init_boolean_cache(void) {
+    if (!boolean_cache_initialized) {
+        cached_true_boolean = value_create_boolean(true);
+        cached_false_boolean = value_create_boolean(false);
+        boolean_cache_initialized = true;
     }
-    return value_create_boolean(g_window->is_open);
+}
+
+// Check if window is open
+// CRITICAL: This function is called millions of times per second in tight loops
+// We must avoid ALL SDL event functions here to prevent memory leaks
+// SDL event functions (SDL_PumpEvents, SDL_PollEvent) allocate memory internally
+// Events should only be processed via pollEvents() when explicitly called
+Value builtin_graphics_is_open(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
+    init_boolean_cache();
+    
+    // Simply return the cached window state - no SDL calls at all
+    // This prevents any SDL internal allocations in tight loops
+    // pollEvents() will update g_window->is_open when close events occur
+    if (!g_window || !g_window->is_open) {
+        return cached_false_boolean;
+    }
+    
+    return cached_true_boolean;
 }
 
 // Memory monitoring
@@ -334,45 +375,66 @@ Value builtin_graphics_poll_events(Interpreter* interpreter, Value* args, size_t
         size_t delta = current_count - g_memory_last_count;
         fprintf(stderr, "[MEMORY] T+%ds: tracked_allocations=%zu (delta=%+zu)\n",
                 g_memory_report_count + 1, current_count, delta);
+        if (delta > 50) {
+            // Significant leak detected - print detailed stats
+            shared_print_allocation_stats();
+        }
         g_memory_last_report = now;
         g_memory_last_count = current_count;
         g_memory_report_count++;
     }
     
-    // Pump events to ensure window system events are processed
-    // This is critical for the window to appear and stay visible
-    SDL_PumpEvents();
+    // Debug: Check stack size to see if it's growing
+    extern size_t value_stack_size;
+    extern size_t value_stack_capacity;
+    static size_t last_stack_size = 0;
+    static size_t last_stack_capacity = 0;
+    if (g_memory_report_count > 0 && g_memory_report_count % 5 == 0) {
+        if (value_stack_size != last_stack_size || value_stack_capacity != last_stack_capacity) {
+            fprintf(stderr, "[DEBUG] Stack: size=%zu, capacity=%zu (was size=%zu, capacity=%zu)\n",
+                    value_stack_size, value_stack_capacity, last_stack_size, last_stack_capacity);
+            last_stack_size = value_stack_size;
+            last_stack_capacity = value_stack_capacity;
+        }
+    }
     
+    // CRITICAL: SDL event functions allocate memory internally
+    // We must minimize ALL SDL event calls to prevent memory leaks
+    // Only pump events very rarely, and consume all events when we do
+    static int pump_counter = 0;
+    if (++pump_counter >= 1000) {
+        // Pump every 1000 frames to drastically reduce allocation frequency
+        // This is the only place we call SDL_PumpEvents() to minimize allocations
+        SDL_PumpEvents();
+        pump_counter = 0;
+    }
     
+    // Consume ALL events to prevent SDL queue growth
+    // Drain the entire event queue completely to prevent memory leaks
+    // Note: SDL_PollEvent() itself may allocate, but we must consume events to prevent queue growth
     SDL_Event event;
-    // Check for close events by peeking at the event queue
-    // Use SDL_PeepEvents with SDL_PEEKEVENT to peek without removing
-    // Then only remove close events, leaving keyboard events for getKey()
-    int peeked = SDL_PeepEvents(&event, 1, SDL_PEEKEVENT, SDL_QUIT, SDL_QUIT);
-    if (peeked > 0) {
-        // Remove and consume the close event
-        SDL_PollEvent(&event);
+    int events_processed = 0;
+    int max_events = 10000; // Safety limit to prevent infinite loops (very high)
+    
+    // Drain the entire event queue - consume all events until queue is empty
+    while (events_processed < max_events && SDL_PollEvent(&event)) {
+        events_processed++;
+        
+        if (event.type == SDL_QUIT) {
             g_window->is_open = false;
-            return value_create_boolean(true);
+            return value_create_boolean(false);
         }
         
-    // Check for window close events by scanning the queue
-    // We need to check all window events to find close events
-    int event_count = SDL_PeepEvents(NULL, 0, SDL_PEEKEVENT, SDL_WINDOWEVENT, SDL_WINDOWEVENT);
-    if (event_count > 0) {
-        // Peek at window events to find close events
-        SDL_Event events[10];
-        int peeked_count = SDL_PeepEvents(events, 10, SDL_PEEKEVENT, SDL_WINDOWEVENT, SDL_WINDOWEVENT);
-        for (int i = 0; i < peeked_count; i++) {
-            if (events[i].window.event == SDL_WINDOWEVENT_CLOSE) {
-                if (events[i].window.windowID == SDL_GetWindowID(g_window->window)) {
-                    // Remove the close event
-                    SDL_PollEvent(&event);
-                    g_window->is_open = false;
-                    return value_create_boolean(true);
-                }
+        if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE) {
+            if (event.window.windowID == SDL_GetWindowID(g_window->window)) {
+                g_window->is_open = false;
+                return value_create_boolean(false);
             }
         }
+        
+        // For all other events, we've consumed them by calling SDL_PollEvent
+        // This prevents SDL's internal queue from growing unbounded
+        // Continue consuming until queue is empty
     }
     
     // No close event found - window should stay open
@@ -385,9 +447,16 @@ Value builtin_graphics_get_key(Interpreter* interpreter, Value* args, size_t arg
         return value_create_null();
     }
     
-    // Pump events to ensure keyboard events are available
-    // This is necessary because events might not be in the queue if window just gained focus
-    SDL_PumpEvents();
+    // CRITICAL: SDL event functions allocate memory internally
+    // getKey() is called frequently, so we drastically reduce SDL_PumpEvents calls
+    // SDL_PumpEvents() pulls events from the OS, which can cause allocations
+    static int getkey_pump_counter = 0;
+    if (++getkey_pump_counter >= 500) {
+        // Pump every 500 calls to drastically reduce allocation frequency
+        // This minimizes SDL internal allocations while still allowing keyboard input
+        SDL_PumpEvents();
+        getkey_pump_counter = 0;
+    }
     
     SDL_Event event;
     
@@ -395,12 +464,13 @@ Value builtin_graphics_get_key(Interpreter* interpreter, Value* args, size_t arg
     // We need to filter through events to find keyboard events
     // but we only want to consume ONE keyboard event per call
     int events_processed = 0;
+    int max_events_to_process = 100; // Limit event processing to prevent infinite loops
     
     // Process events one at a time until we find a keyboard event or queue is empty
     // CRITICAL: When text input is enabled, both KEYDOWN and TEXTINPUT fire for the same key
     // We process the entire queue in one pass and prioritize TEXTINPUT for printable characters
     // This ensures we consume both events and only return one key object
-    while (SDL_PollEvent(&event)) {
+    while (events_processed < max_events_to_process && SDL_PollEvent(&event)) {
         events_processed++;
         // Check for close events FIRST - these take priority over keyboard events
         if (event.type == SDL_QUIT) {
@@ -433,7 +503,7 @@ Value builtin_graphics_get_key(Interpreter* interpreter, Value* args, size_t arg
             const char* text_char = event.text.text;
             
             Value key_obj = value_create_object(10);
-            value_object_set(&key_obj, "type", value_create_string("CHAR"));
+            value_object_set(&key_obj, "type", value_create_string(KEY_TYPE_CHAR));
             value_object_set(&key_obj, "key", value_create_string(text_char));
             value_object_set(&key_obj, "shift", value_create_boolean(false));
             value_object_set(&key_obj, "ctrl", value_create_boolean(false));
@@ -468,33 +538,33 @@ Value builtin_graphics_get_key(Interpreter* interpreter, Value* args, size_t arg
             const char* key_type = key_type_str;
             
             
-            // Map special keys
+            // Map special keys (use cached string pointers to avoid allocations)
             if (keycode == SDLK_RETURN || keycode == SDLK_KP_ENTER) {
-                key_name = "ENTER";
+                key_name = KEY_NAME_ENTER;
             } else if (keycode == SDLK_BACKSPACE) {
-                key_name = "BACKSPACE";
+                key_name = KEY_NAME_BACKSPACE;
             } else if (keycode == SDLK_DELETE) {
-                key_name = "DELETE";
+                key_name = KEY_NAME_DELETE;
             } else if (keycode == SDLK_TAB) {
-                key_name = "TAB";
+                key_name = KEY_NAME_TAB;
             } else if (keycode == SDLK_ESCAPE) {
-                key_name = "ESCAPE";
+                key_name = KEY_NAME_ESCAPE;
             } else if (keycode == SDLK_UP) {
-                key_name = "UP";
+                key_name = KEY_NAME_UP;
             } else if (keycode == SDLK_DOWN) {
-                key_name = "DOWN";
+                key_name = KEY_NAME_DOWN;
             } else if (keycode == SDLK_LEFT) {
-                key_name = "LEFT";
+                key_name = KEY_NAME_LEFT;
             } else if (keycode == SDLK_RIGHT) {
-                key_name = "RIGHT";
+                key_name = KEY_NAME_RIGHT;
             } else if (keycode == SDLK_HOME) {
-                key_name = "HOME";
+                key_name = KEY_NAME_HOME;
             } else if (keycode == SDLK_END) {
-                key_name = "END";
+                key_name = KEY_NAME_END;
             } else if (keycode == SDLK_PAGEUP) {
-                key_name = "PAGEUP";
+                key_name = KEY_NAME_PAGEUP;
             } else if (keycode == SDLK_PAGEDOWN) {
-                key_name = "PAGEDOWN";
+                key_name = KEY_NAME_PAGEDOWN;
             } else {
                 // Unhandled key - skip it
                 value_free(&key_obj);
@@ -504,7 +574,8 @@ Value builtin_graphics_get_key(Interpreter* interpreter, Value* args, size_t arg
             if (key_name) {
                 
                 // Set all properties on the key object
-                Value type_val = value_create_string(key_type);
+                // Use cached string pointers - value_create_string will still allocate, but at least we're consistent
+                Value type_val = value_create_string(KEY_TYPE_SPECIAL);
                 Value key_val = value_create_string(key_name);
                 Value shift_val = value_create_boolean((mod & KMOD_SHIFT) != 0);
                 Value ctrl_val = value_create_boolean((mod & (KMOD_LCTRL | KMOD_RCTRL)) != 0);
@@ -543,9 +614,12 @@ Value builtin_graphics_get_key(Interpreter* interpreter, Value* args, size_t arg
             // pollEvents() will handle these events, so we don't need to push them back
             // This prevents event queue buildup and memory leaks
             // Close events are already handled above and consumed
+            continue;
         }
     }
     
+    // If we processed max events without finding a keyboard event, continue processing
+    // Don't flush - let events accumulate naturally to avoid SDL internal allocations
     
     return value_create_null();
 }

@@ -505,10 +505,20 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
         Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = 
             (Value (*)(Interpreter*, Value*, size_t, int, int))func->data.function_value.body;
         
+        // Set self_context if self is provided (needed for library methods like stacks.push)
+        if (self) {
+            interpreter_set_self_context(interpreter, self);
+        }
+        
         // Push a frame for built-in call (Python-like traceback)
         interpreter_push_call_frame(interpreter, "<builtin>", interpreter->current_file ? interpreter->current_file : "<stdin>", line, column);
         Value result = builtin_func(interpreter, args, arg_count, line, column);
         interpreter_pop_call_frame(interpreter);
+        
+        // Clear self_context if it was set
+        if (self) {
+            interpreter_set_self_context(interpreter, NULL);
+        }
         
         return result;
     }

@@ -318,6 +318,24 @@ void myco_renderer_shutdown(MycoRenderer* renderer) {
             shared_free_safe(g_gl_renderer->text_batches, "libs", "graphics_renderer", 0);
         }
         
+        // Free text vertex buffer
+        if (g_gl_renderer->text_vertex_buffer) {
+            shared_free_safe(g_gl_renderer->text_vertex_buffer, "libs", "graphics_renderer", 0);
+            g_gl_renderer->text_vertex_buffer = NULL;
+        }
+        if (g_gl_renderer->text_vbo) {
+            glDeleteBuffers(1, &g_gl_renderer->text_vbo);
+        }
+        if (g_gl_renderer->text_vao) {
+            glDeleteVertexArrays(1, &g_gl_renderer->text_vao);
+        }
+        if (g_gl_renderer->text_texture) {
+            glDeleteTextures(1, &g_gl_renderer->text_texture);
+        }
+        if (g_gl_renderer->text_shader_program) {
+            glDeleteProgram(g_gl_renderer->text_shader_program);
+        }
+        
         if (g_gl_renderer->vbo_initialized) {
             // Unmap persistent buffer if it was mapped
             if (g_gl_renderer->vertex_buffer_mapped) {

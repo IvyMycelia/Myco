@@ -190,13 +190,13 @@ Value find_method_in_inheritance_chain(Interpreter* interpreter, Value* class_va
                                 }
                             }
                         }
-                        return value_create_function(
+                return value_create_function(
                             (ASTNode*)(uintptr_t)func_id,
                             NULL,
-                            stmt->data.function_definition.parameter_count,
-                            stmt->data.function_definition.return_type,
-                            class_value->data.class_value.class_environment
-                        );
+                    stmt->data.function_definition.parameter_count,
+                    stmt->data.function_definition.return_type,
+                    class_value->data.class_value.class_environment
+                );
                     }
                 }
             }

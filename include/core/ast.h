@@ -183,8 +183,12 @@ typedef struct ASTNode {
         
         struct {
             char* iterator_name;
-            struct ASTNode* collection;
+            struct ASTNode* collection;        // For "for i in collection" style
+            struct ASTNode* init;              // For "for let i = 0; i < length; i++" style (initialization)
+            struct ASTNode* condition;         // For C-style for loops (condition)
+            struct ASTNode* increment;         // For C-style for loops (increment)
             struct ASTNode* body;
+            int is_c_style;                     // 1 for C-style (init; condition; increment), 0 for collection-based
         } for_loop;
         
         // Block of statements
@@ -486,6 +490,7 @@ ASTNode* ast_create_member_access(ASTNode* object, const char* member_name, int 
 ASTNode* ast_create_if_statement(ASTNode* condition, ASTNode* then_block, ASTNode* else_block, ASTNode* else_if_chain, int line, int column);
 ASTNode* ast_create_while_loop(ASTNode* condition, ASTNode* body, int line, int column);
 ASTNode* ast_create_for_loop(const char* iterator, ASTNode* collection, ASTNode* body, int line, int column);
+ASTNode* ast_create_c_style_for_loop(ASTNode* init, ASTNode* condition, ASTNode* increment, ASTNode* body, int line, int column);
 ASTNode* ast_create_block(ASTNode** statements, size_t statement_count, int line, int column);
 ASTNode* ast_create_return(ASTNode* value, int line, int column);
 ASTNode* ast_create_throw(ASTNode* value, int line, int column);

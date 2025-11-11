@@ -237,7 +237,30 @@ ASTNode* ast_create_for_loop(const char* iterator, ASTNode* collection, ASTNode*
     node->type = AST_NODE_FOR_LOOP;
     node->data.for_loop.iterator_name = (iterator ? shared_strdup(iterator) : NULL);
     node->data.for_loop.collection = collection;
+    node->data.for_loop.init = NULL;
+    node->data.for_loop.condition = NULL;
+    node->data.for_loop.increment = NULL;
     node->data.for_loop.body = body;
+    node->data.for_loop.is_c_style = 0;
+    node->line = line;
+    node->column = column;
+    node->next = NULL;
+    
+    return node;
+}
+
+ASTNode* ast_create_c_style_for_loop(ASTNode* init, ASTNode* condition, ASTNode* increment, ASTNode* body, int line, int column) {
+    ASTNode* node = shared_malloc_safe(sizeof(ASTNode), "ast", "unknown_function", 212);
+    if (!node) return NULL;
+    
+    node->type = AST_NODE_FOR_LOOP;
+    node->data.for_loop.iterator_name = NULL;
+    node->data.for_loop.collection = NULL;
+    node->data.for_loop.init = init;
+    node->data.for_loop.condition = condition;
+    node->data.for_loop.increment = increment;
+    node->data.for_loop.body = body;
+    node->data.for_loop.is_c_style = 1;
     node->line = line;
     node->column = column;
     node->next = NULL;

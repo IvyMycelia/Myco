@@ -1127,9 +1127,32 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             case BC_JUMP_IF_FALSE: {
+                // Check if stack is empty (shouldn't happen, but handle gracefully)
+                if (value_stack_size == 0) {
+                    if (interpreter) {
+                        interpreter_set_error(interpreter, "Stack underflow in BC_JUMP_IF_FALSE - condition not on stack", 0, 0);
+                    }
+                    goto cleanup;
+                }
+                
                 Value condition = value_stack_pop();
-                if (condition.type == VALUE_BOOLEAN && !condition.data.boolean_value) {
-                    pc = instr->a;
+                // Convert to boolean if needed
+                Value bool_condition = value_to_boolean(&condition);
+                bool should_jump = (bool_condition.type == VALUE_BOOLEAN && !bool_condition.data.boolean_value);
+                value_free(&bool_condition);
+                
+                if (should_jump) {
+                    // Validate jump target to prevent jumping out of bounds
+                    if (instr->a >= 0 && instr->a < (int)program->count) {
+                        pc = instr->a;
+                    } else {
+                        // Invalid jump target - stop execution
+                        if (interpreter) {
+                            interpreter_set_error(interpreter, "Invalid jump target in BC_JUMP_IF_FALSE", 0, 0);
+                        }
+                        value_free(&condition);
+                        goto cleanup;
+                    }
                 } else {
                     pc++;
                 }
@@ -1319,7 +1342,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         } else {
                             value_stack_push(value_create_null());
                         }
-                        } else if (object.type == VALUE_OBJECT) {
+                    } else if (object.type == VALUE_OBJECT) {
                         // Check if it's a module object first
                         Value object_type = value_object_get(&object, "__type__");
                         bool method_handled = false;

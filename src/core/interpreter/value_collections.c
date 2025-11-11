@@ -70,19 +70,43 @@ void value_array_push(Value* array, Value element) {
     }
 }
 
-Value value_array_pop(Value* array) { 
+Value value_array_pop(Value* array, int index) { 
     if (!array || array->type != VALUE_ARRAY || array->data.array_value.count == 0) {
         return value_create_null();
     }
     
-    Value* element = (Value*)array->data.array_value.elements[array->data.array_value.count - 1];
-    if (element) {
-        Value result = value_clone(element);
-        shared_free_safe(element, "interpreter", "unknown_function", 2872);
-        array->data.array_value.count--;
-        return result;
+    size_t array_len = array->data.array_value.count;
+    size_t pop_index;
+    
+    // If index is -1 or not provided, pop from the end (default behavior)
+    if (index < 0) {
+        pop_index = array_len - 1;
+    } else {
+        pop_index = (size_t)index;
+        // Validate index
+        if (pop_index >= array_len) {
+            return value_create_null();
+        }
     }
-    return value_create_null();
+    
+    // Get the element to pop
+    Value* element = (Value*)array->data.array_value.elements[pop_index];
+    if (!element) {
+        return value_create_null();
+    }
+    
+    Value result = value_clone(element);
+    
+    // Remove the element by shifting all elements after it to the left
+    for (size_t i = pop_index; i < array_len - 1; i++) {
+        array->data.array_value.elements[i] = array->data.array_value.elements[i + 1];
+    }
+    
+    // Free the last element (which was moved)
+    shared_free_safe(element, "interpreter", "value_array_pop", 2872);
+    array->data.array_value.count--;
+    
+    return result;
 }
 
 Value value_array_get(Value* array, size_t index) { 

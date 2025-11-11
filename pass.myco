@@ -1075,7 +1075,7 @@ print("\n14. File Library Functions...");
 total_tests = total_tests + 1;
 let test_content = "Hello, Myco File System!";
 let write_result = file.write("test_file.txt", test_content);
-if write_result == Null:
+if write_result != Null and write_result > 0:
     print("✓ File write successful");
     tests_passed = tests_passed + 1;
 else:
@@ -4880,7 +4880,7 @@ try:
     let module_content = "func square(x: Number) -> Number:\n    return x * x;\nend\n\nlet PI = 3.14159;\n\nfunc add(a: Number, b: Number) -> Number:\n    return a + b;\nend";
     
     let write_result = file.write("test_module.myco", module_content);
-    if write_result == Null:
+    if write_result != Null and write_result > 0:
         # Try to import the module
         use "test_module.myco" as math_utils;
         if math_utils.type == "Module":
@@ -4976,7 +4976,7 @@ try:
     
     use file as file;
     let write_result = file.write("point_module.myco", class_module_content);
-    if write_result == Null:
+    if write_result != Null and write_result > 0:
         use "point_module.myco" as point_mod;
         if point_mod.type == "Module":
             # Try to access the class
@@ -5015,7 +5015,7 @@ try:
     
     use file as file;
     let write_result = file.write("isolation_module.myco", isolation_module_content);
-    if write_result == Null:
+    if write_result != Null and write_result > 0:
         use "isolation_module.myco" as iso;
         # Try to access secret directly (should fail or return null)
         let secret_value = iso.secret;
@@ -5039,15 +5039,41 @@ end
 print("\n23.8. Multiple Module Imports...");
 total_tests = total_tests + 1;
 try:
-    use "test_module.myco" as utils1;
-    use "test_module.myco" as utils2;
-    let result1 = utils1.square(3);
-    let result2 = utils2.square(4);
-    if result1 == 9 and result2 == 16:
-        print("✓ Multiple module imports work");
-        tests_passed = tests_passed + 1;
+    # Ensure test_module.myco exists (it should from test 23.1)
+    use file as file;
+    if file.exists("test_module.myco"):
+        use "test_module.myco" as utils1;
+        use "test_module.myco" as utils2;
+        if utils1 != Null and utils2 != Null:
+            # Check if square function exists
+            let square1 = utils1.square;
+            let square2 = utils2.square;
+            if square1 != Null and square2 != Null:
+                # Try calling the functions
+                try:
+                    let result1 = utils1.square(3);
+                    let result2 = utils2.square(4);
+                    if result1 == 9 and result2 == 16:
+                        print("✓ Multiple module imports work");
+                        tests_passed = tests_passed + 1;
+                    else:
+                        print("✗ Multiple module imports failed - result1: " + result1.toString() + " (type: " + result1.type + "), result2: " + result2.toString() + " (type: " + result2.type + ")");
+                        tests_failed = tests_failed.push("Multiple module imports");
+                    end
+                catch e:
+                    print("✗ Multiple module imports failed - function call error: " + e.toString());
+                    tests_failed = tests_failed.push("Multiple module imports");
+                end
+            else:
+                print("✗ Multiple module imports failed - square1: " + (square1 != Null ? "ok" : "null") + ", square2: " + (square2 != Null ? "ok" : "null"));
+                tests_failed = tests_failed.push("Multiple module imports");
+            end
+        else:
+            print("✗ Multiple module imports failed - utils1: " + (utils1 != Null ? "ok" : "null") + ", utils2: " + (utils2 != Null ? "ok" : "null") + ", utils1.square: " + (utils1 != Null and utils1.square != Null ? "ok" : "null") + ", utils2.square: " + (utils2 != Null and utils2.square != Null ? "ok" : "null"));
+            tests_failed = tests_failed.push("Multiple module imports");
+        end
     else:
-        print("✗ Multiple module imports failed");
+        print("✗ Multiple module imports failed - test_module.myco does not exist");
         tests_failed = tests_failed.push("Multiple module imports");
     end
 catch e:
@@ -5078,7 +5104,7 @@ try:
     
     use file as file;
     let write_result = file.write("complex_module.myco", complex_module_content);
-    if write_result == Null:
+    if write_result != Null and write_result > 0:
         use "complex_module.myco" as complex;
         let mult_result = complex.multiply(5, 6);
         let div_result = complex.divide(20, 4);
@@ -5128,7 +5154,8 @@ print("Success rate: " + rate.toString() + "%");
 if tests_failed.length > 0:
     print("Failed tests: " + tests_failed.length);
     for i in tests_failed:
-        print("\t - " + i);
+        let test_name = i.toString();
+        print("\t - " + test_name);
     end
 else:
     print("ALL TESTS PASSED!");

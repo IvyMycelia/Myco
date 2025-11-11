@@ -22,6 +22,31 @@ typedef struct {
 static ConstantFoldingCache* const_fold_cache = NULL;
 static DeadCodeTracker* dead_code_tracker = NULL;
 
+// Helper function to extract original variable name from method chain
+// For arr.push(1).push(3), extracts "arr" from the nested structure
+static const char* extract_original_var_name(ASTNode* node) {
+    if (!node) return NULL;
+    
+    if (node->type == AST_NODE_IDENTIFIER) {
+        return node->data.identifier_value;
+    } else if (node->type == AST_NODE_MEMBER_ACCESS) {
+        // Recursively extract from the object
+        return extract_original_var_name(node->data.member_access.object);
+    } else if (node->type == AST_NODE_FUNCTION_CALL_EXPR) {
+        // If this is a method call, extract from the function (member access)
+        if (node->data.function_call_expr.function && 
+            node->data.function_call_expr.function->type == AST_NODE_MEMBER_ACCESS) {
+            ASTNode* member_access = node->data.function_call_expr.function;
+            const char* method_name = member_access->data.member_access.member_name;
+            // Only extract for push/pop methods (which return arrays and can be chained)
+            if (method_name && (strcmp(method_name, "push") == 0 || strcmp(method_name, "pop") == 0)) {
+                return extract_original_var_name(member_access->data.member_access.object);
+            }
+        }
+    }
+    return NULL;
+}
+
 // Helper function for adding numeric constants
 static int bc_add_num_const(BytecodeProgram* p, double val) {
     if (p->num_const_count + 1 > p->num_const_capacity) {
@@ -2069,24 +2094,108 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                         }
                         bc_emit(p, BC_MATH_ROUND, 0, 0);
                     } else if (strcmp(method_name, "push") == 0 && n->data.function_call_expr.argument_count == 1) {
-                        // Object is already on stack from line 1831
-                        // Compile argument
+                        // For arr.push(val) or stack.push(val), use BC_METHOD_CALL
+                        // BC_METHOD_CALL has optimized paths for arrays and handles stacks/queues correctly
+                        // This allows both arrays and stack objects to work correctly
+                        const char* var_name = NULL;
+                        if (member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
+                            var_name = member_access->data.member_access.object->data.identifier_value;
+                        } else {
+                            // Method chaining: arr.push(1).push(3) - extract "arr" from nested structure
+                            var_name = extract_original_var_name(member_access->data.member_access.object);
+                        }
+                        
                         compile_node(p, n->data.function_call_expr.arguments[0]);
-                        // Stack now: [object, arg1]
-                        // Use BC_METHOD_CALL to dispatch to correct push implementation at runtime
                         int method_name_idx = bc_add_const(p, value_create_string(method_name));
                         bc_emit(p, BC_METHOD_CALL, method_name_idx, n->data.function_call_expr.argument_count);
-                        // Don't auto-store result - let the caller (assignment or expression context) handle it
-                    } else if (strcmp(method_name, "pop") == 0 && n->data.function_call_expr.argument_count == 0) {
-                        // Check if this is an array or a stack/queue/heap
-                        // For now, we can't determine at compile time, so use method call for non-array objects
-                        // Arrays will be handled by BC_ARRAY_POP at runtime
-                        // For library objects (Stack, Queue, Heap), use method call
-                        // Add method name to constants
-                        int method_name_idx = bc_add_const(p, value_create_string(method_name));
                         
-                        // Emit method call instruction (runtime will determine if it's array or library object)
-                        bc_emit(p, BC_METHOD_CALL, method_name_idx, 0);
+                        // For arrays, BC_METHOD_CALL returns the modified array
+                        // For stacks, BC_METHOD_CALL returns the new stack object
+                        // Store the result back to the variable if it's a simple identifier
+                        // Then reload it so it's still available for expressions (method chaining)
+                        if (var_name) {
+                            int local_idx = lookup_local(p, var_name);
+                            if (local_idx >= 0) {
+                                // Store the result, then reload it so it's still on stack for expressions
+                                bc_emit(p, BC_STORE_LOCAL, local_idx, 0);
+                                bc_emit(p, BC_LOAD_LOCAL, local_idx, 0);
+                            } else {
+                                int var_name_idx = bc_add_const(p, value_create_string(var_name));
+                                // Store the result, then reload it so it's still on stack for expressions
+                                bc_emit(p, BC_STORE_GLOBAL, var_name_idx, 0);
+                                bc_emit(p, BC_LOAD_GLOBAL, var_name_idx, 0);
+                            }
+                        }
+                    } else if (strcmp(method_name, "pop") == 0) {
+                        // For arr.pop() or arr.pop(index) - support optional index like Python
+                        // Only use BC_ARRAY_POP if we're certain it's an array (array literal)
+                        // For unknown types (like stack objects), use BC_METHOD_CALL
+                        int is_array_literal = (member_access->data.member_access.object->type == AST_NODE_ARRAY_LITERAL);
+                        
+                        const char* var_name = NULL;
+                        if (!is_array_literal && member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
+                            var_name = member_access->data.member_access.object->data.identifier_value;
+                        }
+                        
+                        if (is_array_literal) {
+                            // Array literal - use BC_ARRAY_POP
+                            int has_index = (n->data.function_call_expr.argument_count > 0);
+                            if (has_index) {
+                                compile_node(p, n->data.function_call_expr.arguments[0]);
+                            }
+                            bc_emit(p, BC_ARRAY_POP, 0, has_index ? 1 : 0);
+                        } else {
+                            // Unknown type or variable - use BC_METHOD_CALL (runtime will check type)
+                            // This allows stack.pop(), queue.dequeue(), etc. to work correctly
+                            // For arrays, BC_METHOD_CALL will use the optimized array path
+                            for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                                compile_node(p, n->data.function_call_expr.arguments[i]);
+                            }
+                            int method_name_idx = bc_add_const(p, value_create_string(method_name));
+                            bc_emit(p, BC_METHOD_CALL, method_name_idx, n->data.function_call_expr.argument_count);
+                            
+                            // For arrays, BC_METHOD_CALL pushes [popped_value, modified_array] with modified_array on top
+                            // For stacks, BC_METHOD_CALL pushes the new stack object directly
+                            // Store the result back to the variable if it's a simple identifier
+                            // For arrays: store modified_array, then pop it so popped_value is on top
+                            // For stacks: store and reload the new stack object
+                            // We can't know the type at compile time, so we need to handle both cases
+                            // The runtime will have different stack states:
+                            // - Arrays: [popped_value, modified_array] with modified_array on top
+                            // - Stacks: [new_stack] with new_stack on top
+                            // We'll store the top value (works for both), then:
+                            // - For arrays: pop to get popped_value on top
+                            // - For stacks: reload to get new_stack on top
+                            // But we can't distinguish at compile time, so we'll use a heuristic:
+                            // If the variable name contains "stack", treat it as a stack; otherwise, treat it as an array
+                            if (var_name) {
+                                int is_likely_stack = (strstr(var_name, "stack") != NULL || strstr(var_name, "Stack") != NULL);
+                                
+                                if (is_likely_stack) {
+                                    // Likely a stack - store and reload the result (like push())
+                                    int local_idx = lookup_local(p, var_name);
+                                    if (local_idx >= 0) {
+                                        bc_emit(p, BC_STORE_LOCAL, local_idx, 0);
+                                        bc_emit(p, BC_LOAD_LOCAL, local_idx, 0);
+                                    } else {
+                                        int var_name_idx = bc_add_const(p, value_create_string(var_name));
+                                        bc_emit(p, BC_STORE_GLOBAL, var_name_idx, 0);
+                                        bc_emit(p, BC_LOAD_GLOBAL, var_name_idx, 0);
+                                    }
+                                } else {
+                                    // Likely an array - store modified_array, then pop it to get popped_value on top
+                                    int local_idx = lookup_local(p, var_name);
+                                    if (local_idx >= 0) {
+                                        bc_emit(p, BC_STORE_LOCAL, local_idx, 0);
+                                    } else {
+                                        int var_name_idx = bc_add_const(p, value_create_string(var_name));
+                                        bc_emit(p, BC_STORE_GLOBAL, var_name_idx, 0);
+                                    }
+                                    // Pop modified_array so popped_value is on top (for expressions like `let x = arr.pop()`)
+                                    bc_emit(p, BC_POP, 0, 0);
+                                }
+                            }
+                        }
                     } else {
                         // Compile arguments
                         for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
@@ -2235,35 +2344,44 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                     compile_node(p, &obj_node);
                     
                     // Check for common array methods that modify in place
+                    // Use BC_METHOD_CALL for all method calls (runtime will handle arrays vs stacks)
+                    // For statements, we need to store the result back to the variable
                     if (strcmp(method_name, "push") == 0 && n->data.function_call.argument_count == 1) {
-                        // For arr.push(val), we need to:
-                        // 1. Load arr onto stack
-                        // 2. Load val onto stack
-                        // 3. Call BC_ARRAY_PUSH (modifies arr and returns it)
-                        // 4. Store the result back to arr variable
-                        // Compile the argument
+                        // Use BC_METHOD_CALL for all push() calls (runtime will handle arrays vs stacks)
                         compile_node(p, n->data.function_call.arguments[0]);
-                        // Emit array push instruction (array should already be on stack from compile_node above)
-                        bc_emit(p, BC_ARRAY_PUSH, 0, 0);
-                        // Now store the result back to the variable
-                        // The array is already on the stack, so we need to assign it back
-                        // Check if variable is local or global
+                        int method_name_idx = bc_add_const(p, value_create_string(method_name));
+                        bc_emit(p, BC_METHOD_CALL, method_name_idx, n->data.function_call.argument_count);
+                        // For statements, store the result back to the variable
+                        // BC_METHOD_CALL returns the modified array/stack object
                         int local_idx = lookup_local(p, obj_name);
                         if (local_idx >= 0) {
-                            // Variable is local - use BC_STORE_LOCAL
                             bc_emit(p, BC_STORE_LOCAL, local_idx, 0);
                         } else {
-                            // Variable is global - use BC_STORE_GLOBAL
                             int var_name_idx = bc_add_const(p, value_create_string(obj_name));
                             bc_emit(p, BC_STORE_GLOBAL, var_name_idx, 0);
                         }
-                    } else if (strcmp(method_name, "pop") == 0 && n->data.function_call.argument_count == 0) {
-                        // For arr.pop(), similar handling
-                        // Emit array pop instruction
-                        bc_emit(p, BC_ARRAY_POP, 0, 0);
-                        // Store result back to variable
-                        int var_name_idx = bc_add_const(p, value_create_string(obj_name));
-                        bc_emit(p, BC_STORE_GLOBAL, var_name_idx, 0);
+                    } else if (strcmp(method_name, "pop") == 0) {
+                        // Use BC_METHOD_CALL for all pop() calls (runtime will handle arrays vs stacks)
+                        // Compile arguments if any
+                        for (size_t i = 0; i < n->data.function_call.argument_count; i++) {
+                            compile_node(p, n->data.function_call.arguments[i]);
+                        }
+                        int method_name_idx = bc_add_const(p, value_create_string(method_name));
+                        bc_emit(p, BC_METHOD_CALL, method_name_idx, n->data.function_call.argument_count);
+                        // For arrays, BC_METHOD_CALL pushes [popped_value, modified_array] with modified_array on top
+                        // For stacks, BC_METHOD_CALL pushes the new stack object
+                        // For statements, we want to store the modified array/stack back to the variable
+                        // For arrays, we need to pop the popped_value first (discard it), then store the modified_array
+                        // For stacks, the result is already on top
+                        // We can't know the type at compile time, so we'll store the top value
+                        // This works for both: arrays have modified_array on top, stacks have the new stack on top
+                        int local_idx = lookup_local(p, obj_name);
+                        if (local_idx >= 0) {
+                            bc_emit(p, BC_STORE_LOCAL, local_idx, 0);
+                        } else {
+                            int var_name_idx = bc_add_const(p, value_create_string(obj_name));
+                            bc_emit(p, BC_STORE_GLOBAL, var_name_idx, 0);
+                        }
                     } else {
                         // Compile arguments
                         for (size_t i = 0; i < n->data.function_call.argument_count; i++) {

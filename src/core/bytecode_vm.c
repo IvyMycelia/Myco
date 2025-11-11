@@ -2742,6 +2742,97 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             }
                         }
                         
+                        if (use_cache) {
+                            // Cache hit - handle module storage and specific imports
+                            // Use alias if provided, otherwise extract filename from path
+                            char* var_name_to_free = NULL;
+                            const char* var_name;
+                            if (alias) {
+                                var_name = alias;
+                            } else {
+                                const char* filename = strrchr(normalized_path, '/');
+                                if (filename) {
+                                    filename++;
+                                } else {
+                                    filename = normalized_path;
+                                }
+                                char* ext = strstr((char*)filename, ".myco");
+                                if (ext) {
+                                    var_name_to_free = shared_malloc_safe(ext - filename + 1, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                                    if (var_name_to_free) {
+                                        strncpy(var_name_to_free, filename, ext - filename);
+                                        var_name_to_free[ext - filename] = '\0';
+                                    }
+                                    var_name = var_name_to_free ? var_name_to_free : filename;
+                                } else {
+                                    var_name = filename;
+                                }
+                            }
+                            
+                            // Store in global and current environment
+                            Environment* target_env = interpreter->global_environment;
+                            if (!target_env) {
+                                target_env = interpreter->current_environment;
+                            }
+                            environment_define(target_env, var_name, module_value);
+                            
+                            if (target_env == interpreter->global_environment && 
+                                interpreter->current_environment && 
+                                interpreter->current_environment != interpreter->global_environment) {
+                                environment_define(interpreter->current_environment, var_name, module_value);
+                            }
+                            
+                            // Handle specific imports if present
+                            if (instr->c > 0 && instr->c < (int)program->const_count) {
+                                Value items_array = program->constants[instr->c];
+                                if (items_array.type == VALUE_ARRAY) {
+                                    size_t item_count = items_array.data.array_value.count;
+                                    Value aliases_array = value_create_null();
+                                    bool has_aliases = false;
+                                    if (instr->c + 1 < (int)program->const_count) {
+                                        Value next_const = program->constants[instr->c + 1];
+                                        if (next_const.type == VALUE_ARRAY && 
+                                            next_const.data.array_value.count == item_count) {
+                                            aliases_array = next_const;
+                                            has_aliases = true;
+                                        }
+                                    }
+                                    
+                                    for (size_t i = 0; i < item_count; i++) {
+                                        Value* item_name_ptr = (Value*)items_array.data.array_value.elements[i];
+                                        if (item_name_ptr && item_name_ptr->type == VALUE_STRING && item_name_ptr->data.string_value) {
+                                            const char* item_name = item_name_ptr->data.string_value;
+                                            Value item_value = value_object_get(&module_value, item_name);
+                                            
+                                            if (item_value.type != VALUE_NULL) {
+                                                const char* import_name = item_name;
+                                                if (has_aliases && i < aliases_array.data.array_value.count) {
+                                                    Value* alias_ptr = (Value*)aliases_array.data.array_value.elements[i];
+                                                    if (alias_ptr && alias_ptr->type == VALUE_STRING && alias_ptr->data.string_value) {
+                                                        import_name = alias_ptr->data.string_value;
+                                                    }
+                                                }
+                                                
+                                                Value cloned_item = value_clone(&item_value);
+                                                environment_define(interpreter->current_environment, import_name, cloned_item);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (var_name_to_free) {
+                                shared_free_safe(var_name_to_free, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                            }
+                            shared_free_safe(normalized_path, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                            if (actual_path) {
+                                shared_free_safe(actual_path, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                            }
+                            value_stack_push(value_create_null());
+                            pc++;
+                            break;
+                        }
+                        
                         if (!use_cache) {
                             // File import: load, parse, and execute in isolated environment
                             FILE* file = NULL;
@@ -2761,6 +2852,10 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                         if (!file) {
                                             shared_free_safe(actual_path, "bytecode_vm", "BC_IMPORT_LIB", 0);
                                             actual_path = NULL;
+                                        } else {
+                                            // Update normalized_path to match actual_path for cache consistency
+                                            shared_free_safe(normalized_path, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                                            normalized_path = shared_strdup(actual_path);
                                         }
                                     }
                                 }

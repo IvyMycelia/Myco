@@ -253,9 +253,17 @@ Value interpreter_execute_program(Interpreter* interpreter, ASTNode* node) {
     Value result = interpreter_execute_bytecode(interpreter, bytecode);
     
     // Store bytecode program in interpreter cache for function calls
-    // Free the old cached program if it exists
-    if (interpreter->bytecode_program_cache) {
-        bytecode_program_free(interpreter->bytecode_program_cache);
+    // CRITICAL: Don't free the old cached program if we're executing a module
+    // (modules execute during main program execution, so we need to preserve the main program)
+    // We detect this by checking if the cache already exists and is different from the new program
+    // If so, we're likely executing a module, so preserve the main program
+    BytecodeProgram* old_cache = interpreter->bytecode_program_cache;
+    if (old_cache && old_cache != bytecode) {
+        // We're replacing the cache with a different program
+        // This happens when executing modules - don't free the old one yet
+        // The old program (main program) is still being executed and needs its bytecode
+        // We'll let the caller handle cleanup, or use reference counting
+        // For now, just don't free it - it will be freed when the main program finishes
     }
     interpreter->bytecode_program_cache = bytecode; // Keep program alive for function calls
     

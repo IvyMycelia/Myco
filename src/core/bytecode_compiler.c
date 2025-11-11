@@ -312,8 +312,28 @@ static int bc_add_const(BytecodeProgram* p, Value v) {
         p->constants = shared_realloc_safe(p->constants, new_cap * sizeof(Value), "bytecode", "bc_add_const", 1);
         p->const_capacity = new_cap;
     }
-    p->constants[p->const_count] = v; // Stored by value; execution will clone as needed
-    return (int)p->const_count++;
+    // Store the value in the constant pool
+    // For strings and arrays, we need to ensure they are duplicated so the constant pool owns them
+    // This prevents issues where freeing a temporary Value frees the data that the constant uses
+    int idx = (int)p->const_count;
+    if (v.type == VALUE_STRING && v.data.string_value) {
+        // For strings, create a new copy so the constant pool owns it
+        // This prevents the string from being freed when temporary Values are freed
+        p->constants[p->const_count] = value_create_string(v.data.string_value);
+        // Free the original value (it was a temporary)
+        value_free(&v);
+    } else if (v.type == VALUE_ARRAY) {
+        // For arrays, clone the array so the constant pool owns it
+        // This prevents the array elements from being freed when temporary Values are freed
+        p->constants[p->const_count] = value_clone(&v);
+        // Free the original value (it was a temporary)
+        value_free(&v);
+    } else {
+        // For other types, store directly
+        p->constants[p->const_count] = v;
+    }
+    p->const_count++;
+    return idx;
 }
 
 static int bc_add_ast(BytecodeProgram* p, ASTNode* n) {
@@ -693,10 +713,36 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
                         bc_emit_to_function(func, BC_METHOD_CALL, method_name_idx, (int)n->data.function_call_expr.argument_count, 0);
                     }
                 }
+            } else if (n->data.function_call_expr.function && 
+                       n->data.function_call_expr.function->type == AST_NODE_IDENTIFIER) {
+                // Function variable call: f(args...)
+                // Compile arguments first
+                for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                    compile_node_to_function(p, func, n->data.function_call_expr.arguments[i]);
+                }
+                // Load function from environment
+                const char* func_name = n->data.function_call_expr.function->data.identifier_value;
+                // Load function from global environment (functions are stored globally)
+                int name_idx = bc_add_const(p, value_create_string(func_name));
+                bc_emit_to_function(func, BC_LOAD_GLOBAL, name_idx, 0, 0);
+                // Call the function value
+                bc_emit_to_function(func, BC_CALL_FUNCTION_VALUE, (int)n->data.function_call_expr.argument_count, 0, 0);
             } else {
-                // Function call expression not yet fully supported in bytecode
-                if (p->interpreter) {
-                    interpreter_set_error(p->interpreter, "Function call expression not yet fully supported in bytecode", 0, 0);
+                // Function call expression with complex expression as function - compile the function expression first
+                if (n->data.function_call_expr.function) {
+                    // Compile the function expression (could be a property access, etc.)
+                    compile_node_to_function(p, func, n->data.function_call_expr.function);
+                    // Compile arguments
+                    for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                        compile_node_to_function(p, func, n->data.function_call_expr.arguments[i]);
+                    }
+                    // Call the function value on the stack
+                    bc_emit_to_function(func, BC_CALL_FUNCTION_VALUE, (int)n->data.function_call_expr.argument_count, 0, 0);
+                } else {
+                    // No function specified - error
+                    if (p->interpreter) {
+                        interpreter_set_error(p->interpreter, "Function call expression has no function", 0, 0);
+                    }
                 }
             }
         } break;
@@ -913,6 +959,12 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
                 compile_node_to_function(p, func, n->data.try_catch.finally_block);
             }
         } break;
+        case AST_NODE_ERROR: {
+            // Error node - compilation should have failed earlier, but handle gracefully
+            // Push null result and continue
+            bc_emit_to_function(func, BC_LOAD_CONST, bc_add_const(p, value_create_null()), 0, 0);
+        } break;
+        
         default:
             // Unknown AST node type in compile_node_to_function - try to compile as main-level node
             // This allows some nodes to fall through to main compilation
@@ -1533,16 +1585,17 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             }
         } break;
         case AST_NODE_IDENTIFIER: {
-            int idx = lookup_local(p, n->data.identifier_value);
+            const char* identifier_name = n->data.identifier_value;
+            int idx = lookup_local(p, identifier_name);
             if (idx >= 0) {
                 // Load from main locals array (supports all types)
                 bc_emit(p, BC_LOAD_LOCAL, idx, 0);
             } else {
                 // Not a local - try to load from global environment
                 // Even if it doesn't exist yet during compilation, it might exist at runtime
-                // (e.g., functions defined later in the same block)
+                // (e.g., functions defined later in the same block, or modules imported via use)
                 // BC_LOAD_GLOBAL will handle missing globals gracefully at runtime
-                int name_idx = bc_add_const(p, value_create_string(n->data.identifier_value));
+                int name_idx = bc_add_const(p, value_create_string(identifier_name));
                 bc_emit(p, BC_LOAD_GLOBAL, name_idx, 0);
             }
         } break;
@@ -1550,6 +1603,7 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             const char* var_name = n->data.variable_declaration.variable_name;
             
             if (n->data.variable_declaration.initial_value) {
+                // Compile the initial value first (e.g., for "let x = mod", compile "mod")
                 compile_node(p, n->data.variable_declaration.initial_value);
             } else {
                 // Initialize with null
@@ -1560,6 +1614,19 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             // This matches the AST interpreter behavior
             int idx = define_local(p, var_name);
             bc_emit(p, BC_STORE_LOCAL, idx, 0);
+            
+            // If variable has export/private flags, store metadata
+            if (n->data.variable_declaration.is_export || n->data.variable_declaration.is_private) {
+                int name_idx = bc_add_const(p, value_create_string(var_name));
+                int flags = 0;
+                if (n->data.variable_declaration.is_export) {
+                    flags |= 1; // bit 0 = export
+                }
+                if (n->data.variable_declaration.is_private) {
+                    flags |= 2; // bit 1 = private
+                }
+                bc_emit(p, BC_SET_SYMBOL_FLAGS, name_idx, flags);
+            }
         } break;
         case AST_NODE_ASSIGNMENT: {
             // Check if this is an array element assignment (target is an array access node)
@@ -1688,7 +1755,8 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                     stmt->type != AST_NODE_IF_STATEMENT &&
                     stmt->type != AST_NODE_BREAK &&
                     stmt->type != AST_NODE_CONTINUE &&
-                    stmt->type != AST_NODE_RETURN) {
+                    stmt->type != AST_NODE_RETURN &&
+                    stmt->type != AST_NODE_USE) {  // Use statements don't push values that need popping
                     bc_emit(p, BC_POP, 0, 0);
                 }
             }
@@ -1721,7 +1789,15 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             
             // Emit instruction to define function in environment
             int name_idx = bc_add_const(p, value_create_string(n->data.function_definition.function_name));
-            bc_emit_super(p, BC_DEFINE_FUNCTION, name_idx, func_id, 0);
+            // Encode export/private flags in c operand: bit 0 = is_export, bit 1 = is_private
+            int flags = 0;
+            if (n->data.function_definition.is_export) {
+                flags |= 1; // bit 0 = export
+            }
+            if (n->data.function_definition.is_private) {
+                flags |= 2; // bit 1 = private
+            }
+            bc_emit_super(p, BC_DEFINE_FUNCTION, name_idx, func_id, flags);
         } break;
         case AST_NODE_MEMBER_ACCESS: {
             // Property access: obj.name
@@ -1827,8 +1903,17 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             bc_emit(p, BC_CREATE_SET, (int)n->data.set_literal.element_count, 0);
         } break;
         case AST_NODE_FUNCTION_CALL_EXPR: {
-            // Method call: obj.method(args...)
+            // Function call expression: func(args...) or obj.method(args...)
             // Check if the function is a member access
+            if (!n->data.function_call_expr.function) {
+                // No function specified - error
+                if (p->interpreter) {
+                    interpreter_set_error(p->interpreter, "Function call expression has no function", 0, 0);
+                }
+                // Push null result
+                bc_emit(p, BC_LOAD_CONST, bc_add_const(p, value_create_null()), 0);
+                break;
+            }
             if (n->data.function_call_expr.function->type == AST_NODE_MEMBER_ACCESS) {
                 ASTNode* member_access = n->data.function_call_expr.function;
                 const char* method_name = member_access->data.member_access.member_name;
@@ -2036,17 +2121,80 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                 // Call the function value
                 bc_emit(p, BC_CALL_FUNCTION_VALUE, (int)n->data.function_call_expr.argument_count, 0);
             } else {
-                // Regular function call expression not yet fully supported in bytecode
-                if (p->interpreter) {
-                    interpreter_set_error(p->interpreter, "Function call expression not yet fully supported in bytecode", 0, 0);
+                // Function call expression with complex expression as function - compile the function expression first
+                if (n->data.function_call_expr.function) {
+                    // Compile the function expression (could be a property access, etc.)
+                    compile_node(p, n->data.function_call_expr.function);
+                    // Compile arguments
+                    for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                        compile_node(p, n->data.function_call_expr.arguments[i]);
+                    }
+                    // Call the function value on the stack
+                    bc_emit(p, BC_CALL_FUNCTION_VALUE, (int)n->data.function_call_expr.argument_count, 0);
+                } else {
+                    // No function specified - error
+                    if (p->interpreter) {
+                        interpreter_set_error(p->interpreter, "Function call expression has no function", 0, 0);
+                    }
+                    // Push null result
+                    bc_emit(p, BC_LOAD_CONST, bc_add_const(p, value_create_null()), 0);
                 }
             }
         } break;
         case AST_NODE_USE: {
-            // Use statements - import library
+            // Use statements - import library or file module
             const char* library_name = n->data.use_statement.library_name;
+            const char* alias = n->data.use_statement.alias;
+            char** specific_items = n->data.use_statement.specific_items;
+            char** specific_aliases = n->data.use_statement.specific_aliases;
+            size_t item_count = n->data.use_statement.item_count;
+            
             int lib_name_idx = bc_add_const(p, value_create_string(library_name));
-            bc_emit(p, BC_IMPORT_LIB, lib_name_idx, 0);
+            int alias_idx = 0;
+            if (alias) {
+                alias_idx = bc_add_const(p, value_create_string(alias));
+            }
+            
+            // Store specific_items array in constant pool if present
+            int specific_items_idx = 0;
+            if (specific_items && item_count > 0) {
+                // Create array of item names
+                Value items_array = value_create_array((int)item_count);
+                for (size_t i = 0; i < item_count; i++) {
+                    if (specific_items[i]) {
+                        Value item_name = value_create_string(specific_items[i]);
+                        value_array_push(&items_array, item_name);
+                        value_free(&item_name);
+                    }
+                }
+                specific_items_idx = bc_add_const(p, items_array);
+                // Note: bc_add_const now handles cloning and freeing arrays
+                
+                // Store specific_aliases array if present (right after items array)
+                // VM will check if constant at specific_items_idx + 1 is an aliases array
+                if (specific_aliases && item_count > 0) {
+                    Value aliases_array = value_create_array((int)item_count);
+                    for (size_t i = 0; i < item_count; i++) {
+                        if (specific_aliases[i]) {
+                            Value alias_name = value_create_string(specific_aliases[i]);
+                            value_array_push(&aliases_array, alias_name);
+                            value_free(&alias_name);
+                        } else {
+                            // No alias for this item - push null
+                            value_array_push(&aliases_array, value_create_null());
+                        }
+                    }
+                    bc_add_const(p, aliases_array); // Store right after items array
+                    // Note: bc_add_const now handles cloning and freeing arrays
+                }
+            }
+            
+            // Emit instruction: a = library_name, b = alias, c = specific_items array index
+            bc_emit(p, BC_IMPORT_LIB, lib_name_idx, alias_idx);
+            // Update the c operand to store specific_items index
+            if (p->count > 0) {
+                p->code[p->count - 1].c = specific_items_idx;
+            }
         } break;
         
         case AST_NODE_FUNCTION_CALL: {
@@ -2358,6 +2506,18 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             int body_idx = bc_add_ast(p, n->data.class_definition.body);
             
             bc_emit_super(p, BC_CREATE_CLASS, name_idx, parent_idx, body_idx);
+            
+            // If class has export/private flags, store metadata
+            if (n->data.class_definition.is_export || n->data.class_definition.is_private) {
+                int flags = 0;
+                if (n->data.class_definition.is_export) {
+                    flags |= 1; // bit 0 = export
+                }
+                if (n->data.class_definition.is_private) {
+                    flags |= 2; // bit 1 = private
+                }
+                bc_emit(p, BC_SET_SYMBOL_FLAGS, name_idx, flags);
+            }
             // Don't execute class body here - it will be processed during instantiation
         } break;
         
@@ -2582,8 +2742,23 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             }
         } break;
         
+        case AST_NODE_ERROR: {
+            // Error node - compilation should have failed earlier, but handle gracefully
+            // Push null result and continue
+            bc_emit(p, BC_LOAD_CONST, bc_add_const(p, value_create_null()), 0);
+        } break;
+        
         default: {
             // Unknown AST node type - compilation error
+            // Skip known unsupported nodes that are expected in certain contexts
+            if (n->type == AST_NODE_PATTERN_NOT || n->type == AST_NODE_PATTERN_TYPE || 
+                n->type == AST_NODE_PATTERN_WILDCARD || n->type == AST_NODE_PATTERN_DESTRUCTURE || 
+                n->type == AST_NODE_PATTERN_GUARD || n->type == AST_NODE_PATTERN_OR || 
+                n->type == AST_NODE_PATTERN_AND || n->type == AST_NODE_PATTERN_RANGE || 
+                n->type == AST_NODE_PATTERN_REGEX) {
+                // Pattern nodes are expected in match/spore contexts - silently skip
+                break;
+            }
             if (p->interpreter) {
                 char error_msg[256];
                 snprintf(error_msg, sizeof(error_msg), "AST node type %d not supported in bytecode compilation", n->type);

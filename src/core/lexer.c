@@ -264,8 +264,15 @@ static void lexer_skip_whitespace(Lexer* lexer) {
  * @brief Skip comments (lines starting with #)
  * 
  * @param lexer The lexer to skip comments in
+ * @return 1 if a directive was found and should be processed, 0 otherwise
  */
-static void lexer_skip_comments(Lexer* lexer) {
+static int lexer_skip_comments(Lexer* lexer) {
+    // Handle #! directives (file-level directives)
+    if (lexer_current_char(lexer) == '#' && !lexer_is_at_end(lexer) && lexer_next_char(lexer) == '!') {
+        // This is a directive, not a comment - return 1 to signal it should be processed
+        return 1;
+    }
+    
     // Handle # style comments
     if (lexer_current_char(lexer) == '#') {
         // Skip to end of line
@@ -276,6 +283,7 @@ static void lexer_skip_comments(Lexer* lexer) {
         if (!lexer_is_at_end(lexer) && lexer_current_char(lexer) == '\n') {
             lexer_advance(lexer);
         }
+        return 0;
     }
     // Handle // style comments
     else if (lexer_current_char(lexer) == '/' && !lexer_is_at_end(lexer) && lexer_next_char(lexer) == '/') {
@@ -287,7 +295,9 @@ static void lexer_skip_comments(Lexer* lexer) {
         if (!lexer_is_at_end(lexer) && lexer_current_char(lexer) == '\n') {
             lexer_advance(lexer);
         }
+        return 0;
     }
+    return 0;
 }
 
 /**
@@ -570,10 +580,55 @@ static int lexer_scan_token(Lexer* lexer) {
     lexer->start = lexer->current;
     
     // Skip whitespace and comments in a loop to handle consecutive comments
+    // Check for directives (#!) before skipping
     while (!lexer_is_at_end(lexer)) {
         int initial_pos = lexer->current;
         lexer_skip_whitespace(lexer);
-        lexer_skip_comments(lexer);
+        
+        // Check if this is a directive before skipping
+        if (lexer_current_char(lexer) == '#' && !lexer_is_at_end(lexer) && lexer_next_char(lexer) == '!') {
+            // Parse directive: #! directive_name
+            lexer->start = lexer->current; // Start of '#'
+            lexer_advance(lexer); // Skip '#'
+            lexer_advance(lexer); // Skip '!'
+            
+            // Skip whitespace after #!
+            while (!lexer_is_at_end(lexer) && (lexer_current_char(lexer) == ' ' || lexer_current_char(lexer) == '\t')) {
+                lexer_advance(lexer);
+            }
+            
+            // Extract directive name
+            lexer->start = lexer->current;
+            while (!lexer_is_at_end(lexer) && lexer_current_char(lexer) != '\n' && 
+                   lexer_current_char(lexer) != '\r' && lexer_current_char(lexer) != ' ' && 
+                   lexer_current_char(lexer) != '\t') {
+                lexer_advance(lexer);
+            }
+            
+            char* directive_text = lexer_extract_text(lexer);
+            if (directive_text) {
+                // Create a special directive token (use TOKEN_KEYWORD for now)
+                lexer_add_token(lexer, TOKEN_KEYWORD, directive_text, lexer->line, lexer->column - (int)strlen(directive_text));
+                shared_free_safe(directive_text, "lexer", "lexer_scan_token", 0);
+            }
+            
+            // Skip rest of line
+            while (!lexer_is_at_end(lexer) && lexer_current_char(lexer) != '\n') {
+                lexer_advance(lexer);
+            }
+            if (!lexer_is_at_end(lexer) && lexer_current_char(lexer) == '\n') {
+                lexer_advance(lexer);
+            }
+            
+            return 1; // Token was added
+        }
+        
+        int had_directive = lexer_skip_comments(lexer);
+        if (had_directive) {
+            // Directive was processed above, continue
+            continue;
+        }
+        
         // If position didn't change, we're done skipping
         if (lexer->current == initial_pos) {
             break;

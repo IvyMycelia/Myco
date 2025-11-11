@@ -129,6 +129,17 @@ use "./file.myco" as file;                                 # Import .myco file
 use public_function from "./file.myco" as public_function; # Import an exported function from .myco file
 ```
 
+## From-Use Syntax (Recommended for IDE Autocomplete)
+
+The `from ... use ...` syntax places the module path first, making it easier for IDE plugins to provide autocomplete suggestions:
+
+```myco
+from "utils" use publicFunction;               # Import specific function from file
+from "utils" use func1, func2;                # Import multiple items from file
+from math use Pi, E;                          # Import specific constants from library
+from "module.myco" use Class1, Class2;         # Import classes from module
+```
+
 ## Class Declarations
 
 ```myco
@@ -217,12 +228,12 @@ end
 3. **Function syntax**: `func name(params) -> ReturnType:` or `func name(params):` (You can mix and match the different syntaxes in functions)
 4. **Block syntax**: Use `end` to close blocks, not `{}`
 5. **Comments**: Use `#` not `//`
-6. **Imports**: Use `use library as alias;` or `use library;` or `use method1, method2 from library;` or `use method1, method2 from library as alias1, alias2;`
+6. **Imports**: Use `use library as alias;` or `use library;` or `use method1, method2 from library;` or `use method1, method2 from library as alias1, alias2;` or `from "module" use item1, item2;` (recommended for IDE autocomplete)
 7. **Types**: `Int`, `Float`, `String`, `Bool`, `Array`, `Object`
 8. **Booleans**: `True` and `False` (capitalized)
 9. **Null**: `Null` (capitalized)
 10. **Semicolons**: Required at end of statements
-11. **Use Statements**: Use `use library as alias;` or `use library;` or `use method1, method2 from library;` or `use method1, method2 from library as alias1, alias2;`
+11. **Use Statements**: Use `use library as alias;` or `use library;` or `use method1, method2 from library;` or `use method1, method2 from library as alias1, alias2;` or `from "module" use item1, item2;` (recommended for IDE autocomplete)
 12. **Dot Methos vs. Dot Variables**: If a dot operator mutates, manipulates, or changes a variable, then it needs parenthesis. If it has parameters, then it needs paranthesis. If it is just a property (e.g. `arr.length`, `obj.keys`, `heap.size`, `array.type`), then it does not need parenthesis.
 
 

@@ -3,7 +3,11 @@
 #include "../../include/core/interpreter/value_operations.h"
 #include "../../include/core/interpreter/eval_engine.h"
 #include "../../include/core/interpreter/method_handlers.h"
+#include "../../include/core/interpreter/interpreter_core.h"
 #include "../../include/core/environment.h"
+#include "../../include/core/lexer.h"
+#include "../../include/core/parser.h"
+#include "../../include/core/ast.h"
 #include "../../include/libs/array.h"
 #include "../../include/libs/math.h"
 #include "../../include/libs/maps.h"
@@ -15,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <errno.h>
 
 // Branch prediction hints for better CPU performance
 #ifdef __GNUC__
@@ -759,6 +764,11 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             // Variable exists in environment - use that (may be newer)
                             Value env_val = environment_get(interpreter->current_environment, var_name);
                             
+                            // Also check global environment for modules
+                            if (env_val.type == VALUE_NULL && interpreter->global_environment) {
+                                env_val = environment_get(interpreter->global_environment, var_name);
+                            }
+                            
                             // Update local slot to match environment if local is Null or different
                             if (local_val.type == VALUE_NULL || 
                                 (local_val.type == VALUE_OBJECT && env_val.type == VALUE_OBJECT && 
@@ -772,7 +782,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             value_stack_push(cloned_env_val);
                         } else {
                             // Variable not in environment - use local slot
-                    value_stack_push(value_clone(&local_val));
+                            value_stack_push(value_clone(&local_val));
                         }
                     } else {
                         // No environment or local_names - use local slot
@@ -853,23 +863,23 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             case BC_LOAD_GLOBAL: {
                 // Load global variable by name
                 // environment_get already checks parent chain, so just use current_environment
-                if (instr->a >= 0 && instr->a < (int)program->const_count && 
-                    program->constants && program->constants[instr->a].type == VALUE_STRING) {
-                    const char* var_name = program->constants[instr->a].data.string_value;
-                    Value loaded_val = value_create_null();
-                    
-                    // Use current environment - environment_get will check parent chain automatically
-                    if (var_name && interpreter && interpreter->current_environment) {
-                        loaded_val = environment_get(interpreter->current_environment, var_name);
-                    } else if (var_name && interpreter && interpreter->global_environment) {
-                        // Fallback to global environment if current_environment is NULL
-                        loaded_val = environment_get(interpreter->global_environment, var_name);
+                Value loaded_val = value_create_null();
+                if (instr->a >= 0 && instr->a < (int)program->const_count && program->constants) {
+                    if (program->constants[instr->a].type == VALUE_STRING) {
+                        const char* var_name = program->constants[instr->a].data.string_value;
+                        
+                        // Try global environment first (where modules are stored)
+                        if (var_name && interpreter && interpreter->global_environment) {
+                            loaded_val = environment_get(interpreter->global_environment, var_name);
                         }
-                    
-                    value_stack_push(loaded_val);
-                } else {
-                    value_stack_push(value_create_null());
+                        
+                        // If not found in global, try current environment (which will check parent chain)
+                        if (loaded_val.type == VALUE_NULL && var_name && interpreter && interpreter->current_environment) {
+                            loaded_val = environment_get(interpreter->current_environment, var_name);
+                        }
+                    }
                 }
+                value_stack_push(loaded_val);
                 pc++;
                 break;
             }
@@ -2065,16 +2075,56 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     // Create a function value that represents a bytecode function
                     // Store the function ID in the body field (cast as pointer) so we can find it later
                     // We'll cast the function ID to a pointer for storage
+                    Environment* target_env = interpreter->current_environment ? interpreter->current_environment : interpreter->global_environment;
                     Value function_value = value_create_function(
                         (ASTNode*)(uintptr_t)func_id, // Store function ID as "body" pointer
                         NULL, // No AST parameters for bytecode functions
                         func->param_count,
                         NULL, // No return type for now
-                        interpreter->current_environment ? interpreter->current_environment : interpreter->global_environment
+                        target_env
                     );
                     
-                    // Define in global environment so it can be called from anywhere
-                    environment_define(interpreter->global_environment, func_name, function_value);
+                    // Define in current environment (or global if no current) so it can be called from the correct scope
+                    environment_define(target_env, func_name, function_value);
+                    
+                    // Store export/private metadata if flags are present (instr->c)
+                    // bit 0 = is_export, bit 1 = is_private
+                    int flags = instr->c;
+                    if (flags != 0) {
+                        if (flags & 1) { // is_export
+                            char export_key[256];
+                            snprintf(export_key, sizeof(export_key), "__export__%s", func_name);
+                            environment_define(target_env, export_key, value_create_boolean(1));
+                        }
+                        if (flags & 2) { // is_private
+                            char private_key[256];
+                            snprintf(private_key, sizeof(private_key), "__private__%s", func_name);
+                            environment_define(target_env, private_key, value_create_boolean(1));
+                        }
+                    }
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_SET_SYMBOL_FLAGS: {
+                // Set export/private flags for a symbol: a = name_idx, b = flags
+                if (instr->a >= 0 && instr->a < (int)program->const_count && 
+                    program->constants[instr->a].type == VALUE_STRING) {
+                    const char* symbol_name = program->constants[instr->a].data.string_value;
+                    int flags = instr->b;
+                    Environment* target_env = interpreter->current_environment ? interpreter->current_environment : interpreter->global_environment;
+                    
+                    if (flags & 1) { // is_export
+                        char export_key[256];
+                        snprintf(export_key, sizeof(export_key), "__export__%s", symbol_name);
+                        environment_define(target_env, export_key, value_create_boolean(1));
+                    }
+                    if (flags & 2) { // is_private
+                        char private_key[256];
+                        snprintf(private_key, sizeof(private_key), "__private__%s", symbol_name);
+                        environment_define(target_env, private_key, value_create_boolean(1));
+                    }
                 }
                 pc++;
                 break;
@@ -2622,18 +2672,315 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             case BC_IMPORT_LIB: {
-                // Import library: use library_name
+                // Import library or file module: use library_name [as alias]
                 if (instr->a < program->const_count && program->constants[instr->a].type == VALUE_STRING) {
                     const char* library_name = program->constants[instr->a].data.string_value;
+                    const char* alias = NULL;
+                    // Check if alias was provided (instr->b > 0 means alias index, 0 means no alias)
+                    if (instr->b > 0 && instr->b < (int)program->const_count && program->constants[instr->b].type == VALUE_STRING) {
+                        alias = program->constants[instr->b].data.string_value;
+                    }
                     
-                    // Get the library from global environment (it should already be registered)
+                    // Check if this is a file import (contains .myco or starts with ./)
+                    // File imports are detected by:
+                    // 1. String contains ".myco" extension
+                    // 2. String starts with "./" (relative path)
+                    // 3. String doesn't match a known library name (heuristic)
+                    bool is_file_import = (strstr(library_name, ".myco") != NULL) || 
+                                         (library_name && library_name[0] == '.' && library_name[1] == '/') ||
+                                         (library_name && strchr(library_name, '/') != NULL); // Path contains directory separator
+                    
+                    if (is_file_import) {
+                        // File import: load, parse, and execute in isolated environment
+                        FILE* file = NULL;
+                        char* actual_path = NULL;
+                        
+                        // Try opening the file as-is first
+                        file = fopen(library_name, "r");
+                        if (file) {
+                            actual_path = shared_strdup(library_name);
+                        } else {
+                            // Try with .myco extension if not present
+                            if (!strstr(library_name, ".myco")) {
+                                actual_path = shared_malloc_safe(strlen(library_name) + 6, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                                if (actual_path) {
+                                    strcpy(actual_path, library_name);
+                                    strcat(actual_path, ".myco");
+                                    file = fopen(actual_path, "r");
+                                    if (!file) {
+                                        shared_free_safe(actual_path, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                                        actual_path = NULL;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (!file) {
+                            // File not found - set error and continue
+                            char error_msg[256];
+                            snprintf(error_msg, sizeof(error_msg), "Cannot open module file: %s", library_name);
+                            interpreter_set_error(interpreter, error_msg, 0, 0);
+                            value_stack_push(value_create_null());
+                            pc++;
+                            break;
+                        }
+                        
+                        // Read file content
+                        fseek(file, 0, SEEK_END);
+                        long file_size = ftell(file);
+                        fseek(file, 0, SEEK_SET);
+                        
+                        char* source = shared_malloc_safe(file_size + 1, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                        if (!source) {
+                            fclose(file);
+                            if (actual_path) shared_free_safe(actual_path, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                            interpreter_set_error(interpreter, "Out of memory loading module", 0, 0);
+                            value_stack_push(value_create_null());
+                            pc++;
+                            break;
+                        }
+                        
+                        size_t bytes_read = fread(source, 1, file_size, file);
+                        source[bytes_read] = '\0';
+                        fclose(file);
+                        
+                        // Use actual_path for parsing if we have it, otherwise use library_name
+                        const char* file_path_for_parsing = actual_path ? actual_path : library_name;
+                        
+                        // Create isolated environment for module
+                        Environment* module_env = environment_create(interpreter->global_environment);
+                        
+                        // Save current environment
+                        Environment* saved_env = interpreter->current_environment;
+                        interpreter->current_environment = module_env;
+                        
+                        // Parse and execute module
+                        Lexer* lexer = lexer_initialize(source);
+                        if (lexer) {
+                            lexer_scan_all(lexer);
+                            Parser* parser = parser_initialize(lexer);
+                            if (parser) {
+                                ASTNode* module_ast = parser_parse_program_with_filename(parser, file_path_for_parsing);
+                                
+                                // Store file directive state in module environment
+                                if (parser->file_directive_export) {
+                                    environment_define(module_env, "__file_directive_export__", value_create_boolean(1));
+                                }
+                                if (parser->file_directive_private) {
+                                    environment_define(module_env, "__file_directive_private__", value_create_boolean(1));
+                                }
+                                if (parser->file_directive_strict) {
+                                    environment_define(module_env, "__file_directive_strict__", value_create_boolean(1));
+                                }
+                                if (parser->file_directive_unstrict) {
+                                    environment_define(module_env, "__file_directive_unstrict__", value_create_boolean(1));
+                                }
+                                
+                                if (module_ast) {
+                                    // Execute module in isolated environment
+                                    Value module_result = interpreter_execute_program(interpreter, module_ast);
+                                    value_free(&module_result);
+                                    
+                                    // Clear any errors from module execution (they shouldn't prevent export)
+                                    // Module might have unsupported AST nodes, but exports should still work
+                                    if (interpreter_has_error(interpreter)) {
+                                        interpreter_clear_error(interpreter);
+                                    }
+                                    ast_free(module_ast);
+                                }
+                                parser_free(parser);
+                            }
+                            lexer_free(lexer);
+                        }
+                        
+                        // Restore current environment
+                        interpreter->current_environment = saved_env;
+                        
+                        // Free actual_path if we allocated it
+                        if (actual_path) {
+                            shared_free_safe(actual_path, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                        }
+                        
+                        // Create module value (VALUE_OBJECT) that wraps the module environment
+                        Value module_value = value_create_object(16); // Initial capacity for module properties
+                        value_object_set(&module_value, "__type__", value_create_string("Module"));
+                        
+                        // Export all top-level symbols (func, let, class) from module environment
+                        // Check export/private flags to determine what to export
+                        // Priority: private > export > default (implicit export for now)
+                        size_t export_count = 0;
+                        for (size_t i = 0; i < module_env->count; i++) {
+                            if (module_env->names[i] && module_env->values[i].type != VALUE_NULL) {
+                                // Skip internal symbols starting with __ (including metadata)
+                                if (strncmp(module_env->names[i], "__", 2) != 0) {
+                                    const char* symbol_name = module_env->names[i];
+                                    
+                                    // Check for private flag
+                                    char private_key[256];
+                                    snprintf(private_key, sizeof(private_key), "__private__%s", symbol_name);
+                                    Value private_flag = environment_get(module_env, private_key);
+                                    bool is_private = (private_flag.type == VALUE_BOOLEAN && private_flag.data.boolean_value);
+                                    value_free(&private_flag);
+                                    
+                                    if (is_private) {
+                                        continue; // Never export private symbols
+                                    }
+                                    
+                                    // Check for export flag
+                                    char export_key[256];
+                                    snprintf(export_key, sizeof(export_key), "__export__%s", symbol_name);
+                                    Value export_flag = environment_get(module_env, export_key);
+                                    bool is_export = (export_flag.type == VALUE_BOOLEAN && export_flag.data.boolean_value);
+                                    value_free(&export_flag);
+                                    
+                                    // Check file-level directive for default behavior
+                                    Value export_directive = environment_get(module_env, "__file_directive_export__");
+                                    Value private_directive = environment_get(module_env, "__file_directive_private__");
+                                    bool file_export_mode = (export_directive.type == VALUE_BOOLEAN && export_directive.data.boolean_value);
+                                    bool file_private_mode = (private_directive.type == VALUE_BOOLEAN && private_directive.data.boolean_value);
+                                    value_free(&export_directive);
+                                    value_free(&private_directive);
+                                    
+                                    // Determine if symbol should be exported based on flags and file directive
+                                    bool should_export = false;
+                                    if (is_export) {
+                                        // Explicitly exported - always export
+                                        should_export = true;
+                                    } else if (is_private) {
+                                        // Explicitly private - never export (already handled above, but keep for clarity)
+                                        should_export = false;
+                                    } else if (file_export_mode) {
+                                        // File directive says export by default
+                                        should_export = true;
+                                    } else if (file_private_mode) {
+                                        // File directive says private by default
+                                        should_export = false;
+                                    } else {
+                                        // No directive, default to implicit export (current behavior)
+                                        should_export = true;
+                                    }
+                                    
+                                    if (should_export) {
+                                        Value cloned = value_clone(&module_env->values[i]);
+                                        value_object_set(&module_value, symbol_name, cloned);
+                                        export_count++;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Note: module_env is kept alive as long as module_value exists
+                        // since the exported values are cloned from it
+                        // Even if module_env is empty, we still create a valid Module object
+                        
+                        // Use alias if provided, otherwise extract filename from path
+                        char* var_name_to_free = NULL;
+                        const char* var_name;
+                        if (alias) {
+                            var_name = alias;
+                        } else {
+                            // Extract filename from path
+                            const char* filename = strrchr(library_name, '/');
+                            if (filename) {
+                                filename++; // Skip '/'
+                            } else {
+                                filename = library_name;
+                            }
+                            // Remove .myco extension
+                            var_name_to_free = shared_strdup(filename);
+                            char* ext = strstr(var_name_to_free, ".myco");
+                            if (ext) {
+                                *ext = '\0';
+                            }
+                            var_name = var_name_to_free;
+                        }
+                        
+                        // Define module in global environment so it can be accessed from anywhere
+                        // Modules should be stored in global environment, not current environment
+                        Environment* target_env = interpreter->global_environment;
+                        if (!target_env) {
+                            target_env = interpreter->current_environment;
+                        }
+                        environment_define(target_env, var_name, module_value);
+                        
+                        // Also store in current environment if it's different from global
+                        // This ensures the module is accessible even if current_env doesn't have global as parent
+                        if (target_env == interpreter->global_environment && 
+                            interpreter->current_environment && 
+                            interpreter->current_environment != interpreter->global_environment) {
+                            environment_define(interpreter->current_environment, var_name, module_value);
+                        }
+                        
+                        // Handle specific imports if present (instr->c > 0 means specific_items array index)
+                        if (instr->c > 0 && instr->c < (int)program->const_count) {
+                            Value items_array = program->constants[instr->c];
+                            if (items_array.type == VALUE_ARRAY) {
+                                size_t item_count = items_array.data.array_value.count;
+                                
+                                // Check if aliases array exists at next constant index
+                                Value aliases_array = value_create_null();
+                                bool has_aliases = false;
+                                if (instr->c + 1 < (int)program->const_count) {
+                                    Value next_const = program->constants[instr->c + 1];
+                                    if (next_const.type == VALUE_ARRAY && 
+                                        next_const.data.array_value.count == item_count) {
+                                        aliases_array = next_const;
+                                        has_aliases = true;
+                                    }
+                                }
+                                
+                                // Import each item into current environment
+                                for (size_t i = 0; i < item_count; i++) {
+                                    Value* item_name_ptr = (Value*)items_array.data.array_value.elements[i];
+                                    if (item_name_ptr && item_name_ptr->type == VALUE_STRING && item_name_ptr->data.string_value) {
+                                        const char* item_name = item_name_ptr->data.string_value;
+                                        
+                                        // Get the item from the module
+                                        Value item_value = value_object_get(&module_value, item_name);
+                                        
+                                        if (item_value.type != VALUE_NULL) {
+                                            // Determine the name to use (alias if present, otherwise item name)
+                                            const char* import_name = item_name;
+                                            if (has_aliases && i < aliases_array.data.array_value.count) {
+                                                Value* alias_ptr = (Value*)aliases_array.data.array_value.elements[i];
+                                                if (alias_ptr && alias_ptr->type == VALUE_STRING && alias_ptr->data.string_value) {
+                                                    import_name = alias_ptr->data.string_value;
+                                                }
+                                            }
+                                            
+                                            // Clone and import into current environment
+                                            Value cloned_item = value_clone(&item_value);
+                                            environment_define(interpreter->current_environment, import_name, cloned_item);
+                                        }
+                                    }
+                                }
+                                
+                                if (has_aliases) {
+                                    // Don't free aliases_array - it's from constant pool
+                                }
+                            }
+                        }
+                        
+                        shared_free_safe(source, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                        if (var_name_to_free) {
+                            shared_free_safe(var_name_to_free, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                        }
+                        
+                        // Push null result (use statements don't return a value)
+                        value_stack_push(value_create_null());
+                    } else {
+                        // Library import: get from global environment
                     Value lib = environment_get(interpreter->global_environment, library_name);
+                        
+                        // Use alias if provided, otherwise use library_name
+                        const char* var_name = alias ? alias : library_name;
                     
                     // Define it in the current environment
-                    environment_define(interpreter->current_environment, library_name, lib);
+                        environment_define(interpreter->current_environment, var_name, lib);
                     
                     // Push null result (use statements don't return a value)
                     value_stack_push(value_create_null());
+                    }
                 } else {
                     value_stack_push(value_create_null());
                 }
@@ -3239,8 +3586,13 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         // Compile class metadata to bytecode (methods and fields)
                         compile_class_metadata(interpreter, &class_value);
                         
-                        // Store class in global environment so it can be accessed from anywhere
-                        environment_define(interpreter->global_environment, class_name.data.string_value, class_value);
+                        // Store class in current environment (which will be module_env during module execution)
+                        // This allows classes to be exported from modules
+                        Environment* target_env = interpreter->current_environment;
+                        if (!target_env) {
+                            target_env = interpreter->global_environment;
+                        }
+                        environment_define(target_env, class_name.data.string_value, class_value);
                         value_free(&class_value);
                     }
                 }

@@ -1144,7 +1144,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 if (should_jump) {
                     // Validate jump target to prevent jumping out of bounds
                     if (instr->a >= 0 && instr->a < (int)program->count) {
-                        pc = instr->a;
+                    pc = instr->a;
                     } else {
                         // Invalid jump target - stop execution
                         if (interpreter) {
@@ -5241,6 +5241,20 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             case BC_POP: {
                 Value val = value_stack_pop();
                 value_free(&val);
+                pc++;
+                break;
+            }
+            
+            case BC_DUP: {
+                // Duplicate top of stack
+                if (value_stack_size == 0) {
+                    if (interpreter) {
+                        interpreter_set_error(interpreter, "Stack underflow in BC_DUP", 0, 0);
+                    }
+                    goto cleanup;
+                }
+                Value top = value_stack_peek();
+                value_stack_push(value_clone(&top));
                 pc++;
                 break;
             }

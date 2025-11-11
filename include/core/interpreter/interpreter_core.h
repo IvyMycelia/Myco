@@ -178,6 +178,7 @@ typedef struct ModuleCacheEntry {
     time_t file_mtime;            // File modification time
     Environment* module_env;      // Cached module environment
     void* module_value_storage;   // Cached module value (Value*) - stored as void* to avoid circular dependency
+    void* module_bytecode_program; // Cached module bytecode program (BytecodeProgram*) - stored as void* to avoid circular dependency
     int is_valid;                 // Whether cache entry is still valid
 } ModuleCacheEntry;
 

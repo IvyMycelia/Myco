@@ -489,7 +489,7 @@ Value builtin_file_write(Interpreter* interpreter, Value* args, size_t arg_count
         return value_create_null();
     }
     
-    return value_create_null(); // Success
+    return value_create_number(bytes_written); // Return number of bytes written on success
 }
 
 // Append string content to file
@@ -532,7 +532,7 @@ Value builtin_file_append(Interpreter* interpreter, Value* args, size_t arg_coun
         return value_create_null();
     }
     
-    return value_create_null(); // Success
+    return value_create_number(bytes_written); // Return number of bytes written on success
 }
 
 // Check if file exists

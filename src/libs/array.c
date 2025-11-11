@@ -44,16 +44,17 @@ Value builtin_array_push(Interpreter* interpreter, Value* args, size_t arg_count
 }
 
 Value builtin_array_pop(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
-    if (arg_count != 1) {
+    // pop() can take 1 argument (array) or 2 arguments (array, index)
+    if (arg_count < 1 || arg_count > 2) {
         std_error_report(ERROR_ARGUMENT_COUNT, "array", "builtin_array_pop", 
-                        "pop() requires exactly 1 argument", line, column);
+                        "pop() requires 1 or 2 arguments", line, column);
         return value_create_null();
     }
     
     Value array_arg = args[0];
     
     if (array_arg.type != VALUE_ARRAY) {
-        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "pop() argument must be an array", line, column);
+        std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "pop() first argument must be an array", line, column);
         return value_create_null();
     }
     
@@ -62,7 +63,16 @@ Value builtin_array_pop(Interpreter* interpreter, Value* args, size_t arg_count,
         return value_create_null();
     }
     
-    return value_array_pop(&array_arg);
+    int pop_index = -1; // Default: pop last element
+    if (arg_count == 2) {
+        if (args[1].type != VALUE_NUMBER) {
+            std_error_report(ERROR_INVALID_ARGUMENT, "array", "unknown_function", "pop() index must be a number", line, column);
+            return value_create_null();
+        }
+        pop_index = (int)args[1].data.number_value;
+    }
+    
+    return value_array_pop(&array_arg, pop_index);
 }
 
 Value builtin_array_insert(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {

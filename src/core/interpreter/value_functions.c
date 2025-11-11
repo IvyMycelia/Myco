@@ -545,8 +545,7 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
             return value_create_null();
         }
         
-        struct BytecodeProgram* program_struct = interpreter->bytecode_program_cache;
-        BytecodeProgram* program = (BytecodeProgram*)program_struct;
+        BytecodeProgram* program = (BytecodeProgram*)interpreter->bytecode_program_cache;
         if (func_id < 0 || func_id >= (int)program->function_count) {
             interpreter_set_error(interpreter, "Invalid bytecode function ID", line, column);
             return value_create_null();

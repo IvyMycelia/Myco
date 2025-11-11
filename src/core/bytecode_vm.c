@@ -53,7 +53,7 @@ static int pattern_matches_value(Value* value, Value* pattern);
 static char* normalize_file_path(const char* path);
 static time_t get_file_mtime(const char* file_path);
 static ModuleCacheEntry* find_cached_module(Interpreter* interpreter, const char* file_path);
-static void cache_module(Interpreter* interpreter, const char* file_path, Environment* module_env, Value module_value);
+static void cache_module(Interpreter* interpreter, const char* file_path, Environment* module_env, Value module_value, BytecodeProgram* module_bytecode);
 static int check_circular_import(Interpreter* interpreter, const char* module_path);
 static void push_import_chain(Interpreter* interpreter, const char* module_path);
 static void pop_import_chain(Interpreter* interpreter);
@@ -873,20 +873,21 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             
             case BC_LOAD_GLOBAL: {
                 // Load global variable by name
-                // environment_get already checks parent chain, so just use current_environment
+                // Check current environment first (for loop variables, local scope), then global
                 Value loaded_val = value_create_null();
                 if (instr->a >= 0 && instr->a < (int)program->const_count && program->constants) {
                     if (program->constants[instr->a].type == VALUE_STRING) {
                     const char* var_name = program->constants[instr->a].data.string_value;
                         
-                        // Try global environment first (where modules are stored)
-                    if (var_name && interpreter && interpreter->global_environment) {
-                            loaded_val = environment_get(interpreter->global_environment, var_name);
+                        // Try current environment first (for loop variables, local scope)
+                        // environment_get already checks parent chain
+                        if (var_name && interpreter && interpreter->current_environment) {
+                            loaded_val = environment_get(interpreter->current_environment, var_name);
                         }
                         
-                        // If not found in global, try current environment (which will check parent chain)
-                        if (loaded_val.type == VALUE_NULL && var_name && interpreter && interpreter->current_environment) {
-                            loaded_val = environment_get(interpreter->current_environment, var_name);
+                        // If not found in current, try global environment (where modules are stored)
+                        if (loaded_val.type == VALUE_NULL && var_name && interpreter && interpreter->global_environment) {
+                            loaded_val = environment_get(interpreter->global_environment, var_name);
                         }
                     }
                 }
@@ -1238,8 +1239,15 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             value_array_push(&object, args[0]);
                             // Transfer ownership of object to stack (don't free it)
                             value_stack_push(object);
-                        } else if (strcmp(method_name, "pop") == 0 && arg_count == 0) {
-                            Value result = value_array_pop(&object);
+                        } else if (strcmp(method_name, "pop") == 0 && arg_count <= 1) {
+                            // pop() can take 0 or 1 argument (index)
+                            int pop_index = -1; // Default: pop last element
+                            if (arg_count == 1 && args[0].type == VALUE_NUMBER) {
+                                pop_index = (int)args[0].data.number_value;
+                            }
+                            Value result = value_array_pop(&object, pop_index);
+                            // Push popped value first, then modified array (consistent with BC_ARRAY_POP)
+                            // Stack order: [popped_value, modified_array] with modified_array on top
                             value_stack_push(result);
                             // Transfer ownership of object to stack (don't free it)
                             value_stack_push(object);
@@ -1311,11 +1319,45 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         } else {
                             value_stack_push(value_create_null());
                         }
-                    } else if (object.type == VALUE_OBJECT) {
-                        // Check if it's a library object first
-                        Value library_type = value_object_get(&object, "__type__");
-                        bool library_method_handled = false;
-                        if (library_type.type == VALUE_STRING && strcmp(library_type.data.string_value, "Library") == 0) {
+                        } else if (object.type == VALUE_OBJECT) {
+                        // Check if it's a module object first
+                        Value object_type = value_object_get(&object, "__type__");
+                        bool method_handled = false;
+                        BytecodeProgram* saved_cache_for_module = NULL;
+                        
+                        if (object_type.type == VALUE_STRING && strcmp(object_type.data.string_value, "Module") == 0) {
+                            // It's a module object - get module path and look up bytecode program
+                            Value module_path_val = value_object_get(&object, "__module_path__");
+                            if (module_path_val.type == VALUE_STRING && module_path_val.data.string_value && interpreter && interpreter->module_cache) {
+                                // Find module in cache and temporarily set bytecode program cache
+                                ModuleCacheEntry* module_entry = find_cached_module(interpreter, module_path_val.data.string_value);
+                                if (module_entry && module_entry->is_valid && module_entry->module_bytecode_program) {
+                                    saved_cache_for_module = interpreter->bytecode_program_cache;
+                                    interpreter->bytecode_program_cache = (BytecodeProgram*)module_entry->module_bytecode_program;
+                                }
+                            }
+                            value_free(&module_path_val);
+                            
+                            // Get method from module
+                            Value method = value_object_get(&object, method_name);
+                            if (method.type == VALUE_FUNCTION) {
+                                // Call the method - value_function_call handles both builtin and user functions
+                                Value result = value_function_call(&method, args, arg_count, interpreter, 0, 0);
+                                Value cloned_result = value_clone(&result);
+                                value_free(&result);  // Free original result
+                                value_stack_push(cloned_result);  // Push cloned result (stack doesn't clone)
+                                method_handled = true;
+                            } else {
+                                value_stack_push(value_create_null());
+                                method_handled = true;
+                            }
+                            value_free(&method);
+                            
+                            // Restore cache if we changed it
+                            if (saved_cache_for_module && interpreter) {
+                                interpreter->bytecode_program_cache = saved_cache_for_module;
+                            }
+                        } else if (object_type.type == VALUE_STRING && strcmp(object_type.data.string_value, "Library") == 0) {
                             // It's a library object - get method directly
                             Value method = value_object_get(&object, method_name);
                             if (method.type == VALUE_FUNCTION) {
@@ -1324,17 +1366,17 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                 Value cloned_result = value_clone(&result);
                                 value_free(&result);  // Free original result
                                 value_stack_push(cloned_result);  // Push cloned result (stack doesn't clone)
-                                library_method_handled = true;
+                                method_handled = true;
                             } else {
                                 value_stack_push(value_create_null());
-                                library_method_handled = true;
+                                method_handled = true;
                             }
                             value_free(&method);
                         }
-                        value_free(&library_type);
+                        value_free(&object_type);
                         
-                        // Only check other conditions if library method wasn't handled
-                        if (!library_method_handled) {
+                        // Only check other conditions if method wasn't handled
+                        if (!method_handled) {
                             // CRITICAL OPTIMIZATION: For known Window.isOpen() calls, skip all lookups
                             // This avoids value_object_get allocations for both class_name and method
                             // Only apply this for Window objects - check __class_name__ first to avoid false matches
@@ -2364,16 +2406,39 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             
             case BC_ARRAY_POP: {
                 // Pop value from array
-                Value arr = value_stack_pop();
-                if (arr.type == VALUE_ARRAY) {
-                    // Use built-in array pop function
-                    Value args[1] = {arr};
-                    Value result = builtin_array_pop(interpreter, args, 1, 0, 0);
-                    value_stack_push(result);
-                } else {
-                    value_stack_push(value_create_null());
+                // Stack: [arr, index] or [arr] (if no index provided)
+                // The compiler puts index on top if provided, then array below it
+                // Push popped value first, then modified array (so modified_array is on top)
+                // Stack order: [popped_value, modified_array] with modified_array on top
+                int pop_index = -1; // Default: pop last element
+                
+                // Check instruction operand 'b' for argument count
+                // For BC_ARRAY_POP: a = unused, b = 1 if index provided, 0 if not
+                if (instr->b == 1) {
+                    // Index argument was provided - it's on top of stack
+                    Value index_val = value_stack_pop();
+                    if (index_val.type == VALUE_NUMBER) {
+                        pop_index = (int)index_val.data.number_value;
+                    }
+                    value_free(&index_val);
                 }
+                
+                // Now pop the array (it's on top now)
+                Value arr = value_stack_pop();
+                
+                if (arr.type == VALUE_ARRAY) {
+                    // Pop value from array at specified index (modifies arr in place)
+                    Value result = value_array_pop(&arr, pop_index);
+                    // Push popped value first, then modified array (so modified_array is on top)
+                    value_stack_push(result);
+                    // Transfer ownership of arr to stack (don't free it)
+                    value_stack_push(arr);
+                } else {
+                    // Not an array - return Null for both
+                    value_stack_push(value_create_null());
+                    value_stack_push(value_create_null());
                 value_free(&arr);
+                }
                 pc++;
                 break;
             }
@@ -2725,6 +2790,9 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         Value module_value;
                         int use_cache = 0;
                         
+                        // Variable to store saved cache for restoration
+                        BytecodeProgram* saved_program_cache_for_restore = NULL;
+                        
                         if (cached && cached->is_valid) {
                             // Verify file hasn't changed
                             time_t current_mtime = get_file_mtime(normalized_path);
@@ -2735,6 +2803,14 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                     module_value = value_clone(cached_val);
                                     use_cache = 1;
                                     actual_path = shared_strdup(normalized_path);
+                                    
+                                    // Temporarily set bytecode program cache to module's program
+                                    // This ensures functions from cached modules can find their bytecode program
+                                    BytecodeProgram* module_program = cached->module_bytecode_program ? (BytecodeProgram*)cached->module_bytecode_program : NULL;
+                                    if (module_program && interpreter) {
+                                        saved_program_cache_for_restore = interpreter->bytecode_program_cache;
+                                        interpreter->bytecode_program_cache = module_program;
+                                    }
                                 }
                             } else {
                                 // File changed - invalidate cache
@@ -2770,6 +2846,8 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             }
                             
                             // Store in global and current environment
+                            // environment_define clones the value internally, so we can pass module_value directly
+                            // module_value is from cache, and environment_define will clone it before storing
                             Environment* target_env = interpreter->global_environment;
                             if (!target_env) {
                                 target_env = interpreter->current_environment;
@@ -2819,6 +2897,14 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                         }
                                     }
                                 }
+                            }
+                            
+                            // Restore bytecode program cache if we changed it for cached module
+                            // But only if we're not in the middle of calling functions from the module
+                            // For now, restore it immediately - functions from cached modules will need
+                            // to find their bytecode program another way (via module cache lookup)
+                            if (saved_program_cache_for_restore && interpreter) {
+                                interpreter->bytecode_program_cache = saved_program_cache_for_restore;
                             }
                             
                             if (var_name_to_free) {
@@ -2904,6 +2990,9 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         Environment* saved_env = interpreter->current_environment;
                         interpreter->current_environment = module_env;
                         
+                        // Variable to store module's bytecode program for caching
+                        BytecodeProgram* module_bytecode = NULL;
+                        
                         // Parse and execute module
                         Lexer* lexer = lexer_initialize(source);
                         if (lexer) {
@@ -2927,8 +3016,18 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                 }
                                 
                                 if (module_ast) {
+                                    // Save the current bytecode program cache (main program)
+                                    BytecodeProgram* saved_program_cache = interpreter->bytecode_program_cache;
+                                    
                                     // Execute module in isolated environment
                                     Value module_result = interpreter_execute_program(interpreter, module_ast);
+                                    
+                                    // Capture the module's bytecode program (set by interpreter_execute_program)
+                                    module_bytecode = interpreter->bytecode_program_cache;
+                                    
+                                    // Restore the main program cache
+                                    interpreter->bytecode_program_cache = saved_program_cache;
+                                    
                                     value_free(&module_result);
                                     
                                     // Clear any errors from module execution (they shouldn't prevent export)
@@ -2946,14 +3045,33 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         // Restore current environment
                         interpreter->current_environment = saved_env;
                         
-                        // Free actual_path if we allocated it
-                        if (actual_path) {
-                            shared_free_safe(actual_path, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                        // Create module value (VALUE_OBJECT) that wraps the module environment
+                        // Note: Don't free actual_path yet - it's needed for caching
+                        // Note: Use assignment, not declaration, to avoid shadowing the outer module_value variable
+                        module_value = value_create_object(16); // Initial capacity for module properties
+                        
+                        // Verify object creation succeeded
+                        if (module_value.type != VALUE_OBJECT) {
+                            // Object creation failed - this shouldn't happen but handle gracefully
+                            interpreter_set_error(interpreter, "Failed to create module object", 0, 0);
+                            shared_free_safe(normalized_path, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                            if (actual_path) shared_free_safe(actual_path, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                            if (source) shared_free_safe(source, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                            pop_import_chain(interpreter);
+                            value_stack_push(value_create_null());
+                            pc++;
+                            break;
                         }
                         
-                        // Create module value (VALUE_OBJECT) that wraps the module environment
-                        Value module_value = value_create_object(16); // Initial capacity for module properties
                         value_object_set(&module_value, "__type__", value_create_string("Module"));
+                        value_object_set(&module_value, "type", value_create_string("Module")); // Also set regular type property for .type access
+                        
+                        // Store module path in module object so we can look up its bytecode program later
+                        // This allows functions from cached modules to find their bytecode program
+                        const char* module_path_for_cache = actual_path ? actual_path : normalized_path;
+                        if (module_path_for_cache) {
+                            value_object_set(&module_value, "__module_path__", value_create_string(module_path_for_cache));
+                        }
                         
                         // Export all top-level symbols (func, let, class) from module environment
                         // Check export/private flags to determine what to export
@@ -3020,12 +3138,14 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         }
                             
                             // Phase 4: Cache the module (before storing in environment)
-                            cache_module(interpreter, actual_path ? actual_path : normalized_path, module_env, module_value);
+                            // Use actual_path if available, otherwise normalized_path
+                            const char* cache_path = actual_path ? actual_path : normalized_path;
+                            cache_module(interpreter, cache_path, module_env, module_value, module_bytecode);
                             
                             // Pop from import chain
                             pop_import_chain(interpreter);
                             
-                            // Free paths
+                            // Free paths (after caching, which may have stored the path)
                             if (actual_path) {
                                 shared_free_safe(actual_path, "bytecode_vm", "BC_IMPORT_LIB", 0);
                             }
@@ -3061,6 +3181,8 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         
                         // Define module in global environment so it can be accessed from anywhere
                         // Modules should be stored in global environment, not current environment
+                        // environment_define clones the value internally, so we can pass module_value directly
+                        // module_value is a local variable, but environment_define will clone it before storing
                         Environment* target_env = interpreter->global_environment;
                         if (!target_env) {
                             target_env = interpreter->current_environment;
@@ -4194,11 +4316,17 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         
                         // Sync variables from loop environment back to parent environment (like AST interpreter)
                         // This ensures variables defined/modified in the loop are accessible after
+                        // BUT: Loop variables should NOT persist - they shadow outer variables during the loop only
                         // The Environment structure has: names, values, count
-                        if (loop_env && old_env) {
+                        if (loop_env && old_env && var_name.type == VALUE_STRING) {
+                            const char* loop_var_name = var_name.data.string_value;
                             // Iterate through all variables in the loop environment
                             for (size_t i = 0; i < loop_env->count; i++) {
                                 if (loop_env->names[i]) {
+                                    // Skip the loop variable itself - it should not persist after the loop
+                                    if (strcmp(loop_env->names[i], loop_var_name) == 0) {
+                                        continue;
+                                    }
                                     // Check if variable exists in parent environment (including parent chain)
                                     Value existing = environment_get(old_env, loop_env->names[i]);
                                     if (existing.type != VALUE_NULL) {
@@ -5652,13 +5780,14 @@ static ModuleCacheEntry* find_cached_module(Interpreter* interpreter, const char
 }
 
 // Cache a module
-static void cache_module(Interpreter* interpreter, const char* file_path, Environment* module_env, Value module_value) {
+static void cache_module(Interpreter* interpreter, const char* file_path, Environment* module_env, Value module_value, BytecodeProgram* module_bytecode) {
     if (!interpreter || !file_path) return;
     
     // Allocate storage for module value
     Value* value_storage = shared_malloc_safe(sizeof(Value), "bytecode_vm", "cache_module", 0);
     if (!value_storage) return;
-    *value_storage = module_value;
+    // Clone the module value to ensure all nested data is properly stored
+    *value_storage = value_clone(&module_value);
     
     // Check if already cached
     ModuleCacheEntry* existing = find_cached_module(interpreter, file_path);
@@ -5670,6 +5799,7 @@ static void cache_module(Interpreter* interpreter, const char* file_path, Enviro
         }
         existing->file_hash = compute_file_hash(file_path);
         existing->module_env = module_env;
+        existing->module_bytecode_program = module_bytecode; // Store bytecode program for function calls
         if (existing->module_value_storage) {
             value_free((Value*)existing->module_value_storage);
             shared_free_safe(existing->module_value_storage, "bytecode_vm", "cache_module", 0);
@@ -5700,6 +5830,7 @@ static void cache_module(Interpreter* interpreter, const char* file_path, Enviro
     entry->file_mtime = get_file_mtime(file_path);
     entry->module_env = module_env;
     entry->module_value_storage = value_storage;
+    entry->module_bytecode_program = module_bytecode; // Store bytecode program for function calls
     entry->is_valid = 1;
 }
 

@@ -37,7 +37,7 @@ int value_is_pooled(Value* value);
 // Array operations
 Value value_create_array(size_t initial_capacity);
 void value_array_push(Value* array, Value element);
-Value value_array_pop(Value* array);
+Value value_array_pop(Value* array, int index);
 Value value_array_get(Value* array, size_t index);
 void value_array_set(Value* array, size_t index, Value element);
 size_t value_array_length(Value* array);

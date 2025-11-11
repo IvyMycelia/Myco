@@ -2414,53 +2414,200 @@ ASTNode* parser_parse_for_loop(Parser* parser) {
     }
     // The 'for' keyword has already been consumed by the statement parser
 
-    // Iterator name
-    if (!parser_match(parser, TOKEN_IDENTIFIER)) {
-        parser_error(parser, "Expected iterator name after 'for'");
-        parser_synchronize(parser);
-        return NULL;
-    }
-    char* iterator_name = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
-
-    // Expect 'in'
-    if (!(parser_check(parser, TOKEN_KEYWORD) && parser->current_token && parser->current_token->text && strcmp(parser->current_token->text, "in") == 0)) {
-        parser_error(parser, "Expected 'in' in for-loop");
-        shared_free_safe(iterator_name, "parser", "unknown_function", 2075);
-        parser_synchronize(parser);
-        return NULL;
-    }
-    parser_advance(parser); // consume 'in'
-
-    // Collection/expression
-    ASTNode* collection = parser_parse_expression(parser);
-    if (!collection) {
-        parser_error(parser, "Expected collection expression after 'in'");
-        shared_free_safe(iterator_name, "parser", "unknown_function", 2085);
-        parser_synchronize(parser);
-        return NULL;
+    // Check if this is a C-style for loop: "for let i = 0; i < length; i++:"
+    // Look ahead to see if we have "let" followed by identifier, "=", expression, ";"
+    bool is_c_style = false;
+    if (parser_check(parser, TOKEN_KEYWORD) && parser->current_token && 
+        parser->current_token->text && strcmp(parser->current_token->text, "let") == 0) {
+        // Peek ahead to see if we have the pattern: let IDENTIFIER = EXPRESSION ; EXPRESSION ; EXPRESSION :
+        // We'll check for "let" + identifier + "=" + expression + ";" pattern
+        is_c_style = true;
     }
 
-    // Expect ':'
-    if (!parser_match(parser, TOKEN_COLON)) {
-        parser_error(parser, "Expected ':' after for header");
-        shared_free_safe(iterator_name, "parser", "unknown_function", 2093);
-        parser_synchronize(parser);
-    }
-
-    int dummy = 0;
-    ASTNode* body = parser_collect_block(parser, /*stop_on_else*/0, &dummy);
-
-    // Expect 'end'
-    if (!(parser_check(parser, TOKEN_KEYWORD) && parser->current_token && parser->current_token->text && strcmp(parser->current_token->text, "end") == 0)) {
-        parser_error(parser, "Expected 'end' to close for block");
-        parser_synchronize(parser);
-    } else {
+    if (is_c_style) {
+        // Parse C-style for loop: for let i = 0; i < length; i++:
+        // 'let' has already been detected, now consume it and parse the variable declaration
+        // We need to parse: identifier = expression ;
+        // But parser_parse_statement expects 'let' keyword, which we've already seen
+        // So we need to parse the variable declaration directly
+        
+        // Consume 'let' token
         parser_advance(parser);
-    }
+        
+        // Parse variable name
+        if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+            parser_error(parser, "Expected variable name in for loop initialization");
+            parser_synchronize(parser);
+            return NULL;
+        }
+        char* var_name = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
+        
+        // Expect '='
+        if (!parser_match(parser, TOKEN_ASSIGN)) {
+            parser_error(parser, "Expected '=' in for loop initialization");
+            shared_free_safe(var_name, "parser", "parser_parse_for_loop", 2430);
+            parser_synchronize(parser);
+            return NULL;
+        }
+        
+        // Parse initial value
+        ASTNode* init_value = parser_parse_expression(parser);
+        if (!init_value) {
+            parser_error(parser, "Expected initial value in for loop initialization");
+            shared_free_safe(var_name, "parser", "parser_parse_for_loop", 2438);
+            parser_synchronize(parser);
+            return NULL;
+        }
+        
+        // Create variable declaration node
+        ASTNode* init = ast_create_variable_declaration(var_name, NULL, init_value, 1, 0, 0);
+        if (!init) {
+            shared_free_safe(var_name, "parser", "parser_parse_for_loop", 2445);
+            ast_free(init_value);
+            parser_synchronize(parser);
+            return NULL;
+        }
+        
+        // Expect ';'
+        if (!parser_match(parser, TOKEN_SEMICOLON)) {
+            parser_error(parser, "Expected ';' after for loop initialization");
+            ast_free(init);
+            parser_synchronize(parser);
+            return NULL;
+        }
+        
+        // Parse condition: i < length
+        ASTNode* condition = parser_parse_expression(parser);
+        if (!condition) {
+            parser_error(parser, "Expected condition expression in for loop");
+            ast_free(init);
+            parser_synchronize(parser);
+            return NULL;
+        }
+        
+        // Expect ';'
+        if (!parser_match(parser, TOKEN_SEMICOLON)) {
+            parser_error(parser, "Expected ';' after for loop condition");
+            ast_free(init);
+            ast_free(condition);
+            parser_synchronize(parser);
+            return NULL;
+        }
+        
+        // Parse increment: i++ or i = i + 1
+        // Check if this is an assignment (identifier followed by =, +=, etc.)
+        ASTNode* increment = NULL;
+        if (parser_check(parser, TOKEN_IDENTIFIER)) {
+            // Peek ahead to see if the next token is an assignment operator
+            Token* current_id = parser->current_token;
+            int saved_pos = parser->current_position;
+            parser_advance(parser);
+            
+            if (parser_check(parser, TOKEN_ASSIGN) || parser_check(parser, TOKEN_PLUS_ASSIGN) || 
+                parser_check(parser, TOKEN_MINUS_ASSIGN) || parser_check(parser, TOKEN_MULTIPLY_ASSIGN) ||
+                parser_check(parser, TOKEN_DIVIDE_ASSIGN) || parser_check(parser, TOKEN_INCREMENT) ||
+                parser_check(parser, TOKEN_DECREMENT)) {
+                // This is an assignment, go back and parse it
+                parser->current_position = saved_pos;
+                parser->current_token = current_id;
+                increment = parser_parse_assignment(parser);
+            } else {
+                // Not an assignment, go back and parse as expression
+                parser->current_position = saved_pos;
+                parser->current_token = current_id;
+                increment = parser_parse_expression(parser);
+            }
+        } else {
+            // Not an identifier, parse as expression (could be i++ as postfix on something else)
+            increment = parser_parse_expression(parser);
+        }
+        
+        if (!increment) {
+            parser_error(parser, "Expected increment expression in for loop");
+            ast_free(init);
+            ast_free(condition);
+            parser_synchronize(parser);
+            return NULL;
+        }
+        
+        // Expect ':'
+        if (!parser_match(parser, TOKEN_COLON)) {
+            parser_error(parser, "Expected ':' after for loop header");
+            ast_free(init);
+            ast_free(condition);
+            ast_free(increment);
+            parser_synchronize(parser);
+            return NULL;
+        }
+        
+        // Parse body
+        int dummy = 0;
+        ASTNode* body = parser_collect_block(parser, /*stop_on_else*/0, &dummy);
+        
+        // Expect 'end'
+        if (!(parser_check(parser, TOKEN_KEYWORD) && parser->current_token && 
+              parser->current_token->text && strcmp(parser->current_token->text, "end") == 0)) {
+            parser_error(parser, "Expected 'end' to close for block");
+            ast_free(init);
+            ast_free(condition);
+            ast_free(increment);
+            ast_free(body);
+            parser_synchronize(parser);
+            return NULL;
+        }
+        parser_advance(parser);
+        
+        return ast_create_c_style_for_loop(init, condition, increment, body, 0, 0);
+    } else {
+        // Parse collection-based for loop: for i in collection:
+        // Iterator name
+        if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+            parser_error(parser, "Expected iterator name after 'for'");
+            parser_synchronize(parser);
+            return NULL;
+        }
+        char* iterator_name = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
 
-    // Build a simple block where we define iterator each iteration (execution to be handled in interpreter later)
-    // For now, return a for_loop AST node if available, else reuse block holder
-    return ast_create_for_loop(iterator_name, collection, body, 0, 0);
+        // Expect 'in'
+        if (!(parser_check(parser, TOKEN_KEYWORD) && parser->current_token && parser->current_token->text && strcmp(parser->current_token->text, "in") == 0)) {
+            parser_error(parser, "Expected 'in' in for-loop");
+            shared_free_safe(iterator_name, "parser", "unknown_function", 2075);
+            parser_synchronize(parser);
+            return NULL;
+        }
+        parser_advance(parser); // consume 'in'
+
+        // Collection/expression
+        ASTNode* collection = parser_parse_expression(parser);
+        if (!collection) {
+            parser_error(parser, "Expected collection expression after 'in'");
+            shared_free_safe(iterator_name, "parser", "unknown_function", 2085);
+            parser_synchronize(parser);
+            return NULL;
+        }
+
+        // Expect ':'
+        if (!parser_match(parser, TOKEN_COLON)) {
+            parser_error(parser, "Expected ':' after for header");
+            shared_free_safe(iterator_name, "parser", "unknown_function", 2093);
+            parser_synchronize(parser);
+        }
+
+        int dummy = 0;
+        ASTNode* body = parser_collect_block(parser, /*stop_on_else*/0, &dummy);
+
+        // Expect 'end'
+        if (!(parser_check(parser, TOKEN_KEYWORD) && parser->current_token && parser->current_token->text && strcmp(parser->current_token->text, "end") == 0)) {
+            parser_error(parser, "Expected 'end' to close for block");
+            parser_synchronize(parser);
+        } else {
+            parser_advance(parser);
+        }
+
+        // Build a simple block where we define iterator each iteration (execution to be handled in interpreter later)
+        // For now, return a for_loop AST node if available, else reuse block holder
+        return ast_create_for_loop(iterator_name, collection, body, 0, 0);
+    }
 }
 
 /**

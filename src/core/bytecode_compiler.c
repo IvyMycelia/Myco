@@ -893,26 +893,84 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
             bc_emit_to_function(func, BC_STORE_GLOBAL, name_idx, 0, 0);
         } break;
         case AST_NODE_FOR_LOOP: {
-            // For loop: for iterator_name in collection body
-            if (!n->data.for_loop.collection || !n->data.for_loop.iterator_name) {
-                if (p->interpreter) {
-                    interpreter_set_error(p->interpreter, "Invalid for loop structure in compile_node_to_function", 0, 0);
+            if (n->data.for_loop.is_c_style) {
+                // C-style for loop: for let i = 0; i < length; i++:
+                // Compile as: init; while (condition) { body; increment; }
+                
+                // Compile initialization (runs once before loop)
+                // Variable declarations don't leave a value on the stack, so no need to pop
+                if (n->data.for_loop.init) {
+                    compile_node_to_function(p, func, n->data.for_loop.init);
+                    // Variable declarations (let x = value) don't leave a value on stack
+                    // They just store the variable, so no BC_POP needed
                 }
-                break;
+                
+                // Loop start marker
+                bc_emit_to_function(func, BC_LOOP_START, 0, 0, 0);
+                
+                // Set loop start to current position (after BC_LOOP_START, before condition)
+                // This is where we jump back to (the condition check)
+                int loop_start = func->code_count;
+                
+                // Compile condition
+                if (n->data.for_loop.condition) {
+                    compile_node_to_function(p, func, n->data.for_loop.condition);
+                } else {
+                    // No condition means infinite loop (always true)
+                    int true_idx = bc_add_const(p, value_create_boolean(true));
+                    bc_emit_to_function(func, BC_LOAD_CONST, true_idx, 0, 0);
+                }
+                
+                // Jump if false (exit loop)
+                int jump_to_end = func->code_count;
+                bc_emit_to_function(func, BC_JUMP_IF_FALSE, 0, 0, 0); // Will be filled later
+                
+                // Compile body
+                // Note: Blocks and statements may not leave values on stack
+                // Only pop if we know there's a value (but for now, be safe and don't pop)
+                if (n->data.for_loop.body) {
+                    compile_node_to_function(p, func, n->data.for_loop.body);
+                    // Don't pop - body might not leave a value (blocks, print statements, etc.)
+                }
+                
+                // Compile increment (runs after each iteration)
+                // Assignments return the assigned value, so they do leave a value on stack
+                if (n->data.for_loop.increment) {
+                    compile_node_to_function(p, func, n->data.for_loop.increment);
+                    bc_emit_to_function(func, BC_POP, 0, 0, 0); // Discard increment result (assignments return values)
+                }
+                
+                // Jump back to condition
+                bc_emit_to_function(func, BC_JUMP, loop_start, 0, 0);
+                
+                // Update jump target to point to after BC_LOOP_END
+                // We need to set it after emitting BC_LOOP_END
+                bc_emit_to_function(func, BC_LOOP_END, 0, 0, 0);
+                
+                // Now set the jump target to the current position (after loop end)
+                func->code[jump_to_end].a = func->code_count;
+            } else {
+                // Collection-based for loop: for iterator_name in collection body
+                if (!n->data.for_loop.collection || !n->data.for_loop.iterator_name) {
+                    if (p->interpreter) {
+                        interpreter_set_error(p->interpreter, "Invalid for loop structure in compile_node_to_function", 0, 0);
+                    }
+                    break;
+                }
+                
+                // Compile the collection expression
+                compile_node_to_function(p, func, n->data.for_loop.collection);
+                
+                // Compile body to bytecode sub-program
+                int iterator_name_idx = bc_add_const(p, value_create_string(n->data.for_loop.iterator_name ? n->data.for_loop.iterator_name : "i"));
+                int body_func_id = -1;
+                if (n->data.for_loop.body) {
+                    body_func_id = bc_compile_ast_to_subprogram(p, n->data.for_loop.body, "<for_loop_body>");
+                }
+                
+                // Emit BC_FOR_LOOP instruction
+                bc_emit_to_function(func, BC_FOR_LOOP, iterator_name_idx, body_func_id, 0);
             }
-            
-            // Compile the collection expression
-            compile_node_to_function(p, func, n->data.for_loop.collection);
-            
-            // Compile body to bytecode sub-program
-            int iterator_name_idx = bc_add_const(p, value_create_string(n->data.for_loop.iterator_name ? n->data.for_loop.iterator_name : "i"));
-            int body_func_id = -1;
-            if (n->data.for_loop.body) {
-                body_func_id = bc_compile_ast_to_subprogram(p, n->data.for_loop.body, "<for_loop_body>");
-            }
-            
-            // Emit BC_FOR_LOOP instruction
-            bc_emit_to_function(func, BC_FOR_LOOP, iterator_name_idx, body_func_id, 0);
         } break;
         case AST_NODE_WHILE_LOOP: {
             // While loop
@@ -2664,22 +2722,79 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
         } break;
         
         case AST_NODE_FOR_LOOP: {
-            // For loop: for iterator_name in collection body
-            // Compile the collection expression (should be array or range)
-            compile_node(p, n->data.for_loop.collection);
-            
-            // Compile body to bytecode instead of storing AST
-            int iterator_name_idx = bc_add_const(p, value_create_string(n->data.for_loop.iterator_name));
-            int body_func_id = -1;
-            if (n->data.for_loop.body) {
-                body_func_id = bc_compile_ast_to_subprogram(p, n->data.for_loop.body, "<for_loop_body>");
+            if (n->data.for_loop.is_c_style) {
+                // C-style for loop: for let i = 0; i < length; i++:
+                // Compile as: init; while (condition) { body; increment; }
+                
+                // Compile initialization (runs once before loop)
+                // Variable declarations don't leave a value on the stack, so no need to pop
+                if (n->data.for_loop.init) {
+                    compile_node(p, n->data.for_loop.init);
+                    // Variable declarations (let x = value) don't leave a value on stack
+                    // They just store the variable, so no BC_POP needed
+                }
+                
+                // Set loop start to current position (before BC_LOOP_START, like while loop)
+                // This is where we jump back to (BC_LOOP_START, then condition check)
+                int loop_start = p->count;
+                
+                // Loop start marker
+                bc_emit(p, BC_LOOP_START, 0, 0);
+                
+                // Compile condition
+                if (n->data.for_loop.condition) {
+                    compile_node(p, n->data.for_loop.condition);
+                } else {
+                    // No condition means infinite loop (always true)
+                    int true_idx = bc_add_const(p, value_create_boolean(true));
+                    bc_emit(p, BC_LOAD_CONST, true_idx, 0);
+                }
+                
+                // Jump if false (exit loop)
+                int jump_to_end = p->count;
+                bc_emit(p, BC_JUMP_IF_FALSE, 0, 0); // Will be patched later (use 0 like while loop)
+                
+                // Compile body
+                // Note: Blocks and statements may not leave values on stack
+                // Only pop if we know there's a value (but for now, be safe and don't pop)
+                if (n->data.for_loop.body) {
+                    compile_node(p, n->data.for_loop.body);
+                    // Don't pop - body might not leave a value (blocks, print statements, etc.)
+                }
+                
+                // Compile increment (runs after each iteration)
+                // Assignments return the assigned value, so they do leave a value on stack
+                if (n->data.for_loop.increment) {
+                    compile_node(p, n->data.for_loop.increment);
+                    bc_emit(p, BC_POP, 0, 0); // Discard increment result (assignments return values)
+                }
+                
+                // Jump back to condition
+                bc_emit(p, BC_JUMP, loop_start, 0);
+                
+                // Update jump target (before BC_LOOP_END, like while loop)
+                p->code[jump_to_end].a = p->count;
+                
+                // Loop end marker
+                bc_emit(p, BC_LOOP_END, 0, 0);
+            } else {
+                // Collection-based for loop: for iterator_name in collection body
+                // Compile the collection expression (should be array or range)
+                compile_node(p, n->data.for_loop.collection);
+                
+                // Compile body to bytecode instead of storing AST
+                int iterator_name_idx = bc_add_const(p, value_create_string(n->data.for_loop.iterator_name));
+                int body_func_id = -1;
+                if (n->data.for_loop.body) {
+                    body_func_id = bc_compile_ast_to_subprogram(p, n->data.for_loop.body, "<for_loop_body>");
+                }
+                
+                // Emit BC_FOR_LOOP instruction
+                // instr->a = iterator name constant index
+                // instr->b = body function ID (bytecode sub-program)
+                // Collection is on stack
+                bc_emit(p, BC_FOR_LOOP, iterator_name_idx, body_func_id);
             }
-            
-            // Emit BC_FOR_LOOP instruction
-            // instr->a = iterator name constant index
-            // instr->b = body function ID (bytecode sub-program)
-            // Collection is on stack
-            bc_emit(p, BC_FOR_LOOP, iterator_name_idx, body_func_id);
         } break;
         
         case AST_NODE_ARRAY_ACCESS: {

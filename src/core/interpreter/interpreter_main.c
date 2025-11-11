@@ -92,6 +92,12 @@ Interpreter* interpreter_create(void) {
     interpreter->self_context = NULL;
     interpreter->bytecode_program_cache = NULL;
     
+    // Module cache initialization (Phase 4)
+    interpreter->module_cache = NULL;
+    interpreter->module_cache_count = 0;
+    interpreter->module_cache_capacity = 0;
+    interpreter->import_chain = NULL;
+    
     // Test mode - disabled by default
     interpreter->test_mode = 0;
     
@@ -132,6 +138,33 @@ void interpreter_free(Interpreter* interpreter) {
     if (interpreter) {
         if (interpreter->error_message) {
             shared_free_safe(interpreter->error_message, "interpreter", "unknown_function", 66);
+        }
+        
+        // Clean up module cache (Phase 4)
+        if (interpreter->module_cache) {
+            for (size_t i = 0; i < interpreter->module_cache_count; i++) {
+                ModuleCacheEntry* entry = &interpreter->module_cache[i];
+                if (entry->file_path) {
+                    shared_free_safe(entry->file_path, "interpreter", "interpreter_free", 0);
+                }
+                if (entry->file_hash) {
+                    shared_free_safe(entry->file_hash, "interpreter", "interpreter_free", 0);
+                }
+                // Note: module_env and module_value are freed when interpreter is freed
+                // They may be referenced elsewhere, so we don't free them here
+            }
+            shared_free_safe(interpreter->module_cache, "interpreter", "interpreter_free", 0);
+        }
+        
+        // Clean up import chain (Phase 4)
+        ImportChain* chain = interpreter->import_chain;
+        while (chain) {
+            ImportChain* next = chain->next;
+            if (chain->module_path) {
+                shared_free_safe(chain->module_path, "interpreter", "interpreter_free", 0);
+            }
+            shared_free_safe(chain, "interpreter", "interpreter_free", 0);
+            chain = next;
         }
         
         // Clean up global systems if this is the last interpreter

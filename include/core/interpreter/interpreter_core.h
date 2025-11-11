@@ -7,6 +7,7 @@
 #include "../../utils/shared_utilities.h"
 #include <stddef.h>
 #include <stdint.h>
+#include <time.h>
 
 // ============================================================================
 // INTERPRETER CORE STRUCTURES AND LIFECYCLE
@@ -167,6 +168,26 @@ struct Environment {
 };
 
 // ============================================================================
+// MODULE CACHE STRUCTURES (Phase 4) - Defined after Value and Environment
+// ============================================================================
+
+// Module cache entry - stores cached module data
+typedef struct ModuleCacheEntry {
+    char* file_path;              // Normalized file path (key)
+    char* file_hash;              // Hash of file content for invalidation
+    time_t file_mtime;            // File modification time
+    Environment* module_env;      // Cached module environment
+    void* module_value_storage;   // Cached module value (Value*) - stored as void* to avoid circular dependency
+    int is_valid;                 // Whether cache entry is still valid
+} ModuleCacheEntry;
+
+// Import chain entry - tracks import path for circular detection
+typedef struct ImportChain {
+    char* module_path;            // Path of module being imported
+    struct ImportChain* next;     // Next in chain (parent import)
+} ImportChain;
+
+// ============================================================================
 // CALL FRAME STRUCTURE
 // ============================================================================
 
@@ -245,6 +266,14 @@ typedef struct Interpreter {
     // This allows bytecode functions to be called even after the program is "freed"
     // The program is actually kept alive as long as functions reference it
     struct BytecodeProgram* bytecode_program_cache;
+    
+    // Module cache - Phase 4: cache parsed modules to avoid re-parsing
+    struct ModuleCacheEntry* module_cache;
+    size_t module_cache_count;
+    size_t module_cache_capacity;
+    
+    // Circular import detection - track import chain
+    struct ImportChain* import_chain;
 } Interpreter;
 
 // ============================================================================

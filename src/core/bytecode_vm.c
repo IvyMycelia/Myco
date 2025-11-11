@@ -20,6 +20,8 @@
 #include <stdlib.h>
 #include <math.h>
 #include <errno.h>
+#include <time.h>
+#include <sys/stat.h>
 
 // Branch prediction hints for better CPU performance
 #ifdef __GNUC__
@@ -46,6 +48,15 @@
 // Forward declarations
 Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunction* func, Value* args, int arg_count, BytecodeProgram* program);
 static int pattern_matches_value(Value* value, Value* pattern);
+
+// Phase 4: Module cache helper functions (forward declarations)
+static char* normalize_file_path(const char* path);
+static time_t get_file_mtime(const char* file_path);
+static ModuleCacheEntry* find_cached_module(Interpreter* interpreter, const char* file_path);
+static void cache_module(Interpreter* interpreter, const char* file_path, Environment* module_env, Value module_value);
+static int check_circular_import(Interpreter* interpreter, const char* module_path);
+static void push_import_chain(Interpreter* interpreter, const char* module_path);
+static void pop_import_chain(Interpreter* interpreter);
 
 // Memory optimization structures
 typedef struct {
@@ -782,7 +793,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             value_stack_push(cloned_env_val);
                         } else {
                             // Variable not in environment - use local slot
-                            value_stack_push(value_clone(&local_val));
+                    value_stack_push(value_clone(&local_val));
                         }
                     } else {
                         // No environment or local_names - use local slot
@@ -866,10 +877,10 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 Value loaded_val = value_create_null();
                 if (instr->a >= 0 && instr->a < (int)program->const_count && program->constants) {
                     if (program->constants[instr->a].type == VALUE_STRING) {
-                        const char* var_name = program->constants[instr->a].data.string_value;
+                    const char* var_name = program->constants[instr->a].data.string_value;
                         
                         // Try global environment first (where modules are stored)
-                        if (var_name && interpreter && interpreter->global_environment) {
+                    if (var_name && interpreter && interpreter->global_environment) {
                             loaded_val = environment_get(interpreter->global_environment, var_name);
                         }
                         
@@ -2691,39 +2702,83 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                          (library_name && strchr(library_name, '/') != NULL); // Path contains directory separator
                     
                     if (is_file_import) {
-                        // File import: load, parse, and execute in isolated environment
-                        FILE* file = NULL;
-                        char* actual_path = NULL;
-                        
-                        // Try opening the file as-is first
-                        file = fopen(library_name, "r");
-                        if (file) {
-                            actual_path = shared_strdup(library_name);
-                        } else {
-                            // Try with .myco extension if not present
-                            if (!strstr(library_name, ".myco")) {
-                                actual_path = shared_malloc_safe(strlen(library_name) + 6, "bytecode_vm", "BC_IMPORT_LIB", 0);
-                                if (actual_path) {
-                                    strcpy(actual_path, library_name);
-                                    strcat(actual_path, ".myco");
-                                    file = fopen(actual_path, "r");
-                                    if (!file) {
-                                        shared_free_safe(actual_path, "bytecode_vm", "BC_IMPORT_LIB", 0);
-                                        actual_path = NULL;
-                                    }
-                                }
-                            }
+                        // Phase 4: Normalize path and check for circular import
+                        char* normalized_path = normalize_file_path(library_name);
+                        if (!normalized_path) {
+                            normalized_path = shared_strdup(library_name);
                         }
                         
-                        if (!file) {
-                            // File not found - set error and continue
-                            char error_msg[256];
-                            snprintf(error_msg, sizeof(error_msg), "Cannot open module file: %s", library_name);
+                        // Check for circular import
+                        if (check_circular_import(interpreter, normalized_path)) {
+                            char error_msg[512];
+                            snprintf(error_msg, sizeof(error_msg), "Circular import detected: %s", normalized_path);
                             interpreter_set_error(interpreter, error_msg, 0, 0);
+                            shared_free_safe(normalized_path, "bytecode_vm", "BC_IMPORT_LIB", 0);
                             value_stack_push(value_create_null());
                             pc++;
                             break;
                         }
+                        
+                        // Phase 4: Check cache first
+                        ModuleCacheEntry* cached = find_cached_module(interpreter, normalized_path);
+                        char* actual_path = NULL;
+                        Value module_value;
+                        int use_cache = 0;
+                        
+                        if (cached && cached->is_valid) {
+                            // Verify file hasn't changed
+                            time_t current_mtime = get_file_mtime(normalized_path);
+                            if (current_mtime == cached->file_mtime) {
+                                // Cache hit - use cached module
+                                Value* cached_val = (Value*)cached->module_value_storage;
+                                if (cached_val) {
+                                    module_value = value_clone(cached_val);
+                                    use_cache = 1;
+                                    actual_path = shared_strdup(normalized_path);
+                                }
+                            } else {
+                                // File changed - invalidate cache
+                                cached->is_valid = 0;
+                            }
+                        }
+                        
+                        if (!use_cache) {
+                            // File import: load, parse, and execute in isolated environment
+                            FILE* file = NULL;
+                            
+                            // Try opening the file as-is first
+                            file = fopen(normalized_path, "r");
+                            if (file) {
+                                actual_path = shared_strdup(normalized_path);
+                            } else {
+                                // Try with .myco extension if not present
+                                if (!strstr(normalized_path, ".myco")) {
+                                    actual_path = shared_malloc_safe(strlen(normalized_path) + 6, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                                    if (actual_path) {
+                                        strcpy(actual_path, normalized_path);
+                                        strcat(actual_path, ".myco");
+                                        file = fopen(actual_path, "r");
+                                        if (!file) {
+                                            shared_free_safe(actual_path, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                                            actual_path = NULL;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (!file) {
+                                // File not found - set error and continue
+                                char error_msg[256];
+                                snprintf(error_msg, sizeof(error_msg), "Cannot open module file: %s", library_name);
+                                interpreter_set_error(interpreter, error_msg, 0, 0);
+                                shared_free_safe(normalized_path, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                                value_stack_push(value_create_null());
+                                pc++;
+                                break;
+                            }
+                            
+                            // Push to import chain for circular detection
+                            push_import_chain(interpreter, actual_path ? actual_path : normalized_path);
                         
                         // Read file content
                         fseek(file, 0, SEEK_END);
@@ -2868,6 +2923,20 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                 }
                             }
                         }
+                            
+                            // Phase 4: Cache the module (before storing in environment)
+                            cache_module(interpreter, actual_path ? actual_path : normalized_path, module_env, module_value);
+                            
+                            // Pop from import chain
+                            pop_import_chain(interpreter);
+                            
+                            // Free paths
+                            if (actual_path) {
+                                shared_free_safe(actual_path, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                            }
+                            shared_free_safe(normalized_path, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                            shared_free_safe(source, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                        }
                         
                         // Note: module_env is kept alive as long as module_value exists
                         // since the exported values are cloned from it
@@ -2961,7 +3030,6 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             }
                         }
                         
-                        shared_free_safe(source, "bytecode_vm", "BC_IMPORT_LIB", 0);
                         if (var_name_to_free) {
                             shared_free_safe(var_name_to_free, "bytecode_vm", "BC_IMPORT_LIB", 0);
                         }
@@ -5426,6 +5494,157 @@ static int pattern_matches_value(Value* value, Value* pattern) {
     }
     
     return 0;
+}
+
+// ============================================================================
+// Phase 4: Module Cache Helper Functions
+// ============================================================================
+
+// Normalize file path (resolve relative paths, remove redundant separators)
+static char* normalize_file_path(const char* path) {
+    if (!path) return NULL;
+    
+    // For now, just return a copy - full normalization can be added later
+    return shared_strdup(path);
+}
+
+// Compute simple hash of file content (for cache invalidation)
+static char* compute_file_hash(const char* file_path) {
+    if (!file_path) return NULL;
+    
+    FILE* file = fopen(file_path, "r");
+    if (!file) return NULL;
+    
+    // Simple hash: use file size + mtime as hash
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    fclose(file);
+    
+    struct stat st;
+    if (stat(file_path, &st) != 0) return NULL;
+    
+    char* hash = shared_malloc_safe(64, "bytecode_vm", "compute_file_hash", 0);
+    if (hash) {
+        snprintf(hash, 64, "%ld_%ld", (long)st.st_mtime, size);
+    }
+    return hash;
+}
+
+// Get file modification time
+static time_t get_file_mtime(const char* file_path) {
+    if (!file_path) return 0;
+    
+    struct stat st;
+    if (stat(file_path, &st) == 0) {
+        return st.st_mtime;
+    }
+    return 0;
+}
+
+// Find cached module entry
+static ModuleCacheEntry* find_cached_module(Interpreter* interpreter, const char* file_path) {
+    if (!interpreter || !file_path || !interpreter->module_cache) {
+        return NULL;
+    }
+    
+    for (size_t i = 0; i < interpreter->module_cache_count; i++) {
+        if (interpreter->module_cache[i].file_path && 
+            strcmp(interpreter->module_cache[i].file_path, file_path) == 0) {
+            return &interpreter->module_cache[i];
+        }
+    }
+    return NULL;
+}
+
+// Cache a module
+static void cache_module(Interpreter* interpreter, const char* file_path, Environment* module_env, Value module_value) {
+    if (!interpreter || !file_path) return;
+    
+    // Allocate storage for module value
+    Value* value_storage = shared_malloc_safe(sizeof(Value), "bytecode_vm", "cache_module", 0);
+    if (!value_storage) return;
+    *value_storage = module_value;
+    
+    // Check if already cached
+    ModuleCacheEntry* existing = find_cached_module(interpreter, file_path);
+    if (existing) {
+        // Update existing entry
+        existing->file_mtime = get_file_mtime(file_path);
+        if (existing->file_hash) {
+            shared_free_safe(existing->file_hash, "bytecode_vm", "cache_module", 0);
+        }
+        existing->file_hash = compute_file_hash(file_path);
+        existing->module_env = module_env;
+        if (existing->module_value_storage) {
+            value_free((Value*)existing->module_value_storage);
+            shared_free_safe(existing->module_value_storage, "bytecode_vm", "cache_module", 0);
+        }
+        existing->module_value_storage = value_storage;
+        existing->is_valid = 1;
+        return;
+    }
+    
+    // Expand cache if needed
+    if (interpreter->module_cache_count >= interpreter->module_cache_capacity) {
+        size_t new_capacity = interpreter->module_cache_capacity == 0 ? 8 : interpreter->module_cache_capacity * 2;
+        ModuleCacheEntry* new_cache = shared_realloc_safe(interpreter->module_cache, 
+                                                          new_capacity * sizeof(ModuleCacheEntry),
+                                                          "bytecode_vm", "cache_module", 0);
+        if (!new_cache) {
+            shared_free_safe(value_storage, "bytecode_vm", "cache_module", 0);
+            return;
+        }
+        interpreter->module_cache = new_cache;
+        interpreter->module_cache_capacity = new_capacity;
+    }
+    
+    // Add new entry
+    ModuleCacheEntry* entry = &interpreter->module_cache[interpreter->module_cache_count++];
+    entry->file_path = shared_strdup(file_path);
+    entry->file_hash = compute_file_hash(file_path);
+    entry->file_mtime = get_file_mtime(file_path);
+    entry->module_env = module_env;
+    entry->module_value_storage = value_storage;
+    entry->is_valid = 1;
+}
+
+// Check for circular import
+static int check_circular_import(Interpreter* interpreter, const char* module_path) {
+    if (!interpreter || !module_path) return 0;
+    
+    ImportChain* chain = interpreter->import_chain;
+    while (chain) {
+        if (chain->module_path && strcmp(chain->module_path, module_path) == 0) {
+            return 1; // Circular import detected
+        }
+        chain = chain->next;
+    }
+    return 0;
+}
+
+// Push module to import chain
+static void push_import_chain(Interpreter* interpreter, const char* module_path) {
+    if (!interpreter || !module_path) return;
+    
+    ImportChain* new_link = shared_malloc_safe(sizeof(ImportChain), "bytecode_vm", "push_import_chain", 0);
+    if (new_link) {
+        new_link->module_path = shared_strdup(module_path);
+        new_link->next = interpreter->import_chain;
+        interpreter->import_chain = new_link;
+    }
+}
+
+// Pop module from import chain
+static void pop_import_chain(Interpreter* interpreter) {
+    if (!interpreter || !interpreter->import_chain) return;
+    
+    ImportChain* top = interpreter->import_chain;
+    interpreter->import_chain = top->next;
+    
+    if (top->module_path) {
+        shared_free_safe(top->module_path, "bytecode_vm", "pop_import_chain", 0);
+    }
+    shared_free_safe(top, "bytecode_vm", "pop_import_chain", 0);
 }
 
 

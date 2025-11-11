@@ -15,6 +15,7 @@ typedef enum {
     BC_STORE_LOCAL,
     BC_LOAD_GLOBAL,
     BC_STORE_GLOBAL,
+    BC_DUP,          // Duplicate top of stack: push copy of top value
     BC_ADD,
     BC_SUB,
     BC_MUL,

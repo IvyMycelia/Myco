@@ -2676,7 +2676,56 @@ ASTNode* parser_parse_match_statement(Parser* parser) {
                 // Parse case pattern
                 parser_advance(parser); // consume "case"
                 
-                ASTNode* pattern = parser_parse_expression(parser);
+                // Check for type pattern with binding: identifier : TypeName
+                ASTNode* pattern = NULL;
+                if (parser_check(parser, TOKEN_IDENTIFIER) && parser->current_token->text) {
+                    // Peek ahead to see if next token is colon followed by a type name
+                    int saved_pos = parser->current_position;
+                    Token* saved_token = parser->current_token;
+                    parser_advance(parser); // consume identifier
+                    
+                    if (parser_check(parser, TOKEN_COLON)) {
+                        parser_advance(parser); // consume ':'
+                        
+                        // Check if next token is a type name (capitalized identifier)
+                        if (parser_check(parser, TOKEN_IDENTIFIER) && parser->current_token->text && 
+                            isupper(parser->current_token->text[0])) {
+                            // This is a type pattern with binding: identifier : TypeName
+                            char* type_name = shared_strdup(parser->current_token->text);
+                            parser_advance(parser); // consume type name
+                            
+                            // Create type pattern (the variable binding will be handled separately if needed)
+                            pattern = ast_create_pattern_type(type_name, 0, 0);
+                            
+                            // Note: Variable binding (var_name) is not yet stored in the pattern
+                            // This is a limitation - we may need to extend AST_NODE_PATTERN_TYPE to include binding
+                            shared_free_safe(type_name, "parser", "unknown_function", 0);
+                        } else {
+                            // Not a type pattern, go back and parse as expression
+                            parser->current_position = saved_pos;
+                            parser->current_token = saved_token;
+                            pattern = parser_parse_pattern(parser);
+                            if (!pattern) {
+                                pattern = parser_parse_expression(parser);
+                            }
+                        }
+                    } else {
+                        // Not a type pattern, go back and parse as expression
+                        parser->current_position = saved_pos;
+                        parser->current_token = saved_token;
+                        pattern = parser_parse_pattern(parser);
+                        if (!pattern) {
+                            pattern = parser_parse_expression(parser);
+                        }
+                    }
+                } else {
+                    // Not starting with identifier, parse as pattern or expression
+                    pattern = parser_parse_pattern(parser);
+                    if (!pattern) {
+                        pattern = parser_parse_expression(parser);
+                    }
+                }
+                
                 if (!pattern) {
                     parser_error(parser, "Expected pattern after \"case\"");
                     parser_synchronize(parser);

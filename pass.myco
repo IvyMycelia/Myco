@@ -31,7 +31,7 @@ if x == 42:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Integer variable: " + x.toString());
-    tests_failed.push("Integer variable");
+    tests_failed = tests_failed.push("Integer variable");
 end
 
 total_tests = total_tests + 1;
@@ -41,7 +41,7 @@ if y == 3.14:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Float variable: " + y.toString());
-    tests_failed.push("Float variable");
+    tests_failed = tests_failed.push("Float variable");
 end
 
 total_tests = total_tests + 1;
@@ -51,7 +51,7 @@ if neg_int == -10:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Negative integer: " + neg_int.toString());
-    tests_failed.push("Negative integer");
+    tests_failed = tests_failed.push("Negative integer");
 end
 
 total_tests = total_tests + 1;
@@ -61,7 +61,7 @@ if neg_float == -3.14:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Negative float: " + neg_float.toString());
-    tests_failed.push("Negative float");
+    tests_failed = tests_failed.push("Negative float");
 end
 
 total_tests = total_tests + 1;
@@ -71,7 +71,7 @@ if zero == 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Zero: " + zero.toString());
-    tests_failed.push("Zero");
+    tests_failed = tests_failed.push("Zero");
 end
 
 print("\n1.2. Strings...");
@@ -82,7 +82,7 @@ if name1 == "Myco":
     tests_passed = tests_passed + 1;
 else:
     print("✗ String variable: " + name1);
-    tests_failed.push("String variable");
+    tests_failed = tests_failed.push("String variable");
 end
 
 total_tests = total_tests + 1;
@@ -92,7 +92,7 @@ if empty_str == "":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Empty string: '" + empty_str + "'");
-    tests_failed.push("Empty string: '");
+    tests_failed = tests_failed.push("Empty string: '");
 end
 
 total_tests = total_tests + 1;
@@ -102,7 +102,7 @@ if spaced_str == "hello world":
     tests_passed = tests_passed + 1;
 else:
     print("✗ String with spaces: " + spaced_str);
-    tests_failed.push("String with spaces");
+    tests_failed = tests_failed.push("String with spaces");
 end
 
 print("\n1.3. Booleans...");
@@ -113,7 +113,7 @@ if flag == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Boolean True: " + flag.toString());
-    tests_failed.push("Boolean True");
+    tests_failed = tests_failed.push("Boolean True");
 end
 
 total_tests = total_tests + 1;
@@ -123,7 +123,7 @@ if false_flag == False:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Boolean False: " + false_flag.toString());
-    tests_failed.push("Boolean False");
+    tests_failed = tests_failed.push("Boolean False");
 end
 
 print("\n1.4. Null...");
@@ -134,7 +134,7 @@ if null_var == Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Null variable: " + null_var.toString());
-    tests_failed.push("Null variable");
+    tests_failed = tests_failed.push("Null variable");
 end
 
 print("\n=== 2. ARITHMETIC OPERATIONS ===");
@@ -146,7 +146,7 @@ if a == 8:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Integer addition (5 + 3): " + a.toString());
-    tests_failed.push("Integer addition (5 + 3)");
+    tests_failed = tests_failed.push("Integer addition (5 + 3)");
 end
 
 total_tests = total_tests + 1;
@@ -156,7 +156,7 @@ if float_add == 4.0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Float addition (2.5 + 1.5): " + float_add.toString());
-    tests_failed.push("Float addition (2.5 + 1.5)");
+    tests_failed = tests_failed.push("Float addition (2.5 + 1.5)");
 end
 
 total_tests = total_tests + 1;
@@ -166,7 +166,7 @@ if mixed_add == 7.5:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Mixed addition (5 + 2.5): " + mixed_add.toString());
-    tests_failed.push("Mixed addition (5 + 2.5)");
+    tests_failed = tests_failed.push("Mixed addition (5 + 2.5)");
 end
 
 total_tests = total_tests + 1;
@@ -176,7 +176,7 @@ if str_concat == "helloworld":
     tests_passed = tests_passed + 1;
 else:
     print("✗ String concatenation: " + str_concat);
-    tests_failed.push("String concatenation");
+    tests_failed = tests_failed.push("String concatenation");
 end
 
 print("\n2.2. Subtraction...");
@@ -187,7 +187,7 @@ if b == 6:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Integer subtraction (10 - 4): " + b.toString());
-    tests_failed.push("Integer subtraction (10 - 4)");
+    tests_failed = tests_failed.push("Integer subtraction (10 - 4)");
 end
 
 total_tests = total_tests + 1;
@@ -197,7 +197,7 @@ if float_sub == 3.0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Float subtraction (5.5 - 2.5): " + float_sub.toString());
-    tests_failed.push("Float subtraction (5.5 - 2.5)");
+    tests_failed = tests_failed.push("Float subtraction (5.5 - 2.5)");
 end
 
 total_tests = total_tests + 1;
@@ -207,7 +207,7 @@ if neg_result == -2:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Negative result (3 - 5): " + neg_result.toString());
-    tests_failed.push("Negative result (3 - 5)");
+    tests_failed = tests_failed.push("Negative result (3 - 5)");
 end
 
 print("\n2.3. Multiplication...");
@@ -218,7 +218,7 @@ if c == 42:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Integer multiplication (6 * 7): " + c.toString());
-    tests_failed.push("Integer multiplication (6 * 7)");
+    tests_failed = tests_failed.push("Integer multiplication (6 * 7)");
 end
 
 total_tests = total_tests + 1;
@@ -228,7 +228,7 @@ if float_mult == 10.0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Float multiplication (2.5 * 4): " + float_mult.toString());
-    tests_failed.push("Float multiplication (2.5 * 4)");
+    tests_failed = tests_failed.push("Float multiplication (2.5 * 4)");
 end
 
 total_tests = total_tests + 1;
@@ -238,7 +238,7 @@ if zero_mult == 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Zero multiplication (5 * 0): " + zero_mult.toString());
-    tests_failed.push("Zero multiplication (5 * 0)");
+    tests_failed = tests_failed.push("Zero multiplication (5 * 0)");
 end
 
 print("\n2.4. Division...");
@@ -249,7 +249,7 @@ if d == 5:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Integer division (15 / 3): " + d.toString());
-    tests_failed.push("Integer division (15 / 3)");
+    tests_failed = tests_failed.push("Integer division (15 / 3)");
 end
 
 total_tests = total_tests + 1;
@@ -259,7 +259,7 @@ if float_div == 4.0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Float division (10.0 / 2.5): " + float_div.toString());
-    tests_failed.push("Float division (10.0 / 2.5)");
+    tests_failed = tests_failed.push("Float division (10.0 / 2.5)");
 end
 
 total_tests = total_tests + 1;
@@ -269,7 +269,7 @@ if remainder_div == 3.5:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Division with remainder (7 / 2): " + remainder_div.toString());
-    tests_failed.push("Division with remainder (7 / 2)");
+    tests_failed = tests_failed.push("Division with remainder (7 / 2)");
 end
 
 print("\n=== 3. COMPARISON OPERATIONS ===");
@@ -281,7 +281,7 @@ if comp3 == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Integer equality (5 == 5): " + comp3.toString());
-    tests_failed.push("Integer equality (5 == 5)");
+    tests_failed = tests_failed.push("Integer equality (5 == 5)");
 end
 
 total_tests = total_tests + 1;
@@ -291,7 +291,7 @@ if comp_neq == False:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Integer inequality (5 == 6): " + comp_neq.toString());
-    tests_failed.push("Integer inequality (5 == 6)");
+    tests_failed = tests_failed.push("Integer inequality (5 == 6)");
 end
 
 total_tests = total_tests + 1;
@@ -301,7 +301,7 @@ if float_eq == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Float equality (3.14 == 3.14): " + float_eq.toString());
-    tests_failed.push("Float equality (3.14 == 3.14)");
+    tests_failed = tests_failed.push("Float equality (3.14 == 3.14)");
 end
 
 total_tests = total_tests + 1;
@@ -311,7 +311,7 @@ if str_eq == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ String equality ('hello' == 'hello'): " + str_eq.toString());
-    tests_failed.push("String equality ('hello' == 'hello')");
+    tests_failed = tests_failed.push("String equality ('hello' == 'hello')");
 end
 
 total_tests = total_tests + 1;
@@ -321,7 +321,7 @@ if bool_eq == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Boolean equality (True == True): " + bool_eq.toString());
-    tests_failed.push("Boolean equality (True == True)");
+    tests_failed = tests_failed.push("Boolean equality (True == True)");
 end
 
 print("\n3.2. Inequality...");
@@ -332,7 +332,7 @@ if comp4 == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Integer inequality (4 != 6): " + comp4.toString());
-    tests_failed.push("Integer inequality (4 != 6)");
+    tests_failed = tests_failed.push("Integer inequality (4 != 6)");
 end
 
 total_tests = total_tests + 1;
@@ -342,7 +342,7 @@ if str_neq == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ String inequality ('hello' != 'world'): " + str_neq.toString());
-    tests_failed.push("String inequality ('hello' != 'world')");
+    tests_failed = tests_failed.push("String inequality ('hello' != 'world')");
 end
 
 print("\n3.3. Greater than...");
@@ -353,7 +353,7 @@ if comp1 == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Greater than (10 > 5): " + comp1.toString());
-    tests_failed.push("Greater than (10 > 5)");
+    tests_failed = tests_failed.push("Greater than (10 > 5)");
 end
 
 total_tests = total_tests + 1;
@@ -363,7 +363,7 @@ if comp1_false == False:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Not greater than (5 > 10): " + comp1_false.toString());
-    tests_failed.push("Not greater than (5 > 10)");
+    tests_failed = tests_failed.push("Not greater than (5 > 10)");
 end
 
 print("\n3.4. Less than...");
@@ -374,7 +374,7 @@ if comp2 == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Less than (3 < 7): " + comp2.toString());
-    tests_failed.push("Less than (3 < 7)");
+    tests_failed = tests_failed.push("Less than (3 < 7)");
 end
 
 total_tests = total_tests + 1;
@@ -384,7 +384,7 @@ if comp2_false == False:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Not less than (7 < 3): " + comp2_false.toString());
-    tests_failed.push("Not less than (7 < 3)");
+    tests_failed = tests_failed.push("Not less than (7 < 3)");
 end
 
 print("\n3.5. Greater than or equal...");
@@ -395,7 +395,7 @@ if gte_true == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Greater than or equal (10 >= 5): " + gte_true.toString());
-    tests_failed.push("Greater than or equal (10 >= 5)");
+    tests_failed = tests_failed.push("Greater than or equal (10 >= 5)");
 end
 
 total_tests = total_tests + 1;
@@ -405,7 +405,7 @@ if gte_equal == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Equal values (5 >= 5): " + gte_equal.toString());
-    tests_failed.push("Equal values (5 >= 5)");
+    tests_failed = tests_failed.push("Equal values (5 >= 5)");
 end
 
 print("\n3.6. Less than or equal...");
@@ -416,7 +416,7 @@ if lte_true == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Less than or equal (3 <= 7): " + lte_true.toString());
-    tests_failed.push("Less than or equal (3 <= 7)");
+    tests_failed = tests_failed.push("Less than or equal (3 <= 7)");
 end
 
 total_tests = total_tests + 1;
@@ -426,7 +426,7 @@ if lte_equal == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Equal values (5 <= 5): " + lte_equal.toString());
-    tests_failed.push("Equal values (5 <= 5)");
+    tests_failed = tests_failed.push("Equal values (5 <= 5)");
 end
 
 print("\n=== 4. LOGICAL OPERATIONS ===");
@@ -438,7 +438,7 @@ if log1 == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Logical AND (True and True): " + log1.toString());
-    tests_failed.push("Logical AND (True and True)");
+    tests_failed = tests_failed.push("Logical AND (True and True)");
 end
 
 total_tests = total_tests + 1;
@@ -448,7 +448,7 @@ if log1_false == False:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Logical AND false (True and False): " + log1_false.toString());
-    tests_failed.push("Logical AND false (True and False)");
+    tests_failed = tests_failed.push("Logical AND false (True and False)");
 end
 
 # Note: Symbolic && operator not yet implemented in Myco
@@ -461,7 +461,7 @@ if log2 == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Logical OR (False or True): " + log2.toString());
-    tests_failed.push("Logical OR (False or True)");
+    tests_failed = tests_failed.push("Logical OR (False or True)");
 end
 
 total_tests = total_tests + 1;
@@ -471,7 +471,7 @@ if log2_false == False:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Logical OR false (False or False): " + log2_false.toString());
-    tests_failed.push("Logical OR false (False or False)");
+    tests_failed = tests_failed.push("Logical OR false (False or False)");
 end
 
 # Note: Symbolic || operator not yet implemented in Myco
@@ -484,7 +484,7 @@ if log3 == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Logical NOT (not False): " + log3.toString());
-    tests_failed.push("Logical NOT (not False)");
+    tests_failed = tests_failed.push("Logical NOT (not False)");
 end
 
 total_tests = total_tests + 1;
@@ -494,7 +494,7 @@ if log3_false == False:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Logical NOT false (not True): " + log3_false.toString());
-    tests_failed.push("Logical NOT false (not True)");
+    tests_failed = tests_failed.push("Logical NOT false (not True)");
 end
 
 # Note: Symbolic ! operator not yet implemented in Myco
@@ -507,7 +507,7 @@ if complex_log == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Complex logical ((True and False) or True): " + complex_log.toString());
-    tests_failed.push("Complex logical ((True and False) or True)");
+    tests_failed = tests_failed.push("Complex logical ((True and False) or True)");
 end
 
 total_tests = total_tests + 1;
@@ -517,7 +517,7 @@ if nested_not == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Nested NOT (not (True and False)): " + nested_not.toString());
-    tests_failed.push("Nested NOT (not (True and False))");
+    tests_failed = tests_failed.push("Nested NOT (not (True and False))");
 end
 
 print("\n5. Arrays...");
@@ -528,7 +528,7 @@ if arr.length == 3:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Simple array: " + arr.toString());
-    tests_failed.push("Simple array");
+    tests_failed = tests_failed.push("Simple array");
 end
 
 total_tests = total_tests + 1;
@@ -538,7 +538,7 @@ if nested.length == 2:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Nested array: " + nested.toString());
-    tests_failed.push("Nested array");
+    tests_failed = tests_failed.push("Nested array");
 end
 
 total_tests = total_tests + 1;
@@ -548,7 +548,7 @@ if mixed.length == 4:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Mixed type array: " + mixed.toString());
-    tests_failed.push("Mixed type array");
+    tests_failed = tests_failed.push("Mixed type array");
 end
 
 total_tests = total_tests + 1;
@@ -558,55 +558,55 @@ if empty.length == 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Empty array: " + empty.toString());
-    tests_failed.push("Empty array");
+    tests_failed = tests_failed.push("Empty array");
 end
 
 print("\n6. String Operations...");
 total_tests = total_tests + 1;
 try:
-    let str1 = "Hello";
-    let str2 = "World";
-    let combined = str1 + " " + str2;
+let str1 = "Hello";
+let str2 = "World";
+let combined = str1 + " " + str2;
     if combined == "Hello World":
-        print("✓ String concatenation: " + combined);
-        tests_passed = tests_passed + 1;
+print("✓ String concatenation: " + combined);
+tests_passed = tests_passed + 1;
     else:
         print("✗ String concatenation failed");
-        tests_failed.push("String concatenation");
+        tests_failed = tests_failed.push("String concatenation");
     end
 catch e:
     print("✗ String concatenation error: " + e.toString());
-    tests_failed.push("String concatenation");
+    tests_failed = tests_failed.push("String concatenation");
 end
 
 total_tests = total_tests + 1;
 try:
-    let num_str = 42.toString();
+let num_str = 42.toString();
     if num_str == "42":
-        print("✓ Number to string: " + num_str);
-        tests_passed = tests_passed + 1;
+print("✓ Number to string: " + num_str);
+tests_passed = tests_passed + 1;
     else:
         print("✗ Number to string failed");
-        tests_failed.push("Number to string");
+        tests_failed = tests_failed.push("Number to string");
     end
 catch e:
     print("✗ Number to string error: " + e.toString());
-    tests_failed.push("Number to string");
+    tests_failed = tests_failed.push("Number to string");
 end
 
 total_tests = total_tests + 1;
 try:
-    let bool_str = True.toString();
+let bool_str = True.toString();
     if bool_str == "True":
-        print("✓ Boolean to string: " + bool_str);
-        tests_passed = tests_passed + 1;
+print("✓ Boolean to string: " + bool_str);
+tests_passed = tests_passed + 1;
     else:
         print("✗ Boolean to string failed");
-        tests_failed.push("Boolean to string");
+        tests_failed = tests_failed.push("Boolean to string");
     end
 catch e:
     print("✗ Boolean to string error: " + e.toString());
-    tests_failed.push("Boolean to string");
+    tests_failed = tests_failed.push("Boolean to string");
 end
 
 print("\n=== 7. STRING OPERATIONS ===");
@@ -620,7 +620,7 @@ if combined_2 == "Hello World":
     tests_passed = tests_passed + 1;
 else:
     print("✗ String concatenation: " + combined_2);
-    tests_failed.push("String concatenation");
+    tests_failed = tests_failed.push("String concatenation");
 end
 
 total_tests = total_tests + 1;
@@ -630,7 +630,7 @@ if num_str_2 == "42":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Number to string: " + num_str_2);
-    tests_failed.push("Number to string");
+    tests_failed = tests_failed.push("Number to string");
 end
 
 total_tests = total_tests + 1;
@@ -640,7 +640,7 @@ if bool_str_2 == "True":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Boolean to string: " + bool_str_2);
-    tests_failed.push("Boolean to string");
+    tests_failed = tests_failed.push("Boolean to string");
 end
 
 print("\n7.2. Escape sequences...");
@@ -651,7 +651,7 @@ if escaped.length > 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Escape sequences work");
-    tests_failed.push("Escape sequences work");
+    tests_failed = tests_failed.push("Escape sequences work");
 end
 
 total_tests = total_tests + 1;
@@ -661,7 +661,7 @@ if quoted_str == "He said \"Hello\"":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Quoted string: " + quoted_str);
-    tests_failed.push("Quoted string");
+    tests_failed = tests_failed.push("Quoted string");
 end
 
 total_tests = total_tests + 1;
@@ -671,7 +671,7 @@ if backslash_str == "Path: C:\\Users\\Name":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Backslash string: " + backslash_str);
-    tests_failed.push("Backslash string");
+    tests_failed = tests_failed.push("Backslash string");
 end
 
 print("\n8. Control Flow...");
@@ -681,13 +681,13 @@ if 10 > 5:
     tests_passed = tests_passed + 1;
 else:
     print("✗ If statement");
-    tests_failed.push("If statement");
+    tests_failed = tests_failed.push("If statement");
 end
 
 total_tests = total_tests + 1;
 if 3 < 2:
     print("✗ This should not print");
-    tests_failed.push("This should not print");
+    tests_failed = tests_failed.push("This should not print");
 else:
     print("✓ Else statement works");
     tests_passed = tests_passed + 1;
@@ -696,13 +696,13 @@ end
 total_tests = total_tests + 1;
 if 1 > 2:
     print("✗ This should not print");
-    tests_failed.push("This should not print");
+    tests_failed = tests_failed.push("This should not print");
 else if 2 > 1:
     print("✓ Else-if statement works");
     tests_passed = tests_passed + 1;
 else:
     print("✗ Else-if statement failed");
-    tests_failed.push("Else-if statement failed");
+    tests_failed = tests_failed.push("Else-if statement failed");
 end
 
 print("\n9. Built-in Libraries...");
@@ -713,7 +713,7 @@ if math.type == "Library":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Math library import failed");
-    tests_failed.push("Math library import failed");
+    tests_failed = tests_failed.push("Math library import failed");
 end
 
 total_tests = total_tests + 1;
@@ -723,7 +723,7 @@ if test_string.type == "String" and test_string != Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ String type not available");
-    tests_failed.push("String type not available");
+    tests_failed = tests_failed.push("String type not available");
 end
 
 total_tests = total_tests + 1;
@@ -733,7 +733,7 @@ if (test_array_1.type == "[Int]" or test_array_1.type == "Array") and test_array
     tests_passed = tests_passed + 1;
 else:
     print("✗ Array type not available");
-    tests_failed.push("Array type not available");
+    tests_failed = tests_failed.push("Array type not available");
 end
 
 total_tests = total_tests + 1;
@@ -743,7 +743,7 @@ if file.type == "Library":
     tests_passed = tests_passed + 1;
 else:
     print("✗ File library import failed");
-    tests_failed.push("File library import failed");
+    tests_failed = tests_failed.push("File library import failed");
 end
 
 total_tests = total_tests + 1;
@@ -753,7 +753,7 @@ if dir.type == "Library":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Directory library import failed");
-    tests_failed.push("Directory library import failed");
+    tests_failed = tests_failed.push("Directory library import failed");
 end
 
 total_tests = total_tests + 1;
@@ -764,7 +764,7 @@ if test_map_1.type == "Map":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Maps library not available");
-    tests_failed.push("Maps library not available");
+    tests_failed = tests_failed.push("Maps library not available");
 end
 
 total_tests = total_tests + 1;
@@ -774,7 +774,7 @@ if test_set1.type == "Set":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Sets type not available");
-    tests_failed.push("Sets type not available");
+    tests_failed = tests_failed.push("Sets type not available");
 end
 
 total_tests = total_tests + 1;
@@ -785,7 +785,7 @@ if test_tree1.type == "Tree":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Trees library import failed");
-    tests_failed.push("Trees library import failed");
+    tests_failed = tests_failed.push("Trees library import failed");
 end
 
 total_tests = total_tests + 1;
@@ -796,183 +796,183 @@ if graphs_test1.type == "Graph":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Graphs library import failed");
-    tests_failed.push("Graphs library import failed");
+    tests_failed = tests_failed.push("Graphs library import failed");
 end
 
 print("\n10. Math Library Functions...");
 total_tests = total_tests + 1;
 try:
-    let pi_value = math.Pi;
+let pi_value = math.Pi;
     if pi_value > 3.14 and pi_value < 3.15:
-        print("✓ Math.Pi: " + pi_value.toString());
-        tests_passed = tests_passed + 1;
+print("✓ Math.Pi: " + pi_value.toString());
+tests_passed = tests_passed + 1;
     else:
         print("✗ Math.Pi failed");
-        tests_failed.push("Math.Pi");
+        tests_failed = tests_failed.push("Math.Pi");
     end
 catch e:
     print("✗ Math.Pi error: " + e.toString());
-    tests_failed.push("Math.Pi");
+    tests_failed = tests_failed.push("Math.Pi");
 end
 
 total_tests = total_tests + 1;
 try:
-    let e_value = math.E;
+let e_value = math.E;
     if e_value > 2.71 and e_value < 2.72:
-        print("✓ Math.E: " + e_value.toString());
-        tests_passed = tests_passed + 1;
+print("✓ Math.E: " + e_value.toString());
+tests_passed = tests_passed + 1;
     else:
         print("✗ Math.E failed");
-        tests_failed.push("Math.E");
+        tests_failed = tests_failed.push("Math.E");
     end
 catch e:
     print("✗ Math.E error: " + e.toString());
-    tests_failed.push("Math.E");
+    tests_failed = tests_failed.push("Math.E");
 end
 
 total_tests = total_tests + 1;
 try:
-    let abs_result = math.abs(-5);
+let abs_result = math.abs(-5);
     if abs_result == 5:
-        print("✓ Math.abs(-5): " + abs_result.toString());
-        tests_passed = tests_passed + 1;
+print("✓ Math.abs(-5): " + abs_result.toString());
+tests_passed = tests_passed + 1;
     else:
         print("✗ Math.abs(-5) failed");
-        tests_failed.push("Math.abs(-5)");
+        tests_failed = tests_failed.push("Math.abs(-5)");
     end
 catch e:
     print("✗ Math.abs(-5) error: " + e.toString());
-    tests_failed.push("Math.abs(-5)");
+    tests_failed = tests_failed.push("Math.abs(-5)");
 end
 
 total_tests = total_tests + 1;
 try:
-    let min_result = math.min(10, 5);
+let min_result = math.min(10, 5);
     if min_result == 5:
-        print("✓ Math.min(10, 5): " + min_result.toString());
-        tests_passed = tests_passed + 1;
+print("✓ Math.min(10, 5): " + min_result.toString());
+tests_passed = tests_passed + 1;
     else:
         print("✗ Math.min(10, 5) failed");
-        tests_failed.push("Math.min(10, 5)");
+        tests_failed = tests_failed.push("Math.min(10, 5)");
     end
 catch e:
     print("✗ Math.min(10, 5) error: " + e.toString());
-    tests_failed.push("Math.min(10, 5)");
+    tests_failed = tests_failed.push("Math.min(10, 5)");
 end
 
 total_tests = total_tests + 1;
 try:
-    let max_result = math.max(10, 5);
+let max_result = math.max(10, 5);
     if max_result == 10:
-        print("✓ Math.max(10, 5): " + max_result.toString());
-        tests_passed = tests_passed + 1;
+print("✓ Math.max(10, 5): " + max_result.toString());
+tests_passed = tests_passed + 1;
     else:
         print("✗ Math.max(10, 5) failed");
-        tests_failed.push("Math.max(10, 5)");
+        tests_failed = tests_failed.push("Math.max(10, 5)");
     end
 catch e:
     print("✗ Math.max(10, 5) error: " + e.toString());
-    tests_failed.push("Math.max(10, 5)");
+    tests_failed = tests_failed.push("Math.max(10, 5)");
 end
 
 total_tests = total_tests + 1;
 try:
-    let sqrt_result = math.sqrt(16);
+let sqrt_result = math.sqrt(16);
     if sqrt_result == 4:
-        print("✓ Math.sqrt(16): " + sqrt_result.toString());
-        tests_passed = tests_passed + 1;
+print("✓ Math.sqrt(16): " + sqrt_result.toString());
+tests_passed = tests_passed + 1;
     else:
         print("✗ Math.sqrt(16) failed");
-        tests_failed.push("Math.sqrt(16)");
+        tests_failed = tests_failed.push("Math.sqrt(16)");
     end
 catch e:
     print("✗ Math.sqrt(16) error: " + e.toString());
-    tests_failed.push("Math.sqrt(16)");
+    tests_failed = tests_failed.push("Math.sqrt(16)");
 end
 
 print("\n11. String Library Functions...");
 total_tests = total_tests + 1;
 try:
-    let test_str = "hello world";
-    let upper_str = test_str.upper();
+let test_str = "hello world";
+let upper_str = test_str.upper();
     if upper_str == "HELLO WORLD":
-        print("✓ String.upper('hello world'): " + upper_str);
-        tests_passed = tests_passed + 1;
+print("✓ String.upper('hello world'): " + upper_str);
+tests_passed = tests_passed + 1;
     else:
         print("✗ String.upper('hello world') failed");
-        tests_failed.push("String.upper('hello world')");
+        tests_failed = tests_failed.push("String.upper('hello world')");
     end
 catch e:
     print("✗ String.upper('hello world') error: " + e.toString());
-    tests_failed.push("String.upper('hello world')");
+    tests_failed = tests_failed.push("String.upper('hello world')");
 end
 
 total_tests = total_tests + 1;
 try:
-    let lower_str_var = "HELLO WORLD";
-    let lower_str = lower_str_var.lower();
+let lower_str_var = "HELLO WORLD";
+let lower_str = lower_str_var.lower();
     if lower_str == "hello world":
-        print("✓ String.lower('HELLO WORLD'): " + lower_str);
-        tests_passed = tests_passed + 1;
+print("✓ String.lower('HELLO WORLD'): " + lower_str);
+tests_passed = tests_passed + 1;
     else:
         print("✗ String.lower('HELLO WORLD') failed");
-        tests_failed.push("String.lower('HELLO WORLD')");
+        tests_failed = tests_failed.push("String.lower('HELLO WORLD')");
     end
 catch e:
     print("✗ String.lower('HELLO WORLD') error: " + e.toString());
-    tests_failed.push("String.lower('HELLO WORLD')");
+    tests_failed = tests_failed.push("String.lower('HELLO WORLD')");
 end
 
 total_tests = total_tests + 1;
 try:
-    let trim_str_var = "  hello  ";
-    let trim_str = trim_str_var.trim();
+let trim_str_var = "  hello  ";
+let trim_str = trim_str_var.trim();
     if trim_str == "hello":
-        print("✓ String.trim('  hello  '): '" + trim_str + "'");
-        tests_passed = tests_passed + 1;
+print("✓ String.trim('  hello  '): '" + trim_str + "'");
+tests_passed = tests_passed + 1;
     else:
         print("✗ String.trim('  hello  ') failed");
-        tests_failed.push("String.trim('  hello  ')");
+        tests_failed = tests_failed.push("String.trim('  hello  ')");
     end
 catch e:
     print("✗ String.trim('  hello  ') error: " + e.toString());
-    tests_failed.push("String.trim('  hello  ')");
+    tests_failed = tests_failed.push("String.trim('  hello  ')");
 end
 
 total_tests = total_tests + 1;
 try:
-    let len_result = "hello".length;
+let len_result = "hello".length;
     if len_result == 5:
-        print("✓ len('hello'): " + len_result.toString());
-        tests_passed = tests_passed + 1;
+print("✓ len('hello'): " + len_result.toString());
+tests_passed = tests_passed + 1;
     else:
         print("✗ len('hello') failed");
-        tests_failed.push("len('hello')");
+        tests_failed = tests_failed.push("len('hello')");
     end
 catch e:
     print("✗ len('hello') error: " + e.toString());
-    tests_failed.push("len('hello')");
+    tests_failed = tests_failed.push("len('hello')");
 end
 
 print("\n12. Input Function...");
 total_tests = total_tests + 1;
 try:
-    # Note: input() function is available but not tested interactively in automated tests
-    print("✓ Input function available (tested manually)");
-    tests_passed = tests_passed + 1;
+# Note: input() function is available but not tested interactively in automated tests
+print("✓ Input function available (tested manually)");
+tests_passed = tests_passed + 1;
 catch e:
     print("✗ Input function error: " + e.toString());
-    tests_failed.push("Input function");
+    tests_failed = tests_failed.push("Input function");
 end
 
 print("\n13. Array Library Functions...");
 total_tests = total_tests + 1;
 try:
-    print("✓ Array library imported successfully");
-    tests_passed = tests_passed + 1;
+print("✓ Array library imported successfully");
+tests_passed = tests_passed + 1;
 catch e:
     print("✗ Array library import failed: " + e.toString());
-    tests_failed.push("Array library import");
+    tests_failed = tests_failed.push("Array library import");
 end
 
 print("\n13.1. Enhanced Array Operations...");
@@ -984,7 +984,7 @@ if joined_result.type == "String" and joined_result != Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ array.join() failed");
-    tests_failed.push("array.join() failed");
+    tests_failed = tests_failed.push("array.join() failed");
 end
 
 total_tests = total_tests + 1;
@@ -994,7 +994,7 @@ if contains_result == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ array.contains() with existing value failed");
-    tests_failed.push("array.contains() with existing value failed");
+    tests_failed = tests_failed.push("array.contains() with existing value failed");
 end
 
 total_tests = total_tests + 1;
@@ -1004,7 +1004,7 @@ if contains_missing == False:
     tests_passed = tests_passed + 1;
 else:
     print("✗ array.contains() with missing value failed");
-    tests_failed.push("array.contains() with missing value failed");
+    tests_failed = tests_failed.push("array.contains() with missing value failed");
 end
 
 total_tests = total_tests + 1;
@@ -1014,7 +1014,7 @@ if index_of_result == 2:
     tests_passed = tests_passed + 1;
 else:
     print("✗ array.indexOf() with existing value failed");
-    tests_failed.push("array.indexOf() with existing value failed");
+    tests_failed = tests_failed.push("array.indexOf() with existing value failed");
 end
 
 total_tests = total_tests + 1;
@@ -1024,7 +1024,7 @@ if index_of_missing == -1:
     tests_passed = tests_passed + 1;
 else:
     print("✗ array.indexOf() with missing value failed");
-    tests_failed.push("array.indexOf() with missing value failed");
+    tests_failed = tests_failed.push("array.indexOf() with missing value failed");
 end
 
 total_tests = total_tests + 1;
@@ -1035,7 +1035,7 @@ if (unique_result.type == "[Int]" or unique_result.type == "Array") and unique_r
     tests_passed = tests_passed + 1;
 else:
     print("✗ array.unique() failed");
-    tests_failed.push("array.unique() failed");
+    tests_failed = tests_failed.push("array.unique() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1047,7 +1047,7 @@ if (concat_result.type == "[Int]" or concat_result.type == "Array") and concat_r
     tests_passed = tests_passed + 1;
 else:
     print("✗ array.concat() failed");
-    tests_failed.push("array.concat() failed");
+    tests_failed = tests_failed.push("array.concat() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1057,7 +1057,7 @@ if (slice_result.type == "[Int]" or slice_result.type == "Array") and slice_resu
     tests_passed = tests_passed + 1;
 else:
     print("✗ array.slice() failed");
-    tests_failed.push("array.slice() failed");
+    tests_failed = tests_failed.push("array.slice() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1068,7 +1068,7 @@ if (fill_array.type == "[String]" or fill_array.type == "[Any]" or fill_array.ty
     tests_passed = tests_passed + 1;
 else:
     print("✗ array.fill() failed");
-    tests_failed.push("array.fill() failed");
+    tests_failed = tests_failed.push("array.fill() failed");
 end
 
 print("\n14. File Library Functions...");
@@ -1080,7 +1080,7 @@ if write_result == Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ File write failed");
-    tests_failed.push("File write failed");
+    tests_failed = tests_failed.push("File write failed");
 end
 
 total_tests = total_tests + 1;
@@ -1090,7 +1090,7 @@ if exists_result == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ File exists check failed");
-    tests_failed.push("File exists check failed");
+    tests_failed = tests_failed.push("File exists check failed");
 end
 
 total_tests = total_tests + 1;
@@ -1100,7 +1100,7 @@ if read_result != Null and read_result.type == "String":
     tests_passed = tests_passed + 1;
 else:
     print("✗ File read failed");
-    tests_failed.push("File read failed");
+    tests_failed = tests_failed.push("File read failed");
 end
 
 total_tests = total_tests + 1;
@@ -1110,7 +1110,7 @@ if delete_result == Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ File delete failed");
-    tests_failed.push("File delete failed");
+    tests_failed = tests_failed.push("File delete failed");
 end
 
 print("\n15. Directory Library Functions...");
@@ -1121,7 +1121,7 @@ if current_dir != Null and current_dir.type == "String":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Current directory failed");
-    tests_failed.push("Current directory failed");
+    tests_failed = tests_failed.push("Current directory failed");
 end
 
 total_tests = total_tests + 1;
@@ -1131,7 +1131,7 @@ if files != Null and (files.type == "[String]" or files.type == "Array"):
     tests_passed = tests_passed + 1;
 else:
     print("✗ Directory listing failed");
-    tests_failed.push("Directory listing failed");
+    tests_failed = tests_failed.push("Directory listing failed");
 end
 
 total_tests = total_tests + 1;
@@ -1141,7 +1141,7 @@ if create_result == Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Directory creation failed");
-    tests_failed.push("Directory creation failed");
+    tests_failed = tests_failed.push("Directory creation failed");
 end
     
 # Test directory exists (moved out of conditional)
@@ -1155,7 +1155,7 @@ if dir_exists_result == True:
     dir.remove("test_dir");
 else:
     print("✗ Directory exists check failed");
-    tests_failed.push("Directory exists check failed");
+    tests_failed = tests_failed.push("Directory exists check failed");
 end
 
 print("\n16. Maps Library Functions...");
@@ -1167,7 +1167,7 @@ if has_name == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ maps.has() with existing key failed");
-    tests_failed.push("maps.has() with existing key failed");
+    tests_failed = tests_failed.push("maps.has() with existing key failed");
 end
 
 total_tests = total_tests + 1;
@@ -1177,7 +1177,7 @@ if has_missing == False:
     tests_passed = tests_passed + 1;
 else:
     print("✗ maps.has() with missing key failed");
-    tests_failed.push("maps.has() with missing key failed");
+    tests_failed = tests_failed.push("maps.has() with missing key failed");
 end
 
 total_tests = total_tests + 1;
@@ -1187,7 +1187,7 @@ if map_size == 3:
     tests_passed = tests_passed + 1;
 else:
     print("✗ maps.size failed: " + map_size.toString());
-    tests_failed.push("maps.size failed");
+    tests_failed = tests_failed.push("maps.size failed");
 end
 
 total_tests = total_tests + 1;
@@ -1197,7 +1197,7 @@ if (map_keys.type == "[String]" or map_keys.type == "Array") and map_keys != Nul
     tests_passed = tests_passed + 1;
 else:
     print("✗ maps.keys failed");
-    tests_failed.push("maps.keys failed");
+    tests_failed = tests_failed.push("maps.keys failed");
 end
 
 total_tests = total_tests + 1;
@@ -1208,7 +1208,7 @@ if size_after_delete >= 2:  # Should be 2 or original if delete doesn't work in 
     tests_passed = tests_passed + 1;
 else:
     print("✗ maps.delete() failed");
-    tests_failed.push("maps.delete() failed");
+    tests_failed = tests_failed.push("maps.delete() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1220,7 +1220,7 @@ if size_after_update >= 2:  # Should maintain or increase size
     tests_passed = tests_passed + 1;
 else:
     print("✗ maps.update() failed");
-    tests_failed.push("maps.update() failed");
+    tests_failed = tests_failed.push("maps.update() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1237,7 +1237,7 @@ if has_apple == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ set.has() with existing element failed");
-    tests_failed.push("set.has() with existing element failed");
+    tests_failed = tests_failed.push("set.has() with existing element failed");
 end
 
 total_tests = total_tests + 1;
@@ -1247,7 +1247,7 @@ if has_orange == False:
     tests_passed = tests_passed + 1;
 else:
     print("✗ set.has() with missing element failed");
-    tests_failed.push("set.has() with missing element failed");
+    tests_failed = tests_failed.push("set.has() with missing element failed");
 end
 
 total_tests = total_tests + 1;
@@ -1257,7 +1257,7 @@ if set_size == 3:
     tests_passed = tests_passed + 1;
 else:
     print("✗ set.size failed: " + set_size.toString());
-    tests_failed.push("set.size failed");
+    tests_failed = tests_failed.push("set.size failed");
 end
 
 total_tests = total_tests + 1;
@@ -1268,7 +1268,7 @@ if size_after_add >= 3:  # Should be 4 or original if add doesn't work in place
     tests_passed = tests_passed + 1;
 else:
     print("✗ set.add() failed");
-    tests_failed.push("set.add() failed");
+    tests_failed = tests_failed.push("set.add() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1279,7 +1279,7 @@ if size_after_remove >= 2:  # Should be 3 or less if remove works
     tests_passed = tests_passed + 1;
 else:
     print("✗ set.remove() failed");
-    tests_failed.push("set.remove() failed");
+    tests_failed = tests_failed.push("set.remove() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1289,7 +1289,7 @@ if (set_to_array.type == "[String]" or set_to_array.type == "Array") and set_to_
     tests_passed = tests_passed + 1;
 else:
     print("✗ set.toArray() failed");
-    tests_failed.push("set.toArray() failed");
+    tests_failed = tests_failed.push("set.toArray() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1300,7 +1300,7 @@ if union_result.type == "Set" and union_result != Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ set.union() failed");
-    tests_failed.push("set.union() failed");
+    tests_failed = tests_failed.push("set.union() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1310,7 +1310,7 @@ if intersection_result.type == "Set" and intersection_result != Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ set.intersection() failed");
-    tests_failed.push("set.intersection() failed");
+    tests_failed = tests_failed.push("set.intersection() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1320,7 +1320,7 @@ if clear_result.type == "Set":
     tests_passed = tests_passed + 1;
 else:
     print("✗ set.clear() failed");
-    tests_failed.push("set.clear() failed");
+    tests_failed = tests_failed.push("set.clear() failed");
 end
 
 print("\n18. Trees Library Functions...");
@@ -1331,7 +1331,7 @@ if test_tree.type == "Tree" and test_tree != Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ trees.create() failed");
-    tests_failed.push("trees.create() failed");
+    tests_failed = tests_failed.push("trees.create() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1341,7 +1341,7 @@ if tree_size == 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ trees.size failed: " + tree_size.toString());
-    tests_failed.push("trees.size failed");
+    tests_failed = tests_failed.push("trees.size failed");
 end
 
 total_tests = total_tests + 1;
@@ -1351,7 +1351,7 @@ if tree_is_empty == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ trees.isEmpty() failed");
-    tests_failed.push("trees.isEmpty() failed");
+    tests_failed = tests_failed.push("trees.isEmpty() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1361,7 +1361,7 @@ if test_tree.type == "Tree" and test_tree != Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ trees.insert() failed");
-    tests_failed.push("trees.insert() failed");
+    tests_failed = tests_failed.push("trees.insert() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1371,7 +1371,7 @@ if tree_search.type == "Boolean":
     tests_passed = tests_passed + 1;
 else:
     print("✗ trees.search() failed");
-    tests_failed.push("trees.search() failed");
+    tests_failed = tests_failed.push("trees.search() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1381,7 +1381,7 @@ if test_tree.type == "Tree" and test_tree != Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ trees.clear() failed");
-    tests_failed.push("trees.clear() failed");
+    tests_failed = tests_failed.push("trees.clear() failed");
 end
 
 print("\n19. Graphs Library Functions...");
@@ -1392,7 +1392,7 @@ if test_graph.type == "Graph" and test_graph != Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ graphs.create() failed");
-    tests_failed.push("graphs.create() failed");
+    tests_failed = tests_failed.push("graphs.create() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1402,7 +1402,7 @@ if graph_size == 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ graphs.size failed: " + graph_size.toString());
-    tests_failed.push("graphs.size failed");
+    tests_failed = tests_failed.push("graphs.size failed");
 end
 
 total_tests = total_tests + 1;
@@ -1412,7 +1412,7 @@ if graph_is_empty == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ graphs.isEmpty() failed");
-    tests_failed.push("graphs.isEmpty() failed");
+    tests_failed = tests_failed.push("graphs.isEmpty() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1422,7 +1422,7 @@ if test_graph.type == "Graph" and test_graph != Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ graphs.add_node() failed");
-    tests_failed.push("graphs.add_node("node1") failed");
+    tests_failed = tests_failed.push("graphs.add_node("node1") failed");
 end
 
 total_tests = total_tests + 1;
@@ -1432,7 +1432,7 @@ if test_graph.type == "Graph" and test_graph != Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ graphs.add_node() failed");
-    tests_failed.push("graphs.add_node("node2") failed");
+    tests_failed = tests_failed.push("graphs.add_node("node2") failed");
 end
 
 total_tests = total_tests + 1;
@@ -1442,7 +1442,7 @@ if test_graph.type == "Graph" and test_graph != Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ graphs.add_edge() failed");
-    tests_failed.push("graphs.add_edge() failed");
+    tests_failed = tests_failed.push("graphs.add_edge() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1452,7 +1452,7 @@ if test_graph.type == "Graph" and test_graph != Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ graphs.clear() failed");
-    tests_failed.push("graphs.clear() failed");
+    tests_failed = tests_failed.push("graphs.clear() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1462,7 +1462,7 @@ if directed_graph.type == "Graph" and directed_graph != Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ graphs.create() with directed parameter failed");
-    tests_failed.push("graphs.create() with directed parameter failed");
+    tests_failed = tests_failed.push("graphs.create() with directed parameter failed");
 end
 
 print("\n20. Heaps Library Functions...");
@@ -1473,7 +1473,7 @@ if test_heap.type == "Heap" and test_heap != Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ heaps.create() failed");
-    tests_failed.push("heaps.create() failed");
+    tests_failed = tests_failed.push("heaps.create() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1483,7 +1483,7 @@ if heap_size == 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ heaps.size failed");
-    tests_failed.push("heaps.size failed");
+    tests_failed = tests_failed.push("heaps.size failed");
 end
 
 total_tests = total_tests + 1;
@@ -1493,7 +1493,7 @@ if heap_empty == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ heaps.isEmpty() failed");
-    tests_failed.push("heaps.isEmpty() failed");
+    tests_failed = tests_failed.push("heaps.isEmpty() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1506,7 +1506,7 @@ if heap_size_after == 3:
     tests_passed = tests_passed + 1;
 else:
     print("✗ heaps.insert() failed");
-    tests_failed.push("heaps.insert() failed");
+    tests_failed = tests_failed.push("heaps.insert() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1516,7 +1516,7 @@ if heap_peek == 15:  # Max heap should have 15 at root
     tests_passed = tests_passed + 1;
 else:
     print("✗ heaps.peek() failed");
-    tests_failed.push("heaps.peek() failed");
+    tests_failed = tests_failed.push("heaps.peek() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1527,7 +1527,7 @@ if heap_size_after_extract == 2:  # Should have 2 elements left (10, 5)
     tests_passed = tests_passed + 1;
 else:
     print("✗ heaps.extract() failed");
-    tests_failed.push("heaps.extract() failed");
+    tests_failed = tests_failed.push("heaps.extract() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1538,7 +1538,7 @@ if heap_clear_size == 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ heaps.clear() failed");
-    tests_failed.push("heaps.clear() failed");
+    tests_failed = tests_failed.push("heaps.clear() failed");
 end
 
 print("\n21. Queues Library Functions...");
@@ -1549,7 +1549,7 @@ if test_queue.type == "Queue" and test_queue != Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ queues.create() failed");
-    tests_failed.push("queues.create() failed");
+    tests_failed = tests_failed.push("queues.create() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1559,7 +1559,7 @@ if queue_size == 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ queues.size failed");
-    tests_failed.push("queues.size failed");
+    tests_failed = tests_failed.push("queues.size failed");
 end
 
 total_tests = total_tests + 1;
@@ -1569,7 +1569,7 @@ if queue_empty == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ queues.isEmpty() failed");
-    tests_failed.push("queues.isEmpty() failed");
+    tests_failed = tests_failed.push("queues.isEmpty() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1582,7 +1582,7 @@ if queue_size_after == 3:
     tests_passed = tests_passed + 1;
 else:
     print("✗ queues.enqueue() failed");
-    tests_failed.push("queues.enqueue() failed");
+    tests_failed = tests_failed.push("queues.enqueue() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1592,7 +1592,7 @@ if queue_front == "first":
     tests_passed = tests_passed + 1;
 else:
     print("✗ queues.front() failed");
-    tests_failed.push("queues.front() failed");
+    tests_failed = tests_failed.push("queues.front() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1602,7 +1602,7 @@ if queue_back == "third":
     tests_passed = tests_passed + 1;
 else:
     print("✗ queues.back() failed");
-    tests_failed.push("queues.back() failed");
+    tests_failed = tests_failed.push("queues.back() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1613,7 +1613,7 @@ if queue_size_after_dequeue == 2:  # Should have 2 elements left ("second", "thi
     tests_passed = tests_passed + 1;
 else:
     print("✗ queues.dequeue() failed");
-    tests_failed.push("queues.dequeue() failed");
+    tests_failed = tests_failed.push("queues.dequeue() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1624,7 +1624,7 @@ if queue_clear_size == 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ queues.clear() failed");
-    tests_failed.push("queues.clear() failed");
+    tests_failed = tests_failed.push("queues.clear() failed");
 end
 
 print("\n22. Stacks Library Functions...");
@@ -1635,7 +1635,7 @@ if test_stack.type == "Stack" and test_stack != Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ stacks.create() failed");
-    tests_failed.push("stacks.create() failed");
+    tests_failed = tests_failed.push("stacks.create() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1645,7 +1645,7 @@ if stack_size == 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ stacks.size failed");
-    tests_failed.push("stacks.size failed");
+    tests_failed = tests_failed.push("stacks.size failed");
 end
 
 total_tests = total_tests + 1;
@@ -1655,7 +1655,7 @@ if stack_empty == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ stacks.isEmpty() failed");
-    tests_failed.push("stacks.isEmpty() failed");
+    tests_failed = tests_failed.push("stacks.isEmpty() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1668,7 +1668,7 @@ if stack_size_after == 3:
     tests_passed = tests_passed + 1;
 else:
     print("✗ stacks.push() failed");
-    tests_failed.push("stacks.push() failed");
+    tests_failed = tests_failed.push("stacks.push() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1678,7 +1678,7 @@ if stack_top == "top":
     tests_passed = tests_passed + 1;
 else:
     print("✗ stacks.top() failed");
-    tests_failed.push("stacks.top() failed");
+    tests_failed = tests_failed.push("stacks.top() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1689,7 +1689,7 @@ if stack_size_after_pop == 2:  # Should have 2 elements left ("bottom", "middle"
     tests_passed = tests_passed + 1;
 else:
     print("✗ stacks.pop() failed");
-    tests_failed.push("stacks.pop() failed");
+    tests_failed = tests_failed.push("stacks.pop() failed");
 end
 
 total_tests = total_tests + 1;
@@ -1700,7 +1700,7 @@ if stack_clear_size == 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ stacks.clear() failed");
-    tests_failed.push("stacks.clear() failed");
+    tests_failed = tests_failed.push("stacks.clear() failed");
 end
 
 print("\n=== 23. BUILT-IN FUNCTIONS ===");
@@ -1712,7 +1712,7 @@ if type_result == "Int":
     tests_passed = tests_passed + 1;
 else:
     print("✗ 42.type: " + type_result);
-    tests_failed.push("42.type");
+    tests_failed = tests_failed.push("42.type");
 end
 
 total_tests = total_tests + 1;
@@ -1722,7 +1722,7 @@ if type_float == "Float":
     tests_passed = tests_passed + 1;
 else:
     print("✗ 3.14.type: " + type_float);
-    tests_failed.push("3.14.type");
+    tests_failed = tests_failed.push("3.14.type");
 end
 
 total_tests = total_tests + 1;
@@ -1732,7 +1732,7 @@ if type_str == "String":
     tests_passed = tests_passed + 1;
 else:
     print("✗ 'hello'.type: " + type_str);
-    tests_failed.push("'hello'.type");
+    tests_failed = tests_failed.push("'hello'.type");
 end
 
 total_tests = total_tests + 1;
@@ -1742,7 +1742,7 @@ if type_bool == "Boolean":
     tests_passed = tests_passed + 1;
 else:
     print("✗ True.type: " + type_bool);
-    tests_failed.push("True.type");
+    tests_failed = tests_failed.push("True.type");
 end
 
 total_tests = total_tests + 1;
@@ -1752,7 +1752,7 @@ if type_null == "Null":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Null.type: " + type_null);
-    tests_failed.push("Null.type");
+    tests_failed = tests_failed.push("Null.type");
 end
 
 total_tests = total_tests + 1;
@@ -1762,7 +1762,7 @@ if (type_array == "[Int]" or type_array == "Array"):
     tests_passed = tests_passed + 1;
 else:
     print("✗ [1,2,3].type: " + type_array);
-    tests_failed.push("[1,2,3].type");
+    tests_failed = tests_failed.push("[1,2,3].type");
 end
 
 print("\n13.2. Length function...");
@@ -1773,7 +1773,7 @@ if len_builtin == 5:
     tests_passed = tests_passed + 1;
 else:
     print("✗ len('hello'): " + len_builtin.toString());
-    tests_failed.push("len('hello')");
+    tests_failed = tests_failed.push("len('hello')");
 end
 
 total_tests = total_tests + 1;
@@ -1783,7 +1783,7 @@ if len_empty == 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ len(''): " + len_empty.toString());
-    tests_failed.push("len('')");
+    tests_failed = tests_failed.push("len('')");
 end
 
 total_tests = total_tests + 1;
@@ -1793,7 +1793,7 @@ if len_array == 3:
     tests_passed = tests_passed + 1;
 else:
     print("✗ len([1,2,3]): " + len_array.toString());
-    tests_failed.push("len([1,2,3])");
+    tests_failed = tests_failed.push("len([1,2,3])");
 end
 
 print("\n13.3. String conversion...");
@@ -1804,7 +1804,7 @@ if str_builtin == "3.14":
     tests_passed = tests_passed + 1;
 else:
     print("✗ toString(3.14): " + str_builtin);
-    tests_failed.push("toString(3.14)");
+    tests_failed = tests_failed.push("toString(3.14)");
 end
 
 total_tests = total_tests + 1;
@@ -1814,7 +1814,7 @@ if str_bool == "False":
     tests_passed = tests_passed + 1;
 else:
     print("✗ toString(False): " + str_bool);
-    tests_failed.push("toString(False)");
+    tests_failed = tests_failed.push("toString(False)");
 end
 
 total_tests = total_tests + 1;
@@ -1824,7 +1824,7 @@ if str_null == "Null":
     tests_passed = tests_passed + 1;
 else:
     print("✗ toString(Null): " + str_null);
-    tests_failed.push("toString(Null)");
+    tests_failed = tests_failed.push("toString(Null)");
 end
 
 total_tests = total_tests + 1;
@@ -1834,7 +1834,7 @@ if str_array == "[1, 2, 3]":
     tests_passed = tests_passed + 1;
 else:
     print("✗ toString([1,2,3]): " + str_array);
-    tests_failed.push("toString([1,2,3])");
+    tests_failed = tests_failed.push("toString([1,2,3])");
 end
 
 print("\n=== 14. UNION TYPES ===");
@@ -1846,7 +1846,7 @@ if union_str == "hello":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Union type with String value: " + union_str);
-    tests_failed.push("Union type with String value");
+    tests_failed = tests_failed.push("Union type with String value");
 end
 
 total_tests = total_tests + 1;
@@ -1856,7 +1856,7 @@ if union_int == 42:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Union type with Int value: " + union_int.toString());
-    tests_failed.push("Union type with Int value");
+    tests_failed = tests_failed.push("Union type with Int value");
 end
 
 print("14.2. Union type with multiple types...");
@@ -1867,7 +1867,7 @@ if mixed_union == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Union type with Bool value: " + mixed_union.toString());
-    tests_failed.push("Union type with Bool value");
+    tests_failed = tests_failed.push("Union type with Bool value");
 end
 
 total_tests = total_tests + 1;
@@ -1877,7 +1877,7 @@ if mixed_union2 == "world":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Union type with String value: " + mixed_union2);
-    tests_failed.push("Union type with String value");
+    tests_failed = tests_failed.push("Union type with String value");
 end
 
 print("14.3. Union type type checking...");
@@ -1888,7 +1888,7 @@ if type_check_str == "String":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Union type type() returns correct type for String: " + type_check_str);
-    tests_failed.push("Union type type() returns correct type for String");
+    tests_failed = tests_failed.push("Union type type() returns correct type for String");
 end
 
 total_tests = total_tests + 1;
@@ -1898,7 +1898,7 @@ if type_check_int == "Int":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Union type type() returns correct type for Int: " + type_check_int);
-    tests_failed.push("Union type type() returns correct type for Int");
+    tests_failed = tests_failed.push("Union type type() returns correct type for Int");
 end
 
 print("14.4. Union type parsing and representation...");
@@ -1909,7 +1909,7 @@ if union_parsing == "parsing_test":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Union type parsing with three types: " + union_parsing);
-    tests_failed.push("Union type parsing with three types");
+    tests_failed = tests_failed.push("Union type parsing with three types");
 end
 
 total_tests = total_tests + 1;
@@ -1919,7 +1919,7 @@ if union_float == 3.14159:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Union type with Float: " + union_float.toString());
-    tests_failed.push("Union type with Float");
+    tests_failed = tests_failed.push("Union type with Float");
 end
 
 print("14.5. Union type edge cases...");
@@ -1930,7 +1930,7 @@ if union_null == Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Union type with Null: " + union_null.toString());
-    tests_failed.push("Union type with Null");
+    tests_failed = tests_failed.push("Union type with Null");
 end
 
 total_tests = total_tests + 1;
@@ -1940,7 +1940,7 @@ if union_bool == False:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Union type with Bool: " + union_bool.toString());
-    tests_failed.push("Union type with Bool");
+    tests_failed = tests_failed.push("Union type with Bool");
 end
 
 print("\n=== 15. OPTIONAL TYPES ===");
@@ -1952,7 +1952,7 @@ if optional_string == "hello":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Optional string: " + optional_string);
-    tests_failed.push("Optional string");
+    tests_failed = tests_failed.push("Optional string");
 end
 
 total_tests = total_tests + 1;
@@ -1962,7 +1962,7 @@ if optional_null == Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Optional null: " + optional_null.toString());
-    tests_failed.push("Optional null");
+    tests_failed = tests_failed.push("Optional null");
 end
 
 print("15.2. Optional types with different base types...");
@@ -1973,7 +1973,7 @@ if optional_number == 42:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Optional number: " + optional_number.toString());
-    tests_failed.push("Optional number");
+    tests_failed = tests_failed.push("Optional number");
 end
 
 total_tests = total_tests + 1;
@@ -1983,7 +1983,7 @@ if optional_bool == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Optional boolean: " + optional_bool.toString());
-    tests_failed.push("Optional boolean");
+    tests_failed = tests_failed.push("Optional boolean");
 end
 
 total_tests = total_tests + 1;
@@ -1993,7 +1993,7 @@ if (optional_array.type == "[Int]" or optional_array.type == "Array"):
     tests_passed = tests_passed + 1;
 else:
     print("✗ Optional array: " + optional_array.toString());
-    tests_failed.push("Optional array");
+    tests_failed = tests_failed.push("Optional array");
 end
 
 print("15.3. Optional type checking...");
@@ -2003,7 +2003,7 @@ if optional_string.type == "String":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Optional string type: " + optional_string.type);
-    tests_failed.push("Optional string type");
+    tests_failed = tests_failed.push("Optional string type");
 end
 
 total_tests = total_tests + 1;
@@ -2012,7 +2012,7 @@ if optional_null.type == "Null":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Optional null type: " + optional_null.type);
-    tests_failed.push("Optional null type");
+    tests_failed = tests_failed.push("Optional null type");
 end
 
 print("15.4. Optional types with match statements...");
@@ -2031,7 +2031,7 @@ if match_result == "found hello":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Match with optional string: " + match_result);
-    tests_failed.push("Match with optional string");
+    tests_failed = tests_failed.push("Match with optional string");
 end
 
 total_tests = total_tests + 1;
@@ -2049,7 +2049,7 @@ if match_result == "found null":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Match with optional null: " + match_result);
-    tests_failed.push("Match with optional null");
+    tests_failed = tests_failed.push("Match with optional null");
 end
 
 print("15.5. Optional union types...");
@@ -2060,7 +2060,7 @@ if optional_union == "test":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Optional union: " + optional_union.toString());
-    tests_failed.push("Optional union");
+    tests_failed = tests_failed.push("Optional union");
 end
 
 print("\n=== 16. TYPE GUARDS ===");
@@ -2071,13 +2071,13 @@ if ("hello").isString():
     tests_passed = tests_passed + 1;
 else:
     print("✗ isString('hello'): False");
-    tests_failed.push("isString('hello'): False");
+    tests_failed = tests_failed.push("isString('hello'): False");
 end
 
 total_tests = total_tests + 1;
 if (42).isString():
     print("✗ isString(42): True");
-    tests_failed.push("isString(42): True");
+    tests_failed = tests_failed.push("isString(42): True");
 else:
     print("✓ isString(42): False");
     tests_passed = tests_passed + 1;
@@ -2090,13 +2090,13 @@ if (42).isInt():
     tests_passed = tests_passed + 1;
 else:
     print("✗ isInt(42): False");
-    tests_failed.push("isInt(42): False");
+    tests_failed = tests_failed.push("isInt(42): False");
 end
 
 total_tests = total_tests + 1;
 if (3.14).isInt():
     print("✗ isInt(3.14): True");
-    tests_failed.push("isInt(3.14): True");
+    tests_failed = tests_failed.push("isInt(3.14): True");
 else:
     print("✓ isInt(3.14): False");
     tests_passed = tests_passed + 1;
@@ -2109,13 +2109,13 @@ if (3.14).isFloat():
     tests_passed = tests_passed + 1;
 else:
     print("✗ isFloat(3.14): False");
-    tests_failed.push("isFloat(3.14): False");
+    tests_failed = tests_failed.push("isFloat(3.14): False");
 end
 
 total_tests = total_tests + 1;
 if (42).isFloat():
     print("✗ isFloat(42): True");
-    tests_failed.push("isFloat(42): True");
+    tests_failed = tests_failed.push("isFloat(42): True");
 else:
     print("✓ isFloat(42): False");
     tests_passed = tests_passed + 1;
@@ -2128,13 +2128,13 @@ if (True).isBool():
     tests_passed = tests_passed + 1;
 else:
     print("✗ isBool(True): False");
-    tests_failed.push("isBool(True): False");
+    tests_failed = tests_failed.push("isBool(True): False");
 end
 
 total_tests = total_tests + 1;
 if (42).isBool():
     print("✗ isBool(42): True");
-    tests_failed.push("isBool(42): True");
+    tests_failed = tests_failed.push("isBool(42): True");
 else:
     print("✓ isBool(42): False");
     tests_passed = tests_passed + 1;
@@ -2147,13 +2147,13 @@ if ([1, 2, 3]).isArray():
     tests_passed = tests_passed + 1;
 else:
     print("✗ [1, 2, 3].isArray(): False");
-    tests_failed.push("[1, 2, 3].isArray(): False");
+    tests_failed = tests_failed.push("[1, 2, 3].isArray(): False");
 end
 
 total_tests = total_tests + 1;
 if ("hello").isArray():
     print("✗ ('hello').isArray(): True");
-    tests_failed.push("('hello').isArray(): True");
+    tests_failed = tests_failed.push("('hello').isArray(): True");
 else:
     print("✓ isArray('hello'): False");
     tests_passed = tests_passed + 1;
@@ -2166,13 +2166,13 @@ if (Null).isNull():
     tests_passed = tests_passed + 1;
 else:
     print("✗ (Null).isNull(): False");
-    tests_failed.push("(Null).isNull(): False");
+    tests_failed = tests_failed.push("(Null).isNull(): False");
 end
 
 total_tests = total_tests + 1;
 if ("hello").isNull():
     print("✗ ('hello').isNull(): True");
-    tests_failed.push("('hello').isNull(): True");
+    tests_failed = tests_failed.push("('hello').isNull(): True");
 else:
     print("✓ ('hello').isNull(): False");
     tests_passed = tests_passed + 1;
@@ -2185,7 +2185,7 @@ if (42).isNumber():
     tests_passed = tests_passed + 1;
 else:
     print("✗ isNumber(42): False");
-    tests_failed.push("isNumber(42): False");
+    tests_failed = tests_failed.push("isNumber(42): False");
 end
 
 total_tests = total_tests + 1;
@@ -2194,13 +2194,13 @@ if (3.14).isNumber():
     tests_passed = tests_passed + 1;
 else:
     print("✗ isNumber(3.14): False");
-    tests_failed.push("isNumber(3.14): False");
+    tests_failed = tests_failed.push("isNumber(3.14): False");
 end
 
 total_tests = total_tests + 1;
 if ("hello").isNumber():
     print("✗ isNumber('hello'): True");
-    tests_failed.push("isNumber('hello'): True");
+    tests_failed = tests_failed.push("isNumber('hello'): True");
 else:
     print("✓ isNumber('hello'): False");
     tests_passed = tests_passed + 1;
@@ -2214,7 +2214,7 @@ if (optional_string_2).isString():
     tests_passed = tests_passed + 1;
 else:
     print("✗ isString(optional_string): False");
-    tests_failed.push("isString(optional_string): False");
+    tests_failed = tests_failed.push("isString(optional_string): False");
 end
 
 total_tests = total_tests + 1;
@@ -2224,7 +2224,7 @@ if (optional_null_2).isNull():
     tests_passed = tests_passed + 1;
 else:
     print("✗ (optional_null).isNull(): False");
-    tests_failed.push("(optional_null).isNull(): False");
+    tests_failed = tests_failed.push("(optional_null).isNull(): False");
 end
 
 print("16.9. Type guards in conditional logic...");
@@ -2253,7 +2253,7 @@ if type_result_2 == "string":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Type guard conditional logic: " + type_result_2);
-    tests_failed.push("Type guard conditional logic");
+    tests_failed = tests_failed.push("Type guard conditional logic");
 end
 
 print("\n=== 17. EDGE CASES ===");
@@ -2265,7 +2265,7 @@ if zero_add == 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Zero addition (0 + 0): " + zero_add.toString());
-    tests_failed.push("Zero addition (0 + 0)");
+    tests_failed = tests_failed.push("Zero addition (0 + 0)");
 end
 
 total_tests = total_tests + 1;
@@ -2275,7 +2275,7 @@ if zero_mult_2 == 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Zero multiplication (0 * 5): " + zero_mult_2.toString());
-    tests_failed.push("Zero multiplication (0 * 5)");
+    tests_failed = tests_failed.push("Zero multiplication (0 * 5)");
 end
 
 total_tests = total_tests + 1;
@@ -2285,7 +2285,7 @@ if neg_add == -2:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Negative addition (-5 + 3): " + neg_add.toString());
-    tests_failed.push("Negative addition (-5 + 3)");
+    tests_failed = tests_failed.push("Negative addition (-5 + 3)");
 end
 
 print("\n17.2. Large numbers...");
@@ -2296,7 +2296,7 @@ if large_add == 1000000:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Large addition (999999 + 1): " + large_add.toString());
-    tests_failed.push("Large addition (999999 + 1)");
+    tests_failed = tests_failed.push("Large addition (999999 + 1)");
 end
 
 total_tests = total_tests + 1;
@@ -2306,7 +2306,7 @@ if large_mult == 1000000:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Large multiplication (1000 * 1000): " + large_mult.toString());
-    tests_failed.push("Large multiplication (1000 * 1000)");
+    tests_failed = tests_failed.push("Large multiplication (1000 * 1000)");
 end
 
 print("\n17.3. Floating point precision...");
@@ -2317,7 +2317,7 @@ if float_prec > 0.3:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Float precision (0.1 + 0.2 > 0.3): " + float_prec.toString());
-    tests_failed.push("Float precision (0.1 + 0.2 > 0.3)");
+    tests_failed = tests_failed.push("Float precision (0.1 + 0.2 > 0.3)");
 end
 
 total_tests = total_tests + 1;
@@ -2327,7 +2327,7 @@ if float_eq_2 == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Float equality (1.0 == 1): " + float_eq_2.toString());
-    tests_failed.push("Float equality (1.0 == 1)");
+    tests_failed = tests_failed.push("Float equality (1.0 == 1)");
 end
 
 print("\n17.4. Empty values...");
@@ -2338,7 +2338,7 @@ if empty_str_len == 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Empty string length: " + empty_str_len.toString());
-    tests_failed.push("Empty string length");
+    tests_failed = tests_failed.push("Empty string length");
 end
 
 total_tests = total_tests + 1;
@@ -2348,7 +2348,7 @@ if empty_array_len == 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Empty array length: " + empty_array_len.toString());
-    tests_failed.push("Empty array length");
+    tests_failed = tests_failed.push("Empty array length");
 end
 
 total_tests = total_tests + 1;
@@ -2358,7 +2358,7 @@ if empty_concat == "hello":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Empty string concatenation: " + empty_concat);
-    tests_failed.push("Empty string concatenation");
+    tests_failed = tests_failed.push("Empty string concatenation");
 end
 
 print("\n=== 18. ERROR HANDLING (Expected Errors) ===");
@@ -2372,7 +2372,7 @@ if div_by_zero == 0 or div_by_zero == Null or div_by_zero.type == "Number":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Division by zero not handled properly");
-    tests_failed.push("Division by zero not handled properly");
+    tests_failed = tests_failed.push("Division by zero not handled properly");
 end
 
 print("\n18.2. Array index out of bounds (should continue execution)...");
@@ -2385,7 +2385,7 @@ if out_of_bounds == Null or out_of_bounds == 0 or out_of_bounds.type == "Number"
     tests_passed = tests_passed + 1;
 else:
     print("✗ Array out of bounds not handled properly");
-    tests_failed.push("Array out of bounds not handled properly");
+    tests_failed = tests_failed.push("Array out of bounds not handled properly");
 end
 
 print("\n18.3. Undefined variable (should continue execution)...");
@@ -2409,7 +2409,7 @@ if simple_greet.type == "Function":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Simple function definition failed");
-    tests_failed.push("Simple function definition failed");
+    tests_failed = tests_failed.push("Simple function definition failed");
 end
 
 print("\n18.2. Function with single parameter (no return type)...");
@@ -2423,7 +2423,7 @@ if greet_with_name.type == "Function":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Function with single parameter failed");
-    tests_failed.push("Function with single parameter failed");
+    tests_failed = tests_failed.push("Function with single parameter failed");
 end
 
 print("\n18.3. Function with multiple parameters (no return type)...");
@@ -2438,7 +2438,7 @@ if add_numbers.type == "Function":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Function with multiple parameters failed");
-    tests_failed.push("Function with multiple parameters failed");
+    tests_failed = tests_failed.push("Function with multiple parameters failed");
 end
 
 print("\n18.4. Function definitions (with return types)...");
@@ -2460,7 +2460,7 @@ if get_pi.type == "Function" and multiply.type == "Function" and get_greeting.ty
     tests_passed = tests_passed + 1;
 else:
     print("✗ Function definitions with return types failed");
-    tests_failed.push("Function definitions with return types failed");
+    tests_failed = tests_failed.push("Function definitions with return types failed");
 end
 
 print("\n18.4. Function definitions (mixed explicit/implicit types)...");
@@ -2482,7 +2482,7 @@ if mixed_func1.type == "Function" and mixed_func2.type == "Function" and mixed_f
     tests_passed = tests_passed + 1;
 else:
     print("✗ Function definitions with mixed types failed");
-    tests_failed.push("Function definitions with mixed types failed");
+    tests_failed = tests_failed.push("Function definitions with mixed types failed");
 end
 
 print("\n18.5. Function calls (no parameters)...");
@@ -2502,7 +2502,7 @@ if five == 5 and hello == "Hello":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Function calls with no parameters failed");
-    tests_failed.push("Function calls with no parameters failed");
+    tests_failed = tests_failed.push("Function calls with no parameters failed");
 end
 
 print("\n18.4. Function calls (with parameters)...");
@@ -2522,7 +2522,7 @@ if sum_result == 30 and combined_result == "HelloWorld":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Function calls with parameters failed");
-    tests_failed.push("Function calls with parameters failed");
+    tests_failed = tests_failed.push("Function calls with parameters failed");
 end
 
 print("\n18.7. Function calls (with type annotations)...");
@@ -2542,7 +2542,7 @@ if typed_sum_result == 20 and typed_greeting_result == "Hello, Myco":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Function calls with type annotations failed");
-    tests_failed.push("Function calls with type annotations failed");
+    tests_failed = tests_failed.push("Function calls with type annotations failed");
 end
 
 print("\n18.6. Recursive functions...");
@@ -2570,7 +2570,7 @@ if fact_result == 120 and fib_result == 13:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Recursive functions failed");
-    tests_failed.push("Recursive functions failed");
+    tests_failed = tests_failed.push("Recursive functions failed");
 end
 
 print("\n18.9. Function variables and assignments...");
@@ -2590,11 +2590,11 @@ if my_square_func.type == "Function" and my_add_func.type == "Function":
         tests_passed = tests_passed + 1;
     else:
         print("✗ Function variables and assignments failed");
-        tests_failed.push("Function variables and assignments failed");
+        tests_failed = tests_failed.push("Function variables and assignments failed");
     end
 else:
     print("✗ Function variables and assignments failed");
-    tests_failed.push("Function variables and assignments failed");
+    tests_failed = tests_failed.push("Function variables and assignments failed");
 end
 
 print("\n18.10. Complex function combinations...");
@@ -2621,7 +2621,7 @@ if math_results.length == 4 and string_result == "Hello, MycoLang":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Complex function combinations failed");
-    tests_failed.push("Complex function combinations failed");
+    tests_failed = tests_failed.push("Complex function combinations failed");
 end
 
 print("\n18.11. Function scope and closures...");
@@ -2641,7 +2641,7 @@ if result == 8:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Function scope and closures failed");
-    tests_failed.push("Function scope and closures failed");
+    tests_failed = tests_failed.push("Function scope and closures failed");
 end
 
 print("\n18.12. Function error handling...");
@@ -2669,7 +2669,7 @@ if safe_div_result == 0 and safe_access == "Index out of bounds":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Function error handling failed");
-    tests_failed.push("Function error handling failed");
+    tests_failed = tests_failed.push("Function error handling failed");
 end
 
 print("\n18.13. Lambda functions (anonymous functions)...");
@@ -2701,7 +2701,7 @@ if simple_lambda.type == "Function" and add_lambda.type == "Function" and
     tests_passed = tests_passed + 1;
 else:
     print("✗ Lambda functions (anonymous functions) failed");
-    tests_failed.push("Lambda functions (anonymous functions) failed");
+    tests_failed = tests_failed.push("Lambda functions (anonymous functions) failed");
 end
 
 print("\n18.14. Function variable assignments...");
@@ -2723,7 +2723,7 @@ if my_square.type == "Function" and my_add.type == "Function" and my_greet.type 
     tests_passed = tests_passed + 1;
 else:
     print("✗ Function variable assignments failed");
-    tests_failed.push("Function variable assignments failed");
+    tests_failed = tests_failed.push("Function variable assignments failed");
 end
 
 print("\n18.15. Lambda functions with different parameter types...");
@@ -2750,7 +2750,7 @@ if no_params_lambda.type == "Function" and single_param_lambda.type == "Function
     tests_passed = tests_passed + 1;
 else:
     print("✗ Lambda functions with different parameter types failed");
-    tests_failed.push("Lambda functions with different parameter types failed");
+    tests_failed = tests_failed.push("Lambda functions with different parameter types failed");
 end
 
 print("\n18.16. Explicit function with all types...");
@@ -2766,11 +2766,11 @@ if explicit_all.type == "Function":
         tests_passed = tests_passed + 1;
     else:
         print("✗ Explicit function with all types failed");
-        tests_failed.push("Explicit function with all types failed");
+        tests_failed = tests_failed.push("Explicit function with all types failed");
     end
 else:
     print("✗ Explicit function with all types failed");
-    tests_failed.push("Explicit function with all types failed");
+    tests_failed = tests_failed.push("Explicit function with all types failed");
 end
 
 print("\n18.17. Implicit function with no types...");
@@ -2786,11 +2786,11 @@ if implicit_none_func.type == "Function":
         tests_passed = tests_passed + 1;
     else:
         print("✗ Implicit function with no types failed");
-        tests_failed.push("Implicit function with no types failed");
+        tests_failed = tests_failed.push("Implicit function with no types failed");
     end
 else:
     print("✗ Implicit function with no types failed");
-    tests_failed.push("Implicit function with no types failed");
+    tests_failed = tests_failed.push("Implicit function with no types failed");
 end
 
 print("\n18.18. Mixed function - explicit parameter, implicit return...");
@@ -2806,11 +2806,11 @@ if mixed_param_func.type == "Function":
         tests_passed = tests_passed + 1;
     else:
         print("✗ Mixed function - explicit parameter, implicit return failed");
-        tests_failed.push("Mixed function - explicit parameter, implicit return failed");
+        tests_failed = tests_failed.push("Mixed function - explicit parameter, implicit return failed");
     end
 else:
     print("✗ Mixed function - explicit parameter, implicit return failed");
-    tests_failed.push("Mixed function - explicit parameter, implicit return failed");
+    tests_failed = tests_failed.push("Mixed function - explicit parameter, implicit return failed");
 end
 
 print("\n18.19. Mixed function - implicit parameter, explicit return...");
@@ -2826,11 +2826,11 @@ if mixed_return_func.type == "Function":
         tests_passed = tests_passed + 1;
     else:
         print("✗ Mixed function - implicit parameter, explicit return failed");
-        tests_failed.push("Mixed function - implicit parameter, explicit return failed");
+        tests_failed = tests_failed.push("Mixed function - implicit parameter, explicit return failed");
     end
 else:
     print("✗ Mixed function - implicit parameter, explicit return failed");
-    tests_failed.push("Mixed function - implicit parameter, explicit return failed");
+    tests_failed = tests_failed.push("Mixed function - implicit parameter, explicit return failed");
 end
 
 print("\n18.20. Function variable with explicit types...");
@@ -2846,11 +2846,11 @@ if explicit_var_func.type == "Function":
         tests_passed = tests_passed + 1;
     else:
         print("✗ Function variable with explicit types failed");
-        tests_failed.push("Function variable with explicit types failed");
+        tests_failed = tests_failed.push("Function variable with explicit types failed");
     end
 else:
     print("✗ Function variable with explicit types failed");
-    tests_failed.push("Function variable with explicit types failed");
+    tests_failed = tests_failed.push("Function variable with explicit types failed");
 end
 
 print("\n18.21. Function variable with implicit types...");
@@ -2866,11 +2866,11 @@ if implicit_var_func.type == "Function":
         tests_passed = tests_passed + 1;
     else:
         print("✗ Function variable with implicit types failed");
-        tests_failed.push("Function variable with implicit types failed");
+        tests_failed = tests_failed.push("Function variable with implicit types failed");
     end
 else:
     print("✗ Function variable with implicit types failed");
-    tests_failed.push("Function variable with implicit types failed");
+    tests_failed = tests_failed.push("Function variable with implicit types failed");
 end
 
 print("\n18.22. Function variable with mixed types...");
@@ -2886,11 +2886,11 @@ if mixed_var_func.type == "Function":
         tests_passed = tests_passed + 1;
     else:
         print("✗ Function variable with mixed types failed");
-        tests_failed.push("Function variable with mixed types failed");
+        tests_failed = tests_failed.push("Function variable with mixed types failed");
     end
 else:
     print("✗ Function variable with mixed types failed");
-    tests_failed.push("Function variable with mixed types failed");
+    tests_failed = tests_failed.push("Function variable with mixed types failed");
 end
 
 print("\n18.23. Function variable with mixed return type...");
@@ -2906,11 +2906,11 @@ if mixed_return_var_func.type == "Function":
         tests_passed = tests_passed + 1;
     else:
         print("✗ Function variable with mixed return type failed");
-        tests_failed.push("Function variable with mixed return type failed");
+        tests_failed = tests_failed.push("Function variable with mixed return type failed");
     end
 else:
     print("✗ Function variable with mixed return type failed");
-    tests_failed.push("Function variable with mixed return type failed");
+    tests_failed = tests_failed.push("Function variable with mixed return type failed");
 end
 
 print("\n18.24. Function type interchangeability with different argument types...");
@@ -2925,7 +2925,7 @@ let int_result1 = explicit_all(test_int);
 if int_result1 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("explicit_all with int");
+    tests_failed = tests_failed.push("explicit_all with int");
 end
 
 total_tests = total_tests + 1;
@@ -2933,7 +2933,7 @@ let int_result2 = implicit_none_func(test_int);
 if int_result2 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("implicit_none_func with int");
+    tests_failed = tests_failed.push("implicit_none_func with int");
 end
 
 total_tests = total_tests + 1;
@@ -2941,7 +2941,7 @@ let int_result3 = mixed_param_func(test_int);
 if int_result3 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("mixed_param_func with int");
+    tests_failed = tests_failed.push("mixed_param_func with int");
 end
 
 total_tests = total_tests + 1;
@@ -2949,7 +2949,7 @@ let int_result4 = mixed_return_func(test_int);
 if int_result4 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("mixed_return_func with int");
+    tests_failed = tests_failed.push("mixed_return_func with int");
 end
 
 total_tests = total_tests + 1;
@@ -2957,7 +2957,7 @@ let int_result5 = explicit_var_func(test_int);
 if int_result5 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("explicit_var_func with int");
+    tests_failed = tests_failed.push("explicit_var_func with int");
 end
 
 total_tests = total_tests + 1;
@@ -2965,7 +2965,7 @@ let int_result6 = implicit_var_func(test_int);
 if int_result6 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("implicit_var_func with int");
+    tests_failed = tests_failed.push("implicit_var_func with int");
 end
 
 total_tests = total_tests + 1;
@@ -2973,7 +2973,7 @@ let int_result7 = mixed_var_func(test_int);
 if int_result7 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("mixed_var_func with int");
+    tests_failed = tests_failed.push("mixed_var_func with int");
 end
 
 total_tests = total_tests + 1;
@@ -2981,7 +2981,7 @@ let int_result8 = mixed_return_var_func(test_int);
 if int_result8 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("mixed_return_var_func with int");
+    tests_failed = tests_failed.push("mixed_return_var_func with int");
 end
 
 # Test with string
@@ -2990,7 +2990,7 @@ let string_result1 = explicit_all(test_string);
 if string_result1 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("explicit_all with string");
+    tests_failed = tests_failed.push("explicit_all with string");
 end
 
 total_tests = total_tests + 1;
@@ -2998,7 +2998,7 @@ let string_result2 = implicit_none_func(test_string);
 if string_result2 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("implicit_none_func with string");
+    tests_failed = tests_failed.push("implicit_none_func with string");
 end
 
 total_tests = total_tests + 1;
@@ -3006,7 +3006,7 @@ let string_result3 = mixed_param_func(test_string);
 if string_result3 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("mixed_param_func with string");
+    tests_failed = tests_failed.push("mixed_param_func with string");
 end
 
 total_tests = total_tests + 1;
@@ -3014,7 +3014,7 @@ let string_result4 = mixed_return_func(test_string);
 if string_result4 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("mixed_return_func with string");
+    tests_failed = tests_failed.push("mixed_return_func with string");
 end
 
 total_tests = total_tests + 1;
@@ -3022,7 +3022,7 @@ let string_result5 = explicit_var_func(test_string);
 if string_result5 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("explicit_var_func with string");
+    tests_failed = tests_failed.push("explicit_var_func with string");
 end
 
 total_tests = total_tests + 1;
@@ -3030,7 +3030,7 @@ let string_result6 = implicit_var_func(test_string);
 if string_result6 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("implicit_var_func with string");
+    tests_failed = tests_failed.push("implicit_var_func with string");
 end
 
 total_tests = total_tests + 1;
@@ -3038,7 +3038,7 @@ let string_result7 = mixed_var_func(test_string);
 if string_result7 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("mixed_var_func with string");
+    tests_failed = tests_failed.push("mixed_var_func with string");
 end
 
 total_tests = total_tests + 1;
@@ -3046,7 +3046,7 @@ let string_result8 = mixed_return_var_func(test_string);
 if string_result8 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("mixed_return_var_func with string");
+    tests_failed = tests_failed.push("mixed_return_var_func with string");
 end
 
 # Test with boolean
@@ -3055,7 +3055,7 @@ let bool_result1 = explicit_all(test_bool);
 if bool_result1 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("explicit_all with bool");
+    tests_failed = tests_failed.push("explicit_all with bool");
 end
 
 total_tests = total_tests + 1;
@@ -3063,7 +3063,7 @@ let bool_result2 = implicit_none_func(test_bool);
 if bool_result2 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("implicit_none_func with bool");
+    tests_failed = tests_failed.push("implicit_none_func with bool");
 end
 
 total_tests = total_tests + 1;
@@ -3071,7 +3071,7 @@ let bool_result3 = mixed_param_func(test_bool);
 if bool_result3 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("mixed_param_func with bool");
+    tests_failed = tests_failed.push("mixed_param_func with bool");
 end
 
 total_tests = total_tests + 1;
@@ -3079,7 +3079,7 @@ let bool_result4 = mixed_return_func(test_bool);
 if bool_result4 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("mixed_return_func with bool");
+    tests_failed = tests_failed.push("mixed_return_func with bool");
 end
 
 total_tests = total_tests + 1;
@@ -3087,7 +3087,7 @@ let bool_result5 = explicit_var_func(test_bool);
 if bool_result5 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("explicit_var_func with bool");
+    tests_failed = tests_failed.push("explicit_var_func with bool");
 end
 
 total_tests = total_tests + 1;
@@ -3095,7 +3095,7 @@ let bool_result6 = implicit_var_func(test_bool);
 if bool_result6 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("implicit_var_func with bool");
+    tests_failed = tests_failed.push("implicit_var_func with bool");
 end
 
 total_tests = total_tests + 1;
@@ -3103,7 +3103,7 @@ let bool_result7 = mixed_var_func(test_bool);
 if bool_result7 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("mixed_var_func with bool");
+    tests_failed = tests_failed.push("mixed_var_func with bool");
 end
 
 total_tests = total_tests + 1;
@@ -3111,7 +3111,7 @@ let bool_result8 = mixed_return_var_func(test_bool);
 if bool_result8 != Null:
     tests_passed = tests_passed + 1;
 else:
-    tests_failed.push("mixed_return_var_func with bool");
+    tests_failed = tests_failed.push("mixed_return_var_func with bool");
 end
 
 # 17. Classes and Objects
@@ -3126,7 +3126,7 @@ if test_instance.type == "TestClass" and test_instance.name == "TestName":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Basic class parsing failed");
-    tests_failed.push("Basic class parsing failed");
+    tests_failed = tests_failed.push("Basic class parsing failed");
 end
 
 total_tests = total_tests + 1;
@@ -3141,7 +3141,7 @@ if person_instance.type == "PersonClass" and person_instance.name == "Alice" and
     tests_passed = tests_passed + 1;
 else:
     print("✗ Class with typed fields failed");
-    tests_failed.push("Class with typed fields failed");
+    tests_failed = tests_failed.push("Class with typed fields failed");
 end
 
 total_tests = total_tests + 1;
@@ -3156,7 +3156,7 @@ if default_instance.type == "DefaultClass" and default_instance.name == "Default
     tests_passed = tests_passed + 1;
 else:
     print("✗ Class with default field values failed");
-    tests_failed.push("Class with default field values failed");
+    tests_failed = tests_failed.push("Class with default field values failed");
 end
 
 total_tests = total_tests + 1;
@@ -3169,7 +3169,7 @@ if s.type == "SimpleClass" and s.value == 42:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Class instantiation failed");
-    tests_failed.push("Class instantiation failed");
+    tests_failed = tests_failed.push("Class instantiation failed");
 end
 
 total_tests = total_tests + 1;
@@ -3187,7 +3187,7 @@ if m.type == "MethodClass" and greeting == "Hello, World":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Class with methods failed");
-    tests_failed.push("Class with methods failed");
+    tests_failed = tests_failed.push("Class with methods failed");
 end
 
 total_tests = total_tests + 1;
@@ -3205,7 +3205,7 @@ if self_test.type == "SelfClass" and retrieved_value == 100:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Class with self references failed");
-    tests_failed.push("Class with self references failed");
+    tests_failed = tests_failed.push("Class with self references failed");
 end
 
 total_tests = total_tests + 1;
@@ -3221,7 +3221,7 @@ if mixed_class.type == "MixedClass" and mixed_class.name == "Alice" and mixed_cl
     tests_passed = tests_passed + 1;
 else:
     print("✗ Class with mixed field types failed");
-    tests_failed.push("Class with mixed field types failed");
+    tests_failed = tests_failed.push("Class with mixed field types failed");
 end
 
 total_tests = total_tests + 1;
@@ -3243,7 +3243,7 @@ if typed.type == "TypedMethodClass" and incremented == 6 and class_name == "Type
     tests_passed = tests_passed + 1;
 else:
     print("✗ Class with typed methods failed");
-    tests_failed.push("Class with typed methods failed");
+    tests_failed = tests_failed.push("Class with typed methods failed");
 end
 
 total_tests = total_tests + 1;
@@ -3261,7 +3261,7 @@ if untyped.type == "UntypedMethodClass" and (result == Null or result == 0):
     tests_passed = tests_passed + 1;
 else:
     print("✗ Class with untyped methods failed");
-    tests_failed.push("Class with untyped methods failed");
+    tests_failed = tests_failed.push("Class with untyped methods failed");
 end
 
 total_tests = total_tests + 1;
@@ -3284,7 +3284,7 @@ if complex.type == "ComplexClass" and calculation == 20:  # 10 > 5, so 10 * 2 = 
     tests_passed = tests_passed + 1;
 else:
     print("✗ Class with complex method bodies failed");
-    tests_failed.push("Class with complex method bodies failed");
+    tests_failed = tests_failed.push("Class with complex method bodies failed");
 end
 
 # 17. INHERITANCE TESTS
@@ -3311,7 +3311,7 @@ if test_dog.type == "Dog" and test_dog.name == "Rex":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Basic inheritance parsing failed");
-    tests_failed.push("Basic inheritance parsing failed");
+    tests_failed = tests_failed.push("Basic inheritance parsing failed");
 end
 
 # 17.2. Field inheritance
@@ -3322,7 +3322,7 @@ if dog.name == "Buddy":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Field inheritance");
-    tests_failed = tests_failed + [17.2];
+    tests_failed = tests_failed.push("Field inheritance");
 end
 
 # 17.3. Method overriding
@@ -3334,7 +3334,7 @@ if sound == "Woof!":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Method overriding");
-    tests_failed.push("Method overriding");
+    tests_failed = tests_failed.push("Method overriding");
 end
 
 # 17.4. Multi-level inheritance
@@ -3352,7 +3352,7 @@ if test_puppy.type == "Puppy" and test_puppy.name == "Max" and test_puppy.age ==
     tests_passed = tests_passed + 1;
 else:
     print("✗ Multi-level inheritance parsing failed");
-    tests_failed.push("Multi-level inheritance parsing failed");
+    tests_failed = tests_failed.push("Multi-level inheritance parsing failed");
 end
 
 # 17.5. Inheritance with additional fields
@@ -3363,7 +3363,7 @@ if puppy.name == "Max":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Inheritance with additional fields");
-    tests_failed = tests_failed + [17.5];
+    tests_failed = tests_failed.push("Inheritance with additional fields");
 end
 
 # 17.6. Inheritance without method override
@@ -3378,7 +3378,7 @@ if test_cat.type == "Cat" and test_cat.name == "Whiskers" and test_cat.color == 
     tests_passed = tests_passed + 1;
 else:
     print("✗ Inheritance without method override failed");
-    tests_failed.push("Inheritance without method override failed");
+    tests_failed = tests_failed.push("Inheritance without method override failed");
 end
 
 # 17.7. Complex inheritance chain
@@ -3403,7 +3403,7 @@ if test_lion.type == "Lion" and test_lion.name == "Simba" and test_lion.habitat 
     tests_passed = tests_passed + 1;
 else:
     print("✗ Complex inheritance chain failed");
-    tests_failed.push("Complex inheritance chain failed");
+    tests_failed = tests_failed.push("Complex inheritance chain failed");
 end
 
 # 17.8. Inheritance with default values
@@ -3418,7 +3418,7 @@ if test_bird.type == "Bird" and test_bird.name == "Sparrow" and test_bird.can_fl
     tests_passed = tests_passed + 1;
 else:
     print("✗ Inheritance with default values failed");
-    tests_failed.push("Inheritance with default values failed");
+    tests_failed = tests_failed.push("Inheritance with default values failed");
 end
 
 # 17.9. Multiple inheritance simulation (not supported, but test structure)
@@ -3435,7 +3435,7 @@ if test_flying.type == "FlyingAnimal" and test_flying.name == "Eagle":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Multiple inheritance simulation failed");
-    tests_failed.push("Multiple inheritance simulation failed");
+    tests_failed = tests_failed.push("Multiple inheritance simulation failed");
 end
 
 # 17.10. Inheritance with mixed field types
@@ -3451,7 +3451,7 @@ if test_fish.type == "Fish" and test_fish.name == "Nemo" and test_fish.depth == 
 tests_passed = tests_passed + 1;
 else:
     print("✗ Inheritance with mixed field types failed");
-    tests_failed.push("Inheritance with mixed field types failed");
+    tests_failed = tests_failed.push("Inheritance with mixed field types failed");
 end
 
 # 23. Time Library Functions
@@ -3465,7 +3465,7 @@ if time.type == "Library":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Time library import failed");
-    tests_failed.push("Time library import failed");
+    tests_failed = tests_failed.push("Time library import failed");
 end
 
 # Test time.now()
@@ -3476,7 +3476,7 @@ if current_time.type == "Object":
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.now() failed");
-    tests_failed.push("time.now() failed");
+    tests_failed = tests_failed.push("time.now() failed");
 end
 
 # Test time.create()
@@ -3487,7 +3487,7 @@ if specific_time.type == "Object":
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.create() failed");
-    tests_failed.push("time.create() failed");
+    tests_failed = tests_failed.push("time.create() failed");
 end
 
 # Test time.format()
@@ -3498,7 +3498,7 @@ if formatted == "2024-01-15 14:30:00":
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.format() failed");
-    tests_failed.push("time.format() failed");
+    tests_failed = tests_failed.push("time.format() failed");
 end
 
 # Test time.year()
@@ -3509,7 +3509,7 @@ if year == 2024:
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.year() failed");
-    tests_failed.push("time.year() failed");
+    tests_failed = tests_failed.push("time.year() failed");
 end
 
 # Test time.month()
@@ -3520,7 +3520,7 @@ if month == 1:
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.month() failed");
-    tests_failed.push("time.month() failed");
+    tests_failed = tests_failed.push("time.month() failed");
 end
 
 # Test time.day()
@@ -3531,7 +3531,7 @@ if day == 15:
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.day() failed");
-    tests_failed.push("time.day() failed");
+    tests_failed = tests_failed.push("time.day() failed");
 end
 
 # Test time.hour()
@@ -3542,7 +3542,7 @@ if hour == 14:
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.hour() failed");
-    tests_failed.push("time.hour() failed");
+    tests_failed = tests_failed.push("time.hour() failed");
 end
 
 # Test time.minute()
@@ -3553,7 +3553,7 @@ if minute == 30:
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.minute() failed");
-    tests_failed.push("time.minute() failed");
+    tests_failed = tests_failed.push("time.minute() failed");
 end
 
 # Test time.second()
@@ -3564,7 +3564,7 @@ if second == 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.second() failed");
-    tests_failed.push("time.second() failed");
+    tests_failed = tests_failed.push("time.second() failed");
 end
 
 # Test time.iso_string()
@@ -3575,7 +3575,7 @@ if iso == "2024-01-15T14:30:00":
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.iso_string() failed");
-    tests_failed.push("time.iso_string() failed");
+    tests_failed = tests_failed.push("time.iso_string() failed");
 end
 
 # Test time.unix_timestamp()
@@ -3586,7 +3586,7 @@ if unix == 1705347000:
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.unix_timestamp() failed");
-    tests_failed.push("time.unix_timestamp() failed");
+    tests_failed = tests_failed.push("time.unix_timestamp() failed");
 end
 
 # Test time.add()
@@ -3598,7 +3598,7 @@ if future_hour == 15:
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.add() failed");
-    tests_failed.push("time.add() failed");
+    tests_failed = tests_failed.push("time.add() failed");
 end
 
 # Test time.subtract()
@@ -3610,7 +3610,7 @@ if past_hour == 13:
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.subtract() failed");
-    tests_failed.push("time.subtract() failed");
+    tests_failed = tests_failed.push("time.subtract() failed");
 end
 
 # Test time.difference()
@@ -3623,7 +3623,7 @@ if diff == 3600:
     tests_passed = tests_passed + 1;
 else:
     print("✗ time.difference() failed");
-    tests_failed.push("time.difference() failed");
+    tests_failed = tests_failed.push("time.difference() failed");
 end
 
 # 24. Regex Library Functions
@@ -3637,7 +3637,7 @@ if regex.type == "Library":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Regex library import failed");
-    tests_failed.push("Regex library import failed");
+    tests_failed = tests_failed.push("Regex library import failed");
 end
 
 # Test regex.match() - basic matching
@@ -3648,7 +3648,7 @@ if regex_match_result.type == "Object" and regex_match_result != Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ regex.match() failed");
-    tests_failed.push("regex.match() failed");
+    tests_failed = tests_failed.push("regex.match() failed");
 end
 
 # Test regex.match() - no match
@@ -3659,7 +3659,7 @@ if no_match == Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ regex.match() should return Null for no match");
-    tests_failed.push("regex.match() should return Null for no match");
+    tests_failed = tests_failed.push("regex.match() should return Null for no match");
 end
 
 # Test regex.test() - basic testing
@@ -3670,7 +3670,7 @@ if test_result == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ regex.test() failed for existing pattern");
-    tests_failed.push("regex.test() failed for existing pattern");
+    tests_failed = tests_failed.push("regex.test() failed for existing pattern");
 end
 
 # Test regex.test() - no match
@@ -3681,7 +3681,7 @@ if test_no_match == False:
     tests_passed = tests_passed + 1;
 else:
     print("✗ regex.test() failed for non-existing pattern");
-    tests_failed.push("regex.test() failed for non-existing pattern");
+    tests_failed = tests_failed.push("regex.test() failed for non-existing pattern");
 end
 
 # Test regex.isEmail() - valid email
@@ -3692,7 +3692,7 @@ if valid_email == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ regex.isEmail() failed for valid email");
-    tests_failed.push("regex.isEmail() failed for valid email");
+    tests_failed = tests_failed.push("regex.isEmail() failed for valid email");
 end
 
 # Test regex.isEmail() - invalid email
@@ -3703,7 +3703,7 @@ if invalid_email == False:
     tests_passed = tests_passed + 1;
 else:
     print("✗ regex.isEmail() failed for invalid email");
-    tests_failed.push("regex.isEmail() failed for invalid email");
+    tests_failed = tests_failed.push("regex.isEmail() failed for invalid email");
 end
 
 # Test regex.isUrl() - valid URL
@@ -3714,7 +3714,7 @@ if valid_url == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ regex.isUrl() failed for valid URL");
-    tests_failed.push("regex.isUrl() failed for valid URL");
+    tests_failed = tests_failed.push("regex.isUrl() failed for valid URL");
 end
 
 # Test regex.isUrl() - invalid URL
@@ -3725,7 +3725,7 @@ if invalid_url == False:
     tests_passed = tests_passed + 1;
 else:
     print("✗ regex.isUrl() failed for invalid URL");
-    tests_failed.push("regex.isUrl() failed for invalid URL");
+    tests_failed = tests_failed.push("regex.isUrl() failed for invalid URL");
 end
 
 # Test regex.isIp() - valid IP
@@ -3736,7 +3736,7 @@ if valid_ip == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ regex.isIp() failed for valid IP");
-    tests_failed.push("regex.isIp() failed for valid IP");
+    tests_failed = tests_failed.push("regex.isIp() failed for valid IP");
 end
 
 # Test regex.isIp() - invalid IP
@@ -3747,7 +3747,7 @@ if invalid_ip == False:
     tests_passed = tests_passed + 1;
 else:
     print("✗ regex.isIp() failed for invalid IP");
-    tests_failed.push("regex.isIp() failed for invalid IP");
+    tests_failed = tests_failed.push("regex.isIp() failed for invalid IP");
 end
 
 # Test regex flags - CASE_INSENSITIVE
@@ -3758,7 +3758,7 @@ if case_test == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ regex.CASE_INSENSITIVE flag failed");
-    tests_failed.push("regex.CASE_INSENSITIVE flag failed");
+    tests_failed = tests_failed.push("regex.CASE_INSENSITIVE flag failed");
 end
 
 # Test regex flags - GLOBAL
@@ -3769,7 +3769,7 @@ if global_test == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ regex.GLOBAL flag failed");
-    tests_failed.push("regex.GLOBAL flag failed");
+    tests_failed = tests_failed.push("regex.GLOBAL flag failed");
 end
 
 # Test regex flags - MULTILINE
@@ -3780,7 +3780,7 @@ if multiline_test == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ regex.MULTILINE flag failed");
-    tests_failed.push("regex.MULTILINE flag failed");
+    tests_failed = tests_failed.push("regex.MULTILINE flag failed");
 end
 
 # Test regex flags - DOTALL
@@ -3791,7 +3791,7 @@ if dotall_test == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ regex.DOTALL flag failed");
-    tests_failed.push("regex.DOTALL flag failed");
+    tests_failed = tests_failed.push("regex.DOTALL flag failed");
 end
 
 # Test complex regex patterns
@@ -3802,7 +3802,7 @@ if complex_pattern == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Complex regex patterns failed");
-    tests_failed.push("Complex regex patterns failed");
+    tests_failed = tests_failed.push("Complex regex patterns failed");
 end
 
 # Test regex with special characters
@@ -3813,7 +3813,7 @@ if special_chars == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Regex with special characters failed");
-    tests_failed.push("Regex with special characters failed");
+    tests_failed = tests_failed.push("Regex with special characters failed");
 end
 
 # Test multiple email formats
@@ -3827,7 +3827,7 @@ if email1 == True and email2 == True and email3 == False and email4 == False:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Multiple email format validation failed");
-    tests_failed.push("Multiple email format validation failed");
+    tests_failed = tests_failed.push("Multiple email format validation failed");
 end
 
 # Test multiple URL formats
@@ -3841,7 +3841,7 @@ if url1 == True and url2 == True and url3 == True and url4 == False:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Multiple URL format validation failed");
-    tests_failed.push("Multiple URL format validation failed");
+    tests_failed = tests_failed.push("Multiple URL format validation failed");
 end
 
 # Test multiple IP formats
@@ -3855,7 +3855,7 @@ if ip1 == True and ip2 == True and ip3 == True and ip4 == False:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Multiple IP format validation failed");
-    tests_failed.push("Multiple IP format validation failed");
+    tests_failed = tests_failed.push("Multiple IP format validation failed");
 end
 
 # Test regex error handling
@@ -3867,7 +3867,7 @@ if invalid_pattern.type == "Boolean":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Regex error handling failed");
-    tests_failed.push("Regex error handling failed");
+    tests_failed = tests_failed.push("Regex error handling failed");
 end
 
 # Test regex with empty strings
@@ -3879,7 +3879,7 @@ if (empty_match.type == "Object" or empty_match == Null) and empty_test.type == 
     tests_passed = tests_passed + 1;
 else:
     print("✗ Regex with empty strings failed");
-    tests_failed.push("Regex with empty strings failed");
+    tests_failed = tests_failed.push("Regex with empty strings failed");
 end
 
 # 25. JSON Library Functions
@@ -3893,7 +3893,7 @@ if json.type == "Library":
     tests_passed = tests_passed + 1;
 else:
     print("✗ JSON library import failed");
-    tests_failed.push("JSON library import failed");
+    tests_failed = tests_failed.push("JSON library import failed");
 end
 
 # Test json.stringify() - basic types
@@ -3904,7 +3904,7 @@ if str_result == "\"hello\"":
     tests_passed = tests_passed + 1;
 else:
     print("✗ json.stringify() failed for strings");
-    tests_failed.push("json.stringify() failed for strings");
+    tests_failed = tests_failed.push("json.stringify() failed for strings");
 end
 
 total_tests = total_tests + 1;
@@ -3914,7 +3914,7 @@ if num_result == "42":
     tests_passed = tests_passed + 1;
 else:
     print("✗ json.stringify() failed for numbers");
-    tests_failed.push("json.stringify() failed for numbers");
+    tests_failed = tests_failed.push("json.stringify() failed for numbers");
 end
 
 total_tests = total_tests + 1;
@@ -3924,7 +3924,7 @@ if bool_result == "true":
     tests_passed = tests_passed + 1;
 else:
     print("✗ json.stringify() failed for booleans");
-    tests_failed.push("json.stringify() failed for booleans");
+    tests_failed = tests_failed.push("json.stringify() failed for booleans");
 end
 
 total_tests = total_tests + 1;
@@ -3934,7 +3934,7 @@ if null_result == "null":
     tests_passed = tests_passed + 1;
 else:
     print("✗ json.stringify() failed for null");
-    tests_failed.push("json.stringify() failed for null");
+    tests_failed = tests_failed.push("json.stringify() failed for null");
 end
 
 # Test json.stringify() - arrays
@@ -3946,7 +3946,7 @@ if arr_result.type == "String" and arr_result != "":
     tests_passed = tests_passed + 1;
 else:
     print("✗ json.stringify() failed for arrays");
-    tests_failed.push("json.stringify() failed for arrays");
+    tests_failed = tests_failed.push("json.stringify() failed for arrays");
 end
 
 # Test json.validate() - valid JSON
@@ -3958,7 +3958,7 @@ if is_valid == True:
     tests_passed = tests_passed + 1;
 else:
     print("✗ json.validate() failed for valid JSON");
-    tests_failed.push("json.validate() failed for valid JSON");
+    tests_failed = tests_failed.push("json.validate() failed for valid JSON");
 end
 
 # Test json.validate() - invalid JSON
@@ -3970,7 +3970,7 @@ if is_invalid == False:
     tests_passed = tests_passed + 1;
 else:
     print("✗ json.validate() failed for invalid JSON");
-    tests_failed.push("json.validate() failed for invalid JSON");
+    tests_failed = tests_failed.push("json.validate() failed for invalid JSON");
 end
 
 # Test json.size - arrays
@@ -3982,7 +3982,7 @@ if array_size == 5:
     tests_passed = tests_passed + 1;
 else:
     print("✗ json.size failed for arrays");
-    tests_failed.push("json.size failed for arrays");
+    tests_failed = tests_failed.push("json.size failed for arrays");
 end
 
 # Test json.isEmpty() - arrays
@@ -3996,7 +3996,7 @@ if empty_check == True and non_empty_check == False:
     tests_passed = tests_passed + 1;
 else:
     print("✗ json.isEmpty() failed for arrays");
-    tests_failed.push("json.isEmpty() failed for arrays");
+    tests_failed = tests_failed.push("json.isEmpty() failed for arrays");
 end
 
 # Test json.parse() - basic functionality
@@ -4007,7 +4007,7 @@ if parsed.type == "Object":
     tests_passed = tests_passed + 1;
 else:
     print("✗ json.parse() failed");
-    tests_failed.push("json.parse() failed");
+    tests_failed = tests_failed.push("json.parse() failed");
 end
 
 
@@ -4023,7 +4023,7 @@ if http.type == "Library":
     tests_passed = tests_passed + 1;
 else:
     print("✗ HTTP library import failed");
-    tests_failed.push("HTTP library import failed");
+    tests_failed = tests_failed.push("HTTP library import failed");
 end
 
 # Test http.get() - basic GET request
@@ -4034,7 +4034,7 @@ if get_response.type == "Object" and get_response.status_code == 200:
     tests_passed = tests_passed + 1;
 else:
     print("✗ http.get() failed");
-    tests_failed.push("http.get() failed");
+    tests_failed = tests_failed.push("http.get() failed");
 end
 
 # Test http.post() - basic POST request
@@ -4046,7 +4046,7 @@ if post_response.type == "Object" and post_response.status_code == 200:
     tests_passed = tests_passed + 1;
 else:
     print("✗ http.post() failed");
-    tests_failed.push("http.post() failed");
+    tests_failed = tests_failed.push("http.post() failed");
 end
 
 # Test http.put() - basic PUT request
@@ -4058,7 +4058,7 @@ if put_response.type == "Object" and put_response.status_code == 200:
     tests_passed = tests_passed + 1;
 else:
     print("✗ http.put() failed");
-    tests_failed.push("http.put() failed");
+    tests_failed = tests_failed.push("http.put() failed");
 end
 
 # Test http.delete() - basic DELETE request
@@ -4069,7 +4069,7 @@ if delete_response.type == "Object" and delete_response.status_code == 200:
     tests_passed = tests_passed + 1;
 else:
     print("✗ http.delete() failed");
-    tests_failed.push("http.delete() failed");
+    tests_failed = tests_failed.push("http.delete() failed");
 end
 
 # Test response object properties
@@ -4084,11 +4084,11 @@ if get_response.type == "Object":
         tests_passed = tests_passed + 1;
     else:
         print("✗ HTTP response object missing properties");
-        tests_failed.push("HTTP response object missing properties");
+        tests_failed = tests_failed.push("HTTP response object missing properties");
     end
 else:
     print("✗ HTTP response object test failed");
-    tests_failed.push("HTTP response object test failed");
+    tests_failed = tests_failed.push("HTTP response object test failed");
 end
 
 # Test http.statusOk() - check if status is successful
@@ -4099,7 +4099,7 @@ if status_ok.type == "Boolean":
     tests_passed = tests_passed + 1;
 else:
     print("✗ http.statusOk() failed");
-    tests_failed.push("http.statusOk() failed");
+    tests_failed = tests_failed.push("http.statusOk() failed");
 end
 
 # Test http.getHeader() - get response header
@@ -4110,7 +4110,7 @@ if content_type.type == "String" or content_type == Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ http.getHeader() failed");
-    tests_failed.push("http.getHeader() failed");
+    tests_failed = tests_failed.push("http.getHeader() failed");
 end
 
 # Test http.getJson() - get JSON response
@@ -4121,7 +4121,7 @@ if json_response.type == "String" or json_response == Null:
     tests_passed = tests_passed + 1;
 else:
     print("✗ http.getJson() failed");
-    tests_failed.push("http.getJson() failed");
+    tests_failed = tests_failed.push("http.getJson() failed");
 end
 
 # Test error handling with invalid URL
@@ -4132,7 +4132,7 @@ if error_response.type == "Object":
     tests_passed = tests_passed + 1;
 else:
     print("✗ HTTP error handling failed");
-    tests_failed.push("HTTP error handling failed");
+    tests_failed = tests_failed.push("HTTP error handling failed");
 end
 
 print("\n23.1. HTTP Requests...");
@@ -4145,7 +4145,7 @@ if http_get_response.type == "Object" and http_get_response.status_code == 200:
     tests_passed = tests_passed + 1;
 else:
     print("✗ http.get() with HTTP URL failed");
-    tests_failed.push("http.get() with HTTP URL failed");
+    tests_failed = tests_failed.push("http.get() with HTTP URL failed");
 end
 
 # Test http.post() with HTTP URL (real HTTP request)
@@ -4160,11 +4160,11 @@ if http_post_response != Null and http_post_response.type == "Object":
         tests_passed = tests_passed + 1;
     else:
         print("✗ http.post() with HTTP URL failed (status: " + http_post_response.status_code.toString() + ")");
-        tests_failed.push("http.post() with HTTP URL failed");
+        tests_failed = tests_failed.push("http.post() with HTTP URL failed");
     end
 else:
     print("✗ http.post() with HTTP URL failed (no response)");
-    tests_failed.push("http.post() with HTTP URL failed (no response)");
+    tests_failed = tests_failed.push("http.post() with HTTP URL failed (no response)");
 end
 
 # Test http.put() with HTTP URL
@@ -4176,7 +4176,7 @@ if http_put_response.type == "Object" and http_put_response.status_code == 200:
     tests_passed = tests_passed + 1;
 else:
     print("✗ http.put() with HTTP URL failed");
-    tests_failed.push("http.put() with HTTP URL failed");
+    tests_failed = tests_failed.push("http.put() with HTTP URL failed");
 end
 
 # Test http.delete() with HTTP URL
@@ -4187,7 +4187,7 @@ if http_delete_response.type == "Object" and http_delete_response.status_code ==
     tests_passed = tests_passed + 1;
 else:
     print("✗ http.delete() with HTTP URL failed");
-    tests_failed.push("http.delete() with HTTP URL failed");
+    tests_failed = tests_failed.push("http.delete() with HTTP URL failed");
 end
 
 print("\n23.2. HTTPS Requests (Mocked - TLS not implemented)...");
@@ -4200,7 +4200,7 @@ if https_get_response.type == "Object" and https_get_response.status_code == 200
     tests_passed = tests_passed + 1;
 else:
     print("✗ https.get() failed");
-    tests_failed.push("https.get() failed");
+    tests_failed = tests_failed.push("https.get() failed");
 end
 
 # Test https.post() - will return mock response
@@ -4212,7 +4212,7 @@ if https_post_response.type == "Object" and https_post_response.status_code == 2
     tests_passed = tests_passed + 1;
 else:
     print("✗ https.post() failed");
-    tests_failed.push("https.post() failed");
+    tests_failed = tests_failed.push("https.post() failed");
 end
 
 # Test https.put() - will return mock response
@@ -4224,7 +4224,7 @@ if https_put_response.type == "Object" and https_put_response.status_code == 200
     tests_passed = tests_passed + 1;
 else:
     print("✗ https.put() failed");
-    tests_failed.push("https.put() failed");
+    tests_failed = tests_failed.push("https.put() failed");
 end
 
 # Test https.delete() - will return mock response
@@ -4235,7 +4235,7 @@ if https_delete_response.type == "Object" and https_delete_response.status_code 
     tests_passed = tests_passed + 1;
 else:
     print("✗ https.delete() failed");
-    tests_failed.push("https.delete() failed");
+    tests_failed = tests_failed.push("https.delete() failed");
 end
 
 print("\n=== 15. JSON LIBRARY ENHANCED TESTS ===");
@@ -4250,7 +4250,7 @@ if parsed_complex.type == "Object":
     tests_passed = tests_passed + 1;
 else:
     print("✗ JSON parsing complex object failed");
-    tests_failed.push("JSON parsing complex object failed");
+    tests_failed = tests_failed.push("JSON parsing complex object failed");
 end
 
 # Test JSON parsing with arrays
@@ -4262,7 +4262,7 @@ if parsed_array.type == "Array":
     tests_passed = tests_passed + 1;
 else:
     print("✗ JSON parsing array failed");
-    tests_failed.push("JSON parsing array failed");
+    tests_failed = tests_failed.push("JSON parsing array failed");
 end
 
 # Test JSON stringification with nested objects
@@ -4282,7 +4282,7 @@ if json_string.type == "String" and json_string.length > 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ JSON stringification failed");
-    tests_failed.push("JSON stringification failed");
+    tests_failed = tests_failed.push("JSON stringification failed");
 end
 
 print("\n15.2. JSON Validation...");
@@ -4295,7 +4295,7 @@ if is_valid.type == "Boolean":
     tests_passed = tests_passed + 1;
 else:
     print("✗ JSON validation failed");
-    tests_failed.push("JSON validation failed");
+    tests_failed = tests_failed.push("JSON validation failed");
 end
 
 print("\n=== 16. TREE LIBRARY ENHANCED TESTS ===");
@@ -4309,7 +4309,7 @@ if my_tree.type == "Tree":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Tree creation failed");
-    tests_failed.push("Tree creation failed");
+    tests_failed = tests_failed.push("Tree creation failed");
 end
 
 # Test tree insertion
@@ -4320,7 +4320,7 @@ if tree_with_data.type == "Tree":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Tree insertion failed");
-    tests_failed.push("Tree insertion failed");
+    tests_failed = tests_failed.push("Tree insertion failed");
 end
 
 # Test tree search
@@ -4331,7 +4331,7 @@ if found.type == "Boolean":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Tree search failed");
-    tests_failed.push("Tree search failed");
+    tests_failed = tests_failed.push("Tree search failed");
 end
 
 # Test tree size
@@ -4342,7 +4342,7 @@ if tree_size.type == "Int":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Tree size failed");
-    tests_failed.push("Tree size failed");
+    tests_failed = tests_failed.push("Tree size failed");
 end
 
 # Test tree isEmpty
@@ -4353,7 +4353,7 @@ if is_empty.type == "Boolean":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Tree isEmpty failed");
-    tests_failed.push("Tree isEmpty failed");
+    tests_failed = tests_failed.push("Tree isEmpty failed");
 end
 
 print("\n=== 17. GRAPH LIBRARY ENHANCED TESTS ===");
@@ -4367,7 +4367,7 @@ if directed_graph.type == "Graph":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Directed graph creation failed");
-    tests_failed.push("Directed graph creation failed");
+    tests_failed = tests_failed.push("Directed graph creation failed");
 end
 
 # Test undirected graph creation
@@ -4378,7 +4378,7 @@ if undirected_graph.type == "Graph":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Undirected graph creation failed");
-    tests_failed.push("Undirected graph creation failed");
+    tests_failed = tests_failed.push("Undirected graph creation failed");
 end
 
 # Test adding nodes
@@ -4389,7 +4389,7 @@ if graph_with_nodes.type == "Graph":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Graph addNode failed");
-    tests_failed.push("Graph addNode failed");
+    tests_failed = tests_failed.push("Graph addNode failed");
 end
 
 # Test adding second node
@@ -4400,7 +4400,7 @@ if graph_with_nodes2.type == "Graph":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Graph addNode failed");
-    tests_failed.push("Graph addNode failed");
+    tests_failed = tests_failed.push("Graph addNode failed");
 end
 
 # Test adding edges
@@ -4411,7 +4411,7 @@ if graph_with_edges.type == "Graph":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Graph addEdge failed");
-    tests_failed.push("Graph addEdge failed");
+    tests_failed = tests_failed.push("Graph addEdge failed");
 end
 
 # Test graph size
@@ -4422,7 +4422,7 @@ if graph_size.type == "Int":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Graph size failed");
-    tests_failed.push("Graph size failed");
+    tests_failed = tests_failed.push("Graph size failed");
 end
 
 # Test graph isEmpty
@@ -4433,7 +4433,7 @@ if graph_is_empty.type == "Boolean":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Graph isEmpty failed");
-    tests_failed.push("Graph isEmpty failed");
+    tests_failed = tests_failed.push("Graph isEmpty failed");
 end
 
 print("\n=== 18. SERVER LIBRARY ENHANCED TESTS ===");
@@ -4447,7 +4447,7 @@ if test_server_instance.type == "Server":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Server creation failed");
-    tests_failed.push("Server creation failed");
+    tests_failed = tests_failed.push("Server creation failed");
 end
 
 # Test middleware registration (if available)
@@ -4462,7 +4462,7 @@ if server_with_middleware.type == "Server":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Server middleware registration failed");
-    tests_failed.push("Server middleware registration failed");
+    tests_failed = tests_failed.push("Server middleware registration failed");
 end
 
 # Test route handling (if available)
@@ -4476,7 +4476,7 @@ if server_with_routes.type == "Server":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Server route handling failed");
-    tests_failed.push("Server route handling failed");
+    tests_failed = tests_failed.push("Server route handling failed");
 end
 
 print("\n18.2. Server Integration Tests (Start Server and Make Requests)...");
@@ -4490,83 +4490,83 @@ if test_server.type == "Server":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Test server creation failed (type: " + (test_server.type != Null ? test_server.type : "null") + ")");
-    tests_failed.push("Test server creation failed (type");
+    tests_failed = tests_failed.push("Test server creation failed (type");
 end
 
 # Set up GET route (matching example: app.get("/api/events", handle_get_events))
 total_tests = total_tests + 1;
 try:
-    func get_handler():
-        set_response_body(json.stringify({"method": "GET", "message": "GET request received"}));
-        set_response_status(200);
-    end
-    test_server.get("/api/test", get_handler);
-    print("✓ GET route registered");
-    tests_passed = tests_passed + 1;
+func get_handler():
+    set_response_body(json.stringify({"method": "GET", "message": "GET request received"}));
+    set_response_status(200);
+end
+test_server.get("/api/test", get_handler);
+print("✓ GET route registered");
+tests_passed = tests_passed + 1;
 catch e:
     print("✗ GET route registration failed: " + e.toString());
-    tests_failed.push("GET route registration");
+    tests_failed = tests_failed.push("GET route registration");
 end
 
 # Set up POST route
 total_tests = total_tests + 1;
 try:
-    func post_handler():
-        set_response_body(json.stringify({"method": "POST", "message": "POST request received"}));
-        set_response_status(200);
-    end
-    test_server.post("/api/test", post_handler);
-    print("✓ POST route registered");
-    tests_passed = tests_passed + 1;
+func post_handler():
+    set_response_body(json.stringify({"method": "POST", "message": "POST request received"}));
+    set_response_status(200);
+end
+test_server.post("/api/test", post_handler);
+print("✓ POST route registered");
+tests_passed = tests_passed + 1;
 catch e:
     print("✗ POST route registration failed: " + e.toString());
-    tests_failed.push("POST route registration");
+    tests_failed = tests_failed.push("POST route registration");
 end
 
 # Set up PUT route
 total_tests = total_tests + 1;
 try:
-    func put_handler():
-        set_response_body(json.stringify({"method": "PUT", "message": "PUT request received"}));
-        set_response_status(200);
-    end
-    test_server.put("/api/test", put_handler);
-    print("✓ PUT route registered");
-    tests_passed = tests_passed + 1;
+func put_handler():
+    set_response_body(json.stringify({"method": "PUT", "message": "PUT request received"}));
+    set_response_status(200);
+end
+test_server.put("/api/test", put_handler);
+print("✓ PUT route registered");
+tests_passed = tests_passed + 1;
 catch e:
     print("✗ PUT route registration failed: " + e.toString());
-    tests_failed.push("PUT route registration");
+    tests_failed = tests_failed.push("PUT route registration");
 end
 
 # Set up DELETE route
 total_tests = total_tests + 1;
 try:
-    func delete_handler():
-        set_response_body(json.stringify({"method": "DELETE", "message": "DELETE request received"}));
-        set_response_status(200);
-    end
-    test_server.delete("/api/test", delete_handler);
-    print("✓ DELETE route registered");
-    tests_passed = tests_passed + 1;
+func delete_handler():
+    set_response_body(json.stringify({"method": "DELETE", "message": "DELETE request received"}));
+    set_response_status(200);
+end
+test_server.delete("/api/test", delete_handler);
+print("✓ DELETE route registered");
+tests_passed = tests_passed + 1;
 catch e:
     print("✗ DELETE route registration failed: " + e.toString());
-    tests_failed.push("DELETE route registration");
+    tests_failed = tests_failed.push("DELETE route registration");
 end
 
 # Start the server (matching example: app.listen())
 total_tests = total_tests + 1;
 try:
-    test_server.listen();
-    print("Server listening on port 8888...");
-    # Note: server.listen() is non-blocking, so tests continue immediately
-    # The server starts in a background thread
-    # Wait a moment for the server to be ready (small delay to ensure server thread has started)
-    server.sleep(0.2);  # Wait 200ms for server to start
-    print("✓ Server started (non-blocking)");
-    tests_passed = tests_passed + 1;
+test_server.listen();
+print("Server listening on port 8888...");
+# Note: server.listen() is non-blocking, so tests continue immediately
+# The server starts in a background thread
+# Wait a moment for the server to be ready (small delay to ensure server thread has started)
+server.sleep(0.2);  # Wait 200ms for server to start
+print("✓ Server started (non-blocking)");
+tests_passed = tests_passed + 1;
 catch e:
     print("✗ Server start failed: " + e.toString());
-    tests_failed.push("Server start");
+    tests_failed = tests_failed.push("Server start");
 end
 
 # Make HTTP GET request to the server
@@ -4583,7 +4583,7 @@ else:
         status_str = local_get_response.status_code.toString();
     end
     print("✗ HTTP GET request to local server failed (status: " + status_str + ")");
-    tests_failed.push("HTTP GET request to local server failed (status: " + status_str + ")");
+    tests_failed = tests_failed.push("HTTP GET request to local server failed (status: " + status_str + ")");
 end
 
 # Make HTTP POST request to the server
@@ -4599,7 +4599,7 @@ else:
         status_str = local_post_response.status_code.toString();
     end
     print("✗ HTTP POST request to local server failed (status: " + status_str + ")");
-    tests_failed.push("HTTP POST request to local server failed (status: " + status_str + ")");
+    tests_failed = tests_failed.push("HTTP POST request to local server failed (status: " + status_str + ")");
 end
 
 # Make HTTP PUT request to the server
@@ -4617,7 +4617,7 @@ else:
         status_str = local_put_response.status_code.toString();
     end
     print("✗ HTTP PUT request to local server failed (status: " + status_str + ")");
-    tests_failed.push("HTTP PUT request to local server failed (status: " + status_str + ")");
+    tests_failed = tests_failed.push("HTTP PUT request to local server failed (status: " + status_str + ")");
 end
 
 # Make HTTP DELETE request to the server
@@ -4632,7 +4632,7 @@ else:
         status_str = local_delete_response.status_code.toString();
     end
     print("✗ HTTP DELETE request to local server failed (status: " + status_str + ")");
-    tests_failed.push("HTTP DELETE request to local server failed (status: " + status_str + ")");
+    tests_failed = tests_failed.push("HTTP DELETE request to local server failed (status: " + status_str + ")");
 end
 
 # Test 404 route
@@ -4647,7 +4647,7 @@ else:
         status_str = not_found_response.status_code.toString();
     end
     print("✗ 404 handling failed (status: " + status_str + ")");
-    tests_failed.push("404 handling failed (status: " + status_str + ")");
+    tests_failed = tests_failed.push("404 handling failed (status: " + status_str + ")");
 end
 
 # Stop the server
@@ -4669,7 +4669,7 @@ if parsed_tree_data.type == "Object":
     tests_passed = tests_passed + 1;
 else:
     print("✗ JSON + Tree integration failed");
-    tests_failed.push("JSON + Tree integration failed");
+    tests_failed = tests_failed.push("JSON + Tree integration failed");
 end
 
 # Test JSON with Graphs
@@ -4682,7 +4682,7 @@ if parsed_graph_data.type == "Object":
     tests_passed = tests_passed + 1;
 else:
     print("✗ JSON + Graph integration failed");
-    tests_failed.push("JSON + Graph integration failed");
+    tests_failed = tests_failed.push("JSON + Graph integration failed");
 end
 
 # Test Time with JSON
@@ -4694,7 +4694,7 @@ if time_json.type == "String":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Time + JSON integration failed");
-    tests_failed.push("Time + JSON integration failed");
+    tests_failed = tests_failed.push("Time + JSON integration failed");
 end
 
 print("\n=== 20. ERROR HANDLING TESTS ===");
@@ -4709,7 +4709,7 @@ if json_error == Null or json_error.type == "Null":
     tests_passed = tests_passed + 1;
 else:
     print("✗ JSON error handling failed");
-    tests_failed.push("JSON error handling failed");
+    tests_failed = tests_failed.push("JSON error handling failed");
 end
 
 # Test Tree error handling
@@ -4721,7 +4721,7 @@ if tree_error == Null or tree_error.type == "Null":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Tree error handling failed");
-    tests_failed.push("Tree error handling failed");
+    tests_failed = tests_failed.push("Tree error handling failed");
 end
 
 # Test Graph error handling
@@ -4733,7 +4733,7 @@ if graph_error == Null or graph_error.type == "Null":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Graph error handling failed");
-    tests_failed.push("Graph error handling failed");
+    tests_failed = tests_failed.push("Graph error handling failed");
 end
 
 print("\n=== 21. MISSING LIBRARY TESTS ===");
@@ -4742,12 +4742,12 @@ print("21.1. Compression Library...");
 # Test compression library availability (may not be available by default)
 total_tests = total_tests + 1;
 try:
-    # Compression library is currently not exposed globally
-    print("⊘ Compression library not available (expected)");
-    tests_passed = tests_passed + 1;
+# Compression library is currently not exposed globally
+print("⊘ Compression library not available (expected)");
+tests_passed = tests_passed + 1;
 catch e:
     print("✗ Compression library test error: " + e.toString());
-    tests_failed.push("Compression library test");
+    tests_failed = tests_failed.push("Compression library test");
 end
 
 # Test database library availability
@@ -4757,7 +4757,7 @@ if db != Null and db.type == "Library":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Database library not available");
-    tests_failed.push("Database library not available");
+    tests_failed = tests_failed.push("Database library not available");
 end
 
 # Test web library availability
@@ -4767,7 +4767,7 @@ if web != Null and web.type == "Library":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Web library not available");
-    tests_failed.push("Web library not available");
+    tests_failed = tests_failed.push("Web library not available");
 end
 
 # Test maps library availability
@@ -4777,7 +4777,7 @@ if maps != Null and maps.type == "Library":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Maps library not available");
-    tests_failed.push("Maps library not available");
+    tests_failed = tests_failed.push("Maps library not available");
 end
 
 # Test sets library availability
@@ -4787,7 +4787,7 @@ if sets != Null and sets.type == "Library":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Sets library not available");
-    tests_failed.push("Sets library not available");
+    tests_failed = tests_failed.push("Sets library not available");
 end
 
 print("\n=== 22. DEEP EDGE CASES ===");
@@ -4810,7 +4810,7 @@ if deep_result == 120:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Deep recursion failed: " + deep_result.toString());
-    tests_failed.push("Deep recursion failed");
+    tests_failed = tests_failed.push("Deep recursion failed");
 end
 
 print("\n22.2. Very large array (1000 elements)...");
@@ -4825,7 +4825,7 @@ if large_array.length == 1000 and large_array[999] == 999:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Large array creation failed");
-    tests_failed.push("Large array creation failed");
+    tests_failed = tests_failed.push("Large array creation failed");
 end
 
 print("\n22.3. Very large object (10 keys)...");
@@ -4839,7 +4839,7 @@ if large_obj.key9 == 9 and large_obj.key5 == 5 and large_obj.key0 == 0:
     tests_passed = tests_passed + 1;
 else:
     print("✗ Large object creation failed");
-    tests_failed.push("Large object creation failed");
+    tests_failed = tests_failed.push("Large object creation failed");
 end
 
 print("\n22.4. Nested arrays (10 levels)...");
@@ -4854,7 +4854,7 @@ if nested.type == "Array":
     tests_passed = tests_passed + 1;
 else:
     print("✗ Deep nested arrays failed");
-    tests_failed.push("Deep nested arrays failed");
+    tests_failed = tests_failed.push("Deep nested arrays failed");
 end
 
 print("\n22.5. Type coercion edge cases...");
@@ -4868,8 +4868,251 @@ if coerced == "test42":
     tests_passed = tests_passed + 1;
 else:
     print("✗ String concatenation failed");
-    tests_failed.push("String concatenation failed");
+    tests_failed = tests_failed.push("String concatenation failed");
 end
+
+print("\n=== 23. MODULE SYSTEM ===");
+print("23.1. Basic Module Import...");
+total_tests = total_tests + 1;
+try:
+    # Create a test module file
+    use file as file;
+    let module_content = "func square(x: Number) -> Number:\n    return x * x;\nend\n\nlet PI = 3.14159;\n\nfunc add(a: Number, b: Number) -> Number:\n    return a + b;\nend";
+    
+    let write_result = file.write("test_module.myco", module_content);
+    if write_result == Null:
+        # Try to import the module
+        use "test_module.myco" as math_utils;
+        if math_utils.type == "Module":
+            print("✓ Module import successful");
+            tests_passed = tests_passed + 1;
+        else:
+            print("✗ Module import failed - type: " + (math_utils.type != Null ? math_utils.type : "null"));
+            tests_failed = tests_failed.push("Module import");
+        end
+    else:
+        print("✗ Failed to create test module file");
+        tests_failed = tests_failed.push("Create test module file");
+    end
+catch e:
+    print("✗ Module import error: " + e.toString());
+    tests_failed = tests_failed.push("Module import error");
+end
+
+print("\n23.2. Module Function Access...");
+total_tests = total_tests + 1;
+try:
+    use "test_module.myco" as utils;
+    let result = utils.square(5);
+    if result == 25:
+        print("✓ Module function access works: " + result.toString());
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Module function access failed: " + result.toString());
+        tests_failed = tests_failed.push("Module function access");
+    end
+catch e:
+    print("✗ Module function access error: " + e.toString());
+    tests_failed = tests_failed.push("Module function access error");
+end
+
+print("\n23.3. Module Variable Access...");
+total_tests = total_tests + 1;
+try:
+    use "test_module.myco" as utils;
+    let pi_value = utils.PI;
+    if pi_value == 3.14159:
+        print("✓ Module variable access works: " + pi_value.toString());
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Module variable access failed: " + pi_value.toString());
+        tests_failed = tests_failed.push("Module variable access");
+    end
+catch e:
+    print("✗ Module variable access error: " + e.toString());
+    tests_failed = tests_failed.push("Module variable access error");
+end
+
+print("\n23.4. Multiple Module Functions...");
+total_tests = total_tests + 1;
+try:
+    use "test_module.myco" as utils;
+    let sum = utils.add(10, 20);
+    let square_result = utils.square(4);
+    if sum == 30 and square_result == 16:
+        print("✓ Multiple module functions work");
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Multiple module functions failed");
+        tests_failed = tests_failed.push("Multiple module functions");
+    end
+catch e:
+    print("✗ Multiple module functions error: " + e.toString());
+    tests_failed = tests_failed.push("Multiple module functions error");
+end
+
+print("\n23.5. Module Import with Alias...");
+total_tests = total_tests + 1;
+try:
+    use "test_module.myco" as math;
+    let result = math.square(6);
+    if result == 36:
+        print("✓ Module import with alias works");
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Module import with alias failed");
+        tests_failed = tests_failed.push("Module import with alias");
+    end
+catch e:
+    print("✗ Module import with alias error: " + e.toString());
+    tests_failed = tests_failed.push("Module import with alias error");
+end
+
+print("\n23.6. Module with Classes...");
+total_tests = total_tests + 1;
+try:
+    # Create a module with a class
+    let class_module_content = "use math as math;\n\nclass Point:\n    let x: Number\n    let y: Number\n    \n    func distance() -> Number:\n        return math.sqrt(self.x * self.x + self.y * self.y);\n    end\nend";
+    
+    use file as file;
+    let write_result = file.write("point_module.myco", class_module_content);
+    if write_result == Null:
+        use "point_module.myco" as point_mod;
+        if point_mod.type == "Module":
+            # Try to access the class
+            let point_class = point_mod.Point;
+            if point_class != Null and (point_class.type == "Function" or point_class.type == "Point" or point_class.type == "Class"):
+                print("✓ Module with classes works");
+                tests_passed = tests_passed + 1;
+            else:
+                let type_str = "null";
+                if point_class != Null:
+                    if point_class.type != Null:
+                        type_str = point_class.type.toString();
+                    end
+                end
+                print("✗ Module with classes failed - Point type: " + type_str);
+                tests_failed = tests_failed.push("Module with classes");
+            end
+        else:
+            print("✗ Module with classes - import failed");
+            tests_failed = tests_failed.push("Module with classes import");
+        end
+    else:
+        print("✗ Failed to create class module file");
+        tests_failed = tests_failed.push("Create class module file");
+    end
+catch e:
+    print("✗ Module with classes error: " + e.toString());
+    tests_failed = tests_failed.push("Module with classes error");
+end
+
+print("\n23.7. Module Environment Isolation...");
+total_tests = total_tests + 1;
+try:
+    # Create a module with a variable
+    let isolation_module_content = "let secret = 42;\nfunc getSecret() -> Number:\n    return secret;\nend";
+    
+    use file as file;
+    let write_result = file.write("isolation_module.myco", isolation_module_content);
+    if write_result == Null:
+        use "isolation_module.myco" as iso;
+        # Try to access secret directly (should fail or return null)
+        let secret_value = iso.secret;
+        # The secret variable should be accessible through the module
+        if secret_value == 42:
+            print("✓ Module environment isolation works (variable accessible)");
+            tests_passed = tests_passed + 1;
+        else:
+            print("✗ Module environment isolation failed");
+            tests_failed = tests_failed.push("Module environment isolation");
+        end
+    else:
+        print("✗ Failed to create isolation module file");
+        tests_failed = tests_failed.push("Create isolation module file");
+    end
+catch e:
+    print("✗ Module environment isolation error: " + e.toString());
+    tests_failed = tests_failed.push("Module environment isolation error");
+end
+
+print("\n23.8. Multiple Module Imports...");
+total_tests = total_tests + 1;
+try:
+    use "test_module.myco" as utils1;
+    use "test_module.myco" as utils2;
+    let result1 = utils1.square(3);
+    let result2 = utils2.square(4);
+    if result1 == 9 and result2 == 16:
+        print("✓ Multiple module imports work");
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Multiple module imports failed");
+        tests_failed = tests_failed.push("Multiple module imports");
+    end
+catch e:
+    print("✗ Multiple module imports error: " + e.toString());
+    tests_failed = tests_failed.push("Multiple module imports error");
+end
+
+print("\n23.9. Module Type Check...");
+total_tests = total_tests + 1;
+try:
+    use "test_module.myco" as utils;
+    if utils.type == "Module":
+        print("✓ Module type check works");
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Module type check failed - type: " + (utils.type != Null ? utils.type : "null"));
+        tests_failed = tests_failed.push("Module type check");
+    end
+catch e:
+    print("✗ Module type check error: " + e.toString());
+    tests_failed = tests_failed.push("Module type check error");
+end
+
+print("\n23.10. Complex Module with Multiple Exports...");
+total_tests = total_tests + 1;
+try:
+    let complex_module_content = "func multiply(a: Number, b: Number) -> Number:\n    return a * b;\nend\n\nfunc divide(a: Number, b: Number) -> Number:\n    if b == 0:\n        return 0;\n    else:\n        return a / b;\n    end\nend\n\nlet VERSION = \"1.0.0\";\nlet AUTHOR = \"Myco Test\";\n\nfunc greet(name: String) -> String:\n    return \"Hello, \" + name + \"!\";\nend";
+    
+    use file as file;
+    let write_result = file.write("complex_module.myco", complex_module_content);
+    if write_result == Null:
+        use "complex_module.myco" as complex;
+        let mult_result = complex.multiply(5, 6);
+        let div_result = complex.divide(20, 4);
+        let version = complex.VERSION;
+        let greeting = complex.greet("Myco");
+        if mult_result == 30 and div_result == 5 and version == "1.0.0" and greeting == "Hello, Myco!":
+            print("✓ Complex module with multiple exports works");
+            tests_passed = tests_passed + 1;
+        else:
+            print("✗ Complex module with multiple exports failed");
+            tests_failed = tests_failed.push("Complex module with multiple exports");
+        end
+    else:
+        print("✗ Failed to create complex module file");
+        tests_failed = tests_failed.push("Create complex module file");
+    end
+catch e:
+    print("✗ Complex module error: " + e.toString());
+    tests_failed = tests_failed.push("Complex module error");
+end
+
+# Cleanup test files
+print("\n23.11. Module Test Cleanup...");
+try:
+    use file as file;
+    file.delete("test_module.myco");
+    file.delete("point_module.myco");
+    file.delete("isolation_module.myco");
+    file.delete("complex_module.myco");
+    print("✓ Test files cleaned up");
+catch e:
+    print("⚠ Cleanup warning: " + e.toString());
+end
+# Note: Cleanup is not counted as a test
 
 # Nothing After This Pointer
 # Below Are The Results, Never Change

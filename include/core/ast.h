@@ -294,6 +294,8 @@ typedef struct ASTNode {
             char* class_name;
             char* parent_class;
             struct ASTNode* body;
+            int is_export;                     // 1 if exported, 0 if not
+            int is_private;                    // 1 if private, 0 if not
         } class_definition;
         
         // Function definition

@@ -41,6 +41,11 @@ typedef struct {
     char* error_message;    // Description of the last error
     int error_line;         // Line number where error occurred
     int error_column;       // Column number where error occurred
+    // File-level directive state
+    int file_directive_export;   // 1 if #! export directive is active
+    int file_directive_private;  // 1 if #! private directive is active
+    int file_directive_strict;   // 1 if #! strict directive is active
+    int file_directive_unstrict; // 1 if #! unstrict directive is active
 } Parser;
 
 /**
@@ -582,6 +587,30 @@ ASTNode* parser_parse_package_declaration(Parser* parser);
  * @return AST node representing the import statement
  */
 ASTNode* parser_parse_import_statement(Parser* parser);
+
+/**
+ * @brief Parse a from-use statement
+ * 
+ * From-use statements import specific items from modules:
+ * from "utils" use publicFunction
+ * from "utils" use func1, func2
+ * from math use Pi, E
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the use statement
+ */
+ASTNode* parser_parse_from_use_statement(Parser* parser);
+
+/**
+ * @brief Parse a use statement
+ * 
+ * Use statements import functionality from libraries or files:
+ * use math, use math as m, use Pi, E from math, use "./utils.myco" as utils
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the use statement
+ */
+ASTNode* parser_parse_use_statement(Parser* parser);
 
 /**
  * @brief Parse an export statement

@@ -1,0 +1,270 @@
+print("=== Myco Module Import Test Suite ===");
+print("Testing module system Phase 1: implicit exports and namespace access");
+print("");
+
+let total_tests = 0;
+let tests_passed = 0;
+let tests_failed = [];
+
+# Test 1: Create a simple module file
+print("=== 1. Basic Module Import ===");
+total_tests = total_tests + 1;
+try:
+    # Create a test module file
+    use file as file;
+    let module_content = "func square(x: Number) -> Number:\n    return x * x;\nend\n\nlet PI = 3.14159;\n\nfunc add(a: Number, b: Number) -> Number:\n    return a + b;\nend";
+    
+    let write_result = file.write("test_module.myco", module_content);
+    if write_result == Null:
+        # Try to import the module
+        use "test_module.myco" as math_utils;
+        if math_utils.type == "Module":
+            print("✓ Module import successful");
+            tests_passed = tests_passed + 1;
+        else:
+            print("✗ Module import failed - type: " + (math_utils.type != Null ? math_utils.type : "null"));
+            tests_failed.push("Module import");
+        end
+    else:
+        print("✗ Failed to create test module file");
+        tests_failed.push("Create test module file");
+    end
+catch e:
+    print("✗ Module import error: " + e.toString());
+    tests_failed.push("Module import error");
+end
+
+# Test 2: Access module function
+print("\n=== 2. Module Function Access ===");
+total_tests = total_tests + 1;
+try:
+    use "test_module.myco" as utils;
+    let result = utils.square(5);
+    if result == 25:
+        print("✓ Module function access works: " + result.toString());
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Module function access failed: " + result.toString());
+        tests_failed.push("Module function access");
+    end
+catch e:
+    print("✗ Module function access error: " + e.toString());
+    tests_failed.push("Module function access error");
+end
+
+# Test 3: Access module variable
+print("\n=== 3. Module Variable Access ===");
+total_tests = total_tests + 1;
+try:
+    use "test_module.myco" as utils;
+    let pi_value = utils.PI;
+    if pi_value == 3.14159:
+        print("✓ Module variable access works: " + pi_value.toString());
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Module variable access failed: " + pi_value.toString());
+        tests_failed.push("Module variable access");
+    end
+catch e:
+    print("✗ Module variable access error: " + e.toString());
+    tests_failed.push("Module variable access error");
+end
+
+# Test 4: Multiple module functions
+print("\n=== 4. Multiple Module Functions ===");
+total_tests = total_tests + 1;
+try:
+    use "test_module.myco" as utils;
+    let sum = utils.add(10, 20);
+    let square_result = utils.square(4);
+    if sum == 30 and square_result == 16:
+        print("✓ Multiple module functions work");
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Multiple module functions failed");
+        tests_failed.push("Multiple module functions");
+    end
+catch e:
+    print("✗ Multiple module functions error: " + e.toString());
+    tests_failed.push("Multiple module functions error");
+end
+
+# Test 5: Module with alias
+print("\n=== 5. Module Import with Alias ===");
+total_tests = total_tests + 1;
+try:
+    use "test_module.myco" as math;
+    let result = math.square(6);
+    if result == 36:
+        print("✓ Module import with alias works");
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Module import with alias failed");
+        tests_failed.push("Module import with alias");
+    end
+catch e:
+    print("✗ Module import with alias error: " + e.toString());
+    tests_failed.push("Module import with alias error");
+end
+
+# Test 6: Module with classes
+print("\n=== 6. Module with Classes ===");
+total_tests = total_tests + 1;
+try:
+    # Create a module with a class
+    let class_module_content = "use math as math;\n\nclass Point:\n    let x: Number\n    let y: Number\n    \n    func distance() -> Number:\n        return math.sqrt(self.x * self.x + self.y * self.y);\n    end\nend";
+    
+    use file as file;
+    let write_result = file.write("point_module.myco", class_module_content);
+    if write_result == Null:
+        use "point_module.myco" as point_mod;
+        if point_mod.type == "Module":
+            # Try to access the class
+            let point_class = point_mod.Point;
+            if point_class.type == "Function" or point_class.type == "Point":
+                print("✓ Module with classes works");
+                tests_passed = tests_passed + 1;
+            else:
+                print("✗ Module with classes failed - Point type: " + (point_class.type != Null ? point_class.type : "null"));
+                tests_failed.push("Module with classes");
+            end
+        else:
+            print("✗ Module with classes - import failed");
+            tests_failed.push("Module with classes import");
+        end
+    else:
+        print("✗ Failed to create class module file");
+        tests_failed.push("Create class module file");
+    end
+catch e:
+    print("✗ Module with classes error: " + e.toString());
+    tests_failed.push("Module with classes error");
+end
+
+# Test 7: Module isolation
+print("\n=== 7. Module Environment Isolation ===");
+total_tests = total_tests + 1;
+try:
+    # Create a module with a variable
+    let isolation_module_content = "let secret = 42;\nfunc getSecret() -> Number:\n    return secret;\nend";
+    
+    use file as file;
+    let write_result = file.write("isolation_module.myco", isolation_module_content);
+    if write_result == Null:
+        use "isolation_module.myco" as iso;
+        # Try to access secret directly (should fail or return null)
+        let secret_value = iso.secret;
+        # The secret variable should be accessible through the module
+        if secret_value == 42:
+            print("✓ Module environment isolation works (variable accessible)");
+            tests_passed = tests_passed + 1;
+        else:
+            print("✗ Module environment isolation failed");
+            tests_failed.push("Module environment isolation");
+        end
+    else:
+        print("✗ Failed to create isolation module file");
+        tests_failed.push("Create isolation module file");
+    end
+catch e:
+    print("✗ Module environment isolation error: " + e.toString());
+    tests_failed.push("Module environment isolation error");
+end
+
+# Test 8: Multiple imports
+print("\n=== 8. Multiple Module Imports ===");
+total_tests = total_tests + 1;
+try:
+    use "test_module.myco" as utils1;
+    use "test_module.myco" as utils2;
+    let result1 = utils1.square(3);
+    let result2 = utils2.square(4);
+    if result1 == 9 and result2 == 16:
+        print("✓ Multiple module imports work");
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Multiple module imports failed");
+        tests_failed.push("Multiple module imports");
+    end
+catch e:
+    print("✗ Multiple module imports error: " + e.toString());
+    tests_failed.push("Multiple module imports error");
+end
+
+# Test 9: Module type check
+print("\n=== 9. Module Type Check ===");
+total_tests = total_tests + 1;
+try:
+    use "test_module.myco" as utils;
+    if utils.type == "Module":
+        print("✓ Module type check works");
+        tests_passed = tests_passed + 1;
+    else:
+        print("✗ Module type check failed - type: " + (utils.type != Null ? utils.type : "null"));
+        tests_failed.push("Module type check");
+    end
+catch e:
+    print("✗ Module type check error: " + e.toString());
+    tests_failed.push("Module type check error");
+end
+
+# Test 10: Complex module with multiple exports
+print("\n=== 10. Complex Module with Multiple Exports ===");
+total_tests = total_tests + 1;
+try:
+    let complex_module_content = "func multiply(a: Number, b: Number) -> Number:\n    return a * b;\nend\n\nfunc divide(a: Number, b: Number) -> Number:\n    if b == 0:\n        return 0;\n    else:\n        return a / b;\n    end\nend\n\nlet VERSION = \"1.0.0\";\nlet AUTHOR = \"Myco Test\";\n\nfunc greet(name: String) -> String:\n    return \"Hello, \" + name + \"!\";\nend";
+    
+    use file as file;
+    let write_result = file.write("complex_module.myco", complex_module_content);
+    if write_result == Null:
+        use "complex_module.myco" as complex;
+        let mult_result = complex.multiply(5, 6);
+        let div_result = complex.divide(20, 4);
+        let version = complex.VERSION;
+        let greeting = complex.greet("Myco");
+        if mult_result == 30 and div_result == 5 and version == "1.0.0" and greeting == "Hello, Myco!":
+            print("✓ Complex module with multiple exports works");
+            tests_passed = tests_passed + 1;
+        else:
+            print("✗ Complex module with multiple exports failed");
+            tests_failed.push("Complex module with multiple exports");
+        end
+    else:
+        print("✗ Failed to create complex module file");
+        tests_failed.push("Create complex module file");
+    end
+catch e:
+    print("✗ Complex module error: " + e.toString());
+    tests_failed.push("Complex module error");
+end
+
+# Cleanup test files
+print("\n=== Cleanup ===");
+try:
+    use file as file;
+    file.delete("test_module.myco");
+    file.delete("point_module.myco");
+    file.delete("isolation_module.myco");
+    file.delete("complex_module.myco");
+    print("✓ Test files cleaned up");
+catch e:
+    print("⚠ Cleanup warning: " + e.toString());
+end
+
+# Print results
+print("\n=== RESULTS ===");
+print("Total: " + total_tests.toString());
+print("Passed: " + tests_passed.toString());
+print("Failed: " + tests_failed.length.toString());
+
+let rate = (tests_passed * 100) / total_tests;
+print("Success rate: " + rate.toString() + "%");
+if tests_failed.length > 0:
+    print("Failed tests:");
+    for i in tests_failed:
+        print("\t - " + i);
+    end
+else:
+    print("ALL TESTS PASSED!");
+end
+

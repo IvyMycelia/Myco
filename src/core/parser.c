@@ -19,7 +19,6 @@ static ASTNode* parser_parse_hash_map_literal(Parser* parser);
 static ASTNode* parser_parse_set_literal(Parser* parser);
 static ASTNode* parser_parse_hash_map_key(Parser* parser);
 static ASTNode* parser_parse_try_catch_statement(Parser* parser);
-static ASTNode* parser_parse_use_statement(Parser* parser);
 static ASTNode* parser_collect_block(Parser* parser, int stop_on_else, int* saw_else);
 static ASTNode* parser_parse_member_access_chain(Parser* parser, ASTNode* base);
 
@@ -63,6 +62,11 @@ Parser* parser_initialize(Lexer* lexer) {
     parser->error_message = NULL;             // Description of the last error
     parser->error_line = 0;                   // Line number where error occurred
     parser->error_column = 0;                 // Column number where error occurred
+    // Initialize file-level directive state (default: private mode, unstrict)
+    parser->file_directive_export = 0;
+    parser->file_directive_private = 0;  // Default is private mode
+    parser->file_directive_strict = 0;
+    parser->file_directive_unstrict = 0; // Default is unstrict
     
     return parser;
 }
@@ -291,6 +295,36 @@ ASTNode* parser_parse_program(Parser* parser) {
     // Initialize the parser by getting the first token
     parser_peek(parser);
     
+    // Parse file-level directives at the start of the file
+    // Directives must come before any other statements
+    while (parser->current_token && parser->current_token->type == TOKEN_KEYWORD) {
+        const char* keyword = parser->current_token->text;
+        if (keyword) {
+            if (strcmp(keyword, "export") == 0) {
+                parser->file_directive_export = 1;
+                parser->file_directive_private = 0;
+                parser_advance(parser);
+            } else if (strcmp(keyword, "private") == 0) {
+                parser->file_directive_private = 1;
+                parser->file_directive_export = 0;
+                parser_advance(parser);
+            } else if (strcmp(keyword, "strict") == 0) {
+                parser->file_directive_strict = 1;
+                parser->file_directive_unstrict = 0;
+                parser_advance(parser);
+            } else if (strcmp(keyword, "unstrict") == 0) {
+                parser->file_directive_unstrict = 1;
+                parser->file_directive_strict = 0;
+                parser_advance(parser);
+            } else {
+                // Not a directive keyword, break out of directive parsing
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+    
     // Parse statements until we reach the end of the program
     ASTNode* statements = NULL;
     ASTNode* last_statement = NULL;
@@ -462,6 +496,13 @@ ASTNode* parser_parse_statement(Parser* parser) {
                             var->data.variable_declaration.is_export = 1;
                         }
                         return var;
+                    } else if (strcmp(next_token->text, "class") == 0) {
+                        parser_advance(parser);
+                        ASTNode* cls = parser_parse_class_declaration(parser);
+                        if (cls && cls->type == AST_NODE_CLASS) {
+                            cls->data.class_definition.is_export = 1;
+                        }
+                        return cls;
                     } else {
                         parser_error(parser, "Expected 'func', 'let', or 'class' after 'export'");
                         parser_synchronize(parser);
@@ -487,6 +528,13 @@ ASTNode* parser_parse_statement(Parser* parser) {
                             var->data.variable_declaration.is_private = 1;
                         }
                         return var;
+                    } else if (strcmp(next_token->text, "class") == 0) {
+                        parser_advance(parser);
+                        ASTNode* cls = parser_parse_class_declaration(parser);
+                        if (cls && cls->type == AST_NODE_CLASS) {
+                            cls->data.class_definition.is_private = 1;
+                        }
+                        return cls;
                     } else {
                         parser_error(parser, "Expected 'func', 'let', or 'class' after 'private'");
                         parser_synchronize(parser);
@@ -514,6 +562,9 @@ ASTNode* parser_parse_statement(Parser* parser) {
             } else if (strcmp(token->text, "try") == 0) {
                 parser_advance(parser);  // Consume the 'try' keyword
                 return parser_parse_try_catch_statement(parser);
+            } else if (strcmp(token->text, "from") == 0) {
+                parser_advance(parser);  // Consume the 'from' keyword
+                return parser_parse_from_use_statement(parser);
             } else if (strcmp(token->text, "use") == 0) {
                 parser_advance(parser);  // Consume the 'use' keyword
                 return parser_parse_use_statement(parser);
@@ -3584,6 +3635,120 @@ ASTNode* parser_parse_import_statement(Parser* parser) {
     
     // TODO: Implement import statement parsing logic
     return NULL;  // Not implemented yet
+}
+
+/**
+ * @brief Parse a from-use statement
+ * 
+ * From-use statements import specific items from modules:
+ * from "utils" use publicFunction
+ * from "utils" use func1, func2
+ * from math use Pi, E
+ * 
+ * @param parser The parser to use
+ * @return AST node representing the use statement
+ */
+ASTNode* parser_parse_from_use_statement(Parser* parser) {
+    if (!parser) {
+        return NULL;
+    }
+    
+    // Parse module/library name (identifier or string)
+    char* library_name = NULL;
+    if (parser_check(parser, TOKEN_IDENTIFIER)) {
+        library_name = (parser->current_token->text ? strdup(parser->current_token->text) : NULL);
+        parser_advance(parser);
+    } else if (parser_check(parser, TOKEN_STRING)) {
+        library_name = (parser->current_token->data.string_value ? strdup(parser->current_token->data.string_value) : NULL);
+        parser_advance(parser);
+    } else {
+        parser_error(parser, "Expected module name or file path after 'from'");
+        return NULL;
+    }
+    
+    // Expect 'use' keyword
+    if (!parser_match(parser, TOKEN_KEYWORD) || 
+        !parser->previous_token->text || 
+        strcmp(parser->previous_token->text, "use") != 0) {
+        parser_error(parser, "Expected 'use' keyword after module name in 'from' statement");
+        shared_free_safe(library_name, "parser", "parser_parse_from_use_statement", 0);
+        return NULL;
+    }
+    
+    // Parse comma-separated list of items to import
+    char** specific_items = NULL;
+    char** specific_aliases = NULL;
+    size_t item_count = 0;
+    
+    while (1) {
+        if (!parser_check(parser, TOKEN_IDENTIFIER)) {
+            if (item_count == 0) {
+                parser_error(parser, "Expected at least one item to import after 'use'");
+                shared_free_safe(library_name, "parser", "parser_parse_from_use_statement", 1);
+                return NULL;
+            }
+            break;
+        }
+        
+        // Add item to list
+        char** new_items = shared_realloc_safe(specific_items, (item_count + 1) * sizeof(char*), "parser", "parser_parse_from_use_statement", 2);
+        if (!new_items) {
+            parser_error(parser, "Out of memory while parsing from-use statement");
+            for (size_t i = 0; i < item_count; i++) {
+                shared_free_safe(specific_items[i], "parser", "parser_parse_from_use_statement", 3);
+            }
+            shared_free_safe(specific_items, "parser", "parser_parse_from_use_statement", 4);
+            shared_free_safe(library_name, "parser", "parser_parse_from_use_statement", 5);
+            return NULL;
+        }
+        specific_items = new_items;
+        specific_items[item_count] = (parser->current_token->text ? strdup(parser->current_token->text) : NULL);
+        item_count++;
+        
+        parser_advance(parser); // consume identifier
+        
+        if (parser_check(parser, TOKEN_COMMA)) {
+            parser_advance(parser); // consume comma
+            continue;
+        }
+        break;
+    }
+    
+    // Check for 'as' alias (for the whole module, not individual items in from-use syntax)
+    char* alias = NULL;
+    if (parser_check(parser, TOKEN_KEYWORD) && parser->current_token->text && 
+        strcmp(parser->current_token->text, "as") == 0) {
+        parser_advance(parser); // consume 'as'
+        if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+            parser_error(parser, "Expected alias name after 'as'");
+            // Clean up
+            for (size_t i = 0; i < item_count; i++) {
+                shared_free_safe(specific_items[i], "parser", "parser_parse_from_use_statement", 6);
+            }
+            shared_free_safe(specific_items, "parser", "parser_parse_from_use_statement", 7);
+            shared_free_safe(library_name, "parser", "parser_parse_from_use_statement", 8);
+            return NULL;
+        }
+        alias = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
+    }
+    
+    // Create the use statement node (reusing AST_NODE_USE structure)
+    ASTNode* node = ast_create_use(library_name, alias, specific_items, specific_aliases, item_count, 
+                                  parser->previous_token->line, parser->previous_token->column);
+    
+    // Clean up temporary storage
+    shared_free_safe(library_name, "parser", "parser_parse_from_use_statement", 9);
+    if (specific_items) {
+        for (size_t i = 0; i < item_count; i++) {
+            shared_free_safe(specific_items[i], "parser", "parser_parse_from_use_statement", 10);
+        }
+        shared_free_safe(specific_items, "parser", "parser_parse_from_use_statement", 11);
+    }
+    if (alias) {
+        shared_free_safe(alias, "parser", "parser_parse_from_use_statement", 12);
+    }
+    
+    return node;
 }
 
 /**

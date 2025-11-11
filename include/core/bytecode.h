@@ -72,6 +72,7 @@ typedef enum {
     BC_CREATE_MAP,     // Create hash map from key-value pairs on stack
     BC_CREATE_SET,     // Create set from elements on stack
     BC_IMPORT_LIB,     // Import library: use library_name
+    BC_SET_SYMBOL_FLAGS, // Set export/private flags for last defined symbol: a = name_idx, b = flags (bit 0=export, bit 1=private)
     BC_STRING_UPPER,  // Convert string to uppercase
     BC_STRING_LOWER,  // Convert string to lowercase
     BC_STRING_TRIM,   // Trim string whitespace

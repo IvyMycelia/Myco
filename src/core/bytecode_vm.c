@@ -803,16 +803,27 @@ static void async_event_loop_run(Interpreter* interpreter) {
                 // and set it in the result. However, if interpreter->has_return is still set,
                 // that means the return value is in interpreter->return_value and wasn't
                 // captured in result. Use interpreter->return_value as the authoritative source.
-                if (interpreter->has_return) {
-                    Value return_val = value_clone(&interpreter->return_value);
-                    value_free(&result);  // Free the old result
-                    result = return_val;  // Use the return value from interpreter
-                    interpreter->has_return = 0;
-                    value_free(&interpreter->return_value);
+                // This can happen if bytecode_execute_function_bytecode didn't properly capture it.
+                // Also check if result is NULL - this shouldn't happen if the function returned a value
+                if (result.type == VALUE_NULL) {
+                    // Result is NULL - check if interpreter->has_return is still set
+                    // This means bytecode_execute_function_bytecode didn't capture the return value
+                    if (interpreter->has_return && interpreter->return_value.type != VALUE_NULL) {
+                        // The return value is still in interpreter->return_value
+                        // Use it as the result
+                        result = value_clone(&interpreter->return_value);
+                        interpreter->has_return = 0;
+                        value_free(&interpreter->return_value);
+                        interpreter->return_value = value_create_null();
+                    }
+                    // If result is still NULL and has_return is not set, the function didn't return a value
+                    // This is fine - we'll resolve the promise with NULL
                 }
                 
                 // At this point, result should contain the function's return value
                 // (or VALUE_NULL if the function didn't return anything)
+                // If result is still NULL, that means the function didn't return a value,
+                // which is fine - we'll resolve the promise with NULL
                 
                 // Restore environment
                 interpreter->current_environment = old_env;
@@ -6265,28 +6276,33 @@ Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunct
         }
         
         // Reset return flag before execution
+        // IMPORTANT: Don't clear interpreter->return_value here - it might contain a value
+        // from a previous call. We'll check interpreter->has_return after execution.
         interpreter->has_return = 0;
         result = bytecode_execute(&temp_program, interpreter, 0);
         
         // Save the function's return value (if any) before restoring stack
         // Check has_return first - if set, the return value is in interpreter->return_value
+        // This is the authoritative source when BC_RETURN is used
         Value function_return_value = value_create_null();
         int has_function_return = 0;
-        if (interpreter->has_return) {
+        if (interpreter->has_return && interpreter->return_value.type != VALUE_NULL) {
             // Function used BC_RETURN - the return value is in interpreter->return_value
             function_return_value = value_clone(&interpreter->return_value);
             has_function_return = 1;
-            value_free(&interpreter->return_value);
-            interpreter->has_return = 0;
+            // DON'T clear the flag or free return_value yet - keep them around
+            // until after we've updated result, so callers can check if needed
+            // We'll clear them after updating result (see below)
+        } else if (result.type != VALUE_NULL) {
+            // If bytecode_execute returned a non-null result, use that
+            // This handles cases where BC_RETURN set result but interpreter->has_return wasn't set
+            function_return_value = value_clone(&result);
+            has_function_return = 1;
         } else if (value_stack_size > saved_stack_size) {
             // If function didn't use BC_RETURN, the result might be on the stack
             // Only pop if there are more values on the stack than we saved
             // (This means the function left a value on the stack)
             function_return_value = value_stack_pop();
-            has_function_return = 1;
-        } else if (result.type != VALUE_NULL) {
-            // If bytecode_execute returned a non-null result, use that
-            function_return_value = value_clone(&result);
             has_function_return = 1;
         }
         
@@ -6314,10 +6330,30 @@ Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunct
         }
         
         // Update result to match the return value
+        // This is critical - result must contain the function's return value
         if (has_function_return) {
             value_free(&result);
             result = value_clone(&function_return_value);
         }
+        
+        // Free interpreter->return_value and clear has_return now that we've captured it
+        // Do this AFTER we've updated result, so callers can check interpreter->has_return if needed
+        // IMPORTANT: Only clear if has_function_return is true AND we got it from interpreter->return_value
+        // If has_function_return is false, we didn't capture it, so leave interpreter->has_return set
+        // so the caller can check it (the safety net at the end will handle it)
+        if (has_function_return) {
+            // We captured a return value - check if it was from interpreter->return_value
+            if (interpreter->has_return && interpreter->return_value.type != VALUE_NULL) {
+                // We captured the return value from interpreter->return_value
+                // Now we can free it and clear the flag
+                value_free(&interpreter->return_value);
+                interpreter->return_value = value_create_null();
+                interpreter->has_return = 0;
+            }
+        }
+        // If has_function_return is false, we didn't capture a return value
+        // Leave interpreter->has_return and interpreter->return_value alone
+        // so the caller can check them (the safety net at the end will handle it)
         
         // Note: The return value is pushed onto the stack at line 4159 above
         // so it's available for the caller (BC_CALL_USER_FUNCTION or BC_CALL_FUNCTION_VALUE)
@@ -6328,6 +6364,17 @@ Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunct
     
     // Clean up function environment
     environment_free(func_env);
+    
+    // Final check: if result is NULL but interpreter->has_return is still set,
+    // use interpreter->return_value as the return value
+    // This shouldn't happen if everything worked correctly, but it's a safety net
+    if (result.type == VALUE_NULL && interpreter->has_return && interpreter->return_value.type != VALUE_NULL) {
+        value_free(&result);
+        result = value_clone(&interpreter->return_value);
+        interpreter->has_return = 0;
+        value_free(&interpreter->return_value);
+        interpreter->return_value = value_create_null();
+    }
     
     return result;
 }

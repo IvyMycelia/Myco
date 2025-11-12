@@ -829,6 +829,13 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
         } break;
         case AST_NODE_ARRAY_ACCESS: {
             // Array access: arr[index]
+            if (!n->data.array_access.array || !n->data.array_access.index) {
+                if (p->interpreter) {
+                    interpreter_set_error(p->interpreter, "Invalid array access structure in compile_node_to_function", 0, 0);
+                }
+                bc_emit_to_function(func, BC_LOAD_CONST, bc_add_const(p, value_create_null()), 0, 0);
+                break;
+            }
             compile_node_to_function(p, func, n->data.array_access.array);
             compile_node_to_function(p, func, n->data.array_access.index);
             bc_emit_to_function(func, BC_ARRAY_GET, 0, 0, 0);
@@ -1041,6 +1048,31 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
             if (n->data.try_catch.finally_block) {
                 compile_node_to_function(p, func, n->data.try_catch.finally_block);
             }
+        } break;
+        case AST_NODE_SET_LITERAL: {
+            // Set literal: {elem1, elem2, elem3}
+            // Compile all elements onto the stack
+            for (size_t i = 0; i < n->data.set_literal.element_count; i++) {
+                compile_node_to_function(p, func, n->data.set_literal.elements[i]);
+            }
+            // Emit instruction to create set from stack elements
+            bc_emit_to_function(func, BC_CREATE_SET, (int)n->data.set_literal.element_count, 0, 0);
+        } break;
+        case AST_NODE_AWAIT: {
+            // Await expression: await promise -> value
+            // Stack: [] -> [promise] -> [value]
+            compile_node_to_function(p, func, n->data.await_expression.expression);
+            // Stack: [promise]
+            bc_emit_to_function(func, BC_AWAIT, 0, 0, 0);
+            // Stack: [value] (after promise resolves)
+        } break;
+        case AST_NODE_PROMISE: {
+            // Promise creation: Promise(executor) -> promise
+            // Stack: [] -> [executor] -> [promise]
+            compile_node_to_function(p, func, n->data.promise_creation.expression);
+            // Stack: [executor]
+            bc_emit_to_function(func, BC_PROMISE_CREATE, 0, 0, 0);
+            // Stack: [promise]
         } break;
         case AST_NODE_ERROR: {
             // Error node - compilation should have failed earlier, but handle gracefully

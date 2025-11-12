@@ -3608,6 +3608,11 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             
                             // Push to import chain for circular detection
                             push_import_chain(interpreter, actual_path ? actual_path : normalized_path);
+                            
+                            // Set current loading module for capability checks
+                            char* saved_loading_module = interpreter->current_loading_module ? 
+                                                          shared_strdup(interpreter->current_loading_module) : NULL;
+                            interpreter->current_loading_module = shared_strdup(actual_path ? actual_path : normalized_path);
                         
                         // Read file content
                         fseek(file, 0, SEEK_END);
@@ -3618,6 +3623,13 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         if (!source) {
                             fclose(file);
                             if (actual_path) shared_free_safe(actual_path, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                            // Restore current loading module on error
+                            shared_free_safe(interpreter->current_loading_module, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                            interpreter->current_loading_module = saved_loading_module ? 
+                                                                   shared_strdup(saved_loading_module) : NULL;
+                            if (saved_loading_module) {
+                                shared_free_safe(saved_loading_module, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                            }
                             interpreter_set_error(interpreter, "Out of memory loading module", 0, 0);
                             value_stack_push(value_create_null());
                             pc++;
@@ -3663,6 +3675,18 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                     environment_define(module_env, "__file_directive_unstrict__", value_create_boolean(1));
                                 }
                                 
+                                // Process required capabilities from module
+                                // Note: The host can choose to auto-grant these or require explicit approval
+                                // For now, we'll auto-grant them, but this can be made configurable
+                                if (parser->required_capability_count > 0 && file_path_for_parsing) {
+                                    for (size_t i = 0; i < parser->required_capability_count; i++) {
+                                        if (parser->required_capabilities[i]) {
+                                            // Auto-grant the capability (host can override this behavior)
+                                            interpreter_grant_capability_to_module(interpreter, file_path_for_parsing, parser->required_capabilities[i]);
+                                        }
+                                    }
+                                }
+                                
                                 if (module_ast) {
                                     // Save the current bytecode program cache (main program)
                                     BytecodeProgram* saved_program_cache = interpreter->bytecode_program_cache;
@@ -3692,6 +3716,14 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         
                         // Restore current environment
                         interpreter->current_environment = saved_env;
+                        
+                        // Restore current loading module (before creating module value)
+                        shared_free_safe(interpreter->current_loading_module, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                        interpreter->current_loading_module = saved_loading_module ? 
+                                                               shared_strdup(saved_loading_module) : NULL;
+                        if (saved_loading_module) {
+                            shared_free_safe(saved_loading_module, "bytecode_vm", "BC_IMPORT_LIB", 0);
+                        }
                         
                         // Create module value (VALUE_OBJECT) that wraps the module environment
                         // Note: Don't free actual_path yet - it's needed for caching
@@ -3903,16 +3935,83 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         value_stack_push(value_create_null());
                     } else {
                         // Library import: get from global environment
-                    Value lib = environment_get(interpreter->global_environment, library_name);
+                        // Check capability-based security if we're in a module context
+                        const char* current_module = interpreter->current_loading_module;
+                        Value lib = value_create_null();
+                        
+                        if (current_module && interpreter->module_security_enabled) {
+                            // We're loading a library from within a module - check capabilities
+                            // Map library names to capability names
+                            // Dangerous libraries require explicit capabilities
+                            const char* capability_name = NULL;
+                            
+                            // Map common dangerous libraries to capabilities
+                            if (strcmp(library_name, "file") == 0) {
+                                capability_name = "fs";
+                            } else if (strcmp(library_name, "dir") == 0) {
+                                capability_name = "fs";
+                            } else if (strcmp(library_name, "http") == 0) {
+                                capability_name = "net";
+                            } else if (strcmp(library_name, "server") == 0) {
+                                capability_name = "net";
+                            } else if (strcmp(library_name, "websocket") == 0) {
+                                capability_name = "net";
+                            } else if (strcmp(library_name, "gateway") == 0) {
+                                capability_name = "net";
+                            } else if (strcmp(library_name, "database") == 0) {
+                                capability_name = "database";
+                            }
+                            
+                            // If this is a dangerous library, check for capability
+                            if (capability_name) {
+                                if (interpreter_module_has_capability(interpreter, current_module, capability_name)) {
+                                    // Module has capability - try to get capability implementation first
+                                    Value capability_impl = interpreter_get_capability(interpreter, capability_name);
+                                    if (capability_impl.type != VALUE_NULL) {
+                                        // Use capability implementation (safe wrapper)
+                                        lib = capability_impl;
+                                    } else {
+                                        // Fall back to direct library access if no capability implementation
+                                        lib = environment_get(interpreter->global_environment, library_name);
+                                    }
+                                } else {
+                                    // Module doesn't have capability - deny access
+                                    char error_msg[512];
+                                    snprintf(error_msg, sizeof(error_msg), 
+                                            "Module '%s' attempted to import restricted library '%s' without capability '%s'",
+                                            current_module, library_name, capability_name);
+                                    interpreter_set_error(interpreter, error_msg, 0, 0);
+                                    value_stack_push(value_create_null());
+                                    pc++;
+                                    break;
+                                }
+                            } else {
+                                // Safe library (math, string, array, etc.) - allow direct access
+                                lib = environment_get(interpreter->global_environment, library_name);
+                            }
+                        } else {
+                            // Not in a module context or security disabled - allow direct access
+                            lib = environment_get(interpreter->global_environment, library_name);
+                        }
+                        
+                        if (lib.type == VALUE_NULL) {
+                            // Library not found
+                            char error_msg[256];
+                            snprintf(error_msg, sizeof(error_msg), "Library '%s' not found", library_name);
+                            interpreter_set_error(interpreter, error_msg, 0, 0);
+                            value_stack_push(value_create_null());
+                            pc++;
+                            break;
+                        }
                         
                         // Use alias if provided, otherwise use library_name
                         const char* var_name = alias ? alias : library_name;
                     
-                    // Define it in the current environment
+                        // Define it in the current environment
                         environment_define(interpreter->current_environment, var_name, lib);
                     
-                    // Push null result (use statements don't return a value)
-                    value_stack_push(value_create_null());
+                        // Push null result (use statements don't return a value)
+                        value_stack_push(value_create_null());
                     }
                 } else {
                     value_stack_push(value_create_null());

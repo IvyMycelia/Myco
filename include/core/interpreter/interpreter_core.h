@@ -201,6 +201,21 @@ typedef struct ImportChain {
     struct ImportChain* next;     // Next in chain (parent import)
 } ImportChain;
 
+// Capability registry entry - maps capability name to implementation
+typedef struct CapabilityEntry {
+    char* name;                   // Capability name (e.g., "fs.read", "net.connect")
+    Value implementation;          // The capability implementation (library object or wrapper)
+    int is_safe;                  // Whether this is a safe wrapper (1) or direct access (0)
+} CapabilityEntry;
+
+// Module security context - tracks what capabilities a module has access to
+typedef struct ModuleSecurityContext {
+    char* module_path;            // Path of the module
+    char** allowed_capabilities;  // Array of capability names this module can use
+    size_t capability_count;     // Number of allowed capabilities
+    int is_trusted;              // Whether module is fully trusted (bypasses capability checks)
+} ModuleSecurityContext;
+
 // ============================================================================
 // CALL FRAME STRUCTURE
 // ============================================================================
@@ -324,6 +339,16 @@ typedef struct Interpreter {
     size_t promise_registry_size;
     size_t promise_registry_capacity;
     uint64_t next_promise_id;  // Next promise ID to assign
+    
+    // Capability-based security system
+    CapabilityEntry* capability_registry;  // Registry of available capabilities
+    size_t capability_registry_count;
+    size_t capability_registry_capacity;
+    ModuleSecurityContext* module_security_contexts;  // Security contexts per module
+    size_t module_security_context_count;
+    size_t module_security_context_capacity;
+    char* current_loading_module;  // Path of module currently being loaded (for capability checks)
+    int module_security_enabled;  // Whether module security is enabled (default: 1)
 } Interpreter;
 
 // ============================================================================
@@ -333,6 +358,31 @@ typedef struct Interpreter {
 Interpreter* interpreter_create(void);
 void interpreter_free(Interpreter* interpreter);
 void interpreter_reset(Interpreter* interpreter);
+
+// ============================================================================
+// CAPABILITY-BASED SECURITY FUNCTIONS
+// ============================================================================
+
+// Register a capability (host provides safe implementation)
+void interpreter_register_capability(Interpreter* interpreter, const char* capability_name, Value implementation, int is_safe);
+
+// Grant a capability to a module
+void interpreter_grant_capability_to_module(Interpreter* interpreter, const char* module_path, const char* capability_name);
+
+// Revoke a capability from a module
+void interpreter_revoke_capability_from_module(Interpreter* interpreter, const char* module_path, const char* capability_name);
+
+// Check if a module has a capability
+int interpreter_module_has_capability(Interpreter* interpreter, const char* module_path, const char* capability_name);
+
+// Set module as trusted (bypasses all capability checks)
+void interpreter_set_module_trusted(Interpreter* interpreter, const char* module_path, int trusted);
+
+// Get capability implementation for current module
+Value interpreter_get_capability(Interpreter* interpreter, const char* capability_name);
+
+// Enable/disable module security globally
+void interpreter_set_module_security_enabled(Interpreter* interpreter, int enabled);
 
 // ============================================================================
 // INTERPRETER EXECUTION FUNCTIONS

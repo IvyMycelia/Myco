@@ -117,6 +117,16 @@ Interpreter* interpreter_create(void) {
     interpreter->promise_registry_capacity = 0;
     interpreter->next_promise_id = 1;  // Start at 1 (0 means no ID)
     
+    // Capability-based security initialization
+    interpreter->capability_registry = NULL;
+    interpreter->capability_registry_count = 0;
+    interpreter->capability_registry_capacity = 0;
+    interpreter->module_security_contexts = NULL;
+    interpreter->module_security_context_count = 0;
+    interpreter->module_security_context_capacity = 0;
+    interpreter->current_loading_module = NULL;
+    interpreter->module_security_enabled = 1;  // Enable security by default
+    
     // Test mode - disabled by default
     interpreter->test_mode = 0;
     
@@ -265,6 +275,31 @@ void interpreter_free(Interpreter* interpreter) {
             }
             shared_free_safe(interpreter->promise_registry, "interpreter", "interpreter_free", 0);
         }
+        
+        // Clean up capability registry
+        if (interpreter->capability_registry) {
+            for (size_t i = 0; i < interpreter->capability_registry_count; i++) {
+                shared_free_safe(interpreter->capability_registry[i].name, "interpreter", "interpreter_free", 0);
+                value_free(&interpreter->capability_registry[i].implementation);
+            }
+            shared_free_safe(interpreter->capability_registry, "interpreter", "interpreter_free", 0);
+        }
+        
+        // Clean up module security contexts
+        if (interpreter->module_security_contexts) {
+            for (size_t i = 0; i < interpreter->module_security_context_count; i++) {
+                shared_free_safe(interpreter->module_security_contexts[i].module_path, "interpreter", "interpreter_free", 0);
+                if (interpreter->module_security_contexts[i].allowed_capabilities) {
+                    for (size_t j = 0; j < interpreter->module_security_contexts[i].capability_count; j++) {
+                        shared_free_safe(interpreter->module_security_contexts[i].allowed_capabilities[j], "interpreter", "interpreter_free", 0);
+                    }
+                    shared_free_safe(interpreter->module_security_contexts[i].allowed_capabilities, "interpreter", "interpreter_free", 0);
+                }
+            }
+            shared_free_safe(interpreter->module_security_contexts, "interpreter", "interpreter_free", 0);
+        }
+        
+        shared_free_safe(interpreter->current_loading_module, "interpreter", "interpreter_free", 0);
         
         if (interpreter->global_environment) {
             environment_free(interpreter->global_environment);
@@ -904,4 +939,181 @@ ReplDebugSession* interpreter_get_global_repl_session(void) {
         interpreter_initialize_global_systems();
     }
     return global_repl_session;
+}
+
+// ============================================================================
+// CAPABILITY-BASED SECURITY FUNCTIONS
+// ============================================================================
+
+// Register a capability (host provides safe implementation)
+void interpreter_register_capability(Interpreter* interpreter, const char* capability_name, Value implementation, int is_safe) {
+    if (!interpreter || !capability_name) return;
+    
+    // Check if capability already exists
+    for (size_t i = 0; i < interpreter->capability_registry_count; i++) {
+        if (strcmp(interpreter->capability_registry[i].name, capability_name) == 0) {
+            // Update existing capability
+            value_free(&interpreter->capability_registry[i].implementation);
+            interpreter->capability_registry[i].implementation = value_clone(&implementation);
+            interpreter->capability_registry[i].is_safe = is_safe;
+            return;
+        }
+    }
+    
+    // Expand registry if needed
+    if (interpreter->capability_registry_count >= interpreter->capability_registry_capacity) {
+        size_t new_capacity = interpreter->capability_registry_capacity == 0 ? 8 : interpreter->capability_registry_capacity * 2;
+        CapabilityEntry* new_registry = shared_realloc_safe(interpreter->capability_registry,
+                                                           new_capacity * sizeof(CapabilityEntry),
+                                                           "interpreter", "interpreter_register_capability", 0);
+        if (!new_registry) return;
+        interpreter->capability_registry = new_registry;
+        interpreter->capability_registry_capacity = new_capacity;
+    }
+    
+    // Add new capability
+    CapabilityEntry* entry = &interpreter->capability_registry[interpreter->capability_registry_count++];
+    entry->name = shared_strdup(capability_name);
+    entry->implementation = value_clone(&implementation);
+    entry->is_safe = is_safe;
+}
+
+// Find or create module security context
+static ModuleSecurityContext* find_or_create_module_security_context(Interpreter* interpreter, const char* module_path) {
+    if (!interpreter || !module_path) return NULL;
+    
+    // Find existing context
+    for (size_t i = 0; i < interpreter->module_security_context_count; i++) {
+        if (strcmp(interpreter->module_security_contexts[i].module_path, module_path) == 0) {
+            return &interpreter->module_security_contexts[i];
+        }
+    }
+    
+    // Expand contexts array if needed
+    if (interpreter->module_security_context_count >= interpreter->module_security_context_capacity) {
+        size_t new_capacity = interpreter->module_security_context_capacity == 0 ? 8 : interpreter->module_security_context_capacity * 2;
+        ModuleSecurityContext* new_contexts = shared_realloc_safe(interpreter->module_security_contexts,
+                                                                   new_capacity * sizeof(ModuleSecurityContext),
+                                                                   "interpreter", "find_or_create_module_security_context", 0);
+        if (!new_contexts) return NULL;
+        interpreter->module_security_contexts = new_contexts;
+        interpreter->module_security_context_capacity = new_capacity;
+    }
+    
+    // Create new context
+    ModuleSecurityContext* context = &interpreter->module_security_contexts[interpreter->module_security_context_count++];
+    context->module_path = shared_strdup(module_path);
+    context->allowed_capabilities = NULL;
+    context->capability_count = 0;
+    context->is_trusted = 0;
+    
+    return context;
+}
+
+// Grant a capability to a module
+void interpreter_grant_capability_to_module(Interpreter* interpreter, const char* module_path, const char* capability_name) {
+    if (!interpreter || !module_path || !capability_name) return;
+    
+    ModuleSecurityContext* context = find_or_create_module_security_context(interpreter, module_path);
+    if (!context) return;
+    
+    // Check if capability already granted
+    for (size_t i = 0; i < context->capability_count; i++) {
+        if (strcmp(context->allowed_capabilities[i], capability_name) == 0) {
+            return; // Already granted
+        }
+    }
+    
+    // Expand capabilities array
+    char** new_capabilities = shared_realloc_safe(context->allowed_capabilities,
+                                                 (context->capability_count + 1) * sizeof(char*),
+                                                 "interpreter", "interpreter_grant_capability_to_module", 0);
+    if (!new_capabilities) return;
+    context->allowed_capabilities = new_capabilities;
+    context->allowed_capabilities[context->capability_count++] = shared_strdup(capability_name);
+}
+
+// Revoke a capability from a module
+void interpreter_revoke_capability_from_module(Interpreter* interpreter, const char* module_path, const char* capability_name) {
+    if (!interpreter || !module_path || !capability_name) return;
+    
+    ModuleSecurityContext* context = find_or_create_module_security_context(interpreter, module_path);
+    if (!context) return;
+    
+    // Find and remove capability
+    for (size_t i = 0; i < context->capability_count; i++) {
+        if (strcmp(context->allowed_capabilities[i], capability_name) == 0) {
+            shared_free_safe(context->allowed_capabilities[i], "interpreter", "interpreter_revoke_capability_from_module", 0);
+            // Shift remaining capabilities
+            for (size_t j = i; j < context->capability_count - 1; j++) {
+                context->allowed_capabilities[j] = context->allowed_capabilities[j + 1];
+            }
+            context->capability_count--;
+            return;
+        }
+    }
+}
+
+// Check if a module has a capability
+int interpreter_module_has_capability(Interpreter* interpreter, const char* module_path, const char* capability_name) {
+    if (!interpreter || !module_path || !capability_name) return 0;
+    
+    // If security is disabled, allow everything
+    if (!interpreter->module_security_enabled) return 1;
+    
+    // Find module security context
+    for (size_t i = 0; i < interpreter->module_security_context_count; i++) {
+        if (strcmp(interpreter->module_security_contexts[i].module_path, module_path) == 0) {
+            ModuleSecurityContext* context = &interpreter->module_security_contexts[i];
+            
+            // Trusted modules bypass capability checks
+            if (context->is_trusted) return 1;
+            
+            // Check if capability is granted
+            for (size_t j = 0; j < context->capability_count; j++) {
+                if (strcmp(context->allowed_capabilities[j], capability_name) == 0) {
+                    return 1;
+                }
+            }
+            return 0;
+        }
+    }
+    
+    // Module not found - deny by default
+    return 0;
+}
+
+// Set module as trusted (bypasses all capability checks)
+void interpreter_set_module_trusted(Interpreter* interpreter, const char* module_path, int trusted) {
+    if (!interpreter || !module_path) return;
+    
+    ModuleSecurityContext* context = find_or_create_module_security_context(interpreter, module_path);
+    if (!context) return;
+    
+    context->is_trusted = trusted ? 1 : 0;
+}
+
+// Get capability implementation for current module
+Value interpreter_get_capability(Interpreter* interpreter, const char* capability_name) {
+    if (!interpreter || !capability_name) return value_create_null();
+    
+    // Find capability in registry
+    for (size_t i = 0; i < interpreter->capability_registry_count; i++) {
+        if (strcmp(interpreter->capability_registry[i].name, capability_name) == 0) {
+            // Check if current module has access
+            const char* current_module = interpreter->current_loading_module;
+            if (current_module && !interpreter_module_has_capability(interpreter, current_module, capability_name)) {
+                return value_create_null(); // Module doesn't have this capability
+            }
+            return value_clone(&interpreter->capability_registry[i].implementation);
+        }
+    }
+    
+    return value_create_null(); // Capability not found
+}
+
+// Enable/disable module security globally
+void interpreter_set_module_security_enabled(Interpreter* interpreter, int enabled) {
+    if (!interpreter) return;
+    interpreter->module_security_enabled = enabled ? 1 : 0;
 }

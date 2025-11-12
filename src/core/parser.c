@@ -67,6 +67,8 @@ Parser* parser_initialize(Lexer* lexer) {
     parser->file_directive_private = 0;  // Default is private mode
     parser->file_directive_strict = 0;
     parser->file_directive_unstrict = 0; // Default is unstrict
+    parser->required_capabilities = NULL;
+    parser->required_capability_count = 0;
     
     return parser;
 }
@@ -89,6 +91,14 @@ void parser_free(Parser* parser) {
         shared_free_safe(parser->error_message, "parser", "unknown_function", 84);
         parser->error_message = NULL;
         }
+    
+    // Free required capabilities array
+    if (parser->required_capabilities) {
+        for (size_t i = 0; i < parser->required_capability_count; i++) {
+            shared_free_safe(parser->required_capabilities[i], "parser", "parser_free", 0);
+        }
+        shared_free_safe(parser->required_capabilities, "parser", "parser_free", 0);
+    }
     
     // Free the parser structure itself
     // Note: We don't free the lexer as it's owned by the caller
@@ -316,6 +326,35 @@ ASTNode* parser_parse_program(Parser* parser) {
                 parser->file_directive_unstrict = 1;
                 parser->file_directive_strict = 0;
                 parser_advance(parser);
+            } else if (strcmp(keyword, "requires") == 0) {
+                // Parse requires directive: requires fs, net or requires fs net
+                parser_advance(parser); // Skip "requires"
+                
+                // Parse comma-separated or space-separated capability names
+                while (parser->current_token && parser->current_token->type == TOKEN_IDENTIFIER) {
+                    const char* capability_name = parser->current_token->text;
+                    if (capability_name) {
+                        // Expand array if needed
+                        char** new_capabilities = shared_realloc_safe(parser->required_capabilities,
+                                                                       (parser->required_capability_count + 1) * sizeof(char*),
+                                                                       "parser", "parser_parse_program", 0);
+                        if (new_capabilities) {
+                            parser->required_capabilities = new_capabilities;
+                            parser->required_capabilities[parser->required_capability_count++] = shared_strdup(capability_name);
+                        }
+                        parser_advance(parser);
+                        
+                        // Check for comma
+                        if (parser->current_token && parser->current_token->type == TOKEN_COMMA) {
+                            parser_advance(parser); // Skip comma
+                        } else {
+                            // No comma, might be space-separated or end of list
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
             } else {
                 // Not a directive keyword, break out of directive parsing
                 break;

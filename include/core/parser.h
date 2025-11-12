@@ -46,6 +46,9 @@ typedef struct {
     int file_directive_private;  // 1 if #! private directive is active
     int file_directive_strict;   // 1 if #! strict directive is active
     int file_directive_unstrict; // 1 if #! unstrict directive is active
+    // Module capability requirements
+    char** required_capabilities;  // Array of capability names required by this module
+    size_t required_capability_count;  // Number of required capabilities
 } Parser;
 
 /**

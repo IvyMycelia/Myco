@@ -553,6 +553,7 @@ static void lexer_parse_identifier(Lexer* lexer) {
         else if (strcmp(text, "end") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "use") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "from") == 0) type = TOKEN_KEYWORD;
+        else if (strcmp(text, "import") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "as") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "public") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "export") == 0) type = TOKEN_KEYWORD;

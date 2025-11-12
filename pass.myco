@@ -5467,7 +5467,8 @@ print("\n27.4. Specific imports from file modules...");
 total_tests = total_tests + 1;
 try:
     # Verify specific import syntax is supported
-    # Syntax: use func1, func2 from "file.myco"
+    # New syntax: from "file.myco" as alias import func1 as alias, var1 as alias
+    # Also supports: from "file.myco" import func1, var1 (without aliases)
     if True:
         print("✓ Specific imports from file modules are supported");
         tests_passed = tests_passed + 1;

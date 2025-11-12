@@ -3888,12 +3888,14 @@ ASTNode* parser_parse_import_statement(Parser* parser) {
 }
 
 /**
- * @brief Parse a from-use statement
+ * @brief Parse a from-import statement
  * 
- * From-use statements import specific items from modules:
- * from "utils" use publicFunction
- * from "utils" use func1, func2
- * from math use Pi, E
+ * From-import statements import specific items from modules:
+ * from "utils" as utils import func1 as f1, var1 as v1
+ * from "utils.myco" import func1, var1
+ * from math import Pi, E
+ * 
+ * Syntax: from <file/library> [as <module_alias>] import <item1> [as <alias1>], <item2> [as <alias2>]
  * 
  * @param parser The parser to use
  * @return AST node representing the use statement
@@ -3916,16 +3918,32 @@ ASTNode* parser_parse_from_use_statement(Parser* parser) {
         return NULL;
     }
     
-    // Expect 'use' keyword
+    // Check for optional module alias: 'as <alias>'
+    char* alias = NULL;
+    if (parser_check(parser, TOKEN_KEYWORD) && parser->current_token->text && 
+        strcmp(parser->current_token->text, "as") == 0) {
+        parser_advance(parser); // consume 'as'
+        if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+            parser_error(parser, "Expected alias name after 'as'");
+            shared_free_safe(library_name, "parser", "parser_parse_from_use_statement", 0);
+            return NULL;
+        }
+        alias = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
+    }
+    
+    // Expect 'import' keyword
     if (!parser_match(parser, TOKEN_KEYWORD) || 
         !parser->previous_token->text || 
-        strcmp(parser->previous_token->text, "use") != 0) {
-        parser_error(parser, "Expected 'use' keyword after module name in 'from' statement");
-        shared_free_safe(library_name, "parser", "parser_parse_from_use_statement", 0);
+        strcmp(parser->previous_token->text, "import") != 0) {
+        parser_error(parser, "Expected 'import' keyword after module name/alias in 'from' statement");
+        shared_free_safe(library_name, "parser", "parser_parse_from_use_statement", 1);
+        if (alias) {
+            shared_free_safe(alias, "parser", "parser_parse_from_use_statement", 2);
+        }
         return NULL;
     }
     
-    // Parse comma-separated list of items to import
+    // Parse comma-separated list of items to import with optional aliases
     char** specific_items = NULL;
     char** specific_aliases = NULL;
     size_t item_count = 0;
@@ -3933,30 +3951,80 @@ ASTNode* parser_parse_from_use_statement(Parser* parser) {
     while (1) {
         if (!parser_check(parser, TOKEN_IDENTIFIER)) {
             if (item_count == 0) {
-                parser_error(parser, "Expected at least one item to import after 'use'");
-                shared_free_safe(library_name, "parser", "parser_parse_from_use_statement", 1);
+                parser_error(parser, "Expected at least one item to import after 'import'");
+                shared_free_safe(library_name, "parser", "parser_parse_from_use_statement", 3);
+                if (alias) {
+                    shared_free_safe(alias, "parser", "parser_parse_from_use_statement", 4);
+                }
                 return NULL;
             }
             break;
         }
         
-        // Add item to list
-        char** new_items = shared_realloc_safe(specific_items, (item_count + 1) * sizeof(char*), "parser", "parser_parse_from_use_statement", 2);
-        if (!new_items) {
-            parser_error(parser, "Out of memory while parsing from-use statement");
-            for (size_t i = 0; i < item_count; i++) {
-                shared_free_safe(specific_items[i], "parser", "parser_parse_from_use_statement", 3);
+        // Parse item name
+        char* item_name = (parser->current_token->text ? strdup(parser->current_token->text) : NULL);
+        parser_advance(parser); // consume identifier
+        
+        // Check for optional item alias: 'as <alias>'
+        char* item_alias = NULL;
+        if (parser_check(parser, TOKEN_KEYWORD) && parser->current_token->text && 
+            strcmp(parser->current_token->text, "as") == 0) {
+            parser_advance(parser); // consume 'as'
+            if (!parser_match(parser, TOKEN_IDENTIFIER)) {
+                parser_error(parser, "Expected alias name after 'as' for item");
+                shared_free_safe(item_name, "parser", "parser_parse_from_use_statement", 5);
+                // Clean up already parsed items
+                for (size_t i = 0; i < item_count; i++) {
+                    shared_free_safe(specific_items[i], "parser", "parser_parse_from_use_statement", 6);
+                    if (specific_aliases && specific_aliases[i]) {
+                        shared_free_safe(specific_aliases[i], "parser", "parser_parse_from_use_statement", 7);
+                    }
+                }
+                shared_free_safe(specific_items, "parser", "parser_parse_from_use_statement", 8);
+                if (specific_aliases) {
+                    shared_free_safe(specific_aliases, "parser", "parser_parse_from_use_statement", 9);
+                }
+                shared_free_safe(library_name, "parser", "parser_parse_from_use_statement", 10);
+                if (alias) {
+                    shared_free_safe(alias, "parser", "parser_parse_from_use_statement", 11);
+                }
+                return NULL;
             }
-            shared_free_safe(specific_items, "parser", "parser_parse_from_use_statement", 4);
-            shared_free_safe(library_name, "parser", "parser_parse_from_use_statement", 5);
+            item_alias = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
+        }
+        
+        // Add item to list
+        char** new_items = shared_realloc_safe(specific_items, (item_count + 1) * sizeof(char*), "parser", "parser_parse_from_use_statement", 12);
+        char** new_aliases = shared_realloc_safe(specific_aliases, (item_count + 1) * sizeof(char*), "parser", "parser_parse_from_use_statement", 13);
+        if (!new_items || !new_aliases) {
+            parser_error(parser, "Out of memory while parsing from-import statement");
+            shared_free_safe(item_name, "parser", "parser_parse_from_use_statement", 14);
+            if (item_alias) {
+                shared_free_safe(item_alias, "parser", "parser_parse_from_use_statement", 15);
+            }
+            for (size_t i = 0; i < item_count; i++) {
+                shared_free_safe(specific_items[i], "parser", "parser_parse_from_use_statement", 16);
+                if (specific_aliases && specific_aliases[i]) {
+                    shared_free_safe(specific_aliases[i], "parser", "parser_parse_from_use_statement", 17);
+                }
+            }
+            shared_free_safe(specific_items, "parser", "parser_parse_from_use_statement", 18);
+            if (specific_aliases) {
+                shared_free_safe(specific_aliases, "parser", "parser_parse_from_use_statement", 19);
+            }
+            shared_free_safe(library_name, "parser", "parser_parse_from_use_statement", 20);
+            if (alias) {
+                shared_free_safe(alias, "parser", "parser_parse_from_use_statement", 21);
+            }
             return NULL;
         }
         specific_items = new_items;
-        specific_items[item_count] = (parser->current_token->text ? strdup(parser->current_token->text) : NULL);
+        specific_aliases = new_aliases;
+        specific_items[item_count] = item_name;
+        specific_aliases[item_count] = item_alias; // Can be NULL if no alias
         item_count++;
         
-        parser_advance(parser); // consume identifier
-        
+        // Check for comma to continue parsing more items
         if (parser_check(parser, TOKEN_COMMA)) {
             parser_advance(parser); // consume comma
             continue;
@@ -3964,38 +4032,26 @@ ASTNode* parser_parse_from_use_statement(Parser* parser) {
         break;
     }
     
-    // Check for 'as' alias (for the whole module, not individual items in from-use syntax)
-    char* alias = NULL;
-    if (parser_check(parser, TOKEN_KEYWORD) && parser->current_token->text && 
-        strcmp(parser->current_token->text, "as") == 0) {
-        parser_advance(parser); // consume 'as'
-        if (!parser_match(parser, TOKEN_IDENTIFIER)) {
-            parser_error(parser, "Expected alias name after 'as'");
-            // Clean up
-            for (size_t i = 0; i < item_count; i++) {
-                shared_free_safe(specific_items[i], "parser", "parser_parse_from_use_statement", 6);
-            }
-            shared_free_safe(specific_items, "parser", "parser_parse_from_use_statement", 7);
-            shared_free_safe(library_name, "parser", "parser_parse_from_use_statement", 8);
-            return NULL;
-        }
-        alias = (parser->previous_token->text ? strdup(parser->previous_token->text) : NULL);
-    }
-    
     // Create the use statement node (reusing AST_NODE_USE structure)
     ASTNode* node = ast_create_use(library_name, alias, specific_items, specific_aliases, item_count, 
                                   parser->previous_token->line, parser->previous_token->column);
     
-    // Clean up temporary storage
-    shared_free_safe(library_name, "parser", "parser_parse_from_use_statement", 9);
+    // Clean up temporary storage (ast_create_use will clone the strings)
+    shared_free_safe(library_name, "parser", "parser_parse_from_use_statement", 22);
     if (specific_items) {
         for (size_t i = 0; i < item_count; i++) {
-            shared_free_safe(specific_items[i], "parser", "parser_parse_from_use_statement", 10);
+            shared_free_safe(specific_items[i], "parser", "parser_parse_from_use_statement", 23);
+            if (specific_aliases && specific_aliases[i]) {
+                shared_free_safe(specific_aliases[i], "parser", "parser_parse_from_use_statement", 24);
+            }
         }
-        shared_free_safe(specific_items, "parser", "parser_parse_from_use_statement", 11);
+        shared_free_safe(specific_items, "parser", "parser_parse_from_use_statement", 25);
+    }
+    if (specific_aliases) {
+        shared_free_safe(specific_aliases, "parser", "parser_parse_from_use_statement", 26);
     }
     if (alias) {
-        shared_free_safe(alias, "parser", "parser_parse_from_use_statement", 12);
+        shared_free_safe(alias, "parser", "parser_parse_from_use_statement", 27);
     }
     
     return node;

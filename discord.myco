@@ -1,0 +1,341 @@
+# Discord Bot Module for Myco
+# A high-level wrapper around the Gateway library for creating Discord bots
+#
+# Usage:
+#   use "discord.myco" as discord;
+#   let bot = discord.createBot("YOUR_BOT_TOKEN");
+#   bot.on("ready", func(event): print("Bot is ready!"); end);
+#   bot.on("messageCreate", func(event): 
+#       let msg = event.data;
+#       if msg.content == "!ping":
+#           bot.sendMessage(msg.channel_id, "Pong!");
+#       end
+#   end);
+#   bot.connect();
+
+requires net;
+
+use gateway as gateway;
+use json as json;
+use http as http;
+
+# Discord Gateway URL
+let DISCORD_GATEWAY_URL = "wss://gateway.discord.gg/?v=10&encoding=json";
+
+# Discord Gateway Opcodes (matching Gateway library)
+let OPCODE_DISPATCH = 0;
+let OPCODE_HEARTBEAT = 1;
+let OPCODE_IDENTIFY = 2;
+let OPCODE_STATUS_UPDATE = 3;
+let OPCODE_VOICE_STATE_UPDATE = 4;
+let OPCODE_RESUME = 6;
+let OPCODE_RECONNECT = 7;
+let OPCODE_REQUEST_GUILD_MEMBERS = 8;
+let OPCODE_INVALID_SESSION = 9;
+let OPCODE_HELLO = 10;
+let OPCODE_HEARTBEAT_ACK = 11;
+
+# Discord Event Names
+let EVENT_READY = "READY";
+let EVENT_MESSAGE_CREATE = "MESSAGE_CREATE";
+let EVENT_MESSAGE_UPDATE = "MESSAGE_UPDATE";
+let EVENT_MESSAGE_DELETE = "MESSAGE_DELETE";
+let EVENT_MESSAGE_REACTION_ADD = "MESSAGE_REACTION_ADD";
+let EVENT_MESSAGE_REACTION_REMOVE = "MESSAGE_REACTION_REMOVE";
+let EVENT_GUILD_CREATE = "GUILD_CREATE";
+let EVENT_GUILD_UPDATE = "GUILD_UPDATE";
+let EVENT_GUILD_DELETE = "GUILD_DELETE";
+let EVENT_CHANNEL_CREATE = "CHANNEL_CREATE";
+let EVENT_CHANNEL_UPDATE = "CHANNEL_UPDATE";
+let EVENT_CHANNEL_DELETE = "CHANNEL_DELETE";
+let EVENT_MEMBER_JOIN = "GUILD_MEMBER_ADD";
+let EVENT_MEMBER_UPDATE = "GUILD_MEMBER_UPDATE";
+let EVENT_MEMBER_LEAVE = "GUILD_MEMBER_REMOVE";
+
+# Create a Discord bot instance
+func createBot(token: String) -> Object:
+    if token == null or token == "":
+        print("Error: Bot token is required");
+        return null;
+    end
+    
+    # Create gateway configuration
+    let config = {};
+    config.token = token;
+    config.version = 10;
+    config.encoding = "json";
+    
+    # Create gateway connection
+    let gw = gateway.create(DISCORD_GATEWAY_URL, config);
+    if gw == null:
+        print("Error: Failed to create gateway connection");
+        return null;
+    end
+    
+    # Create bot object
+    let bot = {};
+    bot.__gateway__ = gw;
+    bot.token = token;
+    bot.user = null;
+    bot.guilds = {};
+    bot.eventHandlers = {};
+    
+    # Wrapper methods
+    bot.connect = func():
+        gw.connect();
+    end;
+    
+    bot.disconnect = func():
+        gw.disconnect();
+    end;
+    
+    bot.getState = func() -> String:
+        return gw.getState();
+    end;
+    
+    # Event handler registration
+    bot.on = func(eventName: String, callback: Function):
+        if eventName == null or callback == null:
+            print("Error: event name and callback are required");
+            return;
+        end
+        
+        # Store event handler
+        bot.eventHandlers[eventName] = callback;
+        
+        # Register with gateway
+        if eventName == "ready":
+            gw.on("ready", func(event):
+                # Store bot user info
+                if event.data != null and event.data.user != null:
+                    bot.user = event.data.user;
+                end
+                # Call user callback
+                if bot.eventHandlers["ready"] != null:
+                    bot.eventHandlers["ready"](event);
+                end
+            end);
+        else:
+            # For all other events, use the generic event handler
+            gw.on("event", func(event):
+                let eventType = event.name;
+                if eventType == eventName and bot.eventHandlers[eventName] != null:
+                    bot.eventHandlers[eventName](event);
+                end
+            end);
+        end
+    end;
+    
+    # Send a message to a channel via Discord HTTP API
+    bot.sendMessage = func(channelId: String, content: String, embed: Object = null) -> Object:
+        if channelId == null or content == null:
+            print("Error: channel ID and content are required");
+            return null;
+        end
+        
+        # Create message payload
+        let payload = {};
+        payload.content = content;
+        if embed != null:
+            payload.embeds = [embed];
+        end
+        
+        # Convert payload to JSON
+        let jsonPayload = json.stringify(payload);
+        if jsonPayload == null:
+            print("Error: Failed to stringify message payload");
+            return null;
+        end
+        
+        # Discord API endpoint
+        let url = "https://discord.com/api/v10/channels/" + channelId + "/messages";
+        
+        # Create headers
+        let headers = "Authorization: Bot " + bot.token + "\r\nContent-Type: application/json";
+        
+        # Send POST request
+        # Note: The http.post function doesn't support custom headers directly,
+        # so we'll need to use a workaround or extend the HTTP library
+        # For now, we'll use http.post which may not include auth headers
+        # This is a limitation that would need to be addressed in the HTTP library
+        let response = http.post(url, jsonPayload);
+        
+        if response == null or not response.success:
+            print("Error: Failed to send message. Status: " + (response != null ? response.status_code.toString() : "unknown"));
+            return null;
+        end
+        
+        # Parse response
+        if response.body != null:
+            let messageData = json.parse(response.body);
+            return messageData;
+        end
+        
+        return null;
+    end;
+    
+    # React to a message via Discord HTTP API
+    bot.react = func(channelId: String, messageId: String, emoji: String) -> Boolean:
+        if channelId == null or messageId == null or emoji == null:
+            print("Error: channel ID, message ID, and emoji are required");
+            return false;
+        end
+        
+        # URL encode emoji if needed (simplified - may need proper encoding)
+        let encodedEmoji = emoji;
+        
+        # Discord API endpoint for reactions
+        let url = "https://discord.com/api/v10/channels/" + channelId + "/messages/" + messageId + "/reactions/" + encodedEmoji + "/@me";
+        
+        # Send PUT request (Discord uses PUT for reactions)
+        # Note: PUT request with empty body for reactions
+        let response = http.put(url, "");
+        
+        if response == null or not response.success:
+            print("Error: Failed to add reaction. Status: " + (response != null ? response.status_code.toString() : "unknown"));
+            return false;
+        end
+        
+        return true;
+    end;
+    
+    # Get gateway connection (for advanced usage)
+    bot.getGateway = func() -> Object:
+        return gw;
+    end;
+    
+    return bot;
+end;
+
+# Helper function to create a Discord embed
+func createEmbed(title: String, description: String, color: Number = 0) -> Object:
+    let embed = {};
+    embed.title = title;
+    embed.description = description;
+    embed.color = color;
+    embed.fields = [];
+    embed.timestamp = null;
+    embed.footer = null;
+    embed.image = null;
+    embed.thumbnail = null;
+    return embed;
+end;
+
+# Add a field to an embed
+func addEmbedField(embed: Object, name: String, value: String, inline: Boolean = false):
+    if embed == null or embed.fields == null:
+        return;
+    end
+    
+    let field = {};
+    field.name = name;
+    field.value = value;
+    field.inline = inline;
+    embed.fields.push(field);
+end;
+
+# Helper function to format Discord user mention
+func mentionUser(userId: String) -> String:
+    return "<@" + userId + ">";
+end;
+
+# Helper function to format Discord channel mention
+func mentionChannel(channelId: String) -> String:
+    return "<#" + channelId + ">";
+end;
+
+# Helper function to format Discord role mention
+func mentionRole(roleId: String) -> String:
+    return "<@&" + roleId + ">";
+end;
+
+# Helper function to get user from event data
+func getUserFromEvent(event: Object) -> Object:
+    if event == null or event.data == null:
+        return null;
+    end
+    
+    # Check if event.data has author (for messages)
+    if event.data.author != null:
+        return event.data.author;
+    end
+    
+    # Check if event.data has user (for other events)
+    if event.data.user != null:
+        return event.data.user;
+    end
+    
+    return null;
+end;
+
+# Helper function to get channel from event data
+func getChannelFromEvent(event: Object) -> Object:
+    if event == null or event.data == null:
+        return null;
+    end
+    
+    if event.data.channel_id != null:
+        return {id: event.data.channel_id};
+    end
+    
+    if event.data.channel != null:
+        return event.data.channel;
+    end
+    
+    return null;
+end;
+
+# Helper function to get guild from event data
+func getGuildFromEvent(event: Object) -> Object:
+    if event == null or event.data == null:
+        return null;
+    end
+    
+    if event.data.guild_id != null:
+        return {id: event.data.guild_id};
+    end
+    
+    if event.data.guild != null:
+        return event.data.guild;
+    end
+    
+    return null;
+end;
+
+# Example usage function (commented out)
+# func example():
+#     use "discord.myco" as discord;
+#     
+#     let bot = discord.createBot("YOUR_BOT_TOKEN");
+#     
+#     bot.on("ready", func(event):
+#         print("Bot is ready! Logged in as: " + bot.user.username);
+#     end);
+#     
+#     bot.on("messageCreate", func(event):
+#         let msg = event.data;
+#         let user = discord.getUserFromEvent(event);
+#         let channel = discord.getChannelFromEvent(event);
+#         
+#         if msg.content == "!ping":
+#             bot.sendMessage(channel.id, "Pong!");
+#         end
+#         
+#         if msg.content == "!hello":
+#             bot.sendMessage(channel.id, "Hello, " + discord.mentionUser(user.id) + "!");
+#         end
+#         
+#         if msg.content == "!react":
+#             bot.react(channel.id, msg.id, "👍");
+#         end
+#     end);
+#     
+#     bot.connect();
+# end;
+
+# Note: The HTTP library may need to be extended to support custom headers
+# for proper Discord API authentication. Currently, http.post() and http.put()
+# may not include the Authorization header required by Discord.
+# This is a known limitation that would need to be addressed in the HTTP library
+# to fully support Discord's API requirements.
+

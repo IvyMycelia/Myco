@@ -573,13 +573,38 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
         // This is a bytecode function - execute it directly
         int func_id = (int)body_addr;
         
+        // Check if this function is from a module (has module path in captured environment)
+        BytecodeProgram* program = NULL;
+        BytecodeProgram* saved_cache = NULL;
+        if (func->data.function_value.captured_environment) {
+            Value module_path_val = environment_get(func->data.function_value.captured_environment, "__module_path__");
+            if (module_path_val.type == VALUE_STRING && module_path_val.data.string_value && interpreter && interpreter->module_cache) {
+                // Find module in cache and temporarily set bytecode program cache
+                // find_cached_module is static in bytecode_vm.c, so we'll search the cache directly
+                const char* module_path = module_path_val.data.string_value;
+                ModuleCacheEntry* module_entry = NULL;
+                for (size_t i = 0; i < interpreter->module_cache_count; i++) {
+                    if (interpreter->module_cache[i].file_path && 
+                        strcmp(interpreter->module_cache[i].file_path, module_path) == 0) {
+                        module_entry = &interpreter->module_cache[i];
+                        break;
+                    }
+                }
+                if (module_entry && module_entry->is_valid && module_entry->module_bytecode_program) {
+                    saved_cache = interpreter->bytecode_program_cache;
+                    interpreter->bytecode_program_cache = (BytecodeProgram*)module_entry->module_bytecode_program;
+                }
+            }
+            value_free(&module_path_val);
+        }
+        
         // Get the bytecode program from interpreter cache
         if (!interpreter || !interpreter->bytecode_program_cache) {
             interpreter_set_error(interpreter, "Bytecode program not available for function call", line, column);
             return value_create_null();
         }
         
-        BytecodeProgram* program = (BytecodeProgram*)interpreter->bytecode_program_cache;
+        program = interpreter->bytecode_program_cache;
         if (func_id < 0 || func_id >= (int)program->function_count) {
             interpreter_set_error(interpreter, "Invalid bytecode function ID", line, column);
             return value_create_null();
@@ -639,6 +664,11 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
         
         // Restore environment
         interpreter->current_environment = old_env;
+        
+        // Restore bytecode program cache if we changed it for module function
+        if (saved_cache && interpreter) {
+            interpreter->bytecode_program_cache = saved_cache;
+        }
         
         // Clear self context if it was set
         if (self) {

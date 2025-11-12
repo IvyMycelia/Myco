@@ -59,6 +59,9 @@ void register_all_builtin_libraries(Interpreter* interpreter) {
     web_library_register(interpreter);
     database_library_register(interpreter);
 
+    // Register websocket library
+    websocket_library_register(interpreter);
+
     // Register arduino library (host-simulated, cross-platform)
     arduino_library_register(interpreter);
 

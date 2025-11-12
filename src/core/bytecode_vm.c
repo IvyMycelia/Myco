@@ -22,6 +22,8 @@
 #include <errno.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <pthread.h>
+#include <unistd.h>
 
 // Branch prediction hints for better CPU performance
 #ifdef __GNUC__
@@ -678,6 +680,11 @@ static void promise_registry_remove(Interpreter* interpreter, uint64_t promise_i
 static void async_task_queue_add(Interpreter* interpreter, AsyncTask* task) {
     if (!interpreter || !task) return;
     
+    // Lock mutex for thread-safe access
+    if (interpreter->async_enabled && interpreter->worker_thread_count > 0) {
+        pthread_mutex_lock(&interpreter->task_queue_mutex);
+    }
+    
     // Initialize queue if needed
     if (!interpreter->task_queue) {
         interpreter->task_queue_capacity = 16;
@@ -698,10 +705,26 @@ static void async_task_queue_add(Interpreter* interpreter, AsyncTask* task) {
     }
     
     interpreter->task_queue[interpreter->task_queue_size++] = task;
+    
+    // Signal worker threads that a task is available
+    if (interpreter->async_enabled && interpreter->worker_thread_count > 0) {
+        pthread_cond_signal(&interpreter->task_available);
+        pthread_mutex_unlock(&interpreter->task_queue_mutex);
+    }
 }
 
 static AsyncTask* async_task_queue_pop(Interpreter* interpreter) {
-    if (!interpreter || !interpreter->task_queue || interpreter->task_queue_size == 0) {
+    if (!interpreter) return NULL;
+    
+    // Lock mutex for thread-safe access
+    if (interpreter->async_enabled && interpreter->worker_thread_count > 0) {
+        pthread_mutex_lock(&interpreter->task_queue_mutex);
+    }
+    
+    if (!interpreter->task_queue || interpreter->task_queue_size == 0) {
+        if (interpreter->async_enabled && interpreter->worker_thread_count > 0) {
+            pthread_mutex_unlock(&interpreter->task_queue_mutex);
+        }
         return NULL;
     }
     
@@ -713,11 +736,20 @@ static AsyncTask* async_task_queue_pop(Interpreter* interpreter) {
     }
     interpreter->task_queue_size--;
     
+    if (interpreter->async_enabled && interpreter->worker_thread_count > 0) {
+        pthread_mutex_unlock(&interpreter->task_queue_mutex);
+    }
+    
     return task;
 }
 
 static void async_resolve_promise(Interpreter* interpreter, Value* promise, Value* value) {
     if (!promise || promise->type != VALUE_PROMISE) return;
+    
+    // Lock promise registry mutex for thread-safe access
+    if (interpreter && interpreter->async_enabled && interpreter->worker_thread_count > 0) {
+        pthread_mutex_lock(&interpreter->promise_registry_mutex);
+    }
     
     promise->data.promise_value.is_resolved = 1;
     promise->data.promise_value.is_rejected = 0;
@@ -745,12 +777,21 @@ static void async_resolve_promise(Interpreter* interpreter, Value* promise, Valu
         promise->data.promise_value.resolved_value = NULL;
     }
     
+    if (interpreter && interpreter->async_enabled && interpreter->worker_thread_count > 0) {
+        pthread_mutex_unlock(&interpreter->promise_registry_mutex);
+    }
+    
     // Execute then callbacks (simplified - just process immediately)
     // TODO: Add proper callback execution
 }
 
 static void async_reject_promise(Interpreter* interpreter, Value* promise, Value* error) {
     if (!promise || promise->type != VALUE_PROMISE) return;
+    
+    // Lock promise registry mutex for thread-safe access
+    if (interpreter && interpreter->async_enabled && interpreter->worker_thread_count > 0) {
+        pthread_mutex_lock(&interpreter->promise_registry_mutex);
+    }
     
     promise->data.promise_value.is_resolved = 0;
     promise->data.promise_value.is_rejected = 1;
@@ -765,27 +806,51 @@ static void async_reject_promise(Interpreter* interpreter, Value* promise, Value
         *promise->data.promise_value.rejected_value = value_clone(error);
     }
     
+    if (interpreter && interpreter->async_enabled && interpreter->worker_thread_count > 0) {
+        pthread_mutex_unlock(&interpreter->promise_registry_mutex);
+    }
+    
     // Execute catch callbacks (simplified - just process immediately)
     // TODO: Add proper callback execution
 }
 
-static void async_event_loop_run(Interpreter* interpreter) {
-    if (!interpreter || !interpreter->async_enabled) return;
+// Worker thread function for concurrent task execution
+static void* async_worker_thread(void* arg) {
+    Interpreter* interpreter = (Interpreter*)arg;
+    if (!interpreter) return NULL;
     
-    // Process WebSocket connections (non-blocking I/O)
-    // This handles message receiving, ping/pong, reconnection, etc.
-    extern void websocket_process_connections(Interpreter* interpreter);
-    websocket_process_connections(interpreter);
-    
-    if (!interpreter->task_queue || interpreter->task_queue_size == 0) return;
-    
-    // Process tasks until queue is empty
-    // For now, process all tasks synchronously
-    // TODO: Add proper scheduling and concurrency
-    while (interpreter->task_queue && interpreter->task_queue_size > 0) {
-        AsyncTask* task = async_task_queue_pop(interpreter);
-        if (!task) break;
+    while (!interpreter->shutdown_workers) {
+        AsyncTask* task = NULL;
         
+        // Lock mutex and wait for tasks
+        pthread_mutex_lock(&interpreter->task_queue_mutex);
+        
+        // Wait for tasks or shutdown signal
+        while (interpreter->task_queue_size == 0 && !interpreter->shutdown_workers) {
+            pthread_cond_wait(&interpreter->task_available, &interpreter->task_queue_mutex);
+        }
+        
+        // Check if we should shutdown
+        if (interpreter->shutdown_workers) {
+            pthread_mutex_unlock(&interpreter->task_queue_mutex);
+            break;
+        }
+        
+        // Pop a task
+        if (interpreter->task_queue && interpreter->task_queue_size > 0) {
+            task = interpreter->task_queue[0];
+            // Shift remaining tasks
+            for (size_t i = 1; i < interpreter->task_queue_size; i++) {
+                interpreter->task_queue[i - 1] = interpreter->task_queue[i];
+            }
+            interpreter->task_queue_size--;
+        }
+        
+        pthread_mutex_unlock(&interpreter->task_queue_mutex);
+        
+        if (!task) continue;
+        
+        // Execute task (outside of mutex lock)
         if (task->is_resolved) {
             // Task already completed - resolve promise
             if (task->promise_ptr && task->promise_ptr->type == VALUE_PROMISE) {
@@ -797,58 +862,37 @@ static void async_event_loop_run(Interpreter* interpreter) {
             if (program && task->function_id >= 0 && task->function_id < (int)program->function_count && program->functions) {
                 BytecodeFunction* func = &program->functions[task->function_id];
                 
-                // Save current environment
+                // Create a local interpreter context for this thread
+                // Note: We need to be careful about shared state
                 Environment* old_env = interpreter->current_environment;
                 interpreter->current_environment = task->environment ? task->environment : interpreter->global_environment;
                 
-                // Execute function - this should return the function's return value
+                // Execute function
                 Value result = bytecode_execute_function_bytecode(
                     interpreter, func, task->args, (int)task->arg_count, program);
                 
-                // bytecode_execute_function_bytecode should have already captured the return value
-                // and set it in the result. However, if interpreter->has_return is still set,
-                // that means the return value is in interpreter->return_value and wasn't
-                // captured in result. Use interpreter->return_value as the authoritative source.
-                // This can happen if bytecode_execute_function_bytecode didn't properly capture it.
-                // Also check if result is NULL - this shouldn't happen if the function returned a value
+                // Handle return value
                 if (result.type == VALUE_NULL) {
-                    // Result is NULL - check if interpreter->has_return is still set
-                    // This means bytecode_execute_function_bytecode didn't capture the return value
                     if (interpreter->has_return && interpreter->return_value.type != VALUE_NULL) {
-                        // The return value is still in interpreter->return_value
-                        // Use it as the result
                         result = value_clone(&interpreter->return_value);
                         interpreter->has_return = 0;
                         value_free(&interpreter->return_value);
                         interpreter->return_value = value_create_null();
                     }
-                    // If result is still NULL and has_return is not set, the function didn't return a value
-                    // This is fine - we'll resolve the promise with NULL
                 }
-                
-                // At this point, result should contain the function's return value
-                // (or VALUE_NULL if the function didn't return anything)
-                // If result is still NULL, that means the function didn't return a value,
-                // which is fine - we'll resolve the promise with NULL
                 
                 // Restore environment
                 interpreter->current_environment = old_env;
                 
-                // Resolve promise with result - resolve the promise pointer so it updates the original
-                // Make sure we have a valid result (even if it's null)
-                // Clone the result before resolving to ensure we have our own copy
+                // Resolve promise
                 Value result_to_resolve = value_clone(&result);
-                task->result = value_clone(&result);  // Clone result for task
+                task->result = value_clone(&result);
                 task->is_resolved = 1;
                 if (task->promise_ptr && task->promise_ptr->type == VALUE_PROMISE) {
-                    // Always resolve, even if result is null (that's a valid return value)
                     async_resolve_promise(interpreter, task->promise_ptr, &result_to_resolve);
-                } else {
-                    // Promise pointer is invalid - this shouldn't happen
-                    // But handle it gracefully
                 }
-                value_free(&result);  // Free the original result
-                value_free(&result_to_resolve);  // Free the cloned result
+                value_free(&result);
+                value_free(&result_to_resolve);
             } else {
                 // Invalid task - reject promise
                 Value error = value_create_string("Invalid async task");
@@ -864,14 +908,201 @@ static void async_event_loop_run(Interpreter* interpreter) {
             for (size_t i = 0; i < task->arg_count; i++) {
                 value_free(&task->args[i]);
             }
-            shared_free_safe(task->args, "bytecode_vm", "async_event_loop_run", 0);
+            shared_free_safe(task->args, "bytecode_vm", "worker_thread", 0);
         }
         value_free(&task->promise_copy);
         value_free(&task->result);
-        // Don't free promise_ptr here - it's owned by the caller who received the promise
-        // The promise_ptr will be freed when the promise Value is freed
-        shared_free_safe(task, "bytecode_vm", "async_event_loop_run", 0);
+        shared_free_safe(task, "bytecode_vm", "worker_thread", 1);
     }
+    
+    return NULL;
+}
+
+// Initialize async concurrency system
+static void async_init_concurrency(Interpreter* interpreter) {
+    if (!interpreter || !interpreter->async_enabled) return;
+    
+    // Initialize mutexes and condition variable
+    pthread_mutex_init(&interpreter->task_queue_mutex, NULL);
+    pthread_mutex_init(&interpreter->promise_registry_mutex, NULL);
+    pthread_cond_init(&interpreter->task_available, NULL);
+    interpreter->shutdown_workers = 0;
+    
+    // Determine number of worker threads (use CPU count or default to 4)
+    #ifdef _SC_NPROCESSORS_ONLN
+    long cpu_count = sysconf(_SC_NPROCESSORS_ONLN);
+    interpreter->worker_thread_count = (cpu_count > 0) ? (size_t)cpu_count : 4;
+    #else
+    interpreter->worker_thread_count = 4;  // Default to 4 threads
+    #endif
+    
+    // Limit to reasonable number
+    if (interpreter->worker_thread_count > 16) {
+        interpreter->worker_thread_count = 16;
+    }
+    
+    // Allocate worker threads
+    interpreter->worker_threads = (pthread_t*)shared_malloc_safe(
+        interpreter->worker_thread_count * sizeof(pthread_t),
+        "bytecode_vm", "async_init_concurrency", 0);
+    
+    if (!interpreter->worker_threads) {
+        interpreter->worker_thread_count = 0;
+        return;
+    }
+    
+    // Start worker threads
+    for (size_t i = 0; i < interpreter->worker_thread_count; i++) {
+        if (pthread_create(&interpreter->worker_threads[i], NULL, async_worker_thread, interpreter) != 0) {
+            // Failed to create thread - reduce count
+            interpreter->worker_thread_count = i;
+            break;
+        }
+    }
+}
+
+// Shutdown async concurrency system
+static void async_shutdown_concurrency(Interpreter* interpreter) {
+    if (!interpreter || interpreter->worker_thread_count == 0) return;
+    
+    // Signal shutdown
+    pthread_mutex_lock(&interpreter->task_queue_mutex);
+    interpreter->shutdown_workers = 1;
+    pthread_cond_broadcast(&interpreter->task_available);
+    pthread_mutex_unlock(&interpreter->task_queue_mutex);
+    
+    // Wait for all threads to finish
+    for (size_t i = 0; i < interpreter->worker_thread_count; i++) {
+        pthread_join(interpreter->worker_threads[i], NULL);
+    }
+    
+    // Cleanup
+    if (interpreter->worker_threads) {
+        shared_free_safe(interpreter->worker_threads, "bytecode_vm", "async_shutdown_concurrency", 0);
+        interpreter->worker_threads = NULL;
+    }
+    
+    interpreter->worker_thread_count = 0;
+    pthread_mutex_destroy(&interpreter->task_queue_mutex);
+    pthread_mutex_destroy(&interpreter->promise_registry_mutex);
+    pthread_cond_destroy(&interpreter->task_available);
+}
+
+static void async_event_loop_run(Interpreter* interpreter) {
+    if (!interpreter || !interpreter->async_enabled) return;
+    
+    // Initialize concurrency system if not already initialized
+    if (interpreter->worker_thread_count == 0 && interpreter->async_enabled) {
+        async_init_concurrency(interpreter);
+    }
+    
+    // Process WebSocket connections (non-blocking I/O)
+    // This handles message receiving, ping/pong, reconnection, etc.
+    extern void websocket_process_connections(Interpreter* interpreter);
+    websocket_process_connections(interpreter);
+    
+    // Process Gateway connections (heartbeat, message parsing, etc.)
+    extern void gateway_process_all_connections(Interpreter* interpreter);
+    gateway_process_all_connections(interpreter);
+    
+    // If using worker threads, tasks are processed concurrently by workers
+    // Otherwise, fall back to synchronous processing
+    if (interpreter->worker_thread_count == 0) {
+        // Fallback: synchronous processing (for compatibility)
+        if (!interpreter->task_queue || interpreter->task_queue_size == 0) return;
+        
+        while (interpreter->task_queue && interpreter->task_queue_size > 0) {
+            AsyncTask* task = async_task_queue_pop(interpreter);
+            if (!task) break;
+            
+            if (task->is_resolved) {
+                // Task already completed - resolve promise
+                if (task->promise_ptr && task->promise_ptr->type == VALUE_PROMISE) {
+                    async_resolve_promise(interpreter, task->promise_ptr, &task->result);
+                }
+            } else {
+                // Execute task
+                BytecodeProgram* program = (BytecodeProgram*)task->program;
+                if (program && task->function_id >= 0 && task->function_id < (int)program->function_count && program->functions) {
+                    BytecodeFunction* func = &program->functions[task->function_id];
+                    
+                    // Save current environment
+                    Environment* old_env = interpreter->current_environment;
+                    interpreter->current_environment = task->environment ? task->environment : interpreter->global_environment;
+                    
+                    // Execute function - this should return the function's return value
+                    Value result = bytecode_execute_function_bytecode(
+                        interpreter, func, task->args, (int)task->arg_count, program);
+                    
+                    // bytecode_execute_function_bytecode should have already captured the return value
+                    // and set it in the result. However, if interpreter->has_return is still set,
+                    // that means the return value is in interpreter->return_value and wasn't
+                    // captured in result. Use interpreter->return_value as the authoritative source.
+                    // This can happen if bytecode_execute_function_bytecode didn't properly capture it.
+                    // Also check if result is NULL - this shouldn't happen if the function returned a value
+                    if (result.type == VALUE_NULL) {
+                        // Result is NULL - check if interpreter->has_return is still set
+                        // This means bytecode_execute_function_bytecode didn't capture the return value
+                        if (interpreter->has_return && interpreter->return_value.type != VALUE_NULL) {
+                            // The return value is still in interpreter->return_value
+                            // Use it as the result
+                            result = value_clone(&interpreter->return_value);
+                            interpreter->has_return = 0;
+                            value_free(&interpreter->return_value);
+                            interpreter->return_value = value_create_null();
+                        }
+                        // If result is still NULL and has_return is not set, the function didn't return a value
+                        // This is fine - we'll resolve the promise with NULL
+                    }
+                    
+                    // At this point, result should contain the function's return value
+                    // (or VALUE_NULL if the function didn't return anything)
+                    // If result is still NULL, that means the function didn't return a value,
+                    // which is fine - we'll resolve the promise with NULL
+                    
+                    // Restore environment
+                    interpreter->current_environment = old_env;
+                    
+                    // Resolve promise with result - resolve the promise pointer so it updates the original
+                    // Make sure we have a valid result (even if it's null)
+                    // Clone the result before resolving to ensure we have our own copy
+                    Value result_to_resolve = value_clone(&result);
+                    task->result = value_clone(&result);  // Clone result for task
+                    task->is_resolved = 1;
+                    if (task->promise_ptr && task->promise_ptr->type == VALUE_PROMISE) {
+                        // Always resolve, even if result is null (that's a valid return value)
+                        async_resolve_promise(interpreter, task->promise_ptr, &result_to_resolve);
+                    } else {
+                        // Promise pointer is invalid - this shouldn't happen
+                        // But handle it gracefully
+                    }
+                    value_free(&result);  // Free the original result
+                    value_free(&result_to_resolve);  // Free the cloned result
+                } else {
+                    // Invalid task - reject promise
+                    Value error = value_create_string("Invalid async task");
+                    if (task->promise_ptr) {
+                        async_reject_promise(interpreter, task->promise_ptr, &error);
+                    }
+                    value_free(&error);
+                }
+            }
+            
+            // Free task
+            if (task->args) {
+                for (size_t i = 0; i < task->arg_count; i++) {
+                    value_free(&task->args[i]);
+                }
+                shared_free_safe(task->args, "bytecode_vm", "async_event_loop_run", 0);
+            }
+            value_free(&task->promise_copy);
+            value_free(&task->result);
+            // Don't free promise_ptr here - it's owned by the caller who received the promise
+            // The promise_ptr will be freed when the promise Value is freed
+            shared_free_safe(task, "bytecode_vm", "async_event_loop_run", 0);
+        }
+    }
+    // Worker threads handle task execution concurrently
 }
 
 // These functions are implemented in bytecode_compiler.c

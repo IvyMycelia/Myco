@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <pthread.h>
 
 // Pattern matching is handled by bytecode_vm.c (pattern_matches_value)
 
@@ -103,6 +104,12 @@ Interpreter* interpreter_create(void) {
     interpreter->task_queue_size = 0;
     interpreter->task_queue_capacity = 0;
     interpreter->async_enabled = 1;  // Enable async by default
+    
+    // Concurrency support initialization
+    interpreter->worker_threads = NULL;
+    interpreter->worker_thread_count = 0;
+    interpreter->shutdown_workers = 0;
+    // Mutexes and condition variable will be initialized when concurrency is enabled
     
     // Promise registry initialization
     interpreter->promise_registry = NULL;
@@ -207,6 +214,57 @@ void interpreter_free(Interpreter* interpreter) {
         // if (interpreter->compile_time_evaluator) {
         //     compile_time_evaluator_free(interpreter->compile_time_evaluator);
         // }
+        
+        // Shutdown async concurrency system
+        // Note: async_shutdown_concurrency is static in bytecode_vm.c, so we clean up manually
+        if (interpreter->worker_thread_count > 0 && interpreter->worker_threads) {
+            // Signal shutdown
+            pthread_mutex_lock(&interpreter->task_queue_mutex);
+            interpreter->shutdown_workers = 1;
+            pthread_cond_broadcast(&interpreter->task_available);
+            pthread_mutex_unlock(&interpreter->task_queue_mutex);
+            
+            // Wait for all threads to finish
+            for (size_t i = 0; i < interpreter->worker_thread_count; i++) {
+                pthread_join(interpreter->worker_threads[i], NULL);
+            }
+            
+            // Cleanup
+            shared_free_safe(interpreter->worker_threads, "interpreter", "interpreter_free", 0);
+            interpreter->worker_threads = NULL;
+            interpreter->worker_thread_count = 0;
+            pthread_mutex_destroy(&interpreter->task_queue_mutex);
+            pthread_mutex_destroy(&interpreter->promise_registry_mutex);
+            pthread_cond_destroy(&interpreter->task_available);
+        }
+        
+        // Clean up async task queue
+        if (interpreter->task_queue) {
+            // Free any remaining tasks
+            for (size_t i = 0; i < interpreter->task_queue_size; i++) {
+                AsyncTask* task = interpreter->task_queue[i];
+                if (task) {
+                    if (task->args) {
+                        for (size_t j = 0; j < task->arg_count; j++) {
+                            value_free(&task->args[j]);
+                        }
+                        shared_free_safe(task->args, "interpreter", "interpreter_free", 0);
+                    }
+                    value_free(&task->promise_copy);
+                    value_free(&task->result);
+                    shared_free_safe(task, "interpreter", "interpreter_free", 0);
+                }
+            }
+            shared_free_safe(interpreter->task_queue, "interpreter", "interpreter_free", 0);
+        }
+        
+        // Clean up promise registry
+        if (interpreter->promise_registry) {
+            for (size_t i = 0; i < interpreter->promise_registry_size; i++) {
+                value_free(&interpreter->promise_registry[i]);
+            }
+            shared_free_safe(interpreter->promise_registry, "interpreter", "interpreter_free", 0);
+        }
         
         if (interpreter->global_environment) {
             environment_free(interpreter->global_environment);

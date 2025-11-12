@@ -24,6 +24,7 @@
 #include "web.h"
 #include "database.h"
 #include "websocket.h"
+#include "gateway.h"
 #include "arduino.h"
 #include "graphics.h"
 

@@ -61,6 +61,9 @@ void register_all_builtin_libraries(Interpreter* interpreter) {
 
     // Register websocket library
     websocket_library_register(interpreter);
+    
+    // Register gateway library
+    gateway_library_register(interpreter);
 
     // Register arduino library (host-simulated, cross-platform)
     arduino_library_register(interpreter);

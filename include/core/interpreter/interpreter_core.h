@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <time.h>
+#include <pthread.h>
 
 // ============================================================================
 // INTERPRETER CORE STRUCTURES AND LIFECYCLE
@@ -309,6 +310,14 @@ typedef struct Interpreter {
     size_t task_queue_size;
     size_t task_queue_capacity;
     int async_enabled;  // Whether async execution is enabled
+    
+    // Concurrency support
+    pthread_t* worker_threads;  // Worker threads for concurrent task execution
+    size_t worker_thread_count;  // Number of worker threads
+    pthread_mutex_t task_queue_mutex;  // Mutex for task queue access
+    pthread_mutex_t promise_registry_mutex;  // Mutex for promise registry access
+    pthread_cond_t task_available;  // Condition variable for task availability
+    int shutdown_workers;  // Flag to signal worker threads to shutdown
     
     // Promise registry - maps promise IDs to promise Values (so we can update them)
     Value* promise_registry;  // Array of promise Values

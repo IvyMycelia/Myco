@@ -1242,7 +1242,13 @@ void websocket_process_connections(Interpreter* interpreter) {
                         conn->waiting_for_pong = false;
                         conn->last_pong_time = time(NULL);
                     } else if (frame.opcode == WS_OPCODE_TEXT || frame.opcode == WS_OPCODE_BINARY) {
-                        // Trigger message callback
+                        // Check if this is a gateway connection
+                        extern void gateway_handle_websocket_message(WebSocketConnection* ws_conn, const char* message);
+                        if (frame.payload) {
+                            gateway_handle_websocket_message(conn, (char*)frame.payload);
+                        }
+                        
+                        // Trigger message callback (for non-gateway connections)
                         if (conn->on_message_callback.type == VALUE_FUNCTION && frame.payload) {
                             Value msg_val = value_create_string((char*)frame.payload);
                             Value result = value_function_call(&conn->on_message_callback, &msg_val, 1, interpreter, 0, 0);

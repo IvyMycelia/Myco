@@ -421,9 +421,24 @@ ASTNode* ast_create_pattern_type(const char* type_name, int line, int column) {
         return NULL;
     }
     strcpy(node->data.pattern_type.type_name, type_name);
+    node->data.pattern_type.variable_name = NULL; // No variable binding by default
     node->line = line;
     node->column = column;
     node->next = NULL;
+    
+    return node;
+}
+
+ASTNode* ast_create_pattern_type_with_binding(const char* type_name, const char* variable_name, int line, int column) {
+    ASTNode* node = ast_create_pattern_type(type_name, line, column);
+    if (!node) return NULL;
+    
+    if (variable_name) {
+        node->data.pattern_type.variable_name = shared_malloc_safe(strlen(variable_name) + 1, "ast", "unknown_function", 360);
+        if (node->data.pattern_type.variable_name) {
+            strcpy(node->data.pattern_type.variable_name, variable_name);
+        }
+    }
     
     return node;
 }

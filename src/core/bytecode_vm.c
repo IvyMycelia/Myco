@@ -49,6 +49,16 @@
 Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunction* func, Value* args, int arg_count, BytecodeProgram* program);
 static int pattern_matches_value(Value* value, Value* pattern);
 
+// Async/await runtime functions
+static void async_task_queue_add(Interpreter* interpreter, AsyncTask* task);
+static AsyncTask* async_task_queue_pop(Interpreter* interpreter);
+static void async_resolve_promise(Interpreter* interpreter, Value* promise, Value* value);
+static void async_reject_promise(Interpreter* interpreter, Value* promise, Value* error);
+static void async_event_loop_run(Interpreter* interpreter);
+static uint64_t promise_registry_add(Interpreter* interpreter, Value promise);
+static Value* promise_registry_get(Interpreter* interpreter, uint64_t promise_id);
+static void promise_registry_remove(Interpreter* interpreter, uint64_t promise_id);
+
 // Phase 4: Module cache helper functions (forward declarations)
 static char* normalize_file_path(const char* path);
 static time_t get_file_mtime(const char* file_path);
@@ -593,6 +603,258 @@ static double num_stack_peek(void) {
         return 0.0;
     }
     return num_stack[num_stack_size - 1];
+}
+
+// ============================================================================
+// ASYNC/AWAIT RUNTIME FUNCTIONS
+// ============================================================================
+
+static uint64_t promise_registry_add(Interpreter* interpreter, Value promise) {
+    if (!interpreter) return 0;
+    
+    // Initialize registry if needed
+    if (!interpreter->promise_registry) {
+        interpreter->promise_registry_capacity = 16;
+        interpreter->promise_registry = (Value*)shared_malloc_safe(
+            interpreter->promise_registry_capacity * sizeof(Value),
+            "bytecode_vm", "promise_registry_add", 0);
+        interpreter->promise_registry_size = 0;
+    }
+    
+    // Expand registry if needed
+    if (interpreter->promise_registry_size >= interpreter->promise_registry_capacity) {
+        size_t new_cap = interpreter->promise_registry_capacity * 2;
+        interpreter->promise_registry = (Value*)shared_realloc_safe(
+            interpreter->promise_registry,
+            new_cap * sizeof(Value),
+            "bytecode_vm", "promise_registry_add", 1);
+        interpreter->promise_registry_capacity = new_cap;
+    }
+    
+    // Assign ID and add to registry
+    uint64_t id = interpreter->next_promise_id++;
+    promise.data.promise_value.promise_id = id;
+    interpreter->promise_registry[interpreter->promise_registry_size++] = promise;
+    
+    return id;
+}
+
+static Value* promise_registry_get(Interpreter* interpreter, uint64_t promise_id) {
+    if (!interpreter || promise_id == 0) return NULL;
+    if (!interpreter->promise_registry || interpreter->promise_registry_size == 0) return NULL;
+    
+    // Linear search for the promise (could be optimized with a hash map)
+    for (size_t i = 0; i < interpreter->promise_registry_size; i++) {
+        if (interpreter->promise_registry[i].type == VALUE_PROMISE &&
+            interpreter->promise_registry[i].data.promise_value.promise_id == promise_id) {
+            return &interpreter->promise_registry[i];
+        }
+    }
+    
+    return NULL;
+}
+
+static void promise_registry_remove(Interpreter* interpreter, uint64_t promise_id) {
+    if (!interpreter || promise_id == 0) return;
+    if (!interpreter->promise_registry || interpreter->promise_registry_size == 0) return;
+    
+    // Find and remove the promise
+    for (size_t i = 0; i < interpreter->promise_registry_size; i++) {
+        if (interpreter->promise_registry[i].type == VALUE_PROMISE &&
+            interpreter->promise_registry[i].data.promise_value.promise_id == promise_id) {
+            // Free the promise
+            value_free(&interpreter->promise_registry[i]);
+            
+            // Shift remaining promises
+            for (size_t j = i + 1; j < interpreter->promise_registry_size; j++) {
+                interpreter->promise_registry[j - 1] = interpreter->promise_registry[j];
+            }
+            interpreter->promise_registry_size--;
+            break;
+        }
+    }
+}
+
+static void async_task_queue_add(Interpreter* interpreter, AsyncTask* task) {
+    if (!interpreter || !task) return;
+    
+    // Initialize queue if needed
+    if (!interpreter->task_queue) {
+        interpreter->task_queue_capacity = 16;
+        interpreter->task_queue = (AsyncTask**)shared_malloc_safe(
+            interpreter->task_queue_capacity * sizeof(AsyncTask*), 
+            "bytecode_vm", "async_task_queue_add", 0);
+        interpreter->task_queue_size = 0;
+    }
+    
+    // Expand queue if needed
+    if (interpreter->task_queue_size >= interpreter->task_queue_capacity) {
+        size_t new_cap = interpreter->task_queue_capacity * 2;
+        interpreter->task_queue = (AsyncTask**)shared_realloc_safe(
+            interpreter->task_queue,
+            new_cap * sizeof(AsyncTask*),
+            "bytecode_vm", "async_task_queue_add", 1);
+        interpreter->task_queue_capacity = new_cap;
+    }
+    
+    interpreter->task_queue[interpreter->task_queue_size++] = task;
+}
+
+static AsyncTask* async_task_queue_pop(Interpreter* interpreter) {
+    if (!interpreter || !interpreter->task_queue || interpreter->task_queue_size == 0) {
+        return NULL;
+    }
+    
+    AsyncTask* task = interpreter->task_queue[0];
+    
+    // Shift remaining tasks
+    for (size_t i = 1; i < interpreter->task_queue_size; i++) {
+        interpreter->task_queue[i - 1] = interpreter->task_queue[i];
+    }
+    interpreter->task_queue_size--;
+    
+    return task;
+}
+
+static void async_resolve_promise(Interpreter* interpreter, Value* promise, Value* value) {
+    if (!promise || promise->type != VALUE_PROMISE) return;
+    
+    promise->data.promise_value.is_resolved = 1;
+    promise->data.promise_value.is_rejected = 0;
+    
+    // Free old resolved value if it exists
+    if (promise->data.promise_value.resolved_value) {
+        value_free(promise->data.promise_value.resolved_value);
+        shared_free_safe(promise->data.promise_value.resolved_value, "bytecode_vm", "async_resolve_promise", 0);
+        promise->data.promise_value.resolved_value = NULL;
+    }
+    
+    // Free rejected value if it exists (shouldn't happen, but be safe)
+    if (promise->data.promise_value.rejected_value) {
+        value_free(promise->data.promise_value.rejected_value);
+        shared_free_safe(promise->data.promise_value.rejected_value, "bytecode_vm", "async_resolve_promise", 1);
+        promise->data.promise_value.rejected_value = NULL;
+    }
+    
+    // Store resolved value
+    promise->data.promise_value.resolved_value = (Value*)shared_malloc_safe(sizeof(Value), "bytecode_vm", "async_resolve_promise", 2);
+    if (promise->data.promise_value.resolved_value && value) {
+        *promise->data.promise_value.resolved_value = value_clone(value);
+    } else if (!promise->data.promise_value.resolved_value) {
+        // Allocation failed - still mark as resolved but with null value
+        promise->data.promise_value.resolved_value = NULL;
+    }
+    
+    // Execute then callbacks (simplified - just process immediately)
+    // TODO: Add proper callback execution
+}
+
+static void async_reject_promise(Interpreter* interpreter, Value* promise, Value* error) {
+    if (!promise || promise->type != VALUE_PROMISE) return;
+    
+    promise->data.promise_value.is_resolved = 0;
+    promise->data.promise_value.is_rejected = 1;
+    
+    if (promise->data.promise_value.rejected_value) {
+        value_free(promise->data.promise_value.rejected_value);
+        shared_free_safe(promise->data.promise_value.rejected_value, "bytecode_vm", "async_reject_promise", 0);
+    }
+    
+    promise->data.promise_value.rejected_value = (Value*)shared_malloc_safe(sizeof(Value), "bytecode_vm", "async_reject_promise", 0);
+    if (promise->data.promise_value.rejected_value && error) {
+        *promise->data.promise_value.rejected_value = value_clone(error);
+    }
+    
+    // Execute catch callbacks (simplified - just process immediately)
+    // TODO: Add proper callback execution
+}
+
+static void async_event_loop_run(Interpreter* interpreter) {
+    if (!interpreter || !interpreter->async_enabled) return;
+    if (!interpreter->task_queue || interpreter->task_queue_size == 0) return;
+    
+    // Process tasks until queue is empty
+    // For now, process all tasks synchronously
+    // TODO: Add proper scheduling and concurrency
+    while (interpreter->task_queue && interpreter->task_queue_size > 0) {
+        AsyncTask* task = async_task_queue_pop(interpreter);
+        if (!task) break;
+        
+        if (task->is_resolved) {
+            // Task already completed - resolve promise
+            if (task->promise_ptr && task->promise_ptr->type == VALUE_PROMISE) {
+                async_resolve_promise(interpreter, task->promise_ptr, &task->result);
+            }
+        } else {
+            // Execute task
+            BytecodeProgram* program = (BytecodeProgram*)task->program;
+            if (program && task->function_id >= 0 && task->function_id < (int)program->function_count && program->functions) {
+                BytecodeFunction* func = &program->functions[task->function_id];
+                
+                // Save current environment
+                Environment* old_env = interpreter->current_environment;
+                interpreter->current_environment = task->environment ? task->environment : interpreter->global_environment;
+                
+                // Execute function - this should return the function's return value
+                Value result = bytecode_execute_function_bytecode(
+                    interpreter, func, task->args, (int)task->arg_count, program);
+                
+                // bytecode_execute_function_bytecode should have already captured the return value
+                // and set it in the result. However, if interpreter->has_return is still set,
+                // that means the return value is in interpreter->return_value and wasn't
+                // captured in result. Use interpreter->return_value as the authoritative source.
+                if (interpreter->has_return) {
+                    Value return_val = value_clone(&interpreter->return_value);
+                    value_free(&result);  // Free the old result
+                    result = return_val;  // Use the return value from interpreter
+                    interpreter->has_return = 0;
+                    value_free(&interpreter->return_value);
+                }
+                
+                // At this point, result should contain the function's return value
+                // (or VALUE_NULL if the function didn't return anything)
+                
+                // Restore environment
+                interpreter->current_environment = old_env;
+                
+                // Resolve promise with result - resolve the promise pointer so it updates the original
+                // Make sure we have a valid result (even if it's null)
+                // Clone the result before resolving to ensure we have our own copy
+                Value result_to_resolve = value_clone(&result);
+                task->result = value_clone(&result);  // Clone result for task
+                task->is_resolved = 1;
+                if (task->promise_ptr && task->promise_ptr->type == VALUE_PROMISE) {
+                    // Always resolve, even if result is null (that's a valid return value)
+                    async_resolve_promise(interpreter, task->promise_ptr, &result_to_resolve);
+                } else {
+                    // Promise pointer is invalid - this shouldn't happen
+                    // But handle it gracefully
+                }
+                value_free(&result);  // Free the original result
+                value_free(&result_to_resolve);  // Free the cloned result
+            } else {
+                // Invalid task - reject promise
+                Value error = value_create_string("Invalid async task");
+                if (task->promise_ptr) {
+                    async_reject_promise(interpreter, task->promise_ptr, &error);
+                }
+                value_free(&error);
+            }
+        }
+        
+        // Free task
+        if (task->args) {
+            for (size_t i = 0; i < task->arg_count; i++) {
+                value_free(&task->args[i]);
+            }
+            shared_free_safe(task->args, "bytecode_vm", "async_event_loop_run", 0);
+        }
+        value_free(&task->promise_copy);
+        value_free(&task->result);
+        // Don't free promise_ptr here - it's owned by the caller who received the promise
+        // The promise_ptr will be freed when the promise Value is freed
+        shared_free_safe(task, "bytecode_vm", "async_event_loop_run", 0);
+    }
 }
 
 // These functions are implemented in bytecode_compiler.c
@@ -2071,6 +2333,104 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     
                     value_free(&init_func);
                     result = instance;
+                } else if (func_value.type == VALUE_ASYNC_FUNCTION) {
+                    // Async function call - create async task
+                    // Check if this is a bytecode async function
+                    ASTNode* body_ptr = (ASTNode*)func_value.data.async_function_value.body;
+                    uintptr_t body_addr = (uintptr_t)body_ptr;
+                    if (body_addr < 10000) {
+                        // This is a bytecode async function
+                        int func_id = (int)body_addr;
+                        BytecodeProgram* func_program = interpreter && interpreter->bytecode_program_cache ? 
+                            interpreter->bytecode_program_cache : program;
+                        
+                        if (func_id >= 0 && func_id < (int)func_program->function_count) {
+                            // Create pending promise and register it
+                            Value promise = value_create_pending_promise();
+                            uint64_t promise_id = promise_registry_add(interpreter, promise);
+                            
+                            if (promise_id == 0) {
+                                // Registry allocation failed - free args and return null
+                                if (args) {
+                                    for (int i = 0; i < arg_count; i++) {
+                                        value_free(&args[i]);
+                                    }
+                                    shared_free_safe(args, "bytecode_vm", "BC_CALL_FUNCTION_VALUE", 0);
+                                }
+                                result = value_create_null();
+                            } else {
+                                // Get pointer to promise in registry
+                                Value* registry_promise = promise_registry_get(interpreter, promise_id);
+                                if (!registry_promise) {
+                                    // Registry lookup failed - remove from registry, free args, return null
+                                    promise_registry_remove(interpreter, promise_id);
+                                    if (args) {
+                                        for (int i = 0; i < arg_count; i++) {
+                                            value_free(&args[i]);
+                                        }
+                                        shared_free_safe(args, "bytecode_vm", "BC_CALL_FUNCTION_VALUE", 1);
+                                    }
+                                    result = value_create_null();
+                                } else {
+                                    // Ensure promise has the ID set (it should already, but be safe)
+                                    registry_promise->data.promise_value.promise_id = promise_id;
+                                    
+                                    // Create async task
+                                    AsyncTask* task = (AsyncTask*)shared_malloc_safe(sizeof(AsyncTask), "bytecode_vm", "BC_CALL_FUNCTION_VALUE", 2);
+                                    if (task) {
+                                        task->promise_ptr = registry_promise;  // Get pointer from registry
+                                        task->promise_copy = *registry_promise;  // Keep a copy for reference
+                                        task->program = func_program;
+                                        task->function_id = func_id;
+                                        task->args = args; // Transfer ownership
+                                        task->arg_count = arg_count;
+                                        task->environment = interpreter ? interpreter->current_environment : NULL;
+                                        task->is_resolved = 0;
+                                        task->result = value_create_null();
+                                        
+                                        // Add to task queue
+                                        async_task_queue_add(interpreter, task);
+                                        
+                                        // Don't free args here - task owns them now
+                                        args = NULL;
+                                        
+                                        // Return the promise with ID set (caller will free it, which will remove it from registry)
+                                        result = *registry_promise;
+                                        result.data.promise_value.promise_id = promise_id;  // Ensure ID is set
+                                    } else {
+                                        // Task allocation failed - remove from registry, free args, create rejected promise
+                                        promise_registry_remove(interpreter, promise_id);
+                                        if (args) {
+                                            for (int i = 0; i < arg_count; i++) {
+                                                value_free(&args[i]);
+                                            }
+                                            shared_free_safe(args, "bytecode_vm", "BC_CALL_FUNCTION_VALUE", 3);
+                                        }
+                                        Value error = value_create_string("Failed to create async task");
+                                        result = value_create_promise(value_create_null(), 0, error);
+                                        value_free(&error);
+                                    }
+                                }
+                            }
+                        } else {
+                            // Invalid function ID
+                            if (args) {
+                                for (int i = 0; i < arg_count; i++) {
+                                    value_free(&args[i]);
+                                }
+                                shared_free_safe(args, "bytecode_vm", "BC_CALL_FUNCTION_VALUE", 4);
+                            }
+                            result = value_create_null();
+                        }
+                    } else {
+                        // AST async function - execute synchronously for now
+                        // TODO: Implement proper async execution for AST functions
+                        result = value_function_call(&func_value, args, arg_count, interpreter, 0, 0);
+                        // Wrap result in resolved promise
+                        Value promise_result = value_create_promise(result, 1, value_create_null());
+                        value_free(&result);
+                        result = promise_result;
+                    }
                 } else if (func_value.type == VALUE_FUNCTION) {
                     // Check if this is a bytecode function
                     // Bytecode functions have the function ID stored in the body field (cast as pointer)
@@ -2148,24 +2508,41 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         break;
                     }
                     
-                    // Create a function value that represents a bytecode function
-                    // Store the function ID in the body field (cast as pointer) so we can find it later
-                    // We'll cast the function ID to a pointer for storage
+                    // Check if this is an async function (bit 2 = async)
+                    int flags = instr->c;
+                    int is_async = (flags & 4) != 0;
+                    
                     Environment* target_env = interpreter->current_environment ? interpreter->current_environment : interpreter->global_environment;
-                    Value function_value = value_create_function(
+                    Value function_value;
+                    
+                    if (is_async) {
+                        // Create async function value
+                        function_value = value_create_async_function(
+                            func_name,
+                            NULL, // No AST parameters for bytecode functions
+                            func->param_count,
+                            NULL, // No return type for now
+                            (ASTNode*)(uintptr_t)func_id, // Store function ID as "body" pointer
+                            target_env ? target_env : interpreter->global_environment
+                        );
+                    } else {
+                        // Create regular function value
+                    // Store the function ID in the body field (cast as pointer) so we can find it later
+                        function_value = value_create_function(
                         (ASTNode*)(uintptr_t)func_id, // Store function ID as "body" pointer
                         NULL, // No AST parameters for bytecode functions
                         func->param_count,
                         NULL, // No return type for now
-                        target_env
-                    );
+                            target_env
+                        );
+                    }
                     
                     // Define in current environment (or global if no current) so it can be called from the correct scope
                     environment_define(target_env, func_name, function_value);
                     
                     // Store export/private metadata if flags are present (instr->c)
                     // bit 0 = is_export, bit 1 = is_private
-                    int flags = instr->c;
+                    // flags was already declared above
                     if (flags != 0) {
                         if (flags & 1) { // is_export
                             char export_key[256];
@@ -5259,6 +5636,220 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 break;
             }
             
+            case BC_PROMISE_CREATE: {
+                // Create a pending promise
+                // Stack: [executor] -> [promise]
+                // For now, create a simple pending promise
+                // TODO: Execute executor function with resolve/reject callbacks
+                Value promise = value_create_pending_promise();
+                value_stack_push(promise);
+                pc++;
+                break;
+            }
+            
+            case BC_AWAIT: {
+                // Await promise: await promise -> value
+                // Stack: [promise] -> [value]
+                // Process event loop until promise is resolved
+                if (value_stack_size == 0) {
+                    if (interpreter) {
+                        interpreter_set_error(interpreter, "Stack underflow in BC_AWAIT", 0, 0);
+                    }
+                    value_stack_push(value_create_null());
+                    pc++;
+                    break;
+                }
+                
+                Value promise = value_stack_pop();
+                
+                if (promise.type != VALUE_PROMISE) {
+                    // Not a promise - return as-is (for compatibility)
+                    value_stack_push(promise);
+                    pc++;
+                    break;
+                }
+                
+                // Get the promise from registry so we can check its updated state
+                uint64_t promise_id = promise.data.promise_value.promise_id;
+                Value* registry_promise = promise_id > 0 ? promise_registry_get(interpreter, promise_id) : NULL;
+                
+                // Process event loop until promise is resolved or rejected
+                // This is a simplified synchronous implementation
+                // In a full async implementation, this would suspend execution
+                int max_iterations = 1000; // Prevent infinite loops
+                int iterations = 0;
+                
+                // Run event loop at least once to process pending tasks
+                async_event_loop_run(interpreter);
+                
+                while (iterations < max_iterations) {
+                    // Check promise state from registry (if available) or local copy
+                    // Re-fetch from registry in case it was updated
+                    if (promise_id > 0) {
+                        registry_promise = promise_registry_get(interpreter, promise_id);
+                    }
+                    
+                    int is_resolved = registry_promise ? registry_promise->data.promise_value.is_resolved : promise.data.promise_value.is_resolved;
+                    int is_rejected = registry_promise ? registry_promise->data.promise_value.is_rejected : promise.data.promise_value.is_rejected;
+                    
+                    if (is_resolved || is_rejected) {
+                        break;
+                    }
+                    
+                    // Run event loop again to process more tasks
+                    async_event_loop_run(interpreter);
+                    iterations++;
+                }
+                
+                // Get final promise state from registry (re-fetch to ensure we have latest state)
+                if (promise_id > 0) {
+                    registry_promise = promise_registry_get(interpreter, promise_id);
+                    if (registry_promise) {
+                        promise = *registry_promise;  // Update local copy with registry state
+                    }
+                }
+                
+                if (promise.data.promise_value.is_resolved) {
+                    // Promise is resolved - return resolved value (or null if no value stored)
+                    Value resolved;
+                    if (promise.data.promise_value.resolved_value) {
+                        resolved = value_clone(promise.data.promise_value.resolved_value);
+                    } else {
+                        resolved = value_create_null();
+                    }
+                    // Remove promise from registry (it's been resolved and we're done with it)
+                    if (promise_id > 0) {
+                        promise_registry_remove(interpreter, promise_id);
+                    } else {
+                        value_free(&promise);
+                    }
+                    value_stack_push(resolved);
+                } else if (promise.data.promise_value.is_rejected && promise.data.promise_value.rejected_value) {
+                    // Promise is rejected - throw error
+                    Value error = value_clone(promise.data.promise_value.rejected_value);
+                    // Remove promise from registry
+                    if (promise_id > 0) {
+                        promise_registry_remove(interpreter, promise_id);
+                    } else {
+                        value_free(&promise);
+                    }
+                    if (interpreter) {
+                        Value error_str = value_to_string(&error);
+                        if (error_str.type == VALUE_STRING && error_str.data.string_value) {
+                            interpreter_set_error(interpreter, error_str.data.string_value, 0, 0);
+                        }
+                        value_free(&error_str);
+                    }
+                    value_free(&error);
+                    value_stack_push(value_create_null());
+                } else {
+                    // Promise still pending after max iterations - return null
+                    // Don't remove from registry - it might resolve later
+                    value_free(&promise);
+                    value_stack_push(value_create_null());
+                }
+                pc++;
+                break;
+            }
+            
+            case BC_ASYNC_CALL: {
+                // Call async function: async_func(args...) -> Promise
+                // Stack: [func, arg1, arg2, ...] -> [promise]
+                // Create async task and add to queue
+                if (value_stack_size == 0) {
+                    if (interpreter) {
+                        interpreter_set_error(interpreter, "Stack underflow in BC_ASYNC_CALL", 0, 0);
+                    }
+                    value_stack_push(value_create_null());
+                    pc++;
+                    break;
+                }
+                
+                // Get function ID from instruction (instr->a = function ID, instr->b = arg count)
+                int func_id = instr->a;
+                int arg_count = instr->b;
+                
+                // Get arguments from stack
+                Value* args = NULL;
+                if (arg_count > 0) {
+                    args = shared_malloc_safe(arg_count * sizeof(Value), "bytecode_vm", "BC_ASYNC_CALL", 0);
+                    if (args) {
+                        for (int i = 0; i < arg_count; i++) {
+                            args[arg_count - 1 - i] = value_stack_pop();
+                        }
+                    }
+                }
+                
+                // Create pending promise and register it
+                Value promise = value_create_pending_promise();
+                uint64_t promise_id = promise_registry_add(interpreter, promise);
+                
+                if (promise_id == 0) {
+                    // Registry allocation failed - free args and push null
+                    if (args) {
+                        for (int i = 0; i < arg_count; i++) {
+                            value_free(&args[i]);
+                        }
+                        shared_free_safe(args, "bytecode_vm", "BC_ASYNC_CALL", 0);
+                    }
+                    value_stack_push(value_create_null());
+                    } else {
+                        // Get pointer to promise in registry
+                        Value* registry_promise = promise_registry_get(interpreter, promise_id);
+                        if (!registry_promise) {
+                            // Registry lookup failed - remove from registry, free args, push null
+                            promise_registry_remove(interpreter, promise_id);
+                            if (args) {
+                                for (int i = 0; i < arg_count; i++) {
+                                    value_free(&args[i]);
+                                }
+                                shared_free_safe(args, "bytecode_vm", "BC_ASYNC_CALL", 1);
+                            }
+                            value_stack_push(value_create_null());
+                        } else {
+                            // Ensure promise has the ID set (it should already, but be safe)
+                            registry_promise->data.promise_value.promise_id = promise_id;
+                            
+                            // Create async task
+                            AsyncTask* task = (AsyncTask*)shared_malloc_safe(sizeof(AsyncTask), "bytecode_vm", "BC_ASYNC_CALL", 2);
+                            if (task) {
+                                task->promise_ptr = registry_promise;  // Get pointer from registry
+                                task->promise_copy = *registry_promise;  // Keep a copy for reference
+                                task->program = program;
+                                task->function_id = func_id;
+                                task->args = args;
+                                task->arg_count = arg_count;
+                                task->environment = interpreter ? interpreter->current_environment : NULL;
+                                task->is_resolved = 0;
+                                task->result = value_create_null();
+                                
+                                // Add to task queue
+                                async_task_queue_add(interpreter, task);
+                                
+                                // Push the promise with ID set (caller will free it, which will remove it from registry)
+                                Value promise_to_push = *registry_promise;
+                                promise_to_push.data.promise_value.promise_id = promise_id;  // Ensure ID is set
+                                value_stack_push(promise_to_push);
+                        } else {
+                            // Task allocation failed - remove from registry, free args, create rejected promise
+                            promise_registry_remove(interpreter, promise_id);
+                            if (args) {
+                                for (int i = 0; i < arg_count; i++) {
+                                    value_free(&args[i]);
+                                }
+                                shared_free_safe(args, "bytecode_vm", "BC_ASYNC_CALL", 3);
+                            }
+                            Value error = value_create_string("Failed to create async task");
+                            Value rejected_promise = value_create_promise(value_create_null(), 0, error);
+                            value_free(&error);
+                            value_stack_push(rejected_promise);
+                        }
+                    }
+                }
+                pc++;
+                break;
+            }
+            
             case BC_HALT: {
                 // Pop result if stack has value, otherwise return null
                 if (value_stack_size > 0) {
@@ -5568,6 +6159,12 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
     
 cleanup:
     
+    // Process any remaining async tasks before cleanup
+    // Temporarily disabled to debug segfault
+    // if (interpreter && interpreter->async_enabled && interpreter->task_queue && interpreter->task_queue_size > 0) {
+    //     async_event_loop_run(interpreter);
+    // }
+    
     // Clean up any remaining stack values
     while (value_stack_size > 0) {
         Value val = value_stack_pop();
@@ -5676,13 +6273,20 @@ Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunct
         Value function_return_value = value_create_null();
         int has_function_return = 0;
         if (interpreter->has_return) {
+            // Function used BC_RETURN - the return value is in interpreter->return_value
             function_return_value = value_clone(&interpreter->return_value);
             has_function_return = 1;
             value_free(&interpreter->return_value);
             interpreter->has_return = 0;
-        } else if (value_stack_size > 0) {
+        } else if (value_stack_size > saved_stack_size) {
             // If function didn't use BC_RETURN, the result might be on the stack
+            // Only pop if there are more values on the stack than we saved
+            // (This means the function left a value on the stack)
             function_return_value = value_stack_pop();
+            has_function_return = 1;
+        } else if (result.type != VALUE_NULL) {
+            // If bytecode_execute returned a non-null result, use that
+            function_return_value = value_clone(&result);
             has_function_return = 1;
         }
         

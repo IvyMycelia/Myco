@@ -77,6 +77,7 @@ Value value_set_to_array(Value* set);
 Value value_create_function(ASTNode* body, ASTNode** params, size_t param_count, const char* return_type, Environment* captured_env);
 Value value_create_async_function(const char* name, ASTNode** params, size_t param_count, const char* return_type, ASTNode* body, Environment* captured_env);
 Value value_create_promise(Value resolved_value, int is_resolved, Value error_value);
+Value value_create_pending_promise(void);
 Value value_create_builtin_function(Value (*func)(Interpreter*, Value*, size_t, int, int));
 
 // Function calling

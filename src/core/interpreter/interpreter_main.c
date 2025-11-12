@@ -98,6 +98,18 @@ Interpreter* interpreter_create(void) {
     interpreter->module_cache_capacity = 0;
     interpreter->import_chain = NULL;
     
+    // Async/await support initialization
+    interpreter->task_queue = NULL;
+    interpreter->task_queue_size = 0;
+    interpreter->task_queue_capacity = 0;
+    interpreter->async_enabled = 1;  // Enable async by default
+    
+    // Promise registry initialization
+    interpreter->promise_registry = NULL;
+    interpreter->promise_registry_size = 0;
+    interpreter->promise_registry_capacity = 0;
+    interpreter->next_promise_id = 1;  // Start at 1 (0 means no ID)
+    
     // Test mode - disabled by default
     interpreter->test_mode = 0;
     
@@ -437,7 +449,7 @@ void interpreter_set_error(Interpreter* interpreter, const char* message, int li
     
     // Create new error message
     if (message) {
-        interpreter->error_message = (message ? shared_strdup(message) : NULL);
+        interpreter->error_message = shared_strdup(message);
     } else {
         interpreter->error_message = shared_strdup("Unknown runtime error");
     }
@@ -503,7 +515,7 @@ void interpreter_set_error(Interpreter* interpreter, const char* message, int li
         }
     } else {
         // Fallback to simple error display
-        printf("Error: %s at line %d, column %d\n", message, line, column);
+        printf("Error: %s at line %d, column %d\n", message ? message : "Unknown error", line, column);
     }
     
     

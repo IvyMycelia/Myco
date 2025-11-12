@@ -16,6 +16,11 @@
 // Forward declarations
 struct Environment;
 typedef struct Environment Environment;
+// Value is forward declared here to avoid circular dependency
+// The full definition is in value_operations.h which is included later
+struct Value;
+typedef struct Value Value;
+// BytecodeProgram is defined in bytecode.h, which is included via ast.h
 
 // Class metadata structure (compiled from AST at definition time)
 typedef struct {
@@ -112,10 +117,17 @@ typedef union {
         struct Environment* captured_environment;  // For closures
     } async_function_value;
     struct {
+        uint64_t promise_id;    // Unique ID for this promise (for registry lookup)
         int is_resolved;
         int is_rejected;
-        char* error_message;
-        char* resolved_data;  // Simple string representation for now
+        Value* resolved_value;  // Actual resolved value (NULL if not resolved)
+        Value* rejected_value;  // Actual rejected/error value (NULL if not rejected)
+        void** then_callbacks;  // Array of callback functions for .then()
+        void** catch_callbacks; // Array of callback functions for .catch()
+        size_t then_count;
+        size_t catch_count;
+        size_t then_capacity;
+        size_t catch_capacity;
     } promise_value;
     struct {
         char* class_name;
@@ -202,6 +214,22 @@ typedef struct CallFrame {
 } CallFrame;
 
 // ============================================================================
+// ASYNC TASK STRUCTURE
+// ============================================================================
+
+typedef struct AsyncTask {
+    Value* promise_ptr;         // Pointer to promise associated with this task (so we can update it)
+    Value promise_copy;          // Copy of promise for reference (used for cleanup)
+    void* program;              // Bytecode program to execute (BytecodeProgram*)
+    int function_id;            // Function ID to execute (or -1 for main)
+    Value* args;                // Arguments for the function
+    size_t arg_count;           // Number of arguments
+    Environment* environment;    // Environment for execution
+    int is_resolved;            // Whether the task has completed
+    Value result;               // Result value (if resolved)
+} AsyncTask;
+
+// ============================================================================
 // INTERPRETER STRUCTURE
 // ============================================================================
 
@@ -275,6 +303,18 @@ typedef struct Interpreter {
     
     // Circular import detection - track import chain
     struct ImportChain* import_chain;
+    
+    // Async/await support - event loop and task queue
+    struct AsyncTask** task_queue;  // Queue of pending async tasks
+    size_t task_queue_size;
+    size_t task_queue_capacity;
+    int async_enabled;  // Whether async execution is enabled
+    
+    // Promise registry - maps promise IDs to promise Values (so we can update them)
+    Value* promise_registry;  // Array of promise Values
+    size_t promise_registry_size;
+    size_t promise_registry_capacity;
+    uint64_t next_promise_id;  // Next promise ID to assign
 } Interpreter;
 
 // ============================================================================

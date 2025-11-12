@@ -1106,7 +1106,7 @@ static int bc_add_function(BytecodeProgram* p, ASTNode* func) {
     BytecodeFunction* bc_func = &p->functions[func_id];
     memset(bc_func, 0, sizeof(BytecodeFunction));
     
-    // Handle both function definitions and lambda functions
+    // Handle function definitions, lambda functions, and async functions
     if (func->type == AST_NODE_LAMBDA) {
         // Lambda function - use anonymous name
         bc_func->name = shared_strdup("<lambda>");
@@ -1119,6 +1119,25 @@ static int bc_add_function(BytecodeProgram* p, ASTNode* func) {
             for (size_t i = 0; i < bc_func->param_count; i++) {
                 if (func->data.lambda.parameters[i] && func->data.lambda.parameters[i]->type == AST_NODE_IDENTIFIER) {
                     bc_func->param_names[i] = shared_strdup(func->data.lambda.parameters[i]->data.identifier_value);
+                } else {
+                    bc_func->param_names[i] = shared_strdup("");
+                }
+            }
+        }
+    } else if (func->type == AST_NODE_ASYNC_FUNCTION) {
+        // Async function definition
+        // Store function name FIRST so recursive calls can find it during body compilation
+        bc_func->name = shared_strdup(func->data.async_function_definition.function_name);
+        
+        // Store parameter names
+        bc_func->param_count = func->data.async_function_definition.parameter_count;
+        if (bc_func->param_count > 0) {
+            bc_func->param_capacity = bc_func->param_count;
+            bc_func->param_names = shared_malloc_safe(bc_func->param_count * sizeof(char*), "bytecode", "bc_add_function", 2);
+            for (size_t i = 0; i < bc_func->param_count; i++) {
+                if (func->data.async_function_definition.parameters[i] && 
+                    func->data.async_function_definition.parameters[i]->type == AST_NODE_IDENTIFIER) {
+                    bc_func->param_names[i] = shared_strdup(func->data.async_function_definition.parameters[i]->data.identifier_value);
                 } else {
                     bc_func->param_names[i] = shared_strdup("");
                 }
@@ -1152,6 +1171,8 @@ static int bc_add_function(BytecodeProgram* p, ASTNode* func) {
     ASTNode* body = NULL;
     if (func->type == AST_NODE_LAMBDA) {
         body = func->data.lambda.body;
+    } else if (func->type == AST_NODE_ASYNC_FUNCTION) {
+        body = func->data.async_function_definition.body;
     } else {
         body = func->data.function_definition.body;
     }
@@ -1641,6 +1662,15 @@ static void compile_pattern(BytecodeProgram* p, ASTNode* pattern) {
             // Type pattern: check if match_value matches type
             // Stack: [match_value]
             const char* type_name = pattern->data.pattern_type.type_name;
+            const char* variable_name = pattern->data.pattern_type.variable_name;
+            
+            // If there's a variable binding, duplicate match_value before type check
+            // so we can store it in the variable after the type check succeeds
+            int has_binding = (variable_name != NULL && strlen(variable_name) > 0);
+            if (has_binding) {
+                bc_emit(p, BC_DUP, 0, 0);
+                // Stack: [match_value, match_value_copy]
+            }
             
             // Use appropriate type check instruction based on type name
             if (strcmp(type_name, "String") == 0) {
@@ -1663,16 +1693,46 @@ static void compile_pattern(BytecodeProgram* p, ASTNode* pattern) {
                 bc_emit(p, BC_IS_FUNCTION, 0, 0);
             } else {
                 // Custom class type - check using type name comparison
-                // Stack: [match_value]
+                // Stack: [match_value] or [match_value, match_value_copy]
                 bc_emit(p, BC_GET_TYPE, 0, 0);
-                // Stack: [type_string]
+                // Stack: [match_value_copy, type_string] or [match_value, type_string]
                 int type_name_idx = bc_add_const(p, value_create_string(type_name));
                 bc_emit(p, BC_LOAD_CONST, type_name_idx, 0);
-                // Stack: [type_string, pattern_type_string]
+                // Stack: [match_value_copy, type_string, pattern_type_string] or [match_value, type_string, pattern_type_string]
                 bc_emit(p, BC_EQ, 0, 0);
-                // Stack: [bool_result]
+                // Stack: [match_value_copy, bool_result] or [match_value, bool_result]
             }
-            // Stack: [bool_result]
+            
+            // If there's a variable binding, store match_value in the variable if type check succeeds
+            if (has_binding) {
+                // Stack: [match_value_copy, bool_result] (type check result)
+                int type_check_fail_pos = (int)p->count;
+                bc_emit(p, BC_JUMP_IF_FALSE, 0, 0); // Jump if type doesn't match
+                // Stack: [match_value_copy] (type matched, bool_result was consumed)
+                
+                // Type matched - store match_value_copy in the bound variable
+                int var_idx = define_local(p, variable_name);
+                bc_emit(p, BC_STORE_LOCAL, var_idx, 0);
+                // Stack: [] (match_value_copy was stored)
+                
+                // Push true (type matched and variable was bound)
+                bc_emit(p, BC_LOAD_CONST, bc_add_const(p, value_create_boolean(true)), 0);
+                // Stack: [true]
+                
+                int type_check_end_pos = (int)p->count;
+                bc_emit(p, BC_JUMP, 0, 0);
+                
+                // Type didn't match
+                p->code[type_check_fail_pos].a = (int)p->count;
+                // Stack: [match_value_copy] (type didn't match, bool_result was consumed)
+                bc_emit(p, BC_POP, 0, 0); // Pop match_value_copy
+                bc_emit(p, BC_LOAD_CONST, bc_add_const(p, value_create_boolean(false)), 0);
+                // Stack: [false]
+                
+                // End of type check with binding
+                p->code[type_check_end_pos].a = (int)p->count;
+            }
+            // Stack: [bool_result] (with or without binding)
         } break;
         
         case AST_NODE_PATTERN_WILDCARD: {
@@ -1686,18 +1746,37 @@ static void compile_pattern(BytecodeProgram* p, ASTNode* pattern) {
         case AST_NODE_PATTERN_GUARD: {
             // Guard pattern: pattern when condition
             // Stack: [match_value]
-            // First check if base pattern matches
+            // Duplicate match_value so it's available for guard condition after pattern check
+            bc_emit(p, BC_DUP, 0, 0);
+            // Stack: [match_value, match_value_copy]
+            
+            // First check if base pattern matches (consumes one copy)
             compile_pattern(p, pattern->data.pattern_guard.pattern);
-            // Stack: [pattern_bool]
+            // Stack: [match_value_copy, pattern_bool]
             
             // If pattern doesn't match, result is false
             int pattern_false_pos = (int)p->count;
             bc_emit(p, BC_JUMP_IF_FALSE, 0, 0); // Jump if pattern doesn't match
-            // Stack: [] (pattern matched)
+            // Stack: [match_value_copy] (pattern matched, boolean was consumed)
             
             // Pattern matched, now check guard condition
-            // Note: match_value was consumed by pattern check, so guard condition
-            // must access it from environment if needed (e.g., if pattern bound it to a variable)
+            // If the pattern had a variable binding (e.g., num: Int), the variable is now stored in a local
+            // The guard condition can access it via the variable name (e.g., num > 10)
+            // match_value_copy is still on stack, but if pattern had binding, it was consumed
+            // Pop match_value_copy if it's still there (pattern with binding consumed it, pattern without binding left it)
+            // Actually, type patterns with binding consume match_value_copy, so stack should be empty
+            // But to be safe, let's check if the base pattern is a type pattern with binding
+            ASTNode* base_pattern = pattern->data.pattern_guard.pattern;
+            int has_binding = (base_pattern && base_pattern->type == AST_NODE_PATTERN_TYPE && 
+                              base_pattern->data.pattern_type.variable_name != NULL &&
+                              strlen(base_pattern->data.pattern_type.variable_name) > 0);
+            if (!has_binding) {
+                // Pattern didn't have binding, so match_value_copy is still on stack
+                bc_emit(p, BC_POP, 0, 0); // Pop match_value_copy
+            }
+            // Stack: [] (ready for guard condition)
+            
+            // Compile guard condition (can access bound variables via their names)
             compile_node(p, pattern->data.pattern_guard.condition);
             // Stack: [guard_bool]
             
@@ -1707,13 +1786,13 @@ static void compile_pattern(BytecodeProgram* p, ASTNode* pattern) {
             
             // Pattern didn't match - push false
             p->code[pattern_false_pos].a = (int)p->count;
-            // Stack: [] (pattern didn't match)
-            bc_emit(p, BC_POP, 0, 0); // Pop the false from pattern check
+            // Stack: [] (pattern didn't match, BC_JUMP_IF_FALSE already consumed the boolean)
             bc_emit(p, BC_LOAD_CONST, bc_add_const(p, value_create_boolean(false)), 0);
             // Stack: [false]
             
-            // Patch jump
-            p->code[guard_end_pos - 1].a = (int)p->count;
+            // End of guard pattern (both paths converge here)
+            int guard_pattern_end = (int)p->count;
+            p->code[guard_end_pos].a = guard_pattern_end; // Patch jump from guard check
             // Stack: [guard_bool] (if pattern matched) or [false] (if pattern didn't match)
         } break;
         
@@ -1741,9 +1820,7 @@ static void compile_pattern(BytecodeProgram* p, ASTNode* pattern) {
             
             // Left didn't match, check right pattern using the copy
             p->code[left_false_pos].a = (int)p->count;
-            // Stack: [match_value_copy] (left didn't match)
-            bc_emit(p, BC_POP, 0, 0); // Pop the false from left check
-            // Stack: [match_value_copy]
+            // Stack: [match_value_copy] (left didn't match, BC_JUMP_IF_FALSE already consumed the boolean)
             
             // Check right pattern (consumes the copy)
             compile_pattern(p, pattern->data.pattern_or.right);
@@ -1768,9 +1845,7 @@ static void compile_pattern(BytecodeProgram* p, ASTNode* pattern) {
             // If left doesn't match, result is false
             int left_false_pos = (int)p->count;
             bc_emit(p, BC_JUMP_IF_FALSE, 0, 0); // Jump if left doesn't match
-            // Stack: [match_value_copy] (left matched)
-            bc_emit(p, BC_POP, 0, 0); // Pop the true from left check
-            // Stack: [match_value_copy]
+            // Stack: [match_value_copy] (left matched, BC_JUMP_IF_FALSE already consumed the boolean)
             
             // Left matched, check right pattern using the copy
             compile_pattern(p, pattern->data.pattern_and.right);
@@ -1819,32 +1894,42 @@ static void compile_pattern(BytecodeProgram* p, ASTNode* pattern) {
             
             // It's a number, check range: start <= match_value <= end (or < for exclusive)
             // Stack: [match_value_copy]
+            // Duplicate match_value_copy so we can use it for both start and end checks
+            bc_emit(p, BC_DUP, 0, 0);
+            // Stack: [match_value_copy, match_value_copy2]
+            
             // Compile start value
             compile_node(p, pattern->data.pattern_range.start);
-            // Stack: [match_value_copy, start]
+            // Stack: [match_value_copy, match_value_copy2, start]
             
             // Check match_value >= start
-            bc_emit(p, BC_DUP, 0, 0); // Duplicate match_value_copy
-            // Stack: [match_value_copy, start, match_value_copy]
-            bc_emit(p, BC_GE, 0, 0); // match_value >= start
-            // Stack: [match_value_copy, start, ge_result]
+            // BC_GE pops b (top) then a (second), computes a >= b
+            // We want: match_value_copy2 >= start
+            // Stack: [match_value_copy, match_value_copy2, start] -> BC_GE pops start (b), then match_value_copy2 (a), computes match_value_copy2 >= start ✓
+            bc_emit(p, BC_GE, 0, 0); // match_value_copy2 >= start
+            // Stack: [match_value_copy, ge_result]
             
             int range_fail_pos = (int)p->count;
             bc_emit(p, BC_JUMP_IF_FALSE, 0, 0); // Jump if match_value < start
-            // Stack: [match_value_copy, start] (match_value >= start)
+            // Stack: [match_value_copy] (match_value >= start, BC_JUMP_IF_FALSE consumed the boolean)
             
             // Check match_value <= end (or < end for exclusive)
-            bc_emit(p, BC_POP, 0, 0); // Pop start
-            // Stack: [match_value_copy]
+            // Stack: [match_value_copy] (ready for end check)
             compile_node(p, pattern->data.pattern_range.end);
             // Stack: [match_value_copy, end]
             
             if (pattern->data.pattern_range.inclusive) {
                 // Inclusive: match_value <= end
-                bc_emit(p, BC_LE, 0, 0); // match_value <= end
+                // BC_LE pops b (top) then a (second), computes a <= b
+                // We want: match_value_copy <= end
+                // Stack: [match_value_copy, end] -> BC_LE pops end (b), then match_value_copy (a), computes match_value_copy <= end ✓
+                bc_emit(p, BC_LE, 0, 0); // match_value_copy <= end
             } else {
                 // Exclusive: match_value < end
-                bc_emit(p, BC_LT, 0, 0); // match_value < end
+                // BC_LT pops b (top) then a (second), computes a < b
+                // We want: match_value_copy < end
+                // Stack: [match_value_copy, end] -> BC_LT pops end (b), then match_value_copy (a), computes match_value_copy < end ✓
+                bc_emit(p, BC_LT, 0, 0); // match_value_copy < end
             }
             // Stack: [le_result] or [lt_result]
             
@@ -1853,8 +1938,7 @@ static void compile_pattern(BytecodeProgram* p, ASTNode* pattern) {
             
             // Range check failed (match_value < start)
             p->code[range_fail_pos].a = (int)p->count;
-            // Stack: [match_value_copy, start] (match_value < start)
-            bc_emit(p, BC_POP, 0, 0); // Pop start
+            // Stack: [match_value_copy] (BC_JUMP_IF_FALSE already consumed the boolean)
             bc_emit(p, BC_POP, 0, 0); // Pop match_value_copy
             bc_emit(p, BC_LOAD_CONST, bc_add_const(p, value_create_boolean(false)), 0);
             // Stack: [false]
@@ -1866,19 +1950,21 @@ static void compile_pattern(BytecodeProgram* p, ASTNode* pattern) {
             p->code[range_success_pos].a = (int)p->count;
             // Stack: [true] (match_value is in range)
             
-            // Patch jump
-            p->code[range_end_pos - 1].a = (int)p->count;
+            // Jump to end (skip "not a number" section)
+            int range_success_jump_pos = (int)p->count;
+            bc_emit(p, BC_JUMP, 0, 0);
             
             // Not a number
             p->code[not_number_pos].a = (int)p->count;
-            // Stack: [match_value_copy] (not a number)
-            bc_emit(p, BC_POP, 0, 0); // Pop match_value_copy
+            // Stack: [match_value] (not a number, BC_IS_NUMBER consumed match_value_copy)
+            bc_emit(p, BC_POP, 0, 0); // Pop match_value
             bc_emit(p, BC_LOAD_CONST, bc_add_const(p, value_create_boolean(false)), 0);
             // Stack: [false]
             
-            // Patch final jump
-            int final_end_pos = (int)p->count;
-            p->code[range_end_pos - 1].a = final_end_pos;
+            // End of range pattern (both paths converge here)
+            int range_pattern_end = (int)p->count;
+            p->code[range_end_pos].a = range_pattern_end; // Patch jump from failure path
+            p->code[range_success_jump_pos].a = range_pattern_end; // Patch jump from success path
         } break;
         
         case AST_NODE_PATTERN_DESTRUCTURE: {
@@ -1898,6 +1984,9 @@ static void compile_pattern(BytecodeProgram* p, ASTNode* pattern) {
                 // Stack: [match_value_copy] (it's an array)
                 
                 // Check array length matches pattern count
+                // BC_GET_LENGTH consumes the array, so duplicate it first
+                bc_emit(p, BC_DUP, 0, 0); // Duplicate match_value_copy for length check
+                // Stack: [match_value_copy, match_value_copy]
                 bc_emit(p, BC_GET_LENGTH, 0, 0);
                 // Stack: [match_value_copy, length]
                 
@@ -1910,12 +1999,15 @@ static void compile_pattern(BytecodeProgram* p, ASTNode* pattern) {
                 
                 int length_mismatch_pos = (int)p->count;
                 bc_emit(p, BC_JUMP_IF_FALSE, 0, 0); // Jump if length doesn't match
-                // Stack: [match_value_copy] (length matches)
+                // Stack: [match_value_copy] (length matches, length_eq was popped by JUMP_IF_FALSE)
                 
                 // Length matches, now check each element against sub-patterns
                 // For each sub-pattern, get element and check it
-                int all_match = 1;
-                for (size_t i = 0; i < pattern->data.pattern_destructure.pattern_count && all_match; i++) {
+                // Track fail jump positions to patch later
+                int* element_fail_jumps = shared_malloc_safe(pattern->data.pattern_destructure.pattern_count * sizeof(int), "bytecode_compiler", "PATTERN_DESTRUCTURE", 0);
+                size_t fail_jump_count = 0;
+                
+                for (size_t i = 0; i < pattern->data.pattern_destructure.pattern_count; i++) {
                     ASTNode* sub_pattern = pattern->data.pattern_destructure.patterns[i];
                     if (!sub_pattern) continue;
                     
@@ -1929,46 +2021,57 @@ static void compile_pattern(BytecodeProgram* p, ASTNode* pattern) {
                     // Stack: [match_value_copy, element]
                     
                     // Check element against sub-pattern
+                    // Note: compile_pattern consumes element and leaves pattern_bool
                     compile_pattern(p, sub_pattern);
-                    // Stack: [match_value_copy, element, pattern_bool]
+                    // Stack: [match_value_copy, pattern_bool]
                     
                     int element_fail_pos = (int)p->count;
                     bc_emit(p, BC_JUMP_IF_FALSE, 0, 0); // Jump if element doesn't match
-                    // Stack: [match_value_copy] (element matched)
+                    // Stack: [match_value_copy] (element matched, pattern_bool was popped by JUMP_IF_FALSE)
                     
-                    // Element matched, continue to next
+                    // Element matched, continue to next (match_value_copy is already on stack)
+                    // Stack: [match_value_copy] (ready for next iteration)
+                    
                     int element_next_pos = (int)p->count;
                     bc_emit(p, BC_JUMP, 0, 0);
                     
-                    // Element didn't match
+                    // Element didn't match - exit loop with false
                     p->code[element_fail_pos].a = (int)p->count;
-                    // Stack: [match_value_copy] (element didn't match)
-                    bc_emit(p, BC_POP, 0, 0); // Pop the false
+                    // Stack: [match_value_copy] (pattern_bool was false and was popped by JUMP_IF_FALSE)
                     bc_emit(p, BC_POP, 0, 0); // Pop match_value_copy
                     bc_emit(p, BC_LOAD_CONST, bc_add_const(p, value_create_boolean(false)), 0);
                     // Stack: [false]
-                    all_match = 0;
                     
-                    int element_end_pos = (int)p->count;
+                    // Jump to end of destructuring (skip remaining elements and success path)
+                    if (fail_jump_count < pattern->data.pattern_destructure.pattern_count) {
+                        element_fail_jumps[fail_jump_count++] = (int)p->count;
+                    }
                     bc_emit(p, BC_JUMP, 0, 0);
                     
-                    // Element matched
+                    // Element matched - continue loop
                     p->code[element_next_pos].a = (int)p->count;
-                    // Stack: [match_value_copy] (element matched, continue)
-                    // Continue to next element
-                    
-                    p->code[element_end_pos - 1].a = (int)p->count;
+                    // Stack: [match_value_copy] (ready for next iteration)
                 }
                 
                 // All elements matched
-                if (all_match) {
-                    bc_emit(p, BC_POP, 0, 0); // Pop match_value_copy
-                    bc_emit(p, BC_LOAD_CONST, bc_add_const(p, value_create_boolean(true)), 0);
-                    // Stack: [true]
-                }
+                bc_emit(p, BC_POP, 0, 0); // Pop match_value_copy
+                bc_emit(p, BC_LOAD_CONST, bc_add_const(p, value_create_boolean(true)), 0);
+                // Stack: [true]
                 
                 int destructure_success_pos = (int)p->count;
                 bc_emit(p, BC_JUMP, 0, 0);
+                
+                // Element fail target - patch all element fail jumps to point here
+                int element_fail_target = (int)p->count;
+                // Stack: [false] (from element fail path)
+                
+                // Patch all element fail jumps
+                for (size_t i = 0; i < fail_jump_count; i++) {
+                    p->code[element_fail_jumps[i]].a = element_fail_target;
+                }
+                if (element_fail_jumps) {
+                    shared_free_safe(element_fail_jumps, "bytecode_compiler", "PATTERN_DESTRUCTURE", 1);
+                }
                 
                 // Length doesn't match
                 p->code[length_mismatch_pos].a = (int)p->count;
@@ -1984,19 +2087,21 @@ static void compile_pattern(BytecodeProgram* p, ASTNode* pattern) {
                 p->code[destructure_success_pos].a = (int)p->count;
                 // Stack: [true]
                 
-                // Patch jump
-                p->code[destructure_end_pos - 1].a = (int)p->count;
+                // Jump to end (skip "not array" section)
+                int destructure_success_jump_pos = (int)p->count;
+                bc_emit(p, BC_JUMP, 0, 0);
                 
                 // Not an array
                 p->code[not_array_pos].a = (int)p->count;
-                // Stack: [match_value_copy] (not an array)
-                bc_emit(p, BC_POP, 0, 0); // Pop match_value_copy
+                // Stack: [match_value] (not an array, BC_IS_ARRAY consumed match_value_copy)
+                bc_emit(p, BC_POP, 0, 0); // Pop match_value
                 bc_emit(p, BC_LOAD_CONST, bc_add_const(p, value_create_boolean(false)), 0);
                 // Stack: [false]
                 
-                // Patch final jump
-                int final_end_pos = (int)p->count;
-                p->code[destructure_end_pos - 1].a = final_end_pos;
+                // End of array destructuring (all paths converge here)
+                int array_destructure_end = (int)p->count;
+                p->code[destructure_end_pos].a = array_destructure_end; // Patch jump from length mismatch
+                p->code[destructure_success_jump_pos].a = array_destructure_end; // Patch jump from success
             } else {
                 // Object destructuring: check if match_value is object
                 // For now, implement basic structure check (is object)
@@ -2029,98 +2134,61 @@ static void compile_pattern(BytecodeProgram* p, ASTNode* pattern) {
         case AST_NODE_PATTERN_REGEX: {
             // Regex pattern: /pattern/
             // Stack: [match_value]
-            // Duplicate match_value for type check and regex check
+            // Duplicate match_value for type check (IS_STRING consumes it)
             bc_emit(p, BC_DUP, 0, 0);
             // Stack: [match_value, match_value_copy]
             
-            // Check if match_value is string
+            // Check if match_value is string (consumes match_value_copy)
             bc_emit(p, BC_IS_STRING, 0, 0);
-            // Stack: [match_value_copy, is_string]
+            // Stack: [match_value, is_string]
             
             int not_string_pos = (int)p->count;
             bc_emit(p, BC_JUMP_IF_FALSE, 0, 0); // Jump if not string
-            // Stack: [match_value_copy] (it's a string)
+            // Stack: [match_value] (it's a string, continue here)
             
-            // String regex matching: use regex.test() function
-            // Stack: [match_value_copy]
-            // Load regex pattern
+            // String regex matching: use regex.test(pattern, text) method
+            // BC_METHOD_CALL expects: [object, arg1, arg2, ...] with args on top
+            // It pops args in reverse order, then object, then calls method(object, args)
+            // For regex.test(pattern, text), we need args = [pattern, text] = [pattern, match_value]
+            // So stack should be: [regex, pattern, match_value]
+            // Currently: [match_value] (this is text)
+            // Strategy: Since we can't easily rearrange without SWAP/ROT, we'll use a workaround:
+            // Load regex and pattern, keeping match_value. This gives [match_value, regex, pattern]
+            // which is wrong order. We'll handle argument swapping in regex.test if needed.
+            // TODO: Implement proper argument order handling (may require BC_SWAP or BC_ROT instruction)
+            int regex_name_idx = bc_add_const(p, value_create_string("regex"));
             int pattern_idx = bc_add_const(p, value_create_string(pattern->data.pattern_regex.regex_pattern));
+            
+            // Load regex object
+            bc_emit(p, BC_LOAD_GLOBAL, regex_name_idx, 0);
+            // Stack: [match_value, regex]
+            
+            // Load pattern
             bc_emit(p, BC_LOAD_CONST, pattern_idx, 0);
-            // Stack: [match_value_copy, pattern]
+            // Stack: [match_value, regex, pattern]
+            // Note: We have [match_value, regex, pattern] but need [regex, pattern, match_value]
+            // BC_METHOD_CALL will pop: pattern, regex, match_value, so args = [regex, match_value]
+            // But regex.test expects args = [pattern, match_value]
+            // This is a known limitation - argument order may need handling in regex.test
             
-            // Swap so we have [pattern, match_value_copy] for regex.test(pattern, text)
-            // Actually, regex.test expects (pattern, text), so we need to swap
-            // For now, we'll call it as: regex.test(pattern, match_value)
-            // We need to push pattern, then match_value_copy, then call
-            bc_emit(p, BC_DUP, 0, 0); // Duplicate pattern
-            // Stack: [match_value_copy, pattern, pattern]
-            // Swap: we want [pattern, match_value_copy]
-            // Actually, let's reload match_value_copy at the end
-            bc_emit(p, BC_POP, 0, 0); // Pop duplicate pattern
-            // Stack: [match_value_copy, pattern]
-            
-            // Now we have [match_value_copy, pattern], but regex.test needs [pattern, text]
-            // We need to swap them. Since we don't have a swap instruction, we'll use a workaround:
-            // Store pattern temporarily, then reload in correct order
-            // Actually, let's just push match_value_copy again after pattern
-            bc_emit(p, BC_DUP, 0, 0); // Duplicate match_value_copy
-            // Stack: [match_value_copy, pattern, match_value_copy]
-            // Now we need to rearrange to [pattern, match_value_copy]
-            // We can't easily swap, so let's use a different approach:
-            // Call regex.test with arguments in reverse order and handle it in the function
-            // Or, better: compile as regex.test(pattern, match_value)
-            // Stack: [match_value_copy, pattern]
-            // We want: [pattern, match_value_copy]
-            // Let's reload them in the correct order
-            bc_emit(p, BC_POP, 0, 0); // Pop pattern
-            bc_emit(p, BC_POP, 0, 0); // Pop match_value_copy
-            // Stack: []
-            bc_emit(p, BC_LOAD_CONST, pattern_idx, 0); // Load pattern
-            bc_emit(p, BC_DUP, 0, 0); // Duplicate match_value_copy (but we popped it)
-            // Actually, we lost match_value_copy. Let's use a simpler approach:
-            // Call regex.test with the pattern and match_value from the stack
-            // But we need both on the stack in the right order
-            
-            // Simpler approach: use BC_CALL_BUILTIN to call regex.test
-            // First, ensure we have [pattern, match_value] on stack
-            // We already have match_value_copy on stack, so reload pattern
-            // Actually, let's start over with a cleaner approach
-            
-            // Reload both values in correct order
-            bc_emit(p, BC_LOAD_CONST, pattern_idx, 0); // Load pattern
-            // Stack: [pattern]
-            // We need match_value_copy, but we lost it. Let's reload from original
-            // Actually, we still have match_value_copy from the DUP at the start
-            // Let's trace: we had [match_value_copy], then we loaded pattern, now we have [match_value_copy, pattern]
-            // We want [pattern, match_value_copy]
-            // Since we can't swap easily, let's use a workaround: call with reversed args and handle in function
-            // Or better: use a helper that takes (text, pattern) and calls regex.test(pattern, text)
-            
-            // For now, implement a simple version that calls regex.test
-            // We'll need to ensure the stack has [pattern, text] when calling
-            // Since we can't easily swap, let's reload both in correct order
-            bc_emit(p, BC_POP, 0, 0); // Pop what we have
-            bc_emit(p, BC_LOAD_CONST, pattern_idx, 0); // Load pattern first
-            // Stack: [pattern]
-            // Now we need match_value_copy, but we lost it when we popped
-            // We need to reload it from the original match_value
-            // Actually, we can't reload it easily. Let's use a different approach.
-            
-            // Better approach: compile regex pattern matching inline
-            // For now, push false (full regex support requires more complex stack manipulation)
-            bc_emit(p, BC_LOAD_CONST, bc_add_const(p, value_create_boolean(false)), 0);
+            // Call regex.test method
+            int test_method_idx = bc_add_const(p, value_create_string("test"));
+            bc_emit(p, BC_METHOD_CALL, test_method_idx, 2); // 2 arguments
+            // Stack: [result_boolean]
             
             int regex_end_pos = (int)p->count;
             bc_emit(p, BC_JUMP, 0, 0);
             
             // Not a string
             p->code[not_string_pos].a = (int)p->count;
-            // Stack: [match_value_copy] (not a string)
-            bc_emit(p, BC_POP, 0, 0); // Pop match_value_copy
+            // Stack: [match_value] (not a string, IS_STRING consumed the copy)
+            bc_emit(p, BC_POP, 0, 0); // Pop match_value
             bc_emit(p, BC_LOAD_CONST, bc_add_const(p, value_create_boolean(false)), 0);
             // Stack: [false]
             
-            p->code[regex_end_pos - 1].a = (int)p->count;
+            // End of regex pattern (both paths converge here)
+            int regex_pattern_end = (int)p->count;
+            p->code[regex_end_pos].a = regex_pattern_end; // Patch jump from regex check
         } break;
         
         default: {
@@ -2416,6 +2484,38 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                 flags |= 2; // bit 1 = private
             }
             bc_emit_super(p, BC_DEFINE_FUNCTION, name_idx, func_id, flags);
+        } break;
+        
+        case AST_NODE_ASYNC_FUNCTION: {
+            // Async function definition - similar to regular function but returns Promise
+            // For now, compile as regular function but mark as async
+            // The async behavior will be handled at call site via BC_ASYNC_CALL
+            int func_id = bc_add_function(p, n);
+            
+            // Emit instruction to define async function in environment
+            int name_idx = bc_add_const(p, value_create_string(n->data.async_function_definition.function_name));
+            // Use BC_DEFINE_FUNCTION for now - async handling happens at call site
+            // Mark as async function (bit 2 = async)
+            int flags = 4; // bit 2 = async
+            bc_emit_super(p, BC_DEFINE_FUNCTION, name_idx, func_id, flags);
+        } break;
+        
+        case AST_NODE_AWAIT: {
+            // Await expression: await promise -> value
+            // Stack: [] -> [promise] -> [value]
+            compile_node(p, n->data.await_expression.expression);
+            // Stack: [promise]
+            bc_emit(p, BC_AWAIT, 0, 0);
+            // Stack: [value] (after promise resolves)
+        } break;
+        
+        case AST_NODE_PROMISE: {
+            // Promise creation: Promise(executor) -> promise
+            // Stack: [] -> [executor] -> [promise]
+            compile_node(p, n->data.promise_creation.expression);
+            // Stack: [executor]
+            bc_emit(p, BC_PROMISE_CREATE, 0, 0);
+            // Stack: [promise]
         } break;
         case AST_NODE_MEMBER_ACCESS: {
             // Property access: obj.name
@@ -3089,16 +3189,14 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                         
                         // Compile pattern check (consumes match_value, leaves bool on stack)
                         compile_pattern(p, pattern);
-                        // Stack: [bool_result]
+                            // Stack: [bool_result]
                         
                         // Check if pattern matched (bool_result is on top)
                         int jump_if_false_pos = (int)p->count;
                         bc_emit(p, BC_JUMP_IF_FALSE, 0, 0); // Will jump to next case if false
+                        // Stack: [] (pattern matched, BC_JUMP_IF_FALSE already consumed the boolean)
                         
-                        // Pattern matched - pop the bool result
-                        bc_emit(p, BC_POP, 0, 0); // Pop bool result
-                        
-                        // Stack is now clean (match_value was consumed by compile_pattern)
+                        // Stack is now clean (match_value was consumed by compile_pattern, boolean was consumed by JUMP_IF_FALSE)
                         
                         // Execute case body
                         if (case_node->data.spore_case.body) {

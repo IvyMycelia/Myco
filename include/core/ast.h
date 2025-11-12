@@ -248,6 +248,7 @@ typedef struct ASTNode {
         // Pattern type (match by type)
         struct {
             char* type_name;                      // Type to match against
+            char* variable_name;                  // Variable name to bind match_value to (NULL if no binding)
         } pattern_type;
         
         // Pattern destructuring (extract values from structures)
@@ -502,6 +503,7 @@ ASTNode* ast_create_match(ASTNode* expression, ASTNode** patterns, size_t patter
 ASTNode* ast_create_spore(ASTNode* expression, ASTNode** cases, size_t case_count, ASTNode* root_case, int line, int column);
 ASTNode* ast_create_spore_case(ASTNode* pattern, ASTNode* body, int is_lambda, int line, int column);
 ASTNode* ast_create_pattern_type(const char* type_name, int line, int column);
+ASTNode* ast_create_pattern_type_with_binding(const char* type_name, const char* variable_name, int line, int column);
 ASTNode* ast_create_pattern_destructure(ASTNode** patterns, size_t pattern_count, int is_array, int line, int column);
 ASTNode* ast_create_pattern_guard(ASTNode* pattern, ASTNode* condition, int line, int column);
 ASTNode* ast_create_pattern_or(ASTNode* left, ASTNode* right, int line, int column);

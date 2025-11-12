@@ -96,21 +96,50 @@ Value value_create_promise(Value resolved_value, int is_resolved, Value error_va
     Value v = {0};
     v.type = VALUE_PROMISE;
     
+    v.data.promise_value.promise_id = 0;  // Will be set by caller if needed
     v.data.promise_value.is_resolved = is_resolved;
     v.data.promise_value.is_rejected = !is_resolved;
-    v.data.promise_value.error_message = NULL;
-    v.data.promise_value.resolved_data = NULL;
+    v.data.promise_value.resolved_value = NULL;
+    v.data.promise_value.rejected_value = NULL;
+    v.data.promise_value.then_callbacks = NULL;
+    v.data.promise_value.catch_callbacks = NULL;
+    v.data.promise_value.then_count = 0;
+    v.data.promise_value.catch_count = 0;
+    v.data.promise_value.then_capacity = 0;
+    v.data.promise_value.catch_capacity = 0;
     
     if (is_resolved) {
-        // Convert resolved value to string representation
-        Value str_value = value_to_string(&resolved_value);
-        if (str_value.type == VALUE_STRING) {
-            v.data.promise_value.resolved_data = str_value.data.string_value ? shared_strdup(str_value.data.string_value) : NULL;
+        // Store actual resolved value
+        v.data.promise_value.resolved_value = (Value*)shared_malloc_safe(sizeof(Value), "interpreter", "value_create_promise", 0);
+        if (v.data.promise_value.resolved_value) {
+            *v.data.promise_value.resolved_value = value_clone(&resolved_value);
         }
-        value_free(&str_value);
-    } else if (error_value.type == VALUE_STRING) {
-        v.data.promise_value.error_message = error_value.data.string_value ? shared_strdup(error_value.data.string_value) : NULL;
+    } else {
+        // Store actual rejected value
+        v.data.promise_value.rejected_value = (Value*)shared_malloc_safe(sizeof(Value), "interpreter", "value_create_promise", 0);
+        if (v.data.promise_value.rejected_value) {
+            *v.data.promise_value.rejected_value = value_clone(&error_value);
+        }
     }
+    
+    return v;
+}
+
+Value value_create_pending_promise(void) {
+    Value v = {0};
+    v.type = VALUE_PROMISE;
+    
+    v.data.promise_value.promise_id = 0;  // Will be set by caller if needed
+    v.data.promise_value.is_resolved = 0;
+    v.data.promise_value.is_rejected = 0;
+    v.data.promise_value.resolved_value = NULL;
+    v.data.promise_value.rejected_value = NULL;
+    v.data.promise_value.then_callbacks = NULL;
+    v.data.promise_value.catch_callbacks = NULL;
+    v.data.promise_value.then_count = 0;
+    v.data.promise_value.catch_count = 0;
+    v.data.promise_value.then_capacity = 0;
+    v.data.promise_value.catch_capacity = 0;
     
     return v;
 }
@@ -122,6 +151,11 @@ Value value_create_builtin_function(Value (*func)(Interpreter*, Value*, size_t, 
     v.data.function_value.parameters = NULL;
     v.data.function_value.parameter_count = 0;
     v.data.function_value.return_type = NULL;
+    // Safety check: ensure func is not NULL before storing it
+    if (!func) {
+        // Return a null value if func is NULL to prevent segfaults
+        return value_create_null();
+    }
     // Store the builtin function pointer in the body field for now
     // In a real implementation, you'd want a separate field for this
     v.data.function_value.body = (ASTNode*)func;

@@ -2691,15 +2691,15 @@ ASTNode* parser_parse_match_statement(Parser* parser) {
                         if (parser_check(parser, TOKEN_IDENTIFIER) && parser->current_token->text && 
                             isupper(parser->current_token->text[0])) {
                             // This is a type pattern with binding: identifier : TypeName
+                            char* var_name = shared_strdup(saved_token->text); // Variable name from before ':'
                             char* type_name = shared_strdup(parser->current_token->text);
                             parser_advance(parser); // consume type name
                             
-                            // Create type pattern (the variable binding will be handled separately if needed)
-                            pattern = ast_create_pattern_type(type_name, 0, 0);
+                            // Create type pattern with variable binding
+                            pattern = ast_create_pattern_type_with_binding(type_name, var_name, 0, 0);
                             
-                            // Note: Variable binding (var_name) is not yet stored in the pattern
-                            // This is a limitation - we may need to extend AST_NODE_PATTERN_TYPE to include binding
                             shared_free_safe(type_name, "parser", "unknown_function", 0);
+                            shared_free_safe(var_name, "parser", "unknown_function", 0);
                         } else {
                             // Not a type pattern, go back and parse as expression
                             parser->current_position = saved_pos;
@@ -2730,6 +2730,21 @@ ASTNode* parser_parse_match_statement(Parser* parser) {
                     parser_error(parser, "Expected pattern after \"case\"");
                     parser_synchronize(parser);
                     continue;
+                }
+                
+                // Check for Guard pattern: pattern when condition
+                if (parser_check(parser, TOKEN_KEYWORD) && parser->current_token->text && 
+                    strcmp(parser->current_token->text, "when") == 0) {
+                    parser_advance(parser); // consume 'when'
+                    ASTNode* condition = parser_parse_expression(parser);
+                    if (!condition) {
+                        parser_error(parser, "Expected condition after 'when' in guard pattern");
+                        ast_free(pattern);
+                        parser_synchronize(parser);
+                        continue;
+                    }
+                    // Wrap pattern in Guard pattern
+                    pattern = ast_create_pattern_guard(pattern, condition, 0, 0);
                 }
                 
                 // Check for lambda style (=>) or block style (:)
@@ -4476,7 +4491,11 @@ ASTNode* parser_parse_spore_statement(Parser* parser) {
                 // Parse case pattern
                 parser_advance(parser); // consume "case"
                 
-                ASTNode* pattern = parser_parse_expression(parser);
+                ASTNode* pattern = parser_parse_pattern(parser);
+                if (!pattern) {
+                    // Fall back to expression if pattern parsing fails
+                    pattern = parser_parse_expression(parser);
+                }
                 if (!pattern) {
                     parser_error(parser, "Expected pattern after \"case\"");
                     parser_synchronize(parser);
@@ -5689,7 +5708,8 @@ static ASTNode* parser_parse_pattern_and(Parser* parser) {
  * @return AST node representing the pattern
  */
 static ASTNode* parser_parse_pattern_not(Parser* parser) {
-    if (parser_check(parser, TOKEN_EXCLAMATION)) {
+    // Check for both TOKEN_NOT (produced by lexer for '!') and TOKEN_EXCLAMATION
+    if (parser_check(parser, TOKEN_NOT) || parser_check(parser, TOKEN_EXCLAMATION)) {
         parser_advance(parser); // consume '!'
         ASTNode* pattern = parser_parse_pattern_primary(parser);
         if (!pattern) {
@@ -5730,8 +5750,17 @@ static ASTNode* parser_parse_pattern_primary(Parser* parser) {
     }
     
     // Range pattern: start..end or start...end
+    // Or just a number literal pattern
     if (token->type == TOKEN_NUMBER) {
-        ASTNode* start = parser_parse_expression(parser);
+        // Parse the number token directly (don't use parser_parse_term to avoid consuming |)
+        Token* number_token = parser_peek(parser);
+        parser_advance(parser); // consume the number token
+        ASTNode* number_node = ast_create_number(number_token->data.number_value, number_token->line, number_token->column);
+        if (!number_node) {
+            return NULL;
+        }
+        
+        // Check if this is a range pattern
         if (parser_check(parser, TOKEN_DOT_DOT)) {
             parser_advance(parser); // consume '..'
             int inclusive = 1;
@@ -5739,14 +5768,22 @@ static ASTNode* parser_parse_pattern_primary(Parser* parser) {
                 parser_advance(parser); // consume '.'
                 inclusive = 0; // exclusive range
             }
-            ASTNode* end = parser_parse_expression(parser);
-            if (!end) {
-                ast_free(start);
+            // Parse end number (also parse directly)
+            if (!parser_check(parser, TOKEN_NUMBER)) {
+                ast_free(number_node);
+                parser_error(parser, "Expected number after '..' in range pattern");
                 return NULL;
             }
-            return ast_create_pattern_range(start, end, inclusive, 0, 0);
+            Token* end_token = parser_peek(parser);
+            parser_advance(parser);
+            ASTNode* end = ast_create_number(end_token->data.number_value, end_token->line, end_token->column);
+            if (!end) {
+                ast_free(number_node);
+                return NULL;
+            }
+            return ast_create_pattern_range(number_node, end, inclusive, 0, 0);
         }
-        return start; // Not a range, just a number
+        return number_node; // Not a range, just a number pattern
     }
     
     // Regex pattern: /pattern/

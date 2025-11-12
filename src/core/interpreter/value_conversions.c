@@ -266,6 +266,37 @@ Value value_to_string(Value* value) {
             // For other objects, return a generic representation
             return value_create_string("<Object>");
         }
+        case VALUE_PROMISE: {
+            // Convert promise to string representation
+            if (value->data.promise_value.is_resolved && value->data.promise_value.resolved_value) {
+                Value resolved_str = value_to_string(value->data.promise_value.resolved_value);
+                char* result = shared_malloc_safe(64, "interpreter", "value_to_string", 0);
+                if (result) {
+                    snprintf(result, 64, "Promise(resolved: %s)", 
+                             resolved_str.type == VALUE_STRING && resolved_str.data.string_value ? 
+                             resolved_str.data.string_value : "<value>");
+                    Value result_val = value_create_string(result);
+                    shared_free_safe(result, "interpreter", "value_to_string", 1);
+                    value_free(&resolved_str);
+                    return result_val;
+                }
+                value_free(&resolved_str);
+            } else if (value->data.promise_value.is_rejected && value->data.promise_value.rejected_value) {
+                Value rejected_str = value_to_string(value->data.promise_value.rejected_value);
+                char* result = shared_malloc_safe(64, "interpreter", "value_to_string", 0);
+                if (result) {
+                    snprintf(result, 64, "Promise(rejected: %s)", 
+                             rejected_str.type == VALUE_STRING && rejected_str.data.string_value ? 
+                             rejected_str.data.string_value : "<error>");
+                    Value result_val = value_create_string(result);
+                    shared_free_safe(result, "interpreter", "value_to_string", 2);
+                    value_free(&rejected_str);
+                    return result_val;
+                }
+                value_free(&rejected_str);
+            }
+            return value_create_string("<Promise(pending)>");
+        }
         default: return value_create_string("<Value>"); 
     } 
 }
@@ -281,9 +312,16 @@ Value value_to_boolean(Value* value) {
             return value_create_boolean(value->data.number_value != 0.0);
         case VALUE_STRING:
             // Empty string is false, everything else is true
-            return value_create_boolean(value->data.string_value && strlen(value->data.string_value) > 0);
+            // Safety check: ensure string_value is not NULL before calling strlen
+            if (!value->data.string_value) {
+                return value_create_boolean(0);
+            }
+            return value_create_boolean(strlen(value->data.string_value) > 0);
         case VALUE_NULL:
             return value_create_boolean(0);
+        case VALUE_PROMISE:
+            // Promise is truthy if resolved, falsy if pending or rejected
+            return value_create_boolean(value->data.promise_value.is_resolved ? 1 : 0);
         default:
             // For other types, consider them true
             return value_create_boolean(1);
@@ -566,10 +604,16 @@ Value value_clone(Value* value) {
             return v;
         }
         case VALUE_PROMISE: {
-            // Clone promise
-            Value resolved_value = value_create_string(value->data.promise_value.resolved_data ? value->data.promise_value.resolved_data : "");
-            Value error_value = value_create_string(value->data.promise_value.error_message ? value->data.promise_value.error_message : "");
+            // Clone promise (preserve promise_id so it can still be looked up in registry)
+            Value resolved_value = value_create_null();
+            Value error_value = value_create_null();
+            if (value->data.promise_value.is_resolved && value->data.promise_value.resolved_value) {
+                resolved_value = value_clone(value->data.promise_value.resolved_value);
+            } else if (value->data.promise_value.is_rejected && value->data.promise_value.rejected_value) {
+                error_value = value_clone(value->data.promise_value.rejected_value);
+            }
             Value v = value_create_promise(resolved_value, value->data.promise_value.is_resolved, error_value);
+            v.data.promise_value.promise_id = value->data.promise_value.promise_id;  // Preserve promise ID
             value_free(&resolved_value);
             value_free(&error_value);
             return v;
@@ -694,16 +738,33 @@ void value_free(Value* value) {
                 value->data.async_function_value.parameters = NULL;
             }
             break;
-        case VALUE_PROMISE:
-            if (value->data.promise_value.resolved_data) {
-                shared_free_safe(value->data.promise_value.resolved_data, "interpreter", "value_free", 0);
-                value->data.promise_value.resolved_data = NULL;
+        case VALUE_PROMISE: {
+            // Remove from promise registry if it has an ID
+            // Note: We can't easily access the interpreter here, so registry cleanup
+            // will happen when the promise is resolved/rejected or when interpreter is freed
+            // This is acceptable since the registry is cleaned up when promises are resolved
+            
+            if (value->data.promise_value.resolved_value) {
+                value_free(value->data.promise_value.resolved_value);
+                shared_free_safe(value->data.promise_value.resolved_value, "interpreter", "value_free", 0);
+                value->data.promise_value.resolved_value = NULL;
             }
-            if (value->data.promise_value.error_message) {
-                shared_free_safe(value->data.promise_value.error_message, "interpreter", "value_free", 0);
-                value->data.promise_value.error_message = NULL;
+            if (value->data.promise_value.rejected_value) {
+                value_free(value->data.promise_value.rejected_value);
+                shared_free_safe(value->data.promise_value.rejected_value, "interpreter", "value_free", 0);
+                value->data.promise_value.rejected_value = NULL;
+            }
+            // Free callback arrays if allocated
+            if (value->data.promise_value.then_callbacks) {
+                shared_free_safe(value->data.promise_value.then_callbacks, "interpreter", "value_free", 0);
+                value->data.promise_value.then_callbacks = NULL;
+            }
+            if (value->data.promise_value.catch_callbacks) {
+                shared_free_safe(value->data.promise_value.catch_callbacks, "interpreter", "value_free", 0);
+                value->data.promise_value.catch_callbacks = NULL;
             }
             break;
+        }
         case VALUE_CLASS:
             if (value->data.class_value.class_name) {
                 shared_free_safe(value->data.class_value.class_name, "interpreter", "value_free", 0);

@@ -152,7 +152,15 @@ typedef enum {
     BC_CALL_FUNCTION, // a:     call function at AST index a
     BC_RETURN,        // a:     return (a=0: void, a=1: value on stack)
     BC_PUSH_FRAME,    // a:     push new call frame (a = param count)
-    BC_POP_FRAME      // a:     pop call frame (a = return value count)
+    BC_POP_FRAME,     // a:     pop call frame (a = return value count)
+    // Async/await support
+    BC_ASYNC_CALL,    // Call async function: async_func(args...) -> Promise
+    BC_AWAIT,         // Await promise: await promise -> value
+    BC_PROMISE_CREATE,// Create promise: new Promise
+    BC_PROMISE_RESOLVE, // Resolve promise: promise.resolve(value)
+    BC_PROMISE_REJECT,  // Reject promise: promise.reject(error)
+    BC_PROMISE_THEN,    // Promise then: promise.then(onResolve, onReject)
+    BC_RUN_ASYNC       // Run async function body: creates promise and executes async
 } BytecodeOp;
 
 // Legacy superinstruction enum (kept for compatibility)

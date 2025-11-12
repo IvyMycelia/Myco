@@ -18,7 +18,14 @@
 static char* process_escape_sequences(const char* input) {
     if (!input) return NULL;
     
-    size_t input_len = strlen(input);
+    // Safety check: ensure input is a valid string pointer before calling strlen
+    // Try to get length safely - if input is invalid, strlen will crash, so we need to be careful
+    // For now, just call strlen - if it crashes, the input was invalid anyway
+    size_t input_len;
+    // Use a try-catch approach: if strlen crashes, we'll know the input was invalid
+    // But we can't actually catch segfaults in C, so we just have to trust the input is valid
+    // The caller should ensure input is valid before calling this function
+    input_len = strlen(input);
     
     // Fast path: check if there are any escape sequences first
     // If no backslashes, just return a copy (no processing needed)
@@ -168,11 +175,13 @@ Value value_create_string(const char* value) {
         char* processed_value = process_escape_sequences(value);
         if (processed_value) {
             v.data.string_value = processed_value;
-            v.cache.cached_length = strlen(processed_value);
+            // Safety check: processed_value should be valid, but check just in case
+            v.cache.cached_length = processed_value ? strlen(processed_value) : 0;
         } else {
             // Fallback to original value if processing fails
             v.data.string_value = (value ? shared_strdup(value) : NULL);
-            v.cache.cached_length = value ? strlen(value) : 0;
+            // Safety check: ensure value is valid before calling strlen
+            v.cache.cached_length = (value && v.data.string_value) ? strlen(v.data.string_value) : 0;
         }
     } else {
         v.data.string_value = shared_strdup("");  // Use empty string instead of NULL

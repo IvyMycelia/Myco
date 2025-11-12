@@ -544,6 +544,7 @@ static void lexer_parse_identifier(Lexer* lexer) {
         else if (strcmp(text, "not") == 0) type = TOKEN_NOT;
         else if (strcmp(text, "match") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "case") == 0) type = TOKEN_KEYWORD;
+        else if (strcmp(text, "when") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "default") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "try") == 0) type = TOKEN_KEYWORD;
         else if (strcmp(text, "catch") == 0) type = TOKEN_KEYWORD;

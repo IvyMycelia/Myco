@@ -3540,6 +3540,25 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                                 }
                                                 
                                                 Value cloned_item = value_clone(&item_value);
+                                                
+                                                // If this is a function from a module, store module path in its captured environment
+                                                // so it can find its bytecode program when called
+                                                if (cloned_item.type == VALUE_FUNCTION) {
+                                                    // Get module path from module_value
+                                                    Value module_path_val = value_object_get(&module_value, "__module_path__");
+                                                    if (module_path_val.type == VALUE_STRING && module_path_val.data.string_value) {
+                                                        // Ensure function has a captured environment
+                                                        if (!cloned_item.data.function_value.captured_environment) {
+                                                            cloned_item.data.function_value.captured_environment = environment_create(NULL);
+                                                        }
+                                                        // Store module path in captured environment
+                                                        environment_define(cloned_item.data.function_value.captured_environment, 
+                                                                           "__module_path__", 
+                                                                           value_create_string(module_path_val.data.string_value));
+                                                    }
+                                                    value_free(&module_path_val);
+                                                }
+                                                
                                                 environment_define(interpreter->current_environment, import_name, cloned_item);
                                             }
                                         }
@@ -3916,6 +3935,25 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                             
                                             // Clone and import into current environment
                                             Value cloned_item = value_clone(&item_value);
+                                            
+                                            // If this is a function from a module, store module path in its captured environment
+                                            // so it can find its bytecode program when called
+                                            if (cloned_item.type == VALUE_FUNCTION) {
+                                                // Get module path from module_value
+                                                Value module_path_val = value_object_get(&module_value, "__module_path__");
+                                                if (module_path_val.type == VALUE_STRING && module_path_val.data.string_value) {
+                                                    // Ensure function has a captured environment
+                                                    if (!cloned_item.data.function_value.captured_environment) {
+                                                        cloned_item.data.function_value.captured_environment = environment_create(NULL);
+                                                    }
+                                                    // Store module path in captured environment
+                                                    environment_define(cloned_item.data.function_value.captured_environment, 
+                                                                       "__module_path__", 
+                                                                       value_create_string(module_path_val.data.string_value));
+                                                }
+                                                value_free(&module_path_val);
+                                            }
+                                            
                                             environment_define(interpreter->current_environment, import_name, cloned_item);
                                         }
                                     }
@@ -4007,11 +4045,11 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         // Use alias if provided, otherwise use library_name
                         const char* var_name = alias ? alias : library_name;
                     
-                        // Define it in the current environment
+                    // Define it in the current environment
                         environment_define(interpreter->current_environment, var_name, lib);
                     
-                        // Push null result (use statements don't return a value)
-                        value_stack_push(value_create_null());
+                    // Push null result (use statements don't return a value)
+                    value_stack_push(value_create_null());
                     }
                 } else {
                     value_stack_push(value_create_null());

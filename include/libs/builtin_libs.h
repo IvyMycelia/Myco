@@ -23,6 +23,7 @@
 #include "server/server.h"
 #include "web.h"
 #include "database.h"
+#include "websocket.h"
 #include "arduino.h"
 #include "graphics.h"
 

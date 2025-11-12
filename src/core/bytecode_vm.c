@@ -771,6 +771,12 @@ static void async_reject_promise(Interpreter* interpreter, Value* promise, Value
 
 static void async_event_loop_run(Interpreter* interpreter) {
     if (!interpreter || !interpreter->async_enabled) return;
+    
+    // Process WebSocket connections (non-blocking I/O)
+    // This handles message receiving, ping/pong, reconnection, etc.
+    extern void websocket_process_connections(Interpreter* interpreter);
+    websocket_process_connections(interpreter);
+    
     if (!interpreter->task_queue || interpreter->task_queue_size == 0) return;
     
     // Process tasks until queue is empty

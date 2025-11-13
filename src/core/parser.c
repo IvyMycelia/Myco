@@ -1539,6 +1539,143 @@ ASTNode* parser_parse_primary(Parser* parser) {
         return promise_node;
     }
     
+    // Check for function expressions: function(...): ... end or func(...): ... end
+    // This MUST come BEFORE the identifier check, otherwise "function" would be parsed as an identifier
+    if ((parser_check(parser, TOKEN_KEYWORD) && parser_peek(parser)->text && 
+         (strcmp(parser_peek(parser)->text, "function") == 0 || strcmp(parser_peek(parser)->text, "func") == 0)) ||
+        (parser_check(parser, TOKEN_IDENTIFIER) && parser_peek(parser)->text && 
+         (strcmp(parser_peek(parser)->text, "function") == 0 || strcmp(parser_peek(parser)->text, "func") == 0))) {
+        // Parse function expression (lambda)
+        // This is the same as parser_parse_function_declaration but creates a lambda instead
+        Token* func_token = parser_peek(parser);
+        parser_advance(parser); // consume 'function' or 'func'
+        
+        // Parse parameters: (param1: Type, param2: Type)
+        ASTNode** parameters = NULL;
+        size_t param_count = 0;
+        size_t param_capacity = 0;
+        
+        if (!parser_match(parser, TOKEN_LEFT_PAREN)) {
+            parser_error(parser, "Expected '(' after 'function'");
+            return NULL;
+        }
+        
+        // Parse optional parameters
+        if (!parser_check(parser, TOKEN_RIGHT_PAREN)) {
+            while (1) {
+                // Parse parameter: identifier : type
+                if (!parser_check(parser, TOKEN_IDENTIFIER)) {
+                    parser_error(parser, "Expected parameter name");
+                    break;
+                }
+                
+                Token* param_token = parser_peek(parser);
+                char* param_name = shared_strdup(param_token->text);
+                parser_advance(parser); // consume parameter name
+                
+                // Parse optional type annotation
+                ASTNode* param_type = NULL;
+                if (parser_check(parser, TOKEN_COLON)) {
+                    parser_advance(parser); // consume ':'
+                    // Parse type (identifier)
+                    if (parser_check(parser, TOKEN_IDENTIFIER) || parser_check(parser, TOKEN_KEYWORD)) {
+                        Token* type_token = parser_peek(parser);
+                        char* type_name = shared_strdup(type_token->text);
+                        parser_advance(parser);
+                        param_type = ast_create_identifier(type_name, type_token->line, type_token->column);
+                        shared_free_safe(type_name, "parser", "unknown_function", 0);
+                    }
+                }
+                
+                // Add parameter
+                if (param_count == param_capacity) {
+                    size_t new_cap = param_capacity == 0 ? 4 : param_capacity * 2;
+                    ASTNode** new_params = (ASTNode**)shared_realloc_safe(parameters, new_cap * sizeof(ASTNode*), "parser", "unknown_function", 0);
+                    if (!new_params) {
+                        parser_error(parser, "Out of memory while parsing parameters");
+                        shared_free_safe(param_name, "parser", "unknown_function", 0);
+                        break;
+                    }
+                    parameters = new_params;
+                    param_capacity = new_cap;
+                }
+                
+                ASTNode* param = ast_create_typed_parameter(param_name, param_type, param_token->line, param_token->column);
+                parameters[param_count++] = param;
+                shared_free_safe(param_name, "parser", "unknown_function", 0);
+                
+                if (parser_check(parser, TOKEN_COMMA)) {
+                    parser_advance(parser);
+                    continue;
+                }
+                break;
+            }
+        }
+        
+        if (!parser_match(parser, TOKEN_RIGHT_PAREN)) {
+            parser_error(parser, "Expected ')' after parameters");
+            // Clean up parameters
+            for (size_t i = 0; i < param_count; i++) {
+                ast_free(parameters[i]);
+            }
+            shared_free_safe(parameters, "parser", "unknown_function", 0);
+            return NULL;
+        }
+        
+        // Parse return type: -> Type (optional)
+        char* return_type_name = NULL;
+        if (parser_check(parser, TOKEN_ARROW)) {
+            parser_advance(parser); // consume '->'
+            if (parser_check(parser, TOKEN_IDENTIFIER) || parser_check(parser, TOKEN_KEYWORD)) {
+                Token* return_type_token = parser_peek(parser);
+                return_type_name = shared_strdup(return_type_token->text);
+                parser_advance(parser);
+            }
+        }
+        
+        // Parse body: : ... end or -> ... end
+        if (!parser_check(parser, TOKEN_COLON) && !parser_check(parser, TOKEN_ARROW)) {
+            parser_error(parser, "Expected ':' or '->' before function body");
+            // Clean up
+            for (size_t i = 0; i < param_count; i++) {
+                ast_free(parameters[i]);
+            }
+            shared_free_safe(parameters, "parser", "unknown_function", 0);
+            if (return_type_name) shared_free_safe(return_type_name, "parser", "unknown_function", 0);
+            return NULL;
+        }
+        parser_advance(parser); // consume ':' or '->'
+        
+        // Parse function body (block)
+        int saw_else = 0;
+        ASTNode* body = parser_collect_block(parser, 0, &saw_else);
+        if (!body) {
+            parser_error(parser, "Expected function body");
+            // Clean up
+            for (size_t i = 0; i < param_count; i++) {
+                ast_free(parameters[i]);
+            }
+            shared_free_safe(parameters, "parser", "unknown_function", 0);
+            if (return_type_name) shared_free_safe(return_type_name, "parser", "unknown_function", 0);
+            return NULL;
+        }
+        
+        // Create lambda AST node (function expression)
+        ASTNode* lambda = ast_create_lambda(parameters, param_count, return_type_name, body, func_token->line, func_token->column);
+        if (!lambda) {
+            // Clean up
+            for (size_t i = 0; i < param_count; i++) {
+                ast_free(parameters[i]);
+            }
+            shared_free_safe(parameters, "parser", "unknown_function", 0);
+            if (return_type_name) shared_free_safe(return_type_name, "parser", "unknown_function", 0);
+            ast_free(body);
+            return NULL;
+        }
+        
+        return lambda;
+    }
+    
     if (parser_check(parser, TOKEN_IDENTIFIER) || 
         (parser_check(parser, TOKEN_KEYWORD) && parser->current_token->text && 
          (strcmp(parser->current_token->text, "self") == 0 || strcmp(parser->current_token->text, "super") == 0))) {

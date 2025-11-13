@@ -398,47 +398,20 @@ static ASTNode* g_compilation_root = NULL;
 static int bc_is_lambda_body_in_ast(ASTNode* root, ASTNode* block) {
     if (!root || !block) return 0;
     
-    // Debug: print node type for the 8-statement block
-    static int debug_count = 0;
-    if (block->data.block.statement_count == 8 && ++debug_count <= 50) {
-        fprintf(stderr, "[DEBUG AST TRAVERSE] Checking node type=%d\n", root->type);
-        fflush(stderr);
-    }
-    
     // Check if this node is a lambda with the given block as its body
-    if (root->type == AST_NODE_LAMBDA) {
-        if (block->data.block.statement_count >= 5) {
-            fprintf(stderr, "[DEBUG AST] Found lambda %p, body=%p (looking for %p)\n", 
-                    (void*)root, (void*)root->data.lambda.body, (void*)block);
-            fflush(stderr);
-        }
-        if (root->data.lambda.body == block) {
-            return 1;
-        }
+    if (root->type == AST_NODE_LAMBDA && root->data.lambda.body == block) {
+        return 1;
     }
     
     // ALSO check if this node is a regular function (AST_NODE_FUNCTION)
     // In some contexts, the parser creates AST_NODE_FUNCTION instead of AST_NODE_LAMBDA
-    if (root->type == AST_NODE_FUNCTION) {
-        if (block->data.block.statement_count >= 5) {
-            fprintf(stderr, "[DEBUG AST] Found function %p, body=%p (looking for %p)\n", 
-                    (void*)root, (void*)root->data.function_definition.body, (void*)block);
-            fflush(stderr);
-        }
-        if (root->data.function_definition.body == block) {
-            fprintf(stderr, "[DEBUG AST] MATCH! Function body matches block\n");
-            fflush(stderr);
-            return 1;
-        }
+    if (root->type == AST_NODE_FUNCTION && root->data.function_definition.body == block) {
+        return 1;
     }
     
     // Recursively search children based on node type
     switch (root->type) {
         case AST_NODE_BLOCK:
-            if (block->data.block.statement_count == 8) {
-                fprintf(stderr, "[DEBUG AST] Checking BLOCK statements (stmt_count=%zu)\n", root->data.block.statement_count);
-                fflush(stderr);
-            }
             if (root->data.block.statements) {
                 for (size_t i = 0; i < root->data.block.statement_count; i++) {
                     if (bc_is_lambda_body_in_ast(root->data.block.statements[i], block)) {
@@ -479,20 +452,6 @@ static int bc_is_lambda_body_in_ast(ASTNode* root, ASTNode* block) {
             }
             break;
         case AST_NODE_FUNCTION_CALL_EXPR:
-            if (block->data.block.statement_count >= 5) {
-                fprintf(stderr, "[DEBUG AST] Checking FUNCTION_CALL_EXPR: arg_count=%zu, arguments=%p\n", 
-                        root->data.function_call_expr.argument_count, 
-                        (void*)root->data.function_call_expr.arguments);
-                if (root->data.function_call_expr.arguments && root->data.function_call_expr.argument_count > 0) {
-                    for (size_t i = 0; i < root->data.function_call_expr.argument_count; i++) {
-                        ASTNode* arg = root->data.function_call_expr.arguments[i];
-                        fprintf(stderr, "[DEBUG AST]   arg[%zu] = %p, type=%d (LAMBDA=%d)\n", 
-                                i, (void*)arg, arg ? arg->type : -1, AST_NODE_LAMBDA);
-                        fflush(stderr);
-                    }
-                }
-                fflush(stderr);
-            }
             if (root->data.function_call_expr.function && 
                 bc_is_lambda_body_in_ast(root->data.function_call_expr.function, block)) return 1;
             if (root->data.function_call_expr.arguments) {
@@ -2647,12 +2606,7 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             int is_lambda_body = 0;
             if (g_compilation_root) {
                 is_lambda_body = bc_is_lambda_body_in_ast(g_compilation_root, n);
-                fprintf(stderr, "[DEBUG] Checking block %p (stmt_count=%zu): is_lambda_body=%d\n", 
-                        (void*)n, n->data.block.statement_count, is_lambda_body);
-                fflush(stderr);
                 if (is_lambda_body) {
-                    fprintf(stderr, "[DEBUG] SKIPPING lambda body block %p\n", (void*)n);
-                    fflush(stderr);
                     // This is a lambda body block - DO NOT compile it to main program
                     // It will be compiled to function bytecode when the lambda node is compiled
                     break;
@@ -3753,11 +3707,6 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
         case AST_NODE_LAMBDA: {
             // Lambda function: (params) => body or (params) -> body
             // Similar to function definition, but creates an anonymous function value
-            
-            fprintf(stderr, "[DEBUG COMPILE] Compiling lambda %p with body %p (stmt_count=%zu)\n", 
-                    (void*)n, (void*)n->data.lambda.body, 
-                    n->data.lambda.body ? n->data.lambda.body->data.block.statement_count : 0);
-            fflush(stderr);
             
             // CRITICAL: Store lambda AST node and body AST FIRST, before any other compilation
             // This ensures the body block is marked as "do not compile to main program"

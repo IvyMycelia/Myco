@@ -437,6 +437,12 @@ void interpreter_throw_exception(Interpreter* interpreter, const char* message, 
 void interpreter_set_source(Interpreter* interpreter, const char* source, const char* filename);
 
 // ============================================================================
+// ASYNC EVENT LOOP
+// ============================================================================
+
+void async_event_loop_run(Interpreter* interpreter);
+
+// ============================================================================
 // VALUE UTILITY FUNCTIONS
 // ============================================================================
 

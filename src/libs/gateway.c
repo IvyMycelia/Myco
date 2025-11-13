@@ -27,6 +27,22 @@ Value builtin_gateway_get_state(Interpreter* interpreter, Value* args, size_t ar
 // Global gateway registry
 static GatewayConnection* g_gateway_connections = NULL;
 
+// Check if any gateway connections are active
+bool gateway_has_active_connections(void) {
+    GatewayConnection* gateway = g_gateway_connections;
+    while (gateway) {
+        if (gateway->state == GATEWAY_STATE_CONNECTING || 
+            gateway->state == GATEWAY_STATE_CONNECTED || 
+            gateway->state == GATEWAY_STATE_READY ||
+            gateway->state == GATEWAY_STATE_RECONNECTING ||
+            gateway->state == GATEWAY_STATE_RESUMING) {
+            return true;
+        }
+        gateway = gateway->next;
+    }
+    return false;
+}
+
 // Get current time in milliseconds
 static uint64_t get_time_ms(void) {
     struct timespec ts;

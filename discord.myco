@@ -243,8 +243,13 @@ export func Client(intents: Number = null) -> Object:
                     client.guilds = event.data.guilds;
                 end
                 # Call user callback (this is when the bot is actually ready)
+                print("DEBUG: Gateway ready event received, checking callback");
                 if client.eventHandlers["ready"] != null:
+                    print("DEBUG: Calling user callback");
                     client.eventHandlers["ready"](client);
+                    print("DEBUG: User callback completed");
+                else:
+                    print("DEBUG: No ready callback registered");
                 end
                 # Print connection completed message when ready
                 print("Connection completed - Bot is ready!");
@@ -277,7 +282,9 @@ export func Client(intents: Number = null) -> Object:
         
         # Event handlers
         on_ready: function(callback: Function) -> Null:
+            print("DEBUG: on_ready called, storing callback");
             client.eventHandlers["ready"] = callback;
+            print("DEBUG: callback stored, checking if it's null: " + (client.eventHandlers["ready"] == null ? "true" : "false"));
         end,
         
         on_message: function(callback: Function) -> Null:

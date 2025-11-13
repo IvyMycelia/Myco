@@ -8,8 +8,10 @@ from "./discord.myco" import Client, Intents, EmbedBuilder;
 # Create a client with default intents
 let client = Client(Intents.default());
 
-# Set up event handlers (discord.py style)
+# Set up event handlers (discord.py style) - BEFORE connecting
+print("Setting up event handlers...");
 client.on_ready(function(client: Object) -> Null:
+    print("DEBUG: Callback function body executing!");
     print("Bot is ready! Logged in as: " + client.user.toString());
     let guildKeys = client.guilds.keys();
     let guildCount = 0;
@@ -18,6 +20,7 @@ client.on_ready(function(client: Object) -> Null:
     end
     print("Connected to " + guildCount.toString() + " guilds");
 end);
+print("Event handlers set up");
 
 client.on_message(function(message: Object) -> Null:
     # Ignore messages from bots
@@ -55,7 +58,7 @@ client.on_member_join(function(member: Object) -> Null:
 end);
 
 # Connect to Discord (replace with your bot token)
-print("About to connect to Discord...");
+print("Abou\t to connect to Discord...");
 try:
     await client.connect("YOUR_BOT_TOKEN");
     # Note: "Connection completed" message will be printed by the ready event handler

@@ -1381,6 +1381,9 @@ static int bc_add_function(BytecodeProgram* p, ASTNode* func) {
     }
     
     if (body) {
+        fprintf(stderr, "[DEBUG bc_add_function] Compiling body %p to function bytecode (lambda body? %d)\n", 
+                (void*)body, (func->type == AST_NODE_LAMBDA));
+        fflush(stderr);
         compile_node_to_function(p, bc_func, body);
     }
     

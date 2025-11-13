@@ -399,15 +399,8 @@ static int bc_is_lambda_body_in_ast(ASTNode* root, ASTNode* block) {
     if (!root || !block) return 0;
     
     // Check if this node is a lambda with the given block as its body
-    if (root->type == AST_NODE_LAMBDA) {
-        fprintf(stderr, "[DEBUG AST_SEARCH] Found lambda node %p with body %p (looking for block %p)\n", 
-                (void*)root, (void*)root->data.lambda.body, (void*)block);
-        fflush(stderr);
-        if (root->data.lambda.body == block) {
-            fprintf(stderr, "[DEBUG AST_SEARCH] MATCH! Lambda body matches block\n");
-            fflush(stderr);
-            return 1;
-        }
+    if (root->type == AST_NODE_LAMBDA && root->data.lambda.body == block) {
+        return 1;
     }
     
     // Recursively search children based on node type
@@ -512,51 +505,19 @@ static int bc_is_lambda_body_in_ast(ASTNode* root, ASTNode* block) {
 static int bc_is_ast_stored(BytecodeProgram* p, ASTNode* n) {
     if (!p || !n) return 0;
     
-    fprintf(stderr, "[DEBUG bc_is_ast_stored] Checking node %p (type=%d), ast_count=%zu\n", (void*)n, n->type, p->ast_count);
-    fflush(stderr);
-    
     // Check if this node is directly stored
     for (size_t i = 0; i < p->ast_count; i++) {
         ASTNode* stored = p->ast_nodes[i];
-        fprintf(stderr, "[DEBUG bc_is_ast_stored] stored[%zu]=%p (type=%d)\n", i, (void*)stored, stored ? stored->type : -1);
-        fflush(stderr);
         if (stored == n) {
-            fprintf(stderr, "[DEBUG bc_is_ast_stored] Found direct match at index %zu\n", i);
-            fflush(stderr);
             return 1;
         }
         // Also check if this block is a lambda body by checking stored lambda nodes
         if (stored && stored->type == AST_NODE_LAMBDA && 
             stored->data.lambda.body == n) {
-            fprintf(stderr, "[DEBUG bc_is_ast_stored] Found as lambda body at index %zu\n", i);
-            fflush(stderr);
             return 1;
         }
     }
     
-    // Also check if this block is a lambda body by checking all functions
-    // This is a fallback in case the lambda wasn't stored yet when this check runs
-    for (size_t i = 0; i < p->function_count; i++) {
-        BytecodeFunction* func = &p->functions[i];
-        // Check if this function is a lambda (name is "<lambda>")
-        if (func->name && strcmp(func->name, "<lambda>") == 0) {
-            // This is a lambda function - we need to check if the block is its body
-            // But we don't have direct access to the lambda AST node from the function
-            // So we check by looking at stored AST nodes that are lambdas
-            for (size_t j = 0; j < p->ast_count; j++) {
-                ASTNode* stored = p->ast_nodes[j];
-                if (stored && stored->type == AST_NODE_LAMBDA && 
-                    stored->data.lambda.body == n) {
-                    fprintf(stderr, "[DEBUG bc_is_ast_stored] Found as lambda body via function check\n");
-                    fflush(stderr);
-                    return 1;
-                }
-            }
-        }
-    }
-    
-    fprintf(stderr, "[DEBUG bc_is_ast_stored] NOT found as stored\n");
-    fflush(stderr);
     return 0;
 }
 
@@ -1381,9 +1342,6 @@ static int bc_add_function(BytecodeProgram* p, ASTNode* func) {
     }
     
     if (body) {
-        fprintf(stderr, "[DEBUG bc_add_function] Compiling body %p to function bytecode (lambda body? %d)\n", 
-                (void*)body, (func->type == AST_NODE_LAMBDA));
-        fflush(stderr);
         compile_node_to_function(p, bc_func, body);
     }
     
@@ -2633,56 +2591,37 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             p->code[jmp_end_pos].a = end_pos;      // Jump to after the entire IF statement
         } break;
         case AST_NODE_BLOCK: {
-            // Skip compiling blocks that are stored AST nodes (e.g., lambda body blocks)
-            // These blocks are already compiled to function bytecode and should not be
-            // compiled to the main program bytecode
-            int is_stored = bc_is_ast_stored(p, n);
+            // CRITICAL: Check if this block is a lambda body block BEFORE compiling it
+            // Lambda body blocks should ONLY be compiled to function bytecode, never to main program
+            int is_lambda_body = 0;
             
-            // Also check if this block is a lambda body by checking all stored lambda nodes
-            // This is a fallback in case the pre-pass didn't find the lambda
-            if (!is_stored) {
+            // Method 1: Check if this block is stored (pre-pass should have stored all lambda body blocks)
+            if (bc_is_ast_stored(p, n)) {
+                is_lambda_body = 1;
+            }
+            
+            // Method 2: Check all stored lambda nodes to see if this block is their body
+            if (!is_lambda_body) {
                 for (size_t i = 0; i < p->ast_count; i++) {
                     ASTNode* stored = p->ast_nodes[i];
                     if (stored && stored->type == AST_NODE_LAMBDA && 
                         stored->data.lambda.body == n) {
-                        is_stored = 1;
-                        fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: Found as lambda body via stored check\n");
-                        fflush(stderr);
+                        is_lambda_body = 1;
                         break;
                     }
                 }
             }
             
-            // Final fallback: search the entire AST tree for lambda nodes
-            // This doesn't rely on pre-pass or storage - it directly searches the AST
-            if (!is_stored && g_compilation_root) {
-                // Only search if this block has statements (lambda body blocks have statements)
-                // This avoids searching for every empty block
-                if (n->data.block.statement_count > 0) {
-                    fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: Searching AST for lambda with body %p (stmt_count=%zu)\n", 
-                            (void*)n, n->data.block.statement_count);
-                    fflush(stderr);
-                    if (bc_is_lambda_body_in_ast(g_compilation_root, n)) {
-                        is_stored = 1;
-                        fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: Found as lambda body via AST search\n");
-                        fflush(stderr);
-                    } else {
-                        fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: NOT found as lambda body in AST\n");
-                        fflush(stderr);
-                    }
-                }
-            } else if (!is_stored && n->data.block.statement_count > 0) {
-                fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: g_compilation_root is NULL, cannot search AST\n");
-                fflush(stderr);
+            // Method 3: Search the entire AST tree for lambda nodes with this block as body
+            // This is the most reliable method - it searches the original AST structure
+            // Only search if block has statements (lambda body blocks have statements)
+            if (!is_lambda_body && g_compilation_root && n->data.block.statement_count > 0) {
+                is_lambda_body = bc_is_lambda_body_in_ast(g_compilation_root, n);
             }
             
-            fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: is_stored=%d, stmt_count=%zu\n", is_stored, n->data.block.statement_count);
-            fflush(stderr);
-            if (is_stored) {
-                // This is a stored AST node (likely a lambda body block)
-                // Don't compile it to the main program - it's already compiled to function bytecode
-                fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: Skipping stored block (lambda body)\n");
-                fflush(stderr);
+            if (is_lambda_body) {
+                // This is a lambda body block - DO NOT compile it to main program
+                // It will be compiled to function bytecode when the lambda node is compiled
                 break;
             }
             
@@ -3759,17 +3698,10 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             // Lambda function: (params) => body or (params) -> body
             // Similar to function definition, but creates an anonymous function value
             
-            fprintf(stderr, "[DEBUG COMPILE] AST_NODE_LAMBDA: Compiling lambda node %p with body %p\n", 
-                    (void*)n, (void*)n->data.lambda.body);
-            fflush(stderr);
-            
             // Store lambda AST node and body AST FIRST to prevent body from being
             // compiled to the main program bytecode (it should only be compiled to function bytecode)
             int lambda_node_idx = bc_add_ast(p, n);
             int lambda_body_idx = bc_add_ast(p, n->data.lambda.body);
-            fprintf(stderr, "[DEBUG COMPILE] AST_NODE_LAMBDA: Stored lambda at idx %d, body at idx %d\n", 
-                    lambda_node_idx, lambda_body_idx);
-            fflush(stderr);
             
             // Add lambda to function table (like regular functions) for bytecode execution
             // This compiles the body to function bytecode (not main program bytecode)
@@ -3778,9 +3710,6 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             // Emit BC_CREATE_LAMBDA instruction
             // instr->a = lambda body AST index (for body execution)
             // instr->b = function ID (for bytecode execution)
-            // We'll search for the lambda node by body to extract parameters
-            fprintf(stderr, "[DEBUG COMPILE] Emitting BC_CREATE_LAMBDA (body_idx=%d, func_id=%d)\n", lambda_body_idx, lambda_id);
-            fflush(stderr);
             bc_emit(p, BC_CREATE_LAMBDA, lambda_body_idx, lambda_id);
         } break;
         
@@ -3864,35 +3793,20 @@ static void bc_prepass_store_lambda_bodies(BytecodeProgram* p, ASTNode* n) {
     
     // If this is a lambda node, store it and its body
     if (n->type == AST_NODE_LAMBDA) {
-        fprintf(stderr, "[DEBUG PREPASS] Found lambda node %p (type=%d, AST_NODE_LAMBDA=%d), storing body block %p\n", 
-                (void*)n, n->type, AST_NODE_LAMBDA, (void*)n->data.lambda.body);
-        fflush(stderr);
-        int idx1 = bc_add_ast(p, n);
-        int idx2 = -1;
+        bc_add_ast(p, n);
         if (n->data.lambda.body) {
-            idx2 = bc_add_ast(p, n->data.lambda.body);
+            bc_add_ast(p, n->data.lambda.body);
         }
-        fprintf(stderr, "[DEBUG PREPASS] Stored lambda at idx %d, body at idx %d\n", idx1, idx2);
-        fflush(stderr);
         return; // Don't recurse into lambda body - it's already stored
     }
     
     // Recursively process children
-    // Debug: print node type occasionally to see what we're processing
-    static int debug_count = 0;
-    if (++debug_count % 100 == 0) {
-        fprintf(stderr, "[DEBUG PREPASS] Processing node type %d (count=%d)\n", n->type, debug_count);
-        fflush(stderr);
-    }
-    
     switch (n->type) {
         case AST_NODE_BLOCK:
             if (n->data.block.statements) {
                 for (size_t i = 0; i < n->data.block.statement_count; i++) {
                     ASTNode* stmt = n->data.block.statements[i];
                     if (stmt) {
-                        fprintf(stderr, "[DEBUG PREPASS] Block statement[%zu] type=%d\n", i, stmt->type);
-                        fflush(stderr);
                         bc_prepass_store_lambda_bodies(p, stmt);
                     }
                 }
@@ -3939,8 +3853,6 @@ static void bc_prepass_store_lambda_bodies(BytecodeProgram* p, ASTNode* n) {
             break;
         case AST_NODE_FUNCTION_CALL_EXPR:
             // Method call expression: obj.method(args...) or func(args...)
-            fprintf(stderr, "[DEBUG PREPASS] FUNCTION_CALL_EXPR: arg_count=%zu\n", n->data.function_call_expr.argument_count);
-            fflush(stderr);
             if (n->data.function_call_expr.function) {
                 bc_prepass_store_lambda_bodies(p, n->data.function_call_expr.function);
             }
@@ -3948,14 +3860,9 @@ static void bc_prepass_store_lambda_bodies(BytecodeProgram* p, ASTNode* n) {
                 for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
                     ASTNode* arg = n->data.function_call_expr.arguments[i];
                     if (arg) {
-                        fprintf(stderr, "[DEBUG PREPASS] Processing function call arg[%zu] type=%d (AST_NODE_LAMBDA=%d)\n", i, arg->type, AST_NODE_LAMBDA);
-                        fflush(stderr);
                         bc_prepass_store_lambda_bodies(p, arg);
                     }
                 }
-            } else {
-                fprintf(stderr, "[DEBUG PREPASS] FUNCTION_CALL_EXPR: arguments array is NULL!\n");
-                fflush(stderr);
             }
             break;
         case AST_NODE_MEMBER_ACCESS:
@@ -4028,11 +3935,7 @@ int bytecode_compile_program(BytecodeProgram* program, ASTNode* root, Interprete
     // Pre-pass: Find all lambda nodes and store their body blocks
     // This must happen BEFORE compilation so that lambda body blocks
     // are recognized as stored when blocks are checked
-    fprintf(stderr, "[DEBUG PREPASS] Starting pre-pass on root node %p (type=%d)\n", (void*)root, root ? root->type : -1);
-    fflush(stderr);
     bc_prepass_store_lambda_bodies(program, root);
-    fprintf(stderr, "[DEBUG PREPASS] Pre-pass complete, stored %zu AST nodes\n", program->ast_count);
-    fflush(stderr);
     
     compile_node(program, root);
     bc_emit(program, BC_HALT, 0, 0);

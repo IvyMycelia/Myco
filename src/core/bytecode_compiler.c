@@ -389,6 +389,124 @@ static int bc_add_ast(BytecodeProgram* p, ASTNode* n) {
     return (int)p->ast_count++;
 }
 
+// Global variable to store the root AST node during compilation
+// This allows us to search the entire AST for lambda nodes
+static ASTNode* g_compilation_root = NULL;
+
+// Search the entire AST tree for lambda nodes that have the given block as their body
+// This is a more aggressive check that doesn't rely on pre-pass storage
+static int bc_is_lambda_body_in_ast(ASTNode* root, ASTNode* block) {
+    if (!root || !block) return 0;
+    
+    // Check if this node is a lambda with the given block as its body
+    if (root->type == AST_NODE_LAMBDA) {
+        fprintf(stderr, "[DEBUG AST_SEARCH] Found lambda node %p with body %p (looking for block %p)\n", 
+                (void*)root, (void*)root->data.lambda.body, (void*)block);
+        fflush(stderr);
+        if (root->data.lambda.body == block) {
+            fprintf(stderr, "[DEBUG AST_SEARCH] MATCH! Lambda body matches block\n");
+            fflush(stderr);
+            return 1;
+        }
+    }
+    
+    // Recursively search children based on node type
+    switch (root->type) {
+        case AST_NODE_BLOCK:
+            if (root->data.block.statements) {
+                for (size_t i = 0; i < root->data.block.statement_count; i++) {
+                    if (bc_is_lambda_body_in_ast(root->data.block.statements[i], block)) {
+                        return 1;
+                    }
+                }
+            }
+            break;
+        case AST_NODE_IF_STATEMENT:
+            if (root->data.if_statement.condition && 
+                bc_is_lambda_body_in_ast(root->data.if_statement.condition, block)) return 1;
+            if (root->data.if_statement.then_block && 
+                bc_is_lambda_body_in_ast(root->data.if_statement.then_block, block)) return 1;
+            if (root->data.if_statement.else_if_chain && 
+                bc_is_lambda_body_in_ast(root->data.if_statement.else_if_chain, block)) return 1;
+            if (root->data.if_statement.else_block && 
+                bc_is_lambda_body_in_ast(root->data.if_statement.else_block, block)) return 1;
+            break;
+        case AST_NODE_WHILE_LOOP:
+            if (root->data.while_loop.condition && 
+                bc_is_lambda_body_in_ast(root->data.while_loop.condition, block)) return 1;
+            if (root->data.while_loop.body && 
+                bc_is_lambda_body_in_ast(root->data.while_loop.body, block)) return 1;
+            break;
+        case AST_NODE_FOR_LOOP:
+            if (root->data.for_loop.body && 
+                bc_is_lambda_body_in_ast(root->data.for_loop.body, block)) return 1;
+            break;
+        case AST_NODE_FUNCTION:
+            if (root->data.function_definition.body && 
+                bc_is_lambda_body_in_ast(root->data.function_definition.body, block)) return 1;
+            break;
+        case AST_NODE_FUNCTION_CALL:
+            if (root->data.function_call.arguments) {
+                for (size_t i = 0; i < root->data.function_call.argument_count; i++) {
+                    if (bc_is_lambda_body_in_ast(root->data.function_call.arguments[i], block)) return 1;
+                }
+            }
+            break;
+        case AST_NODE_FUNCTION_CALL_EXPR:
+            if (root->data.function_call_expr.function && 
+                bc_is_lambda_body_in_ast(root->data.function_call_expr.function, block)) return 1;
+            if (root->data.function_call_expr.arguments) {
+                for (size_t i = 0; i < root->data.function_call_expr.argument_count; i++) {
+                    if (bc_is_lambda_body_in_ast(root->data.function_call_expr.arguments[i], block)) return 1;
+                }
+            }
+            break;
+        case AST_NODE_MEMBER_ACCESS:
+            if (root->data.member_access.object && 
+                bc_is_lambda_body_in_ast(root->data.member_access.object, block)) return 1;
+            break;
+        case AST_NODE_ARRAY_LITERAL:
+            if (root->data.array_literal.elements) {
+                for (size_t i = 0; i < root->data.array_literal.element_count; i++) {
+                    if (bc_is_lambda_body_in_ast(root->data.array_literal.elements[i], block)) return 1;
+                }
+            }
+            break;
+        case AST_NODE_HASH_MAP_LITERAL:
+            if (root->data.hash_map_literal.keys && root->data.hash_map_literal.values) {
+                for (size_t i = 0; i < root->data.hash_map_literal.pair_count; i++) {
+                    if (bc_is_lambda_body_in_ast(root->data.hash_map_literal.keys[i], block)) return 1;
+                    if (bc_is_lambda_body_in_ast(root->data.hash_map_literal.values[i], block)) return 1;
+                }
+            }
+            break;
+        case AST_NODE_VARIABLE_DECLARATION:
+            if (root->data.variable_declaration.initial_value && 
+                bc_is_lambda_body_in_ast(root->data.variable_declaration.initial_value, block)) return 1;
+            break;
+        case AST_NODE_ASSIGNMENT:
+            if (root->data.assignment.value && 
+                bc_is_lambda_body_in_ast(root->data.assignment.value, block)) return 1;
+            break;
+        case AST_NODE_BINARY_OP:
+            if (root->data.binary.left && 
+                bc_is_lambda_body_in_ast(root->data.binary.left, block)) return 1;
+            if (root->data.binary.right && 
+                bc_is_lambda_body_in_ast(root->data.binary.right, block)) return 1;
+            break;
+        case AST_NODE_UNARY_OP:
+            if (root->data.unary.operand && 
+                bc_is_lambda_body_in_ast(root->data.unary.operand, block)) return 1;
+            break;
+        default:
+            // Check linked list
+            if (root->next && bc_is_lambda_body_in_ast(root->next, block)) return 1;
+            break;
+    }
+    
+    return 0;
+}
+
 // Check if an AST node is stored in the program's AST array (e.g., lambda body blocks)
 // This prevents lambda body blocks from being compiled to the main program bytecode
 static int bc_is_ast_stored(BytecodeProgram* p, ASTNode* n) {
@@ -2525,11 +2643,29 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                     if (stored && stored->type == AST_NODE_LAMBDA && 
                         stored->data.lambda.body == n) {
                         is_stored = 1;
-                        fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: Found as lambda body via fallback check\n");
+                        fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: Found as lambda body via stored check\n");
                         fflush(stderr);
                         break;
                     }
                 }
+            }
+            
+            // Final fallback: search the entire AST tree for lambda nodes
+            // This doesn't rely on pre-pass or storage - it directly searches the AST
+            if (!is_stored && g_compilation_root) {
+                fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: Searching AST for lambda with body %p\n", (void*)n);
+                fflush(stderr);
+                if (bc_is_lambda_body_in_ast(g_compilation_root, n)) {
+                    is_stored = 1;
+                    fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: Found as lambda body via AST search\n");
+                    fflush(stderr);
+                } else {
+                    fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: NOT found as lambda body in AST\n");
+                    fflush(stderr);
+                }
+            } else if (!is_stored) {
+                fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: g_compilation_root is NULL, cannot search AST\n");
+                fflush(stderr);
             }
             
             fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: is_stored=%d, stmt_count=%zu\n", is_stored, n->data.block.statement_count);
@@ -3873,6 +4009,10 @@ int bytecode_compile_program(BytecodeProgram* program, ASTNode* root, Interprete
     // Store interpreter reference for global variable access
     program->interpreter = interpreter;
     
+    // Store root AST node globally so we can search the entire AST for lambda nodes
+    // This allows us to check if a block is a lambda body even if the pre-pass didn't find it
+    g_compilation_root = root;
+    
     // Pre-pass: Find all lambda nodes and store their body blocks
     // This must happen BEFORE compilation so that lambda body blocks
     // are recognized as stored when blocks are checked
@@ -3884,6 +4024,9 @@ int bytecode_compile_program(BytecodeProgram* program, ASTNode* root, Interprete
     
     compile_node(program, root);
     bc_emit(program, BC_HALT, 0, 0);
+    
+    // Clear the global root pointer
+    g_compilation_root = NULL;
     
     // Apply optimizations
     apply_compiler_optimizations(program);

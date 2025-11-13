@@ -3700,12 +3700,17 @@ static void bc_prepass_store_lambda_bodies(BytecodeProgram* p, ASTNode* n) {
     
     // If this is a lambda node, store it and its body
     if (n->type == AST_NODE_LAMBDA) {
-        fprintf(stderr, "[DEBUG PREPASS] Found lambda node %p, storing body block %p\n", (void*)n, (void*)n->data.lambda.body);
+        fprintf(stderr, "[DEBUG PREPASS] Found lambda node %p (type=%d, AST_NODE_LAMBDA=%d), storing body block %p\n", 
+                (void*)n, n->type, AST_NODE_LAMBDA, (void*)n->data.lambda.body);
         fflush(stderr);
-        bc_add_ast(p, n);
+        int idx1 = bc_add_ast(p, n);
+        int idx2 = -1;
         if (n->data.lambda.body) {
-            bc_add_ast(p, n->data.lambda.body);
+            idx2 = bc_add_ast(p, n->data.lambda.body);
         }
+        fprintf(stderr, "[DEBUG PREPASS] Stored lambda at idx %d, body at idx %d\n", idx1, idx2);
+        fflush(stderr);
+        return; // Don't recurse into lambda body - it's already stored
     }
     
     // Recursively process children
@@ -3720,7 +3725,12 @@ static void bc_prepass_store_lambda_bodies(BytecodeProgram* p, ASTNode* n) {
         case AST_NODE_BLOCK:
             if (n->data.block.statements) {
                 for (size_t i = 0; i < n->data.block.statement_count; i++) {
-                    bc_prepass_store_lambda_bodies(p, n->data.block.statements[i]);
+                    ASTNode* stmt = n->data.block.statements[i];
+                    if (stmt) {
+                        fprintf(stderr, "[DEBUG PREPASS] Block statement[%zu] type=%d\n", i, stmt->type);
+                        fflush(stderr);
+                        bc_prepass_store_lambda_bodies(p, stmt);
+                    }
                 }
             }
             break;
@@ -3761,6 +3771,27 @@ static void bc_prepass_store_lambda_bodies(BytecodeProgram* p, ASTNode* n) {
                 for (size_t i = 0; i < n->data.function_call.argument_count; i++) {
                     bc_prepass_store_lambda_bodies(p, n->data.function_call.arguments[i]);
                 }
+            }
+            break;
+        case AST_NODE_FUNCTION_CALL_EXPR:
+            // Method call expression: obj.method(args...) or func(args...)
+            fprintf(stderr, "[DEBUG PREPASS] FUNCTION_CALL_EXPR: arg_count=%zu\n", n->data.function_call_expr.argument_count);
+            fflush(stderr);
+            if (n->data.function_call_expr.function) {
+                bc_prepass_store_lambda_bodies(p, n->data.function_call_expr.function);
+            }
+            if (n->data.function_call_expr.arguments) {
+                for (size_t i = 0; i < n->data.function_call_expr.argument_count; i++) {
+                    ASTNode* arg = n->data.function_call_expr.arguments[i];
+                    if (arg) {
+                        fprintf(stderr, "[DEBUG PREPASS] Processing function call arg[%zu] type=%d (AST_NODE_LAMBDA=%d)\n", i, arg->type, AST_NODE_LAMBDA);
+                        fflush(stderr);
+                        bc_prepass_store_lambda_bodies(p, arg);
+                    }
+                }
+            } else {
+                fprintf(stderr, "[DEBUG PREPASS] FUNCTION_CALL_EXPR: arguments array is NULL!\n");
+                fflush(stderr);
             }
             break;
         case AST_NODE_MEMBER_ACCESS:

@@ -2653,17 +2653,22 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             // Final fallback: search the entire AST tree for lambda nodes
             // This doesn't rely on pre-pass or storage - it directly searches the AST
             if (!is_stored && g_compilation_root) {
-                fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: Searching AST for lambda with body %p\n", (void*)n);
-                fflush(stderr);
-                if (bc_is_lambda_body_in_ast(g_compilation_root, n)) {
-                    is_stored = 1;
-                    fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: Found as lambda body via AST search\n");
+                // Only search if this block has statements (lambda body blocks have statements)
+                // This avoids searching for every empty block
+                if (n->data.block.statement_count > 0) {
+                    fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: Searching AST for lambda with body %p (stmt_count=%zu)\n", 
+                            (void*)n, n->data.block.statement_count);
                     fflush(stderr);
-                } else {
-                    fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: NOT found as lambda body in AST\n");
-                    fflush(stderr);
+                    if (bc_is_lambda_body_in_ast(g_compilation_root, n)) {
+                        is_stored = 1;
+                        fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: Found as lambda body via AST search\n");
+                        fflush(stderr);
+                    } else {
+                        fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: NOT found as lambda body in AST\n");
+                        fflush(stderr);
+                    }
                 }
-            } else if (!is_stored) {
+            } else if (!is_stored && n->data.block.statement_count > 0) {
                 fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: g_compilation_root is NULL, cannot search AST\n");
                 fflush(stderr);
             }
@@ -3751,13 +3756,17 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             // Lambda function: (params) => body or (params) -> body
             // Similar to function definition, but creates an anonymous function value
             
-            fprintf(stderr, "[DEBUG COMPILE] AST_NODE_LAMBDA: Compiling lambda\n");
+            fprintf(stderr, "[DEBUG COMPILE] AST_NODE_LAMBDA: Compiling lambda node %p with body %p\n", 
+                    (void*)n, (void*)n->data.lambda.body);
             fflush(stderr);
             
             // Store lambda AST node and body AST FIRST to prevent body from being
             // compiled to the main program bytecode (it should only be compiled to function bytecode)
             int lambda_node_idx = bc_add_ast(p, n);
             int lambda_body_idx = bc_add_ast(p, n->data.lambda.body);
+            fprintf(stderr, "[DEBUG COMPILE] AST_NODE_LAMBDA: Stored lambda at idx %d, body at idx %d\n", 
+                    lambda_node_idx, lambda_body_idx);
+            fflush(stderr);
             
             // Add lambda to function table (like regular functions) for bytecode execution
             // This compiles the body to function bytecode (not main program bytecode)

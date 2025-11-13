@@ -11,7 +11,12 @@ let client = Client(Intents.default());
 # Set up event handlers (discord.py style)
 client.on_ready(function(client: Object) -> Null:
     print("Bot is ready! Logged in as: " + client.user.toString());
-    print("Connected to " + Object.keys(client.guilds).length.toString() + " guilds");
+    let guildKeys = client.guilds.keys();
+    let guildCount = 0;
+    if guildKeys != null and guildKeys.length != null:
+        guildCount = guildKeys.length;
+    end
+    print("Connected to " + guildCount.toString() + " guilds");
 end);
 
 client.on_message(function(message: Object) -> Null:
@@ -53,7 +58,8 @@ end);
 print("About to connect to Discord...");
 try:
     await client.connect("YOUR_BOT_TOKEN");
-    print("Connection completed");
+    # Note: "Connection completed" message will be printed by the ready event handler
+    # The connect() call initiates the connection, but the bot becomes ready asynchronously
 catch error:
     print("Connection error: " + error.toString());
 end

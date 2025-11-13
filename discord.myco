@@ -238,14 +238,16 @@ export func Client(intents: Number = null) -> Object:
                 if event.data != null and event.data.user != null:
                     client.user = event.data.user;
                 end
-                # Store guilds
+                # Store guilds (Discord sends guilds in the READY event)
                 if event.data != null and event.data.guilds != null:
                     client.guilds = event.data.guilds;
                 end
-                # Call user callback
+                # Call user callback (this is when the bot is actually ready)
                 if client.eventHandlers["ready"] != null:
                     client.eventHandlers["ready"](client);
                 end
+                # Print connection completed message when ready
+                print("Connection completed - Bot is ready!");
             end);
             
             gw.on("event", function(event):
@@ -266,8 +268,11 @@ export func Client(intents: Number = null) -> Object:
                 end
             end);
             
-            # Connect
-            gw.connect();
+            # Connect (this is async and will establish the connection)
+            await gw.connect();
+            
+            # Note: The ready event will be fired asynchronously when Discord sends it
+            # The connect() call above initiates the connection but doesn't wait for ready
         end,
         
         # Event handlers
@@ -335,9 +340,9 @@ export func Client(intents: Number = null) -> Object:
         end,
         
         # Close/disconnect
-        close: function() -> Null:
+        close: async function() -> Null:
             if client.__gateway__ != null:
-                client.__gateway__.disconnect();
+                await client.__gateway__.disconnect();
             end
         end
     };
@@ -374,12 +379,12 @@ func createBot(token: String) -> Object:
     bot.eventHandlers = {};
     
     # Wrapper methods
-    bot.connect = func():
-        gw.connect();
+    bot.connect = async func():
+        await gw.connect();
     end;
     
-    bot.disconnect = func():
-        gw.disconnect();
+    bot.disconnect = async func():
+        await gw.disconnect();
     end;
     
     bot.getState = func() -> String:

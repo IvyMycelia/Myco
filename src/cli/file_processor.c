@@ -135,15 +135,20 @@ int interpret_source(const char* source, const char* filename, int debug) {
     // Parse the program with filename context for type checking
     ASTNode* program = parser_parse_program_with_filename(parser, filename);
     
-    if (parser->error_count > 0) {
+    // Only show parse error warning if parsing actually failed
+    // (error_count > 0 but program is NULL means parsing failed)
+    if (parser->error_count > 0 && !program) {
         printf("Warning: Parse errors detected\n");
-        if (debug) {
-            //        parser->error_message, parser->error_line, parser->error_column);
+        if (debug && parser->error_message) {
+            printf("  %s\n", parser->error_message);
         }
     }
     
     if (!program) {
         fprintf(stderr, "Error: Failed to parse program\n");
+        if (parser->error_message) {
+            fprintf(stderr, "  %s\n", parser->error_message);
+        }
         parser_free(parser);
         lexer_free(lexer);
         return MYCO_ERROR_PARSER;

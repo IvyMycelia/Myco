@@ -1,6 +1,8 @@
 # Example Discord Bot using discord.myco
 # This demonstrates how to use the discord.py-like library
 
+requires net;
+
 from "./discord.myco" import Client, Intents, EmbedBuilder;
 
 # Create a client with default intents

@@ -3629,9 +3629,11 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             push_import_chain(interpreter, actual_path ? actual_path : normalized_path);
                             
                             // Set current loading module for capability checks
+                            // Use normalized_path for consistency (same format as library_name in import)
                             char* saved_loading_module = interpreter->current_loading_module ? 
                                                           shared_strdup(interpreter->current_loading_module) : NULL;
-                            interpreter->current_loading_module = shared_strdup(actual_path ? actual_path : normalized_path);
+                            // Use normalized_path consistently to match what will be used in error messages
+                            interpreter->current_loading_module = shared_strdup(normalized_path);
                         
                         // Read file content
                         fseek(file, 0, SEEK_END);
@@ -3697,11 +3699,13 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                 // Process required capabilities from module
                                 // Note: The host can choose to auto-grant these or require explicit approval
                                 // For now, we'll auto-grant them, but this can be made configurable
-                                if (parser->required_capability_count > 0 && file_path_for_parsing) {
+                                // Use current_loading_module for consistency with capability checks
+                                if (parser->required_capability_count > 0 && interpreter->current_loading_module) {
                                     for (size_t i = 0; i < parser->required_capability_count; i++) {
                                         if (parser->required_capabilities[i]) {
                                             // Auto-grant the capability (host can override this behavior)
-                                            interpreter_grant_capability_to_module(interpreter, file_path_for_parsing, parser->required_capabilities[i]);
+                                            // Use the same path format that will be used for checking
+                                            interpreter_grant_capability_to_module(interpreter, interpreter->current_loading_module, parser->required_capabilities[i]);
                                         }
                                     }
                                 }

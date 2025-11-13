@@ -305,6 +305,11 @@ ASTNode* parser_parse_program(Parser* parser) {
     // Initialize the parser by getting the first token
     parser_peek(parser);
     
+    // Skip comments at the start of the file
+    while (parser->current_token && parser->current_token->type == TOKEN_COMMENT) {
+        parser_advance(parser);
+    }
+    
     // Parse file-level directives at the start of the file
     // Directives must come before any other statements
     while (parser->current_token && parser->current_token->type == TOKEN_KEYWORD) {
@@ -354,6 +359,11 @@ ASTNode* parser_parse_program(Parser* parser) {
                     } else {
                         break;
                     }
+                }
+                
+                // Skip semicolon if present (optional for directives)
+                if (parser->current_token && parser->current_token->type == TOKEN_SEMICOLON) {
+                    parser_advance(parser);
                 }
             } else {
                 // Not a directive keyword, break out of directive parsing

@@ -52,6 +52,299 @@ let EVENT_MEMBER_JOIN = "GUILD_MEMBER_ADD";
 let EVENT_MEMBER_UPDATE = "GUILD_MEMBER_UPDATE";
 let EVENT_MEMBER_LEAVE = "GUILD_MEMBER_REMOVE";
 
+# Discord Intents - Bit flags for Gateway intents
+export let Intents = {
+    # Privileged intents (require bot verification)
+    GUILDS: 1 << 0,
+    GUILD_MEMBERS: 1 << 1,
+    GUILD_BANS: 1 << 2,
+    GUILD_EMOJIS_AND_STICKERS: 1 << 3,
+    GUILD_INTEGRATIONS: 1 << 4,
+    GUILD_WEBHOOKS: 1 << 5,
+    GUILD_INVITES: 1 << 6,
+    GUILD_VOICE_STATES: 1 << 7,
+    GUILD_PRESENCES: 1 << 8,
+    GUILD_MESSAGES: 1 << 9,
+    GUILD_MESSAGE_REACTIONS: 1 << 10,
+    GUILD_MESSAGE_TYPING: 1 << 11,
+    DIRECT_MESSAGES: 1 << 12,
+    DIRECT_MESSAGE_REACTIONS: 1 << 13,
+    DIRECT_MESSAGE_TYPING: 1 << 14,
+    MESSAGE_CONTENT: 1 << 15,
+    GUILD_SCHEDULED_EVENTS: 1 << 16,
+    AUTO_MODERATION_CONFIGURATION: 1 << 20,
+    AUTO_MODERATION_EXECUTION: 1 << 21,
+    
+    # Convenience combinations
+    all: function() -> Number:
+        return (1 << 22) - 1;  # All intents
+    end,
+    
+    default: function() -> Number:
+        # Default intents (non-privileged)
+        return Intents.GUILDS | Intents.GUILD_MESSAGES | Intents.GUILD_MESSAGE_REACTIONS | 
+               Intents.DIRECT_MESSAGES | Intents.DIRECT_MESSAGE_REACTIONS;
+    end,
+    
+    privileged: function() -> Number:
+        # Privileged intents (require bot verification)
+        return Intents.GUILD_MEMBERS | Intents.GUILD_PRESENCES | Intents.MESSAGE_CONTENT;
+    end
+};
+
+# EmbedBuilder - Fluent API for building Discord embeds
+export func EmbedBuilder() -> Object:
+    let embed = {
+        title: null,
+        description: null,
+        color: 0,
+        fields: [],
+        timestamp: null,
+        footer: null,
+        image: null,
+        thumbnail: null,
+        author: null,
+        url: null,
+        
+        set_title: function(title: String) -> Object:
+            embed.title = title;
+            return embed;
+        end,
+        
+        set_description: function(description: String) -> Object:
+            embed.description = description;
+            return embed;
+        end,
+        
+        set_color: function(color: Number) -> Object:
+            embed.color = color;
+            return embed;
+        end,
+        
+        add_field: function(name: String, value: String, inline: Boolean = false) -> Object:
+            let field = {
+                name: name,
+                value: value,
+                inline: inline
+            };
+            embed.fields.push(field);
+            return embed;
+        end,
+        
+        set_footer: function(text: String, icon_url: String = null) -> Object:
+            embed.footer = {
+                text: text,
+                icon_url: icon_url
+            };
+            return embed;
+        end,
+        
+        set_image: function(url: String) -> Object:
+            embed.image = {url: url};
+            return embed;
+        end,
+        
+        set_thumbnail: function(url: String) -> Object:
+            embed.thumbnail = {url: url};
+            return embed;
+        end,
+        
+        set_author: function(name: String, icon_url: String = null, url: String = null) -> Object:
+            embed.author = {
+                name: name,
+                icon_url: icon_url,
+                url: url
+            };
+            return embed;
+        end,
+        
+        set_url: function(url: String) -> Object:
+            embed.url = url;
+            return embed;
+        end,
+        
+        set_timestamp: function(timestamp: String = null) -> Object:
+            # If no timestamp provided, use current time in ISO 8601 format
+            if timestamp == null:
+                # Simple timestamp generation (would need proper date formatting in production)
+                embed.timestamp = null;  # Could be set to current time
+            else:
+                embed.timestamp = timestamp;
+            end
+            return embed;
+        end,
+        
+        # Build the final embed object (for compatibility)
+        build: function() -> Object:
+            let result = {};
+            if embed.title != null: result.title = embed.title; end
+            if embed.description != null: result.description = embed.description; end
+            result.color = embed.color;
+            if embed.fields.length > 0: result.fields = embed.fields; end
+            if embed.timestamp != null: result.timestamp = embed.timestamp; end
+            if embed.footer != null: result.footer = embed.footer; end
+            if embed.image != null: result.image = embed.image; end
+            if embed.thumbnail != null: result.thumbnail = embed.thumbnail; end
+            if embed.author != null: result.author = embed.author; end
+            if embed.url != null: result.url = embed.url; end
+            return result;
+        end
+    };
+    return embed;
+end;
+
+# Client class - discord.py-like API
+export func Client(intents: Number = null) -> Object:
+    if intents == null:
+        intents = Intents.default();
+    end
+    
+    let client = {
+        token: null,
+        intents: intents,
+        user: null,
+        guilds: {},
+        eventHandlers: {},
+        __gateway__: null,
+        
+        # Connect to Discord
+        connect: async function(token: String) -> Null:
+            if token == null or token == "":
+                print("Error: Bot token is required");
+                return;
+            end
+            
+            client.token = token;
+            
+            # Create gateway configuration
+            let config = {};
+            config.token = token;
+            config.version = 10;
+            config.encoding = "json";
+            config.intents = intents;
+            
+            # Create gateway connection
+            let gw = gateway.create(DISCORD_GATEWAY_URL, config);
+            if gw == null:
+                print("Error: Failed to create gateway connection");
+                return;
+            end
+            
+            client.__gateway__ = gw;
+            
+            # Set up event handlers
+            gw.on("ready", function(event):
+                # Store bot user info
+                if event.data != null and event.data.user != null:
+                    client.user = event.data.user;
+                end
+                # Store guilds
+                if event.data != null and event.data.guilds != null:
+                    client.guilds = event.data.guilds;
+                end
+                # Call user callback
+                if client.eventHandlers["ready"] != null:
+                    client.eventHandlers["ready"](client);
+                end
+            end);
+            
+            gw.on("event", function(event):
+                let eventType = event.name;
+                
+                # Handle MESSAGE_CREATE -> on_message
+                if eventType == EVENT_MESSAGE_CREATE and client.eventHandlers["message"] != null:
+                    if event.data != null:
+                        client.eventHandlers["message"](event.data);
+                    end
+                end
+                
+                # Handle GUILD_MEMBER_ADD -> on_member_join
+                if eventType == EVENT_MEMBER_JOIN and client.eventHandlers["member_join"] != null:
+                    if event.data != null:
+                        client.eventHandlers["member_join"](event.data);
+                    end
+                end
+            end);
+            
+            # Connect
+            gw.connect();
+        end,
+        
+        # Event handlers
+        on_ready: function(callback: Function) -> Null:
+            client.eventHandlers["ready"] = callback;
+        end,
+        
+        on_message: function(callback: Function) -> Null:
+            client.eventHandlers["message"] = callback;
+        end,
+        
+        on_member_join: function(callback: Function) -> Null:
+            client.eventHandlers["member_join"] = callback;
+        end,
+        
+        # Send message (snake_case for discord.py compatibility)
+        send_message: async function(channel_id: String, content: String, options: Object = null) -> Object:
+            if channel_id == null:
+                print("Error: channel ID is required");
+                return null;
+            end
+            
+            # Create message payload
+            let payload = {};
+            if content != null and content != "":
+                payload.content = content;
+            end
+            
+            # Handle embed from options
+            if options != null and options.embed != null:
+                # If it's an EmbedBuilder, build it
+                let embed = options.embed;
+                if embed.build != null:
+                    embed = embed.build();
+                end
+                payload.embeds = [embed];
+            end
+            
+            # Convert payload to JSON
+            let jsonPayload = json.stringify(payload);
+            if jsonPayload == null:
+                print("Error: Failed to stringify message payload");
+                return null;
+            end
+            
+            # Discord API endpoint
+            let url = "https://discord.com/api/v10/channels/" + channel_id + "/messages";
+            
+            # Send POST request
+            # Note: HTTP library may need custom headers for auth
+            let response = http.post(url, jsonPayload);
+            
+            if response == null or not response.success:
+                print("Error: Failed to send message. Status: " + (response != null ? response.status_code.toString() : "unknown"));
+                return null;
+            end
+            
+            # Parse response
+            if response.body != null:
+                let messageData = json.parse(response.body);
+                return messageData;
+            end
+            
+            return null;
+        end,
+        
+        # Close/disconnect
+        close: function() -> Null:
+            if client.__gateway__ != null:
+                client.__gateway__.disconnect();
+            end
+        end
+    };
+    
+    return client;
+end;
+
 # Create a Discord bot instance
 func createBot(token: String) -> Object:
     if token == null or token == "":

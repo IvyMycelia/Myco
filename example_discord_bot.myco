@@ -1,0 +1,62 @@
+# Example Discord Bot using discord.myco
+# This demonstrates how to use the discord.py-like library
+
+from "./discord.myco" import Client, Intents, EmbedBuilder;
+
+# Create a client with default intents
+let client = Client(Intents.default());
+
+# Set up event handlers (discord.py style)
+client.on_ready(function(client: Object) -> Null:
+    print("Bot is ready! Logged in as: " + client.user.toString());
+    print("Connected to " + Object.keys(client.guilds).length.toString() + " guilds");
+end);
+
+client.on_message(function(message: Object) -> Null:
+    # Ignore messages from bots
+    if message.author.bot:
+        return;
+    end
+    
+    # Simple ping command
+    if message.content == "!ping":
+        await client.send_message(message.channel_id, "Pong!");
+    end
+    
+    # Echo command
+    if message.content.startsWith("!echo "):
+        let text = message.content.substring(6);
+        await client.send_message(message.channel_id, text);
+    end
+    
+    # Embed example
+    if message.content == "!embed":
+        let embed = EmbedBuilder();
+        embed.set_title("Example Embed");
+        embed.set_description("This is an example embed!");
+        embed.set_color(0x00FF00);
+        embed.add_field("Field 1", "Value 1", true);
+        embed.add_field("Field 2", "Value 2", true);
+        embed.set_footer("Footer text");
+        
+        await client.send_message(message.channel_id, "", {embed: embed});
+    end
+end);
+
+client.on_member_join(function(member: Object) -> Null:
+    print("Member joined: " + member.toString());
+end);
+
+# Connect to Discord (replace with your bot token)
+print("About to connect to Discord...");
+try:
+    await client.connect("YOUR_BOT_TOKEN");
+    print("Connection completed");
+catch error:
+    print("Connection error: " + error.toString());
+end
+
+# Keep the bot running
+# In a real application, you'd want to handle graceful shutdown
+# client.close();
+

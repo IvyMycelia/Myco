@@ -56,7 +56,7 @@ static void async_task_queue_add(Interpreter* interpreter, AsyncTask* task);
 static AsyncTask* async_task_queue_pop(Interpreter* interpreter);
 static void async_resolve_promise(Interpreter* interpreter, Value* promise, Value* value);
 static void async_reject_promise(Interpreter* interpreter, Value* promise, Value* error);
-static void async_event_loop_run(Interpreter* interpreter);
+void async_event_loop_run(Interpreter* interpreter);
 static uint64_t promise_registry_add(Interpreter* interpreter, Value promise);
 static Value* promise_registry_get(Interpreter* interpreter, uint64_t promise_id);
 static void promise_registry_remove(Interpreter* interpreter, uint64_t promise_id);
@@ -988,7 +988,7 @@ static void async_shutdown_concurrency(Interpreter* interpreter) {
     pthread_cond_destroy(&interpreter->task_available);
 }
 
-static void async_event_loop_run(Interpreter* interpreter) {
+void async_event_loop_run(Interpreter* interpreter) {
     if (!interpreter || !interpreter->async_enabled) return;
     
     // Initialize concurrency system if not already initialized

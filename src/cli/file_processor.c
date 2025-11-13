@@ -1,15 +1,18 @@
 #include "file_processor.h"
 #include "../myco.h"
 #include "../core/interpreter.h"
+#include "../core/interpreter/interpreter_core.h"
 #include "../core/lexer.h"
 #include "../core/parser.h"
 #include "../core/ast.h"
 #include "../compilation/compiler.h"
 #include "../libs/builtin_libs.h"
+#include "../../include/libs/gateway.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
 #include "../../include/utils/shared_utilities.h"
 
 // Process a file
@@ -196,8 +199,13 @@ int interpret_source(const char* source, const char* filename, int debug) {
     
     // Check if servers are running and keep script alive like JavaScript
     extern bool g_servers_running;
-    if (g_servers_running) {
-        while (g_servers_running) {
+    extern bool gateway_has_active_connections(void);
+    
+    // Keep script alive if servers or gateway connections are active
+    if (g_servers_running || gateway_has_active_connections()) {
+        while (g_servers_running || gateway_has_active_connections()) {
+            // Process async event loop to handle websocket/gateway messages
+            async_event_loop_run(interpreter);
             usleep(100000); // 100ms delay to prevent busy waiting
         }
     }

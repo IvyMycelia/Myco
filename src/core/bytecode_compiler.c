@@ -2516,6 +2516,22 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             // These blocks are already compiled to function bytecode and should not be
             // compiled to the main program bytecode
             int is_stored = bc_is_ast_stored(p, n);
+            
+            // Also check if this block is a lambda body by checking all stored lambda nodes
+            // This is a fallback in case the pre-pass didn't find the lambda
+            if (!is_stored) {
+                for (size_t i = 0; i < p->ast_count; i++) {
+                    ASTNode* stored = p->ast_nodes[i];
+                    if (stored && stored->type == AST_NODE_LAMBDA && 
+                        stored->data.lambda.body == n) {
+                        is_stored = 1;
+                        fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: Found as lambda body via fallback check\n");
+                        fflush(stderr);
+                        break;
+                    }
+                }
+            }
+            
             fprintf(stderr, "[DEBUG COMPILE] AST_NODE_BLOCK: is_stored=%d, stmt_count=%zu\n", is_stored, n->data.block.statement_count);
             fflush(stderr);
             if (is_stored) {
@@ -3838,7 +3854,12 @@ static void bc_prepass_store_lambda_bodies(BytecodeProgram* p, ASTNode* n) {
             }
             break;
         default:
-            // For other node types, we don't need to recurse
+            // For other node types, try to recurse into common child fields
+            // This is a catch-all to handle any node types we might have missed
+            // Check if this node has a 'next' field (linked list)
+            if (n->next) {
+                bc_prepass_store_lambda_bodies(p, n->next);
+            }
             break;
     }
 }

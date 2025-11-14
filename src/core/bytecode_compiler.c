@@ -399,8 +399,10 @@ static int bc_is_lambda_body_in_ast(ASTNode* root, ASTNode* block) {
     if (!root || !block) return 0;
     
     // Check if this node is a lambda with the given block as its body
-    if (root->type == AST_NODE_LAMBDA && root->data.lambda.body == block) {
-        return 1;
+    if (root->type == AST_NODE_LAMBDA) {
+        if (root->data.lambda.body == block) {
+            return 1;
+        }
     }
     
     // ALSO check if this node is a regular function (AST_NODE_FUNCTION)
@@ -456,7 +458,8 @@ static int bc_is_lambda_body_in_ast(ASTNode* root, ASTNode* block) {
                 bc_is_lambda_body_in_ast(root->data.function_call_expr.function, block)) return 1;
             if (root->data.function_call_expr.arguments) {
                 for (size_t i = 0; i < root->data.function_call_expr.argument_count; i++) {
-                    if (bc_is_lambda_body_in_ast(root->data.function_call_expr.arguments[i], block)) return 1;
+                    ASTNode* arg = root->data.function_call_expr.arguments[i];
+                    if (bc_is_lambda_body_in_ast(arg, block)) return 1;
                 }
             }
             break;
@@ -537,8 +540,9 @@ static void bc_emit_to_function(BytecodeFunction* func, BytecodeOp op, int a, in
     func->code_count++;
 }
 
-// Forward declaration
+// Forward declarations
 int bc_compile_ast_to_subprogram(BytecodeProgram* p, ASTNode* node, const char* name);
+static int bc_add_function(BytecodeProgram* p, ASTNode* func);
 
 static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func, ASTNode* n) {
     if (!n || !p || !func) return;
@@ -1216,6 +1220,22 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
             // Error node - compilation should have failed earlier, but handle gracefully
             // Push null result and continue
             bc_emit_to_function(func, BC_LOAD_CONST, bc_add_const(p, value_create_null()), 0, 0);
+        } break;
+        case AST_NODE_LAMBDA: {
+            // Lambda function: (params) => body or (params) -> body
+            // Nested lambda - compile it to a function and create a lambda value
+            // Store lambda AST node and body AST FIRST
+            int lambda_node_idx = bc_add_ast(p, n);
+            int lambda_body_idx = -1;
+            if (n->data.lambda.body) {
+                lambda_body_idx = bc_add_ast(p, n->data.lambda.body);
+            }
+            
+            // Add lambda to function table
+            int lambda_id = bc_add_function(p, n);
+            
+            // Emit BC_CREATE_LAMBDA instruction
+            bc_emit_to_function(func, BC_CREATE_LAMBDA, lambda_body_idx >= 0 ? lambda_body_idx : 0, lambda_id, 0);
         } break;
         
         default:

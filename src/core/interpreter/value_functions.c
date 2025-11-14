@@ -525,8 +525,6 @@ Value value_function_call(Value* func, Value* args, size_t arg_count, Interprete
 }
 
 Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, Interpreter* interpreter, Value* self, int line, int column) {
-    fprintf(stderr, "[DEBUG CALL] value_function_call_with_self: called (func=%p, arg_count=%zu)\n", (void*)func, arg_count);
-    fflush(stderr);
     if (!func || func->type != VALUE_FUNCTION) {
         return value_create_null();
     }

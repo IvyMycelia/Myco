@@ -1541,10 +1541,13 @@ ASTNode* parser_parse_primary(Parser* parser) {
     
     // Check for function expressions: function(...): ... end or func(...): ... end
     // This MUST come BEFORE the identifier check, otherwise "function" would be parsed as an identifier
-    if ((parser_check(parser, TOKEN_KEYWORD) && parser_peek(parser)->text && 
-         (strcmp(parser_peek(parser)->text, "function") == 0 || strcmp(parser_peek(parser)->text, "func") == 0)) ||
-        (parser_check(parser, TOKEN_IDENTIFIER) && parser_peek(parser)->text && 
-         (strcmp(parser_peek(parser)->text, "function") == 0 || strcmp(parser_peek(parser)->text, "func") == 0))) {
+    Token* peeked = parser_peek(parser);
+    int is_function_keyword = (parser_check(parser, TOKEN_KEYWORD) && peeked && peeked->text && 
+                               (strcmp(peeked->text, "function") == 0 || strcmp(peeked->text, "func") == 0));
+    int is_function_identifier = (parser_check(parser, TOKEN_IDENTIFIER) && peeked && peeked->text && 
+                                  (strcmp(peeked->text, "function") == 0 || strcmp(peeked->text, "func") == 0));
+    
+    if (is_function_keyword || is_function_identifier) {
         // Parse function expression (lambda)
         // This is the same as parser_parse_function_declaration but creates a lambda instead
         Token* func_token = parser_peek(parser);
@@ -1624,7 +1627,7 @@ ASTNode* parser_parse_primary(Parser* parser) {
         
         // Parse return type: -> Type (optional)
         char* return_type_name = NULL;
-        if (parser_check(parser, TOKEN_ARROW)) {
+        if (parser_check(parser, TOKEN_RETURN_ARROW)) {
             parser_advance(parser); // consume '->'
             if (parser_check(parser, TOKEN_IDENTIFIER) || parser_check(parser, TOKEN_KEYWORD)) {
                 Token* return_type_token = parser_peek(parser);
@@ -1633,9 +1636,10 @@ ASTNode* parser_parse_primary(Parser* parser) {
             }
         }
         
-        // Parse body: : ... end or -> ... end
-        if (!parser_check(parser, TOKEN_COLON) && !parser_check(parser, TOKEN_ARROW)) {
-            parser_error(parser, "Expected ':' or '->' before function body");
+        // Parse body: : ... end
+        // Note: If return type was present, we already consumed '->', so we only check for ':'
+        if (!parser_check(parser, TOKEN_COLON)) {
+            parser_error(parser, "Expected ':' before function body");
             // Clean up
             for (size_t i = 0; i < param_count; i++) {
                 ast_free(parameters[i]);
@@ -1644,7 +1648,7 @@ ASTNode* parser_parse_primary(Parser* parser) {
             if (return_type_name) shared_free_safe(return_type_name, "parser", "unknown_function", 0);
             return NULL;
         }
-        parser_advance(parser); // consume ':' or '->'
+        parser_advance(parser); // consume ':'
         
         // Parse function body (block)
         int saw_else = 0;

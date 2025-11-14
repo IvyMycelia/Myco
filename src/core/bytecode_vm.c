@@ -1146,9 +1146,6 @@ static Value bytecode_execute_no_reset(BytecodeProgram* program, Interpreter* in
 
 // Main execution function
 Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int debug) {
-    fprintf(stderr, "[DEBUG EXEC] bytecode_execute: START (program=%p)\n", (void*)program);
-    fflush(stderr);
-    
     if (!program || !interpreter) {
         return value_create_null();
     }
@@ -5970,9 +5967,6 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 // instr->a = lambda body AST index
                 // instr->b = function ID (for bytecode execution)
                 // Find the lambda AST node by searching for one with this body
-                
-                fprintf(stderr, "[DEBUG VM] BC_CREATE_LAMBDA: Creating lambda (body_ast_idx=%d, func_id=%d)\n", instr->a, instr->b);
-                fflush(stderr);
                 
                 if (instr->a < program->ast_count && instr->b >= 0) {
                     ASTNode* lambda_body = program->ast_nodes[instr->a];

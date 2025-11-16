@@ -209,12 +209,14 @@ export func Client(intents: Number = null) -> Object:
         
         # Connect to Discord
         connect: async function(token: String) -> Null:
+            print("[DEBUG] connect() called with token length: " + (token != null ? token.length.toString() : "null"));
             if token == null or token == "":
                 print("Error: Bot token is required");
                 return;
             end
             
             client.token = token;
+            print("[DEBUG] Creating gateway configuration...");
             
             # Create gateway configuration
             let config = {};
@@ -223,12 +225,15 @@ export func Client(intents: Number = null) -> Object:
             config.encoding = "json";
             config.intents = intents;
             
+            print("[DEBUG] Calling gateway.create()...");
             # Create gateway connection
             let gw = gateway.create(DISCORD_GATEWAY_URL, config);
+            print("[DEBUG] gateway.create() returned: " + (gw != null ? "not null" : "null"));
             if gw == null:
                 print("Error: Failed to create gateway connection");
                 return;
             end
+            print("[DEBUG] Gateway created successfully");
             
             client.__gateway__ = gw;
             

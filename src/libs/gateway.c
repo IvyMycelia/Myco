@@ -27,6 +27,11 @@ Value builtin_gateway_get_state(Interpreter* interpreter, Value* args, size_t ar
 // Global gateway registry
 static GatewayConnection* g_gateway_connections = NULL;
 
+// Check if any gateway connections exist (not just active ones)
+bool gateway_has_connections(void) {
+    return g_gateway_connections != NULL;
+}
+
 // Check if any gateway connections are active
 bool gateway_has_active_connections(void) {
     GatewayConnection* gateway = g_gateway_connections;
@@ -125,9 +130,11 @@ GatewayConnection* gateway_create(const char* url, GatewayConfig* config, Interp
     // Create WebSocket connection
     gateway->ws_conn = websocket_connect_async(url, interpreter);
     if (!gateway->ws_conn) {
+        fprintf(stderr, "[DEBUG GATEWAY] websocket_connect_async failed for URL: %s\n", url);
         shared_free_safe(gateway, "gateway", "gateway_create", 0);
         return NULL;
     }
+    fprintf(stderr, "[DEBUG GATEWAY] Gateway created successfully, WebSocket state: %d\n", gateway->ws_conn->state);
     
     // Initialize gateway state
     gateway->state = GATEWAY_STATE_DISCONNECTED;
@@ -148,6 +155,8 @@ GatewayConnection* gateway_create(const char* url, GatewayConfig* config, Interp
     // Add to global registry
     gateway->next = g_gateway_connections;
     g_gateway_connections = gateway;
+    
+    fprintf(stderr, "[DEBUG GATEWAY] Gateway added to registry, total connections: %p\n", (void*)g_gateway_connections);
     
     return gateway;
 }

@@ -199,15 +199,28 @@ int interpret_source(const char* source, const char* filename, int debug) {
     
     // Check if servers are running and keep script alive like JavaScript
     extern bool g_servers_running;
+    extern bool gateway_has_connections(void);
     extern bool gateway_has_active_connections(void);
     
-    // Keep script alive if servers or gateway connections are active
-    if (g_servers_running || gateway_has_active_connections()) {
-        while (g_servers_running || gateway_has_active_connections()) {
+    // Debug: Check gateway status
+    bool has_gateway = gateway_has_connections();
+    bool has_active_gateway = gateway_has_active_connections();
+    if (has_gateway || has_active_gateway) {
+        fprintf(stderr, "[DEBUG] Gateway connections detected: has_connections=%d, has_active=%d\n", has_gateway, has_active_gateway);
+    }
+    
+    // Keep script alive if servers exist or gateway connections exist (even if not active yet)
+    // This ensures the program stays alive while gateway connections are being established
+    if (g_servers_running || gateway_has_connections()) {
+        fprintf(stderr, "[DEBUG] Keeping program alive for servers/gateway connections\n");
+        while (g_servers_running || gateway_has_connections()) {
             // Process async event loop to handle websocket/gateway messages
             async_event_loop_run(interpreter);
             usleep(100000); // 100ms delay to prevent busy waiting
         }
+        fprintf(stderr, "[DEBUG] Exiting keep-alive loop\n");
+    } else {
+        fprintf(stderr, "[DEBUG] No servers or gateway connections, exiting immediately\n");
     }
     
     // Clean up (after servers have stopped)

@@ -142,6 +142,11 @@ typedef enum {
     BC_NE_NUM,        // Direct numeric inequality
     BC_VALUE_TO_NUM,  // Convert Value to numeric
     BC_NOT,           // Logical NOT operation
+    BC_LEFT_SHIFT,    // Bitwise left shift: a << b
+    BC_RIGHT_SHIFT,   // Bitwise right shift: a >> b
+    BC_BITWISE_AND,   // Bitwise AND: a & b
+    BC_BITWISE_OR,    // Bitwise OR: a | b
+    BC_BITWISE_XOR,   // Bitwise XOR: a ^ b
     // Superinstructions (register-like, numeric locals only)
     BC_INC_LOCAL,     // a: num_locals[a] += 1
     BC_ADD_LLL,       // a,b,c: a = b + c

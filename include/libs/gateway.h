@@ -114,6 +114,7 @@ Value builtin_gateway_on(Interpreter* interpreter, Value* args, size_t arg_count
 Value builtin_gateway_set_config(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 Value builtin_gateway_get_state(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
 void gateway_library_register(Interpreter* interpreter);
+bool gateway_has_connections(void);
 bool gateway_has_active_connections(void);
 
 #endif // GATEWAY_H

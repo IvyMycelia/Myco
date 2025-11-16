@@ -324,6 +324,17 @@ static void bc_emit_super(BytecodeProgram* p, BytecodeOp op, int a, int b, int c
     p->code[p->count].a = a;
     p->code[p->count].b = b;
     p->code[p->count].c = c;
+    
+    // Debug: Log BC_DEFINE_FUNCTION emissions
+    if (op == BC_DEFINE_FUNCTION && p->constants && a >= 0 && a < (int)p->const_count && 
+        p->constants[a].type == VALUE_STRING) {
+        const char* func_name = p->constants[a].data.string_value;
+        if (func_name && (strcmp(func_name, "Client") == 0 || strcmp(func_name, "Intents") == 0)) {
+            fprintf(stderr, "[DEBUG] Emitting BC_DEFINE_FUNCTION for '%s' at bytecode index %zu, name_idx=%d, func_id=%d, flags=%d\n", 
+                    func_name, p->count, a, b, c);
+        }
+    }
+    
     p->count++;
 }
 
@@ -1238,6 +1249,32 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
             bc_emit_to_function(func, BC_CREATE_LAMBDA, lambda_body_idx >= 0 ? lambda_body_idx : 0, lambda_id, 0);
         } break;
         
+        case AST_NODE_ASYNC_FUNCTION: {
+            // Async function expression: async function(...): ... end
+            // Check if this is an expression (NULL name) or a declaration (has name)
+            if (n->data.async_function_definition.function_name == NULL) {
+                // Async function expression - similar to lambda
+                // Store async function AST node and body AST FIRST
+                int async_func_node_idx = bc_add_ast(p, n);
+                int async_func_body_idx = -1;
+                if (n->data.async_function_definition.body) {
+                    async_func_body_idx = bc_add_ast(p, n->data.async_function_definition.body);
+                }
+                
+                // Add async function to function table
+                int async_func_id = bc_add_function(p, n);
+                
+                // Emit BC_CREATE_LAMBDA instruction with async flag (bit 2 = async)
+                // The VM will check flags & 4 to determine if it's async
+                int async_flag = 4; // bit 2 = async
+                bc_emit_to_function(func, BC_CREATE_LAMBDA, async_func_body_idx >= 0 ? async_func_body_idx : 0, async_func_id, async_flag);
+            } else {
+                // Async function declaration - handled in main compilation (case AST_NODE_ASYNC_FUNCTION)
+                // This shouldn't be reached in compile_node_to_function, but handle gracefully
+                // Fall through to default to report error
+            }
+        } break;
+        
         default:
             // Unknown AST node type in compile_node_to_function - try to compile as main-level node
             // This allows some nodes to fall through to main compilation
@@ -1315,9 +1352,15 @@ static int bc_add_function(BytecodeProgram* p, ASTNode* func) {
             }
         }
     } else if (func->type == AST_NODE_ASYNC_FUNCTION) {
-        // Async function definition
-        // Store function name FIRST so recursive calls can find it during body compilation
-        bc_func->name = shared_strdup(func->data.async_function_definition.function_name);
+        // Async function definition or expression
+        // Check if this is an expression (NULL name) or a declaration (has name)
+        if (func->data.async_function_definition.function_name == NULL) {
+            // Async function expression - use anonymous name
+            bc_func->name = shared_strdup("<async_lambda>");
+        } else {
+            // Async function declaration - use provided name
+            bc_func->name = shared_strdup(func->data.async_function_definition.function_name);
+        }
         
         // Store parameter names
         bc_func->param_count = func->data.async_function_definition.parameter_count;
@@ -1326,7 +1369,16 @@ static int bc_add_function(BytecodeProgram* p, ASTNode* func) {
             bc_func->param_names = shared_malloc_safe(bc_func->param_count * sizeof(char*), "bytecode", "bc_add_function", 2);
             for (size_t i = 0; i < bc_func->param_count; i++) {
                 if (func->data.async_function_definition.parameters[i] && 
-                    func->data.async_function_definition.parameters[i]->type == AST_NODE_IDENTIFIER) {
+                    func->data.async_function_definition.parameters[i]->type == AST_NODE_TYPED_PARAMETER) {
+                    // Extract parameter name from typed parameter
+                    ASTNode* param = func->data.async_function_definition.parameters[i];
+                    if (param->data.typed_parameter.parameter_name) {
+                        bc_func->param_names[i] = shared_strdup(param->data.typed_parameter.parameter_name);
+                    } else {
+                        bc_func->param_names[i] = shared_strdup("");
+                    }
+                } else if (func->data.async_function_definition.parameters[i] && 
+                          func->data.async_function_definition.parameters[i]->type == AST_NODE_IDENTIFIER) {
                     bc_func->param_names[i] = shared_strdup(func->data.async_function_definition.parameters[i]->data.identifier_value);
                 } else {
                     bc_func->param_names[i] = shared_strdup("");
@@ -1765,6 +1817,11 @@ static void compile_binary(BytecodeProgram* p, ASTNode* n) {
                 case OP_GREATER_EQUAL: bc_emit(p, BC_GE, 0, 0); break;
                 case OP_LOGICAL_AND: bc_emit(p, BC_AND, 0, 0); break;
                 case OP_LOGICAL_OR: bc_emit(p, BC_OR, 0, 0); break;
+                case OP_LEFT_SHIFT: bc_emit(p, BC_LEFT_SHIFT, 0, 0); break;
+                case OP_RIGHT_SHIFT: bc_emit(p, BC_RIGHT_SHIFT, 0, 0); break;
+                case OP_BITWISE_AND: bc_emit(p, BC_BITWISE_AND, 0, 0); break;
+                case OP_BITWISE_OR: bc_emit(p, BC_BITWISE_OR, 0, 0); break;
+                case OP_BITWISE_XOR: bc_emit(p, BC_BITWISE_XOR, 0, 0); break;
                 default: {
                     // Unsupported binary operator - compilation error
                     if (p->interpreter) {
@@ -2471,12 +2528,23 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                 // Even if it doesn't exist yet during compilation, it might exist at runtime
                 // (e.g., functions defined later in the same block, or modules imported via use)
                 // BC_LOAD_GLOBAL will handle missing globals gracefully at runtime
+                // BUT: Also check if it's in the current environment at runtime (for variables defined earlier)
+                // We'll use BC_LOAD_GLOBAL which checks both current and global environments
+                // IMPORTANT: BC_LOAD_GLOBAL also checks program locals at runtime, so variables
+                // defined earlier in the same program will be found even if not registered during compilation
                 int name_idx = bc_add_const(p, value_create_string(identifier_name));
                 bc_emit(p, BC_LOAD_GLOBAL, name_idx, 0);
             }
+            // IMPORTANT: Both BC_LOAD_LOCAL and BC_LOAD_GLOBAL push a value onto the stack
+            // This value will be consumed by BC_METHOD_CALL
         } break;
         case AST_NODE_VARIABLE_DECLARATION: {
             const char* var_name = n->data.variable_declaration.variable_name;
+            
+            if (var_name && (strcmp(var_name, "Client") == 0 || strcmp(var_name, "Intents") == 0)) {
+                fprintf(stderr, "[DEBUG] Compiling variable '%s', is_export=%d\n", 
+                        var_name, n->data.variable_declaration.is_export);
+            }
             
             if (n->data.variable_declaration.initial_value) {
                 // Compile the initial value first (e.g., for "let x = mod", compile "mod")
@@ -2489,7 +2557,11 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             // For now, always treat variable declarations as local variables
             // This matches the AST interpreter behavior
             int idx = define_local(p, var_name);
-            bc_emit(p, BC_STORE_LOCAL, idx, 0);
+            // Also add variable name to constants pool so BC_STORE_LOCAL can store it in environment
+            // even if program->local_count is 0 or the index is out of bounds
+            int name_idx = bc_add_const(p, value_create_string(var_name));
+            // Use name_idx in the 'b' field to pass variable name to BC_STORE_LOCAL
+            bc_emit(p, BC_STORE_LOCAL, idx, name_idx);
             
             // If variable has export/private flags, store metadata
             if (n->data.variable_declaration.is_export || n->data.variable_declaration.is_private) {
@@ -2500,6 +2572,9 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                 }
                 if (n->data.variable_declaration.is_private) {
                     flags |= 2; // bit 1 = private
+                }
+                if (var_name && (strcmp(var_name, "Client") == 0 || strcmp(var_name, "Intents") == 0)) {
+                    fprintf(stderr, "[DEBUG] Emitting BC_SET_SYMBOL_FLAGS for '%s', flags=%d\n", var_name, flags);
                 }
                 bc_emit(p, BC_SET_SYMBOL_FLAGS, name_idx, flags);
             }
@@ -2670,7 +2745,10 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                     stmt->type != AST_NODE_BREAK &&
                     stmt->type != AST_NODE_CONTINUE &&
                     stmt->type != AST_NODE_RETURN &&
-                    stmt->type != AST_NODE_USE) {  // Use statements don't push values that need popping
+                    stmt->type != AST_NODE_USE &&
+                    stmt->type != AST_NODE_FUNCTION &&
+                    stmt->type != AST_NODE_ASYNC_FUNCTION &&
+                    stmt->type != AST_NODE_CLASS) {  // Use statements don't push values that need popping
                     bc_emit(p, BC_POP, 0, 0);
                 }
             }
@@ -2711,6 +2789,12 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             if (n->data.function_definition.is_private) {
                 flags |= 2; // bit 1 = private
             }
+            if (n->data.function_definition.function_name && 
+                (strcmp(n->data.function_definition.function_name, "Client") == 0 || 
+                 strcmp(n->data.function_definition.function_name, "Intents") == 0)) {
+                fprintf(stderr, "[DEBUG] Compiling function '%s', is_export=%d, flags=%d\n", 
+                        n->data.function_definition.function_name, n->data.function_definition.is_export, flags);
+            }
             bc_emit_super(p, BC_DEFINE_FUNCTION, name_idx, func_id, flags);
         } break;
         
@@ -2724,6 +2808,8 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             int name_idx = bc_add_const(p, value_create_string(n->data.async_function_definition.function_name));
             // Use BC_DEFINE_FUNCTION for now - async handling happens at call site
             // Mark as async function (bit 2 = async)
+            // Note: async functions don't have is_export/is_private fields in AST
+            // If export/private support is needed, it should be added to the AST structure
             int flags = 4; // bit 2 = async
             bc_emit_super(p, BC_DEFINE_FUNCTION, name_idx, func_id, flags);
         } break;
@@ -2731,8 +2817,9 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
         case AST_NODE_AWAIT: {
             // Await expression: await promise -> value
             // Stack: [] -> [promise] -> [value]
+            // IMPORTANT: The expression (e.g., client.connect(...)) must leave a promise on the stack
             compile_node(p, n->data.await_expression.expression);
-            // Stack: [promise]
+            // Stack: [promise] (or [result] if expression doesn't return a promise)
             bc_emit(p, BC_AWAIT, 0, 0);
             // Stack: [value] (after promise resolves)
         } break;
@@ -2865,6 +2952,8 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                 const char* method_name = member_access->data.member_access.member_name;
                 
                 // Compile the object
+                // IMPORTANT: This must push the object onto the stack BEFORE compiling arguments
+                // The stack order for BC_METHOD_CALL is: [object, arg1, arg2, ...] with args on top
                 compile_node(p, member_access->data.member_access.object);
                 
                 // Check for specific built-in methods that have direct bytecode support

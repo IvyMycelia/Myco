@@ -1539,9 +1539,162 @@ ASTNode* parser_parse_primary(Parser* parser) {
         return promise_node;
     }
     
+    // Check for async function expressions: async function(...): ... end
+    // This MUST come BEFORE the regular function check
+    Token* peeked = parser_peek(parser);
+    int is_async_keyword = (parser_check(parser, TOKEN_KEYWORD) && peeked && peeked->text && 
+                            strcmp(peeked->text, "async") == 0);
+    int is_async_identifier = (parser_check(parser, TOKEN_IDENTIFIER) && peeked && peeked->text && 
+                               strcmp(peeked->text, "async") == 0);
+    
+    if (is_async_keyword || is_async_identifier) {
+        // Check if next token is 'function' by peeking ahead
+        // We need to check the token at current_position + 1 without consuming 'async'
+        Token* next_peeked = NULL;
+        if (parser->current_position + 1 < parser->lexer->token_count) {
+            next_peeked = lexer_get_token(parser->lexer, parser->current_position + 1);
+        }
+        int is_function_after_async = (next_peeked && next_peeked->text && 
+                                       (strcmp(next_peeked->text, "function") == 0 || strcmp(next_peeked->text, "func") == 0));
+        
+        if (is_function_after_async) {
+            // Parse async function expression: async function(...): ... end
+            Token* async_token = peeked;
+            parser_advance(parser); // consume 'async'
+            parser_advance(parser); // consume 'function' or 'func'
+            Token* func_token = parser->previous_token;
+            
+            // Parse parameters: (param1: Type, param2: Type)
+            ASTNode** parameters = NULL;
+            size_t param_count = 0;
+            size_t param_capacity = 0;
+            
+            if (!parser_match(parser, TOKEN_LEFT_PAREN)) {
+                parser_error(parser, "Expected '(' after 'function'");
+                return NULL;
+            }
+            
+            // Parse optional parameters
+            if (!parser_check(parser, TOKEN_RIGHT_PAREN)) {
+                while (1) {
+                    // Parse parameter: identifier : type
+                    if (!parser_check(parser, TOKEN_IDENTIFIER)) {
+                        parser_error(parser, "Expected parameter name");
+                        break;
+                    }
+                    
+                    Token* param_token = parser_peek(parser);
+                    char* param_name = shared_strdup(param_token->text);
+                    parser_advance(parser); // consume parameter name
+                    
+                    // Parse optional type annotation
+                    ASTNode* param_type = NULL;
+                    if (parser_check(parser, TOKEN_COLON)) {
+                        parser_advance(parser); // consume ':'
+                        // Parse type (identifier)
+                        if (parser_check(parser, TOKEN_IDENTIFIER) || parser_check(parser, TOKEN_KEYWORD)) {
+                            Token* type_token = parser_peek(parser);
+                            char* type_name = shared_strdup(type_token->text);
+                            parser_advance(parser);
+                            param_type = ast_create_identifier(type_name, type_token->line, type_token->column);
+                            shared_free_safe(type_name, "parser", "unknown_function", 0);
+                        }
+                    }
+                    
+                    // Add parameter
+                    if (param_count == param_capacity) {
+                        size_t new_cap = param_capacity == 0 ? 4 : param_capacity * 2;
+                        ASTNode** new_params = (ASTNode**)shared_realloc_safe(parameters, new_cap * sizeof(ASTNode*), "parser", "unknown_function", 0);
+                        if (!new_params) {
+                            parser_error(parser, "Out of memory while parsing parameters");
+                            shared_free_safe(param_name, "parser", "unknown_function", 0);
+                            break;
+                        }
+                        parameters = new_params;
+                        param_capacity = new_cap;
+                    }
+                    
+                    ASTNode* param = ast_create_typed_parameter(param_name, param_type, param_token->line, param_token->column);
+                    parameters[param_count++] = param;
+                    shared_free_safe(param_name, "parser", "unknown_function", 0);
+                    
+                    if (parser_check(parser, TOKEN_COMMA)) {
+                        parser_advance(parser);
+                        continue;
+                    }
+                    break;
+                }
+            }
+            
+            if (!parser_match(parser, TOKEN_RIGHT_PAREN)) {
+                parser_error(parser, "Expected ')' after parameters");
+                // Clean up parameters
+                for (size_t i = 0; i < param_count; i++) {
+                    ast_free(parameters[i]);
+                }
+                shared_free_safe(parameters, "parser", "unknown_function", 0);
+                return NULL;
+            }
+            
+            // Parse return type: -> Type (optional)
+            char* return_type_name = NULL;
+            if (parser_check(parser, TOKEN_RETURN_ARROW)) {
+                parser_advance(parser); // consume '->'
+                if (parser_check(parser, TOKEN_IDENTIFIER) || parser_check(parser, TOKEN_KEYWORD)) {
+                    Token* return_type_token = parser_peek(parser);
+                    return_type_name = shared_strdup(return_type_token->text);
+                    parser_advance(parser);
+                }
+            }
+            
+            // Parse body: : ... end
+            if (!parser_check(parser, TOKEN_COLON)) {
+                parser_error(parser, "Expected ':' before function body");
+                // Clean up
+                for (size_t i = 0; i < param_count; i++) {
+                    ast_free(parameters[i]);
+                }
+                shared_free_safe(parameters, "parser", "unknown_function", 0);
+                if (return_type_name) shared_free_safe(return_type_name, "parser", "unknown_function", 0);
+                return NULL;
+            }
+            parser_advance(parser); // consume ':'
+            
+            // Parse function body (block)
+            int saw_else = 0;
+            ASTNode* body = parser_collect_block(parser, 0, &saw_else);
+            if (!body) {
+                parser_error(parser, "Expected function body");
+                // Clean up
+                for (size_t i = 0; i < param_count; i++) {
+                    ast_free(parameters[i]);
+                }
+                shared_free_safe(parameters, "parser", "unknown_function", 0);
+                if (return_type_name) shared_free_safe(return_type_name, "parser", "unknown_function", 0);
+                return NULL;
+            }
+            
+            // Create async function expression AST node (NULL name for expressions)
+            ASTNode* async_func = ast_create_async_function(NULL, parameters, param_count, return_type_name, body, async_token->line, async_token->column);
+            if (!async_func) {
+                // Clean up
+                for (size_t i = 0; i < param_count; i++) {
+                    ast_free(parameters[i]);
+                }
+                shared_free_safe(parameters, "parser", "unknown_function", 0);
+                if (return_type_name) shared_free_safe(return_type_name, "parser", "unknown_function", 0);
+                ast_free(body);
+                return NULL;
+            }
+            
+            return async_func;
+        }
+        // If not 'async function', fall through to check for regular 'function'
+    }
+    
     // Check for function expressions: function(...): ... end or func(...): ... end
     // This MUST come BEFORE the identifier check, otherwise "function" would be parsed as an identifier
-    Token* peeked = parser_peek(parser);
+    peeked = parser_peek(parser);
     int is_function_keyword = (parser_check(parser, TOKEN_KEYWORD) && peeked && peeked->text && 
                                (strcmp(peeked->text, "function") == 0 || strcmp(peeked->text, "func") == 0));
     int is_function_identifier = (parser_check(parser, TOKEN_IDENTIFIER) && peeked && peeked->text && 

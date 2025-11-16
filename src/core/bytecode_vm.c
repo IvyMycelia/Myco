@@ -1150,6 +1150,11 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
         return value_create_null();
     }
     
+    // Debug: Log when executing module bytecode
+    if (program->count > 100) {
+        fprintf(stderr, "[DEBUG] bytecode_execute: program count=%zu\n", program->count);
+    }
+    
     // Initialize memory optimizations
     init_memory_optimizations();
     
@@ -1186,6 +1191,40 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             break;
         }
         BytecodeInstruction* instr = &program->code[pc];
+        
+        // Debug: Log when we're about to execute BC_DEFINE_FUNCTION
+        if (instr->op == BC_DEFINE_FUNCTION) {
+            int name_idx = instr->a;
+            if (name_idx >= 0 && name_idx < (int)program->const_count && 
+                program->constants && program->constants[name_idx].type == VALUE_STRING) {
+                const char* func_name = program->constants[name_idx].data.string_value;
+                if (func_name && (strcmp(func_name, "Client") == 0 || strcmp(func_name, "Intents") == 0)) {
+                    fprintf(stderr, "[DEBUG] Executing BC_DEFINE_FUNCTION for '%s' at PC=%zu, program->count=%zu, op=%d\n", 
+                            func_name, pc, program->count, instr->op);
+                }
+            }
+        }
+        
+        // Debug: Log execution progress for module bytecode
+        if (program->count > 100) {
+            // Log every instruction from PC=30 to PC=110 to see where execution stops
+            if (pc >= 30 && pc <= 110) {
+                const char* op_name = "UNKNOWN";
+                if (instr->op == BC_STORE_LOCAL) op_name = "BC_STORE_LOCAL";
+                else if (instr->op == BC_CALL_USER_FUNCTION) op_name = "BC_CALL_USER_FUNCTION";
+                else if (instr->op == BC_CALL_FUNCTION_VALUE) op_name = "BC_CALL_FUNCTION_VALUE";
+                else if (instr->op == BC_DEFINE_FUNCTION) op_name = "BC_DEFINE_FUNCTION";
+                else if (instr->op == BC_HALT) op_name = "BC_HALT";
+                else if (instr->op == BC_POP) op_name = "BC_POP";
+                else if (instr->op == BC_LOAD_CONST) op_name = "BC_LOAD_CONST";
+                else if (instr->op == BC_IMPORT_LIB) op_name = "BC_IMPORT_LIB";
+                else if (instr->op == BC_PROPERTY_ACCESS) op_name = "BC_PROPERTY_ACCESS";
+                else if (instr->op == BC_METHOD_CALL) op_name = "BC_METHOD_CALL";
+                fprintf(stderr, "[DEBUG] Execution at PC=%zu, op=%d (%s), program->count=%zu\n", pc, instr->op, op_name, program->count);
+            } else if (pc == 0 || pc == program->count - 1) {
+                fprintf(stderr, "[DEBUG] Execution at PC=%zu, op=%d, program->count=%zu\n", pc, instr->op, program->count);
+            }
+        }
         
         // If we have an error and we're not in a try block, clear error and continue execution
         // Error was already reported by interpreter_set_error
@@ -1249,6 +1288,21 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
         } else {
             // Handle regular bytecode operations
+            // Debug: Log BC_DEFINE_FUNCTION instructions
+            if (instr->op == BC_DEFINE_FUNCTION && interpreter && interpreter->current_environment) {
+                int name_idx = instr->a;
+                if (name_idx >= 0 && name_idx < (int)program->const_count && 
+                    program->constants && program->constants[name_idx].type == VALUE_STRING) {
+                    const char* func_name = program->constants[name_idx].data.string_value;
+                    if (func_name && (strcmp(func_name, "Client") == 0 || strcmp(func_name, "Intents") == 0)) {
+                        fprintf(stderr, "[DEBUG] About to execute BC_DEFINE_FUNCTION for '%s' at PC=%zu\n", func_name, pc);
+                    }
+                }
+            }
+            // Debug: Log before switch for BC_GE_NUM
+            if (program->count > 100 && pc == 80 && instr->op == BC_GE_NUM) {
+                fprintf(stderr, "[DEBUG] About to enter switch for BC_GE_NUM at PC=%zu, op=%d\n", pc, instr->op);
+            }
             switch (instr->op) {
             case BC_LOAD_CONST: {
                 if (LIKELY(instr->a < program->const_count)) {
@@ -1278,38 +1332,60 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     // Check if variable exists in environment (may have been updated by AST interpreter)
                     // If so, use the environment value; otherwise use local slot
                     Value local_val = program->locals[instr->a];
-                    if (interpreter && interpreter->current_environment && program->local_names && 
-                        instr->a >= 0 && (size_t)instr->a < program->local_count) {
-                        const char* var_name = program->local_names[instr->a];
-                        if (var_name && environment_exists(interpreter->current_environment, var_name)) {
-                            // Variable exists in environment - use that (may be newer)
-                            Value env_val = environment_get(interpreter->current_environment, var_name);
-                            
-                            // Also check global environment for modules
-                            if (env_val.type == VALUE_NULL && interpreter->global_environment) {
-                                env_val = environment_get(interpreter->global_environment, var_name);
-                            }
-                            
-                            // Update local slot to match environment if local is Null or different
-                            if (local_val.type == VALUE_NULL || 
-                                (local_val.type == VALUE_OBJECT && env_val.type == VALUE_OBJECT && 
-                                 local_val.data.object_value.count != env_val.data.object_value.count)) {
-                                value_free(&program->locals[instr->a]);
-                                program->locals[instr->a] = value_clone(&env_val);
-                            }
-                            // Push the environment value (clone it since value_stack_push does shallow copy)
-                            Value cloned_env_val = value_clone(&env_val);
-                            value_free(&env_val);
-                            value_stack_push(cloned_env_val);
-                        } else {
-                            // Variable not in environment - use local slot
-                    value_stack_push(value_clone(&local_val));
+                    const char* var_name = NULL;
+                    if (program->local_names && instr->a >= 0 && (size_t)instr->a < program->local_count) {
+                        var_name = program->local_names[instr->a];
+                    }
+                    
+                    // Always check environment first (BC_STORE_LOCAL stores values in environment)
+                    // This ensures we get the latest value even if local slot is stale
+                    Value env_val = value_create_null();
+                    if (interpreter && interpreter->current_environment && var_name) {
+                        if (environment_exists(interpreter->current_environment, var_name)) {
+                            env_val = environment_get(interpreter->current_environment, var_name);
                         }
-                    } else {
-                        // No environment or local_names - use local slot
-                        value_stack_push(value_clone(&local_val));
+                    }
+                    
+                    // Also check global environment for modules
+                    if (env_val.type == VALUE_NULL && interpreter && interpreter->global_environment && var_name) {
+                        env_val = environment_get(interpreter->global_environment, var_name);
+                    }
+                    
+                    if (env_val.type != VALUE_NULL) {
+                        // Variable exists in environment - use that (may be newer)
+                        // Update local slot to match environment if local is Null or different
+                        if (local_val.type == VALUE_NULL || 
+                            (local_val.type == VALUE_OBJECT && env_val.type == VALUE_OBJECT && 
+                             local_val.data.object_value.count != env_val.data.object_value.count)) {
+                            value_free(&program->locals[instr->a]);
+                            program->locals[instr->a] = value_clone(&env_val);
+                            local_val = program->locals[instr->a];
+                        }
+                        // Push the environment value (clone it since value_stack_push does shallow copy)
+                        Value cloned_env_val = value_clone(&env_val);
+                        value_free(&env_val);
+                        value_stack_push(cloned_env_val);
+                } else {
+                        // Variable not in environment - use local slot
+                        // But if local is null, also check program locals (for variables defined earlier in same program)
+                        if (local_val.type == VALUE_NULL && var_name && program->local_names && program->locals) {
+                            for (int i = 0; i < (int)program->local_count; i++) {
+                                if (program->local_names[i] && strcmp(program->local_names[i], var_name) == 0 && i != instr->a) {
+                                    Value found_val = program->locals[i];
+                                    if (found_val.type != VALUE_NULL) {
+                                        local_val = value_clone(&found_val);
+                                        // Update the current local slot too
+                                        value_free(&program->locals[instr->a]);
+                                        program->locals[instr->a] = value_clone(&found_val);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        value_stack_push(local_val.type != VALUE_NULL ? value_clone(&local_val) : value_create_null());
                     }
                 } else {
+                    // Invalid local index - push null
                     value_stack_push(value_create_null());
                 }
                 pc++;
@@ -1337,6 +1413,25 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 if (instr->a < program->local_slot_count) {
                     Value val = value_stack_pop();
                     
+                    // Get variable name from local_names array (if available)
+                    const char* var_name = NULL;
+                    if (program->local_names && instr->a >= 0 && (size_t)instr->a < program->local_count) {
+                        var_name = program->local_names[instr->a];
+                    }
+                    
+                    // If name not found in local_names, try to get it from constants pool (instr->b)
+                    // This allows BC_STORE_LOCAL to store in environment even if program->local_count is 0
+                    // instr->b contains the variable name index in the constants pool (added by compiler)
+                    if (!var_name && instr->b > 0 && instr->b < (int)program->const_count && 
+                        program->constants[instr->b].type == VALUE_STRING) {
+                        var_name = program->constants[instr->b].data.string_value;
+                    }
+                    
+                    if (var_name && (strcmp(var_name, "client") == 0 || strcmp(var_name, "Intents") == 0)) {
+                        fprintf(stderr, "[DEBUG] BC_STORE_LOCAL '%s': idx=%d, val.type=%d, name_idx=%d, local_count=%zu\n", 
+                                var_name, instr->a, val.type, instr->b, program->local_count);
+                    }
+                    
                     value_free(&program->locals[instr->a]);
                     
                     // Also update numeric locals if this is a number
@@ -1347,7 +1442,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     // For complex types (objects, arrays), clone to ensure internal pointers are valid
                     // For simple types (numbers, booleans, null), store directly
                     Value stored_val;
-                    if (val.type == VALUE_OBJECT || val.type == VALUE_ARRAY || val.type == VALUE_FUNCTION) {
+                    if (val.type == VALUE_OBJECT || val.type == VALUE_ARRAY || val.type == VALUE_FUNCTION || val.type == VALUE_ASYNC_FUNCTION) {
                         stored_val = value_clone(&val);
                         value_free(&val);
                     } else {
@@ -1357,11 +1452,14 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     program->locals[instr->a] = stored_val;
                     
                     // Also store in environment so AST-interpreted code (like for loop bodies) can access it
-                    // Find the variable name from the local slot index
-                    if (interpreter && interpreter->current_environment && program->local_names && 
-                        instr->a >= 0 && (size_t)instr->a < program->local_count) {
-                        const char* var_name = program->local_names[instr->a];
-                        if (var_name) {
+                    // This ensures variables are accessible via BC_LOAD_GLOBAL even if program->local_count is 0
+                    if (interpreter && var_name) {
+                        // Always store in current environment (or create it if needed)
+                        // This ensures variables are accessible via BC_LOAD_GLOBAL
+                        if (!interpreter->current_environment) {
+                            interpreter->current_environment = environment_create(NULL);
+                        }
+                        if (interpreter->current_environment) {
                             // Store in environment (clones the value)
                             // Use stored_val which is already cloned for complex types
                             if (environment_exists(interpreter->current_environment, var_name)) {
@@ -1369,13 +1467,19 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             } else {
                                 environment_define(interpreter->current_environment, var_name, stored_val);
                             }
+                            if (strcmp(var_name, "client") == 0) {
+                                Value check = environment_get(interpreter->current_environment, var_name);
+                                fprintf(stderr, "[DEBUG] BC_STORE_LOCAL 'client': Stored in environment, check.type=%d\n", check.type);
+                            }
                         }
+                    } else if (strcmp(var_name ? var_name : "", "client") == 0) {
+                        fprintf(stderr, "[DEBUG] BC_STORE_LOCAL 'client': NOT storing in environment, var_name=%s, interpreter=%p\n", 
+                                var_name ? var_name : "NULL", (void*)interpreter);
                     }
-                    
-                    // Free val only if we cloned it (stored_val is a separate copy)
-                    if (val.type == VALUE_OBJECT || val.type == VALUE_ARRAY || val.type == VALUE_FUNCTION) {
-                        value_free(&val);
-                    }
+                } else {
+                    // Invalid local index - pop value from stack but don't store it
+                    Value val = value_stack_pop();
+                    value_free(&val);
                 }
                 pc++;
                 break;
@@ -1383,21 +1487,55 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             
             case BC_LOAD_GLOBAL: {
                 // Load global variable by name
-                // Check current environment first (for loop variables, local scope), then global
+                // Check program locals first (for variables defined in the same program),
+                // then current environment (for loop variables, local scope), then global
                 Value loaded_val = value_create_null();
                 if (instr->a >= 0 && instr->a < (int)program->const_count && program->constants) {
                     if (program->constants[instr->a].type == VALUE_STRING) {
                     const char* var_name = program->constants[instr->a].data.string_value;
                         
-                        // Try current environment first (for loop variables, local scope)
+                        if (strcmp(var_name, "client") == 0 || strcmp(var_name, "Client") == 0) {
+                            fprintf(stderr, "[DEBUG] BC_LOAD_GLOBAL '%s': Checking program locals (count=%zu)...\n", var_name, program->local_count);
+                        }
+                        
+                        // First check program locals (for variables defined in the same program)
+                        if (var_name && program->local_names && program->locals) {
+                            for (int i = 0; i < (int)program->local_count; i++) {
+                                if (program->local_names[i] && strcmp(program->local_names[i], var_name) == 0) {
+                                    loaded_val = value_clone(&program->locals[i]);
+                        if (strcmp(var_name, "client") == 0 || strcmp(var_name, "Client") == 0) {
+                            fprintf(stderr, "[DEBUG] BC_LOAD_GLOBAL '%s': Found in program locals[%d], type=%d\n", var_name, i, loaded_val.type);
+                        }
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // If not found in locals, try current environment (for loop variables, local scope)
                         // environment_get already checks parent chain
-                        if (var_name && interpreter && interpreter->current_environment) {
+                        if (loaded_val.type == VALUE_NULL && var_name && interpreter && interpreter->current_environment) {
+                        if (strcmp(var_name, "client") == 0 || strcmp(var_name, "Client") == 0) {
+                            fprintf(stderr, "[DEBUG] BC_LOAD_GLOBAL '%s': Checking current environment...\n", var_name);
+                        }
                             loaded_val = environment_get(interpreter->current_environment, var_name);
+                            if (strcmp(var_name, "client") == 0 || strcmp(var_name, "Client") == 0) {
+                                fprintf(stderr, "[DEBUG] BC_LOAD_GLOBAL '%s': Current environment result type=%d\n", var_name, loaded_val.type);
+                            }
                         }
                         
                         // If not found in current, try global environment (where modules are stored)
                         if (loaded_val.type == VALUE_NULL && var_name && interpreter && interpreter->global_environment) {
+                        if (strcmp(var_name, "client") == 0 || strcmp(var_name, "Client") == 0) {
+                            fprintf(stderr, "[DEBUG] BC_LOAD_GLOBAL '%s': Checking global environment...\n", var_name);
+                        }
                             loaded_val = environment_get(interpreter->global_environment, var_name);
+                            if (strcmp(var_name, "client") == 0 || strcmp(var_name, "Client") == 0) {
+                                fprintf(stderr, "[DEBUG] BC_LOAD_GLOBAL '%s': Global environment result type=%d\n", var_name, loaded_val.type);
+                            }
+                        }
+                        
+                        if (strcmp(var_name, "client") == 0 || strcmp(var_name, "Client") == 0) {
+                            fprintf(stderr, "[DEBUG] BC_LOAD_GLOBAL '%s': Final loaded_val.type=%d\n", var_name, loaded_val.type);
                         }
                     }
                 }
@@ -1764,6 +1902,22 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     }
                     // Pop object (it's below the arguments)
                     object = value_stack_pop();
+                    
+                    // Handle null object case
+                    if (object.type == VALUE_NULL) {
+                        // Object is null - method call fails, return null
+                        value_stack_push(value_create_null());
+                        // Clean up arguments
+                        if (args) {
+                            for (int i = 0; i < arg_count; i++) {
+                                value_free(&args[i]);
+                            }
+                            shared_free_safe(args, "bytecode_vm", "BC_METHOD_CALL", 17);
+                        }
+                        pc++;
+                        break;
+                    }
+                    
                     // Handle different object types
                     if (object.type == VALUE_ARRAY) {
                         // Handle array methods
@@ -2092,40 +2246,121 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         } else {
                             // It's a regular object - get method directly
                             Value method = value_object_get(&object, method_name);
-                            if (method.type == VALUE_FUNCTION) {
+                            if (method.type == VALUE_FUNCTION || method.type == VALUE_ASYNC_FUNCTION) {
+                                if (method.type == VALUE_ASYNC_FUNCTION) {
+                                    // Async function - handle via async execution path
+                                    // Check if this is a bytecode async function
+                                    ASTNode* body_ptr = (ASTNode*)method.data.async_function_value.body;
+                                    uintptr_t body_addr = (uintptr_t)body_ptr;
+                                    if (body_addr < 10000) {
+                                        // Bytecode async function
+                                        int func_id = (int)body_addr;
+                                        BytecodeProgram* func_program = interpreter && interpreter->bytecode_program_cache ? 
+                                            interpreter->bytecode_program_cache : program;
+                                        if (func_id >= 0 && func_id < (int)func_program->function_count) {
+                                            // Create pending promise and register it
+                                            Value promise = value_create_pending_promise();
+                                            uint64_t promise_id = promise_registry_add(interpreter, promise);
+                                            if (promise_id > 0) {
+                                                Value* registry_promise = promise_registry_get(interpreter, promise_id);
+                                                if (registry_promise) {
+                                                    registry_promise->data.promise_value.promise_id = promise_id;
+                                                    // Create async task
+                                                    AsyncTask* task = (AsyncTask*)shared_malloc_safe(sizeof(AsyncTask), "bytecode_vm", "BC_METHOD_CALL", 25);
+                                                    if (task) {
+                                                        // Clone args for async task
+                                                        Value* task_args = NULL;
+                                                        if (arg_count > 0) {
+                                                            task_args = shared_malloc_safe(arg_count * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL", 26);
+                                                            if (task_args) {
+                                                                for (int i = 0; i < arg_count; i++) {
+                                                                    task_args[i] = value_clone(&args[i]);
+                                                                }
+                                                            }
+                                                        }
+                                                        task->promise_ptr = registry_promise;
+                                                        task->promise_copy = *registry_promise;
+                                                        task->program = func_program;
+                                                        task->function_id = func_id;
+                                                        task->args = task_args;
+                                                        task->arg_count = arg_count;
+                                                        // Set self context in environment for async function
+                                                        Environment* func_env = environment_create(interpreter ? interpreter->current_environment : NULL);
+                                                        if (func_env) {
+                                                            environment_define(func_env, "self", value_clone(&object));
+                                                            task->environment = func_env;
+                                                        } else {
+                                                            task->environment = interpreter ? interpreter->current_environment : NULL;
+                                                        }
+                                                        task->is_resolved = 0;
+                                                        task->result = value_create_null();
+                                                        async_task_queue_add(interpreter, task);
+                                                        // Return promise
+                                                        Value result = *registry_promise;
+                                                        result.data.promise_value.promise_id = promise_id;
+                                                        value_stack_push(result);
+                                                    } else {
+                                                        promise_registry_remove(interpreter, promise_id);
+                                                        if (args) {
+                                                            for (int i = 0; i < arg_count; i++) value_free(&args[i]);
+                                                        }
+                                                        value_stack_push(value_create_null());
+                                                    }
+                                                } else {
+                                                    promise_registry_remove(interpreter, promise_id);
+                                                    value_stack_push(value_create_null());
+                                                }
+                                            } else {
+                                                value_stack_push(value_create_null());
+                                            }
+                                        } else {
+                                            value_stack_push(value_create_null());
+                                        }
+                                    } else {
+                                        // AST async function - execute synchronously for now
+                                        interpreter_set_self_context(interpreter, &object);
+                                        Value result = value_function_call_with_self(&method, args, arg_count, interpreter, &object, 0, 0);
+                                        interpreter_set_self_context(interpreter, NULL);
+                                        // Wrap in resolved promise
+                                        Value promise_result = value_create_promise(result, 1, value_create_null());
+                                        value_free(&result);
+                                        value_stack_push(promise_result);
+                                    }
+                                } else {
+                                    // Regular function
                                 // Check if this is a builtin function (function pointer stored in body field)
-                                // Builtin functions have parameter_count == 0, no parameters, and body is a function pointer
-                                // Function pointers are typically in the code segment, not heap-allocated AST nodes
-                                bool is_builtin = (method.data.function_value.body != NULL &&
+                                    // Builtin functions have parameter_count == 0, no parameters, and body is a function pointer
+                                    // Function pointers are typically in the code segment, not heap-allocated AST nodes
+                                    bool is_builtin = (method.data.function_value.body != NULL &&
                                     method.data.function_value.parameter_count == 0 &&
-                                                   !method.data.function_value.parameters &&
-                                                   (uintptr_t)method.data.function_value.body > 0x100);
-                                if (is_builtin) {
+                                                       !method.data.function_value.parameters &&
+                                                       (uintptr_t)method.data.function_value.body > 0x100);
+                                    if (is_builtin) {
                                     // This is a builtin function - call it with object as first argument
                                     Value (*builtin_func)(Interpreter*, Value*, size_t, int, int) = 
                                         (Value (*)(Interpreter*, Value*, size_t, int, int))method.data.function_value.body;
-                                    // Optimize zero-argument method calls to avoid allocations in tight loops
-                                    Value result;
-                                    if (arg_count == 0) {
-                                        // Zero arguments - use stack-allocated array to avoid malloc
-                                        Value method_args[1];
-                                        method_args[0] = value_clone(&object); // self as first argument
-                                        result = builtin_func(interpreter, method_args, 1, 0, 0);
-                                        value_free(&method_args[0]);
-                                    } else {
-                                        // Has arguments - allocate array
+                                        // Optimize zero-argument method calls to avoid allocations in tight loops
+                                        Value result;
+                                        if (arg_count == 0) {
+                                            // Zero arguments - use stack-allocated array to avoid malloc
+                                            Value method_args[1];
+                                            method_args[0] = value_clone(&object); // self as first argument
+                                            result = builtin_func(interpreter, method_args, 1, 0, 0);
+                                            value_free(&method_args[0]);
+                                        } else {
+                                            // Has arguments - allocate array
                                     Value* method_args = shared_malloc_safe((arg_count + 1) * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL", 11);
                                     method_args[0] = value_clone(&object); // self as first argument
                                     for (int i = 0; i < arg_count; i++) {
                                         method_args[i + 1] = value_clone(&args[i]);
                                     }
-                                        result = builtin_func(interpreter, method_args, arg_count + 1, 0, 0);
+                                            result = builtin_func(interpreter, method_args, arg_count + 1, 0, 0);
                                     // Clean up method arguments
                                     for (int i = 0; i < arg_count + 1; i++) {
                                         value_free(&method_args[i]);
                                     }
                                     shared_free_safe(method_args, "bytecode_vm", "BC_METHOD_CALL", 12);
-                                    }
+                                        }
                                     value_stack_push(result);
                                 } else {
                                     // Regular user function - use self context
@@ -2133,6 +2368,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                     Value result = value_function_call_with_self(&method, args, arg_count, interpreter, &object, 0, 0);
                                     interpreter_set_self_context(interpreter, NULL);
                                     value_stack_push(result);
+                                    }
                                 }
                             } else {
                                 value_stack_push(value_create_null());
@@ -2425,6 +2661,12 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 int func_id = instr->a;
                 int arg_count = instr->b;
                 
+                // Debug: Log function call
+                if (program->count > 100) {
+                    fprintf(stderr, "[DEBUG] BC_CALL_USER_FUNCTION at PC=%zu: func_id=%d, arg_count=%d, program->count=%zu\n", 
+                            pc, func_id, arg_count, program->count);
+                }
+                
                 // Get the function from the main program (cache) to ensure recursive calls work
                 BytecodeProgram* func_program = program;
                 if (interpreter && interpreter->bytecode_program_cache) {
@@ -2486,6 +2728,10 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 int arg_count = instr->a;
                 // Get function/value from stack (should be on top, after arguments)
                 Value func_value = value_stack_pop();
+                
+                if (func_value.type == VALUE_FUNCTION || func_value.type == VALUE_NULL) {
+                    fprintf(stderr, "[DEBUG] BC_CALL_FUNCTION_VALUE: func_value.type=%d, arg_count=%d\n", func_value.type, arg_count);
+                }
                 
                 // Get arguments from stack (in reverse order)
                 Value* args = NULL;
@@ -2583,10 +2829,13 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     result = instance;
                 } else if (func_value.type == VALUE_ASYNC_FUNCTION) {
                     // Async function call - create async task
+                    fprintf(stderr, "[DEBUG ASYNC] Calling async function, body_addr check...\n");
                     // Check if this is a bytecode async function
                     ASTNode* body_ptr = (ASTNode*)func_value.data.async_function_value.body;
                     uintptr_t body_addr = (uintptr_t)body_ptr;
+                    fprintf(stderr, "[DEBUG ASYNC] body_addr = %lu\n", (unsigned long)body_addr);
                     if (body_addr < 10000) {
+                        fprintf(stderr, "[DEBUG ASYNC] Bytecode async function detected, func_id=%d\n", (int)body_addr);
                         // This is a bytecode async function
                         int func_id = (int)body_addr;
                         BytecodeProgram* func_program = interpreter && interpreter->bytecode_program_cache ? 
@@ -2739,10 +2988,20 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 int name_idx = instr->a;
                 int func_id = instr->b;
                 
+                // Debug: Check if this is Client or Intents
+                if (name_idx >= 0 && name_idx < (int)program->const_count && 
+                    program->constants && program->constants[name_idx].type == VALUE_STRING) {
+                    const char* func_name = program->constants[name_idx].data.string_value;
+                    if (func_name && (strcmp(func_name, "Client") == 0 || strcmp(func_name, "Intents") == 0)) {
+                        fprintf(stderr, "[DEBUG] BC_DEFINE_FUNCTION executing for '%s', name_idx=%d, func_id=%d\n", 
+                                func_name, name_idx, func_id);
+                    }
+                }
+                
                 if (name_idx >= 0 && name_idx < (int)program->const_count && 
                     program->constants && program->constants[name_idx].type == VALUE_STRING &&
                     func_id >= 0 && func_id < (int)program->function_count &&
-                    program->functions && interpreter && interpreter->global_environment) {
+                    program->functions && interpreter) {
                     
                     const char* func_name = program->constants[name_idx].data.string_value;
                     if (!func_name) {
@@ -2788,14 +3047,24 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     // Define in current environment (or global if no current) so it can be called from the correct scope
                     environment_define(target_env, func_name, function_value);
                     
+                    if (strcmp(func_name, "Client") == 0 || strcmp(func_name, "Intents") == 0) {
+                        fprintf(stderr, "[DEBUG] BC_DEFINE_FUNCTION '%s': stored in target_env=%p, current_env=%p, global_env=%p, flags=%d\n", 
+                                func_name, (void*)target_env, (void*)interpreter->current_environment, (void*)interpreter->global_environment, flags);
+                    }
+                    
                     // Store export/private metadata if flags are present (instr->c)
-                    // bit 0 = is_export, bit 1 = is_private
+                    // bit 0 = is_export, bit 1 = is_private, bit 2 = async
                     // flags was already declared above
-                    if (flags != 0) {
+                    // Check export/private flags (bits 0 and 1), ignore async flag (bit 2)
+                    int export_private_flags = flags & 3; // Mask out async flag (bit 2)
+                    if (export_private_flags != 0) {
                         if (flags & 1) { // is_export
                             char export_key[256];
                             snprintf(export_key, sizeof(export_key), "__export__%s", func_name);
                             environment_define(target_env, export_key, value_create_boolean(1));
+                            if (strcmp(func_name, "Client") == 0 || strcmp(func_name, "Intents") == 0) {
+                                fprintf(stderr, "[DEBUG] BC_DEFINE_FUNCTION '%s': Set export flag\n", func_name);
+                            }
                         }
                         if (flags & 2) { // is_private
                             char private_key[256];
@@ -2816,10 +3085,18 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     int flags = instr->b;
                     Environment* target_env = interpreter->current_environment ? interpreter->current_environment : interpreter->global_environment;
                     
+                    if (strcmp(symbol_name, "Client") == 0 || strcmp(symbol_name, "Intents") == 0) {
+                        fprintf(stderr, "[DEBUG] BC_SET_SYMBOL_FLAGS '%s': flags=%d, target_env=%p, current_env=%p, global_env=%p\n", 
+                                symbol_name, flags, (void*)target_env, (void*)interpreter->current_environment, (void*)interpreter->global_environment);
+                    }
+                    
                     if (flags & 1) { // is_export
                         char export_key[256];
                         snprintf(export_key, sizeof(export_key), "__export__%s", symbol_name);
                         environment_define(target_env, export_key, value_create_boolean(1));
+                        if (strcmp(symbol_name, "Client") == 0 || strcmp(symbol_name, "Intents") == 0) {
+                            fprintf(stderr, "[DEBUG] BC_SET_SYMBOL_FLAGS '%s': Set export flag\n", symbol_name);
+                        }
                     }
                     if (flags & 2) { // is_private
                         char private_key[256];
@@ -3559,7 +3836,19 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                                     value_free(&module_path_val);
                                                 }
                                                 
+                                                // Store in both current environment AND global environment
+                                                // This ensures BC_LOAD_GLOBAL can find imported items
+                                                if (strcmp(import_name, "Client") == 0) {
+                                                    fprintf(stderr, "[DEBUG] [CACHED] Storing 'Client' in current_env=%p, global_env=%p, cloned_item.type=%d\n", 
+                                                            (void*)interpreter->current_environment, (void*)interpreter->global_environment, cloned_item.type);
+                                                }
                                                 environment_define(interpreter->current_environment, import_name, cloned_item);
+                                                if (interpreter->global_environment && interpreter->current_environment != interpreter->global_environment) {
+                                                    if (strcmp(import_name, "Client") == 0) {
+                                                        fprintf(stderr, "[DEBUG] [CACHED] Also storing 'Client' in global environment\n");
+                                                    }
+                                                    environment_define(interpreter->global_environment, import_name, value_clone(&cloned_item));
+                                                }
                                             }
                                         }
                                     }
@@ -3714,11 +4003,25 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                     // Save the current bytecode program cache (main program)
                                     BytecodeProgram* saved_program_cache = interpreter->bytecode_program_cache;
                                     
+                                    fprintf(stderr, "[DEBUG] Executing module '%s', module_env=%p, current_env=%p\n", 
+                                            file_path_for_parsing, (void*)module_env, (void*)interpreter->current_environment);
+                                    
                                     // Execute module in isolated environment
                                     Value module_result = interpreter_execute_program(interpreter, module_ast);
                                     
                                     // Capture the module's bytecode program (set by interpreter_execute_program)
                                     module_bytecode = interpreter->bytecode_program_cache;
+                                    
+                                    fprintf(stderr, "[DEBUG] Module execution complete, module_env count=%zu, module_bytecode count=%zu\n", 
+                                            module_env->count, module_bytecode ? module_bytecode->count : 0);
+                                    
+                                    // Debug: List all symbols in module environment
+                                    for (size_t i = 0; i < module_env->count; i++) {
+                                        if (module_env->names[i] && strncmp(module_env->names[i], "__", 2) != 0) {
+                                            fprintf(stderr, "[DEBUG] Module symbol[%zu]: '%s', type=%d\n", 
+                                                    i, module_env->names[i], module_env->values[i].type);
+                                        }
+                                    }
                                     
                                     // Restore the main program cache
                                     interpreter->bytecode_program_cache = saved_program_cache;
@@ -3752,6 +4055,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         // Note: Don't free actual_path yet - it's needed for caching
                         // Note: Use assignment, not declaration, to avoid shadowing the outer module_value variable
                         module_value = value_create_object(16); // Initial capacity for module properties
+                        fprintf(stderr, "[DEBUG] Created module_value, type=%d, count=%zu\n", module_value.type, module_value.type == VALUE_OBJECT ? module_value.data.object_value.count : 0);
                         
                         // Verify object creation succeeded
                         if (module_value.type != VALUE_OBJECT) {
@@ -3780,11 +4084,15 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         // Check export/private flags to determine what to export
                         // Priority: private > export > default (implicit export for now)
                         size_t export_count = 0;
+                        fprintf(stderr, "[DEBUG] Module environment count=%zu\n", module_env->count);
                         for (size_t i = 0; i < module_env->count; i++) {
                             if (module_env->names[i] && module_env->values[i].type != VALUE_NULL) {
                                 // Skip internal symbols starting with __ (including metadata)
                                 if (strncmp(module_env->names[i], "__", 2) != 0) {
                                     const char* symbol_name = module_env->names[i];
+                                    if (strcmp(symbol_name, "Client") == 0 || strcmp(symbol_name, "Intents") == 0) {
+                                        fprintf(stderr, "[DEBUG] Found '%s' in module_env, type=%d\n", symbol_name, module_env->values[i].type);
+                                    }
                                     
                                     // Check for private flag
                                     char private_key[256];
@@ -3834,7 +4142,14 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                     if (should_export) {
                                         Value cloned = value_clone(&module_env->values[i]);
                                         value_object_set(&module_value, symbol_name, cloned);
+                                        if (strcmp(symbol_name, "Client") == 0 || strcmp(symbol_name, "Intents") == 0 || strcmp(symbol_name, "EmbedBuilder") == 0) {
+                                            fprintf(stderr, "[DEBUG] Exported '%s', type=%d, should_export=%d, is_export=%d, is_private=%d\n", 
+                                                    symbol_name, cloned.type, should_export, is_export, is_private);
+                                        }
                                         export_count++;
+                                    } else if (strcmp(symbol_name, "Client") == 0 || strcmp(symbol_name, "Intents") == 0 || strcmp(symbol_name, "EmbedBuilder") == 0) {
+                                        fprintf(stderr, "[DEBUG] NOT exported '%s', should_export=%d, is_export=%d, is_private=%d, file_export_mode=%d, file_private_mode=%d\n", 
+                                                symbol_name, should_export, is_export, is_private, file_export_mode, file_private_mode);
                                     }
                                 }
                             }
@@ -3901,8 +4216,11 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         }
                         
                         // Handle specific imports if present (instr->c > 0 means specific_items array index)
+                        fprintf(stderr, "[DEBUG] Checking specific imports: instr->c=%d, const_count=%zu\n", instr->c, program->const_count);
+                        fprintf(stderr, "[DEBUG] module_value.type=%d, count=%zu\n", module_value.type, module_value.type == VALUE_OBJECT ? module_value.data.object_value.count : 0);
                         if (instr->c > 0 && instr->c < (int)program->const_count) {
                             Value items_array = program->constants[instr->c];
+                            fprintf(stderr, "[DEBUG] items_array.type=%d, count=%zu\n", items_array.type, items_array.type == VALUE_ARRAY ? items_array.data.array_value.count : 0);
                             if (items_array.type == VALUE_ARRAY) {
                                 size_t item_count = items_array.data.array_value.count;
                                 
@@ -3924,8 +4242,12 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                     if (item_name_ptr && item_name_ptr->type == VALUE_STRING && item_name_ptr->data.string_value) {
                                         const char* item_name = item_name_ptr->data.string_value;
                                         
+                                        fprintf(stderr, "[DEBUG] Processing import item[%zu]: '%s'\n", i, item_name);
+                                        
                                         // Get the item from the module
                                         Value item_value = value_object_get(&module_value, item_name);
+                                        
+                                        fprintf(stderr, "[DEBUG] item_value.type=%d for '%s'\n", item_value.type, item_name);
                                         
                                         if (item_value.type != VALUE_NULL) {
                                             // Determine the name to use (alias if present, otherwise item name)
@@ -3958,7 +4280,19 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                                 value_free(&module_path_val);
                                             }
                                             
+                                            // Store in both current environment AND global environment
+                                            // This ensures BC_LOAD_GLOBAL can find imported items
+                                            if (strcmp(import_name, "Client") == 0) {
+                                                fprintf(stderr, "[DEBUG] Storing 'Client' in current_env=%p, global_env=%p, cloned_item.type=%d\n", 
+                                                        (void*)interpreter->current_environment, (void*)interpreter->global_environment, cloned_item.type);
+                                            }
                                             environment_define(interpreter->current_environment, import_name, cloned_item);
+                                            if (interpreter->global_environment && interpreter->current_environment != interpreter->global_environment) {
+                                                if (strcmp(import_name, "Client") == 0) {
+                                                    fprintf(stderr, "[DEBUG] Also storing 'Client' in global environment\n");
+                                                }
+                                                environment_define(interpreter->global_environment, import_name, value_clone(&cloned_item));
+                                            }
                                         }
                                     }
                                 }
@@ -5966,34 +6300,61 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 // Create lambda function: (params) => body
                 // instr->a = lambda body AST index
                 // instr->b = function ID (for bytecode execution)
+                // instr->c = flags (bit 2 = async)
                 // Find the lambda AST node by searching for one with this body
                 
                 if (instr->a < program->ast_count && instr->b >= 0) {
                     ASTNode* lambda_body = program->ast_nodes[instr->a];
                     
+                    // Check if this is an async function (bit 2 = async)
+                    int flags = instr->c;
+                    int is_async = (flags & 4) != 0;
+                    
                     // Get lambda parameters - find the lambda AST node by searching for one with this body
                     ASTNode** lambda_params = NULL;
                     size_t lambda_param_count = 0;
                     
-                    // Search for the lambda node that has this body
+                    // Search for the lambda node that has this body (or async function node)
                     for (size_t i = 0; i < program->ast_count; i++) {
                         ASTNode* node = program->ast_nodes[i];
+                        if (is_async) {
+                            // For async functions, search for AST_NODE_ASYNC_FUNCTION
+                            if (node && node->type == AST_NODE_ASYNC_FUNCTION && node->data.async_function_definition.body == lambda_body) {
+                                lambda_params = node->data.async_function_definition.parameters;
+                                lambda_param_count = node->data.async_function_definition.parameter_count;
+                                break;
+                            }
+                        } else {
+                            // For regular lambdas, search for AST_NODE_LAMBDA
                         if (node && node->type == AST_NODE_LAMBDA && node->data.lambda.body == lambda_body) {
                             lambda_params = node->data.lambda.parameters;
                             lambda_param_count = node->data.lambda.parameter_count;
                             break;
+                            }
                         }
                     }
                     
                     // For bytecode functions, pass the function ID directly as the body
-                    // This allows value_create_function to detect it as a bytecode function ID
-                    Value lambda_value = value_create_function(
-                        (ASTNode*)(uintptr_t)instr->b, // Pass function ID as body (will be detected as bytecode function)
+                    // This allows value_create_function/value_create_async_function to detect it as a bytecode function ID
+                    Value lambda_value;
+                    if (is_async) {
+                        lambda_value = value_create_async_function(
+                            NULL, // No name for lambda expressions
                         lambda_params,
                         lambda_param_count,
                         NULL, // No return type for lambdas
+                            (ASTNode*)(uintptr_t)instr->b, // Pass function ID as body (will be detected as bytecode function)
                         interpreter ? interpreter->current_environment : NULL
                     );
+                    } else {
+                        lambda_value = value_create_function(
+                            (ASTNode*)(uintptr_t)instr->b, // Pass function ID as body (will be detected as bytecode function)
+                            lambda_params,
+                            lambda_param_count,
+                            NULL, // No return type for lambdas
+                            interpreter ? interpreter->current_environment : NULL
+                        );
+                    }
                     
                     value_stack_push(lambda_value);
                 } else {
@@ -6241,6 +6602,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             
             case BC_HALT: {
                 // Pop result if stack has value, otherwise return null
+                fprintf(stderr, "[DEBUG] BC_HALT at PC=%zu, program->count=%zu\n", pc, program->count);
                 if (value_stack_size > 0) {
                     result = value_stack_pop();
                 } else {
@@ -6407,6 +6769,9 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             case BC_GE_NUM: {
+                if (program->count > 100) {
+                    fprintf(stderr, "[DEBUG] BC_GE_NUM at PC=%zu, num_stack_size=%zu\n", pc, num_stack_size);
+                }
                 double b = num_stack_pop();
                 double a = num_stack_pop();
                 value_stack_push(value_create_boolean(a >= b));
@@ -6438,6 +6803,86 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     num_stack_push(0.0);
                 }
                 value_free(&val);
+                pc++;
+                break;
+            }
+            
+            case BC_LEFT_SHIFT: {
+                Value b = value_stack_pop();
+                Value a = value_stack_pop();
+                if (a.type == VALUE_NUMBER && b.type == VALUE_NUMBER) {
+                    int64_t a_int = (int64_t)a.data.number_value;
+                    int64_t b_int = (int64_t)b.data.number_value;
+                    value_stack_push(value_create_number((double)(a_int << b_int)));
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                value_free(&a);
+                value_free(&b);
+                pc++;
+                break;
+            }
+            
+            case BC_RIGHT_SHIFT: {
+                Value b = value_stack_pop();
+                Value a = value_stack_pop();
+                if (a.type == VALUE_NUMBER && b.type == VALUE_NUMBER) {
+                    int64_t a_int = (int64_t)a.data.number_value;
+                    int64_t b_int = (int64_t)b.data.number_value;
+                    value_stack_push(value_create_number((double)(a_int >> b_int)));
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                value_free(&a);
+                value_free(&b);
+                pc++;
+                break;
+            }
+            
+            case BC_BITWISE_AND: {
+                Value b = value_stack_pop();
+                Value a = value_stack_pop();
+                if (a.type == VALUE_NUMBER && b.type == VALUE_NUMBER) {
+                    int64_t a_int = (int64_t)a.data.number_value;
+                    int64_t b_int = (int64_t)b.data.number_value;
+                    value_stack_push(value_create_number((double)(a_int & b_int)));
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                value_free(&a);
+                value_free(&b);
+                pc++;
+                break;
+            }
+            
+            case BC_BITWISE_OR: {
+                Value b = value_stack_pop();
+                Value a = value_stack_pop();
+                if (a.type == VALUE_NUMBER && b.type == VALUE_NUMBER) {
+                    int64_t a_int = (int64_t)a.data.number_value;
+                    int64_t b_int = (int64_t)b.data.number_value;
+                    value_stack_push(value_create_number((double)(a_int | b_int)));
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                value_free(&a);
+                value_free(&b);
+                pc++;
+                break;
+            }
+            
+            case BC_BITWISE_XOR: {
+                Value b = value_stack_pop();
+                Value a = value_stack_pop();
+                if (a.type == VALUE_NUMBER && b.type == VALUE_NUMBER) {
+                    int64_t a_int = (int64_t)a.data.number_value;
+                    int64_t b_int = (int64_t)b.data.number_value;
+                    value_stack_push(value_create_number((double)(a_int ^ b_int)));
+                } else {
+                    value_stack_push(value_create_null());
+                }
+                value_free(&a);
+                value_free(&b);
                 pc++;
                 break;
             }
@@ -6530,7 +6975,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             default: {
-                // Unknown opcode - report error and fail (like LuaJIT)
+                // Unknown opcode - report error but continue execution for now to debug
                 // Log the opcode value for debugging
                 if (interpreter) {
                     char error_msg[512];
@@ -6538,15 +6983,22 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                              "Unknown bytecode opcode: %d (0x%x) at PC %zu. Program count: %zu, AST count: %zu", 
                              instr->op, instr->op, pc, program->count, program->ast_count);
                     interpreter_set_error(interpreter, error_msg, 0, 0);
+                    // For now, skip this instruction and continue to see if we can reach BC_DEFINE_FUNCTION
+                    fprintf(stderr, "[DEBUG] Skipping unknown opcode %d at PC=%zu, continuing execution\n", instr->op, pc);
                 }
-                // Don't continue execution - this is a serious error
-                goto cleanup;
+                // Skip this instruction and continue execution
+                pc++;
+                break;
             }
             }
         }
     }
     
 cleanup:
+    // Debug: Log when cleanup is reached
+    if (program && program->count > 100) {
+        fprintf(stderr, "[DEBUG] bytecode_execute cleanup reached, pc=%zu, program->count=%zu\n", pc, program->count);
+    }
     
     // Process any remaining async tasks before cleanup
     // Temporarily disabled to debug segfault
@@ -6597,6 +7049,12 @@ cleanup:
 Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunction* func, Value* args, int arg_count, BytecodeProgram* program) {
     if (!func || !interpreter) {
         return value_create_null();
+    }
+    
+    // Debug: Log function execution
+    if (program && program->count > 100) {
+        fprintf(stderr, "[DEBUG] bytecode_execute_function_bytecode: func_id=%d, code_count=%zu, program->count=%zu\n", 
+                func ? (int)(func - program->functions) : -1, func ? func->code_count : 0, program->count);
     }
     
     // Create new environment for function execution

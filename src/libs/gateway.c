@@ -122,6 +122,7 @@ GatewayConnection* gateway_create(const char* url, GatewayConfig* config, Interp
     // Initialize configuration
     if (config) {
         gateway->config = *config;
+        // Note: config->token is a pointer that may not persist, so we'll copy it later
     } else {
         gateway->config = gateway_create_default_config();
     }
@@ -389,12 +390,15 @@ static void gateway_handle_message(GatewayConnection* gateway, const char* messa
                 value_free(&heartbeat_interval);
             }
             
-            // Send identify if we have a token
-            if (gateway->config.token) {
-                fprintf(stderr, "[DEBUG GATEWAY] Sending IDENTIFY with token\n");
-                gateway_send_identify(gateway, gateway->config.token, NULL);
+            // Send identify if we have a token (prefer token_copy over config.token)
+            const char* token_to_use = gateway->token_copy ? gateway->token_copy : gateway->config.token;
+            if (token_to_use) {
+                fprintf(stderr, "[DEBUG GATEWAY] Sending IDENTIFY with token (token_copy=%p, config.token=%p)\n", 
+                        (void*)gateway->token_copy, (void*)gateway->config.token);
+                gateway_send_identify(gateway, token_to_use, NULL);
             } else {
-                fprintf(stderr, "[DEBUG GATEWAY] No token available for IDENTIFY\n");
+                fprintf(stderr, "[DEBUG GATEWAY] No token available for IDENTIFY (token_copy=%p, config.token=%p)\n",
+                        (void*)gateway->token_copy, (void*)gateway->config.token);
             }
             
             gateway->state = GATEWAY_STATE_CONNECTED;
@@ -655,9 +659,13 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
         
         Value token = value_object_get(&config_obj, "token");
         if (token.type == VALUE_STRING && token.data.string_value) {
-            config.token = token.data.string_value;  // Temporary pointer, will be copied
-            fprintf(stderr, "[DEBUG GATEWAY] Token found in config, length=%zu\n", strlen(token.data.string_value));
+            config.token = token.data.string_value;  // Temporary pointer, will be copied after gateway creation
+            fprintf(stderr, "[DEBUG GATEWAY] Token found in config (before gateway creation), length=%zu, ptr=%p\n", 
+                    strlen(token.data.string_value), (void*)token.data.string_value);
+        } else {
+            fprintf(stderr, "[DEBUG GATEWAY] Token not found in config (token.type=%d)\n", token.type);
         }
+        value_free(&token);
         
         Value version = value_object_get(&config_obj, "version");
         if (version.type == VALUE_NUMBER) {
@@ -684,16 +692,26 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
     if (arg_count >= 2 && args[1].type == VALUE_OBJECT) {
         Value config_obj = args[1];
         Value token = value_object_get(&config_obj, "token");
+        fprintf(stderr, "[DEBUG GATEWAY] Token extraction: token.type=%d, string_value=%p\n", 
+                token.type, token.type == VALUE_STRING ? token.data.string_value : NULL);
         if (token.type == VALUE_STRING && token.data.string_value) {
             size_t token_len = strlen(token.data.string_value);
+            fprintf(stderr, "[DEBUG GATEWAY] Token string found, length=%zu\n", token_len);
             gateway->token_copy = shared_malloc_safe(token_len + 1, "gateway", "gateway_create", 0);
             if (gateway->token_copy) {
                 strcpy(gateway->token_copy, token.data.string_value);
                 gateway->config.token = gateway->token_copy;
                 fprintf(stderr, "[DEBUG GATEWAY] Token copied and stored, length=%zu\n", token_len);
+            } else {
+                fprintf(stderr, "[DEBUG GATEWAY] Failed to allocate memory for token copy\n");
             }
+        } else {
+            fprintf(stderr, "[DEBUG GATEWAY] Token not found or invalid in config object\n");
         }
         value_free(&token);
+    } else {
+        fprintf(stderr, "[DEBUG GATEWAY] No config object provided (arg_count=%zu, args[1].type=%d)\n", 
+                arg_count, arg_count >= 2 ? args[1].type : -1);
     }
     
     // Store intents if provided in config

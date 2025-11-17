@@ -1356,8 +1356,15 @@ void websocket_process_connections(Interpreter* interpreter) {
                     } else if (frame.opcode == WS_OPCODE_TEXT || frame.opcode == WS_OPCODE_BINARY) {
                         // Check if this is a gateway connection
                         extern void gateway_handle_websocket_message(WebSocketConnection* ws_conn, const char* message);
-                        if (frame.payload) {
-                            gateway_handle_websocket_message(conn, (char*)frame.payload);
+                        if (frame.payload && frame.payload_length > 0) {
+                            // Ensure null-terminated string for gateway handler
+                            char* message_str = shared_malloc_safe(frame.payload_length + 1, "websocket", "process_connections", 0);
+                            if (message_str) {
+                                memcpy(message_str, frame.payload, frame.payload_length);
+                                message_str[frame.payload_length] = '\0';
+                                gateway_handle_websocket_message(conn, message_str);
+                                shared_free_safe(message_str, "websocket", "process_connections", 1);
+                            }
                         }
                         
                         // Trigger message callback (for non-gateway connections)

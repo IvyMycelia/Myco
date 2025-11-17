@@ -73,6 +73,9 @@ typedef struct GatewayConnection {
     Value on_error_callback;            // Called on errors
     Value on_close_callback;            // Called on close
     
+    // Discord-specific
+    Value intents;                       // Gateway intents (Discord)
+    
     // Internal
     Interpreter* interpreter;            // Interpreter reference
     struct GatewayConnection* next;      // Linked list
@@ -104,6 +107,7 @@ GatewayState gateway_get_state(GatewayConnection* gateway);
 void gateway_set_config(GatewayConnection* gateway, GatewayConfig* config);
 GatewayConfig gateway_create_default_config(void);
 void gateway_handle_websocket_message(WebSocketConnection* ws_conn, const char* message);
+void gateway_process_all_connections(Interpreter* interpreter);
 
 // Builtin functions for Myco
 Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);

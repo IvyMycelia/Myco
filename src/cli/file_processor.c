@@ -8,6 +8,7 @@
 #include "../compilation/compiler.h"
 #include "../libs/builtin_libs.h"
 #include "../../include/libs/gateway.h"
+#include "../../include/libs/websocket.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -274,6 +275,12 @@ int interpret_source(const char* source, const char* filename, int debug) {
         while (has_servers || has_gateway_conns || has_pending_async) {
             // Process async event loop to handle websocket/gateway messages and async tasks
             async_event_loop_run(interpreter);
+            
+            // Process WebSocket connections (reads messages, handles ping/pong)
+            websocket_process_connections(interpreter);
+            
+            // Process gateway connections (handles heartbeats, processes messages)
+            gateway_process_all_connections(interpreter);
             
             // Re-check conditions
             has_servers = g_servers_running;

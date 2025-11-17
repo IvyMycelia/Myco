@@ -541,8 +541,22 @@ ASTNode* parser_parse_statement(Parser* parser) {
                     } else if (strcmp(next_token->text, "let") == 0) {
                         parser_advance(parser);
                         ASTNode* var = parser_parse_variable_declaration(parser);
+                        if (!var) {
+                            // Debug: Log when variable declaration parsing fails
+                            fprintf(stderr, "[DEBUG] parser_parse_variable_declaration returned NULL after 'export let'\n");
+                            if (parser->error_message) {
+                                fprintf(stderr, "[DEBUG] Parser error: %s\n", parser->error_message);
+                            }
+                            return NULL;
+                        }
                         if (var && var->type == AST_NODE_VARIABLE_DECLARATION) {
                             var->data.variable_declaration.is_export = 1;
+                            // Debug: Log export let declarations
+                            if (var->data.variable_declaration.variable_name && 
+                                strcmp(var->data.variable_declaration.variable_name, "Intents") == 0) {
+                                fprintf(stderr, "[DEBUG] Parsed export let Intents, initial_value.type=%d\n",
+                                        var->data.variable_declaration.initial_value ? var->data.variable_declaration.initial_value->type : -1);
+                            }
                         }
                         return var;
                     } else if (strcmp(next_token->text, "class") == 0) {
@@ -1171,17 +1185,19 @@ ASTNode* parser_parse_factor(Parser* parser) {
         return NULL;
     }
     
-    // Check for multiplication and division operators
+    // Check for multiplication, division, and bitwise shift operators
     while (parser_check(parser, TOKEN_MULTIPLY) || 
            parser_check(parser, TOKEN_DIVIDE) ||
-           parser_check(parser, TOKEN_MODULO)) {
+           parser_check(parser, TOKEN_MODULO) ||
+           parser_check(parser, TOKEN_LEFT_SHIFT) ||
+           parser_check(parser, TOKEN_RIGHT_SHIFT)) {
         TokenType operator_type = parser_peek(parser)->type;
         parser_advance(parser);  // Consume the operator
         
         // Parse the right operand
         ASTNode* right = parser_parse_power(parser);
         if (!right) {
-            parser_error(parser, "Expected expression after multiplication/division operator");
+            parser_error(parser, "Expected expression after operator");
             return left;  // Return what we have so far
         }
         
@@ -1189,7 +1205,10 @@ ASTNode* parser_parse_factor(Parser* parser) {
         BinaryOperator op;
         if (operator_type == TOKEN_MULTIPLY) op = OP_MULTIPLY;
         else if (operator_type == TOKEN_DIVIDE) op = OP_DIVIDE;
-        else op = OP_MODULO;
+        else if (operator_type == TOKEN_MODULO) op = OP_MODULO;
+        else if (operator_type == TOKEN_LEFT_SHIFT) op = OP_LEFT_SHIFT;
+        else if (operator_type == TOKEN_RIGHT_SHIFT) op = OP_RIGHT_SHIFT;
+        else op = OP_MULTIPLY; // fallback
         ASTNode* binary_op = ast_create_binary_op(op, left, right, 
                                                    parser->current_token->line, 
                                                    parser->current_token->column);
@@ -1674,6 +1693,12 @@ ASTNode* parser_parse_primary(Parser* parser) {
                 return NULL;
             }
             
+            // Consume the 'end' keyword that parser_collect_block stopped at
+            if (parser_check(parser, TOKEN_KEYWORD) && parser->current_token && parser->current_token->text && 
+                strcmp(parser->current_token->text, "end") == 0) {
+                parser_advance(parser);
+            }
+            
             // Create async function expression AST node (NULL name for expressions)
             ASTNode* async_func = ast_create_async_function(NULL, parameters, param_count, return_type_name, body, async_token->line, async_token->column);
             if (!async_func) {
@@ -1815,6 +1840,12 @@ ASTNode* parser_parse_primary(Parser* parser) {
             shared_free_safe(parameters, "parser", "unknown_function", 0);
             if (return_type_name) shared_free_safe(return_type_name, "parser", "unknown_function", 0);
             return NULL;
+        }
+        
+        // Consume the 'end' keyword that parser_collect_block stopped at
+        if (parser_check(parser, TOKEN_KEYWORD) && parser->current_token && parser->current_token->text && 
+            strcmp(parser->current_token->text, "end") == 0) {
+            parser_advance(parser);
         }
         
         // Create lambda AST node (function expression)
@@ -2472,6 +2503,11 @@ ASTNode* parser_parse_variable_declaration(Parser* parser) {
         shared_free_safe(variable_name, "parser", "unknown_function", 1777);
         if (type_name) shared_free_safe(type_name, "parser", "unknown_function", 1778);
         return NULL;
+    }
+    
+    // Debug: Log parsing of Intents variable declaration
+    if (variable_name && strcmp(variable_name, "Intents") == 0) {
+        fprintf(stderr, "[DEBUG] Parsed Intents initial_value, type=%d\n", initial_value ? initial_value->type : -1);
     }
     
     // Expect semicolon
@@ -5474,9 +5510,11 @@ static ASTNode* parser_parse_hash_map_key(Parser* parser) {
         return NULL;
     }
     
-    // If it's an identifier, convert it to a string literal
-    if (current->type == TOKEN_IDENTIFIER) {
-        parser_advance(parser); // consume the identifier
+    // If it's an identifier or keyword, convert it to a string literal
+    // Keywords like 'default', 'function', etc. can be used as hash map keys
+    if (current->type == TOKEN_IDENTIFIER || 
+        (current->type == TOKEN_KEYWORD && current->text)) {
+        parser_advance(parser); // consume the identifier/keyword
         return ast_create_string((current->text ? strdup(current->text) : NULL), current->line, current->column);
     }
     
@@ -5537,8 +5575,28 @@ static ASTNode* parser_parse_hash_map_literal(Parser* parser) {
     size_t pair_capacity = 1;
     
     // Parse remaining key-value pairs
-    while (parser_check(parser, TOKEN_COMMA)) {
-        parser_advance(parser);  // Consume the comma
+    // After parsing the first value, check if there's a comma or if we're at the closing brace
+    while (1) {
+        // Check if we're at the closing brace (end of hash map)
+        if (parser_check(parser, TOKEN_RIGHT_BRACE)) {
+            break;
+        }
+        
+        // Expect comma before next pair (except for the first pair which we already parsed)
+        if (!parser_check(parser, TOKEN_COMMA)) {
+            // No comma and not closing brace - might be end of hash map or error
+            // Check if next token looks like a key (identifier) - if so, missing comma
+            if (parser_check(parser, TOKEN_IDENTIFIER) || 
+                (parser_check(parser, TOKEN_KEYWORD) && parser->current_token && parser->current_token->text)) {
+                // Missing comma, but try to continue anyway (be lenient)
+                // Don't break, just continue to parse the next key
+            } else {
+                // Not a key and not a comma - probably end of hash map
+                break;
+            }
+        } else {
+            parser_advance(parser);  // Consume the comma
+        }
         
         ASTNode* key = parser_parse_hash_map_key(parser);
         if (!key) {

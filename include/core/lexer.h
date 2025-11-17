@@ -60,6 +60,8 @@ typedef enum {
     TOKEN_GREATER,     // Greater than comparison (>)
     TOKEN_LESS_EQUAL,  // Less than or equal (<=)
     TOKEN_GREATER_EQUAL, // Greater than or equal (>=)
+    TOKEN_LEFT_SHIFT,  // Bitwise left shift (<<)
+    TOKEN_RIGHT_SHIFT, // Bitwise right shift (>>)
     
     // Logical operators
     TOKEN_AND,         // Logical AND (and)

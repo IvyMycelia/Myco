@@ -785,7 +785,9 @@ static int lexer_scan_token(Lexer* lexer) {
             
         case '<':
             lexer_advance(lexer);
-            if (lexer_match(lexer, '=')) {
+            if (lexer_match(lexer, '<')) {
+                lexer_add_token(lexer, TOKEN_LEFT_SHIFT, "<<", lexer->line, lexer->column - 2);
+            } else if (lexer_match(lexer, '=')) {
                 lexer_add_token(lexer, TOKEN_LESS_EQUAL, "<=", lexer->line, lexer->column - 2);
             } else {
                 lexer_add_token(lexer, TOKEN_LESS, "<", lexer->line, lexer->column - 1);
@@ -794,7 +796,9 @@ static int lexer_scan_token(Lexer* lexer) {
             
         case '>':
             lexer_advance(lexer);
-            if (lexer_match(lexer, '=')) {
+            if (lexer_match(lexer, '>')) {
+                lexer_add_token(lexer, TOKEN_RIGHT_SHIFT, ">>", lexer->line, lexer->column - 2);
+            } else if (lexer_match(lexer, '=')) {
                 lexer_add_token(lexer, TOKEN_GREATER_EQUAL, ">=", lexer->line, lexer->column - 2);
             } else {
                 lexer_add_token(lexer, TOKEN_GREATER, ">", lexer->line, lexer->column - 1);

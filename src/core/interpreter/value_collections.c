@@ -214,20 +214,37 @@ void value_object_set(Value* obj, const char* key, Value value) {
         }
     }
     
-    // Add new member if there's space
-    if (obj->data.object_value.count < obj->data.object_value.capacity) {
-        obj->data.object_value.keys[obj->data.object_value.count] = key ? shared_strdup(key) : NULL;
-        Value* new_value = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 2912);
-        if (new_value) {
-            *new_value = value_clone(&value);
-            obj->data.object_value.values[obj->data.object_value.count] = new_value;
-            obj->data.object_value.count++;
+    // Add new member - resize if needed
+    if (obj->data.object_value.count >= obj->data.object_value.capacity) {
+        // Resize the object to accommodate more keys
+        size_t new_capacity = obj->data.object_value.capacity * 2;
+        if (new_capacity < obj->data.object_value.capacity + 1) {
+            new_capacity = obj->data.object_value.capacity + 1; // Handle overflow
+        }
+        char** new_keys = shared_realloc_safe(obj->data.object_value.keys, new_capacity * sizeof(char*), "interpreter", "value_object_set", 0);
+        void** new_values = shared_realloc_safe(obj->data.object_value.values, new_capacity * sizeof(void*), "interpreter", "value_object_set", 1);
+        if (new_keys && new_values) {
+            obj->data.object_value.keys = new_keys;
+            obj->data.object_value.values = new_values;
+            obj->data.object_value.capacity = new_capacity;
         } else {
-            // If value allocation failed, free the key to prevent memory leak
-            if (obj->data.object_value.keys[obj->data.object_value.count]) {
-                shared_free_safe(obj->data.object_value.keys[obj->data.object_value.count], "interpreter", "value_object_set", 0);
-                obj->data.object_value.keys[obj->data.object_value.count] = NULL;
-            }
+            // Resize failed - cannot add new member
+            return;
+        }
+    }
+    
+    // Add new member now that we have space
+    obj->data.object_value.keys[obj->data.object_value.count] = key ? shared_strdup(key) : NULL;
+    Value* new_value = shared_malloc_safe(sizeof(Value), "interpreter", "unknown_function", 2912);
+    if (new_value) {
+        *new_value = value_clone(&value);
+        obj->data.object_value.values[obj->data.object_value.count] = new_value;
+        obj->data.object_value.count++;
+    } else {
+        // If value allocation failed, free the key to prevent memory leak
+        if (obj->data.object_value.keys[obj->data.object_value.count]) {
+            shared_free_safe(obj->data.object_value.keys[obj->data.object_value.count], "interpreter", "value_object_set", 0);
+            obj->data.object_value.keys[obj->data.object_value.count] = NULL;
         }
     }
 }

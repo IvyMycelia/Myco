@@ -713,28 +713,47 @@ Value builtin_gateway_send(Interpreter* interpreter, Value* args, size_t arg_cou
 }
 
 Value builtin_gateway_on(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column) {
-    if (arg_count < 2 || args[0].type != VALUE_STRING) {
-        std_error_report(ERROR_TYPE_MISMATCH, "gateway", "on", "gateway.on() requires event name and callback", line, column);
-        return value_create_null();
-    }
-    
+    // When called as a method, args[0] is the object (self), args[1] is event name, args[2] is callback
+    // Check self_context first, but if not set, use args[0] as the object
     Value* self = interpreter_get_self_context(interpreter);
+    size_t event_name_idx = 0;
+    size_t callback_idx = 1;
+    
     if (!self || self->type != VALUE_OBJECT) {
+        // self_context not set - this is a method call, so args[0] is the object
+        if (arg_count > 0 && args[0].type == VALUE_OBJECT) {
+            self = &args[0];
+            event_name_idx = 1;
+            callback_idx = 2;
+        } else {
+            fprintf(stderr, "[DEBUG GATEWAY] builtin_gateway_on: self context is invalid\n");
+            return value_create_null();
+        }
+    }
+    // else: self_context is set, so args[0] is event_name, args[1] is callback
+    
+    if (arg_count < callback_idx + 1 || args[event_name_idx].type != VALUE_STRING) {
+        fprintf(stderr, "[DEBUG GATEWAY] builtin_gateway_on: validation failed - arg_count=%zu, event_name_idx=%zu, args[%zu].type=%d\n", 
+                arg_count, event_name_idx, event_name_idx, arg_count > event_name_idx ? args[event_name_idx].type : -1);
+        std_error_report(ERROR_TYPE_MISMATCH, "gateway", "on", "gateway.on() requires event name and callback", line, column);
         return value_create_null();
     }
     
     Value gateway_val = value_object_get(self, "__gateway_conn__");
     if (gateway_val.type != VALUE_NUMBER) {
+        fprintf(stderr, "[DEBUG GATEWAY] builtin_gateway_on: __gateway_conn__ is not a number (type=%d)\n", gateway_val.type);
         return value_create_null();
     }
     
     GatewayConnection* gateway = (GatewayConnection*)(intptr_t)gateway_val.data.number_value;
     if (!gateway) {
+        fprintf(stderr, "[DEBUG GATEWAY] builtin_gateway_on: gateway pointer is NULL\n");
         return value_create_null();
     }
     
-    const char* event_name = args[0].data.string_value;
-    Value callback = args[1];
+    const char* event_name = args[event_name_idx].data.string_value;
+    Value callback = args[callback_idx];
+    fprintf(stderr, "[DEBUG GATEWAY] builtin_gateway_on: event_name=%s, callback.type=%d\n", event_name, callback.type);
     
     if (strcmp(event_name, "ready") == 0) {
         gateway_set_on_ready(gateway, callback);

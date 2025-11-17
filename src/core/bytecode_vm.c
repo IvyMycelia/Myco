@@ -2628,6 +2628,16 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         } else {
                             // It's a regular object - get method directly
                             Value method = value_object_get(&object, method_name);
+                            if (strcmp(method_name, "on") == 0) {
+                                fprintf(stderr, "[DEBUG METHOD] Regular object method 'on': method.type=%d, arg_count=%d\n", 
+                                        method.type, arg_count);
+                                if (arg_count > 0) {
+                                    fprintf(stderr, "[DEBUG METHOD] args[0].type=%d\n", args[0].type);
+                                }
+                                if (arg_count > 1) {
+                                    fprintf(stderr, "[DEBUG METHOD] args[1].type=%d\n", args[1].type);
+                                }
+                            }
                             if (method.type == VALUE_FUNCTION || method.type == VALUE_ASYNC_FUNCTION) {
                                 if (method.type == VALUE_ASYNC_FUNCTION) {
                                     // Async function - handle via async execution path

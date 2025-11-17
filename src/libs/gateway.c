@@ -623,41 +623,58 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
     
     GatewayConfig config = gateway_create_default_config();
     
-    // Parse optional config object
-    if (arg_count >= 2 && args[1].type == VALUE_OBJECT) {
+    // Parse optional config object (can be VALUE_OBJECT or VALUE_HASH_MAP)
+    if (arg_count >= 2 && (args[1].type == VALUE_OBJECT || args[1].type == VALUE_HASH_MAP)) {
         Value config_obj = args[1];
         
-        Value heartbeat_interval = value_object_get(&config_obj, "heartbeatInterval");
+        // Helper macro to get value from config (handles both object and hash map)
+        #define GET_CONFIG_VALUE(key_name, var_name) \
+            Value var_name; \
+            if (config_obj.type == VALUE_HASH_MAP) { \
+                Value key_val_##var_name = value_create_string(key_name); \
+                var_name = value_hash_map_get(&config_obj, key_val_##var_name); \
+                value_free(&key_val_##var_name); \
+            } else { \
+                var_name = value_object_get(&config_obj, key_name); \
+            }
+        
+        GET_CONFIG_VALUE("heartbeatInterval", heartbeat_interval)
         if (heartbeat_interval.type == VALUE_NUMBER) {
             config.heartbeat_interval_ms = (int)heartbeat_interval.data.number_value;
         }
+        value_free(&heartbeat_interval);
         
-        Value heartbeat_timeout = value_object_get(&config_obj, "heartbeatTimeout");
+        GET_CONFIG_VALUE("heartbeatTimeout", heartbeat_timeout)
         if (heartbeat_timeout.type == VALUE_NUMBER) {
             config.heartbeat_timeout_ms = (int)heartbeat_timeout.data.number_value;
         }
+        value_free(&heartbeat_timeout);
         
-        Value reconnect_delay = value_object_get(&config_obj, "reconnectDelay");
+        GET_CONFIG_VALUE("reconnectDelay", reconnect_delay)
         if (reconnect_delay.type == VALUE_NUMBER) {
             config.reconnect_delay_ms = (int)reconnect_delay.data.number_value;
         }
+        value_free(&reconnect_delay);
         
-        Value max_attempts = value_object_get(&config_obj, "maxReconnectAttempts");
+        GET_CONFIG_VALUE("maxReconnectAttempts", max_attempts)
         if (max_attempts.type == VALUE_NUMBER) {
             config.max_reconnect_attempts = (int)max_attempts.data.number_value;
         }
+        value_free(&max_attempts);
         
-        Value auto_reconnect = value_object_get(&config_obj, "autoReconnect");
+        GET_CONFIG_VALUE("autoReconnect", auto_reconnect)
         if (auto_reconnect.type == VALUE_BOOLEAN) {
             config.auto_reconnect = auto_reconnect.data.boolean_value;
         }
+        value_free(&auto_reconnect);
         
-        Value resume = value_object_get(&config_obj, "resumeOnReconnect");
+        GET_CONFIG_VALUE("resumeOnReconnect", resume)
         if (resume.type == VALUE_BOOLEAN) {
             config.resume_on_reconnect = resume.data.boolean_value;
         }
+        value_free(&resume);
         
-        Value token = value_object_get(&config_obj, "token");
+        GET_CONFIG_VALUE("token", token)
         if (token.type == VALUE_STRING && token.data.string_value) {
             config.token = token.data.string_value;  // Temporary pointer, will be copied after gateway creation
             fprintf(stderr, "[DEBUG GATEWAY] Token found in config (before gateway creation), length=%zu, ptr=%p\n", 
@@ -667,16 +684,20 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
         }
         value_free(&token);
         
-        Value version = value_object_get(&config_obj, "version");
+        GET_CONFIG_VALUE("version", version)
         if (version.type == VALUE_NUMBER) {
             config.gateway_version = (int)version.data.number_value;
         }
+        value_free(&version);
         
-        Value intents = value_object_get(&config_obj, "intents");
+        GET_CONFIG_VALUE("intents", intents)
         if (intents.type == VALUE_NUMBER || intents.type == VALUE_OBJECT) {
             // Store intents for later use in IDENTIFY
             // We'll store it in the gateway connection after creation
         }
+        value_free(&intents);
+        
+        #undef GET_CONFIG_VALUE
     }
     
     fprintf(stderr, "[DEBUG GATEWAY] builtin_gateway_create: About to call gateway_create, url=%s\n", args[0].data.string_value);
@@ -689,9 +710,17 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
     fprintf(stderr, "[DEBUG GATEWAY] builtin_gateway_create: gateway_create succeeded, gateway=%p\n", (void*)gateway);
     
     // Copy token if provided in config (must persist after config object is freed)
-    if (arg_count >= 2 && args[1].type == VALUE_OBJECT) {
+    // Config can be VALUE_OBJECT or VALUE_HASH_MAP
+    if (arg_count >= 2 && (args[1].type == VALUE_OBJECT || args[1].type == VALUE_HASH_MAP)) {
         Value config_obj = args[1];
-        Value token = value_object_get(&config_obj, "token");
+        Value token;
+        if (config_obj.type == VALUE_HASH_MAP) {
+            Value token_key = value_create_string("token");
+            token = value_hash_map_get(&config_obj, token_key);
+            value_free(&token_key);
+        } else {
+            token = value_object_get(&config_obj, "token");
+        }
         fprintf(stderr, "[DEBUG GATEWAY] Token extraction: token.type=%d, string_value=%p\n", 
                 token.type, token.type == VALUE_STRING ? token.data.string_value : NULL);
         if (token.type == VALUE_STRING && token.data.string_value) {
@@ -715,9 +744,16 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
     }
     
     // Store intents if provided in config
-    if (arg_count >= 2 && args[1].type == VALUE_OBJECT) {
+    if (arg_count >= 2 && (args[1].type == VALUE_OBJECT || args[1].type == VALUE_HASH_MAP)) {
         Value config_obj = args[1];
-        Value intents = value_object_get(&config_obj, "intents");
+        Value intents;
+        if (config_obj.type == VALUE_HASH_MAP) {
+            Value intents_key = value_create_string("intents");
+            intents = value_hash_map_get(&config_obj, intents_key);
+            value_free(&intents_key);
+        } else {
+            intents = value_object_get(&config_obj, "intents");
+        }
         if (intents.type == VALUE_NUMBER) {
             gateway->intents = value_clone(&intents);
             fprintf(stderr, "[DEBUG GATEWAY] Stored intents (Number): %g\n", intents.data.number_value);

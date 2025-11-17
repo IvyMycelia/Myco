@@ -29,7 +29,11 @@ static GatewayConnection* g_gateway_connections = NULL;
 
 // Check if any gateway connections exist (not just active ones)
 bool gateway_has_connections(void) {
-    return g_gateway_connections != NULL;
+    bool has_conns = g_gateway_connections != NULL;
+    if (has_conns) {
+        fprintf(stderr, "[DEBUG GATEWAY] gateway_has_connections() = true, gateway=%p\n", (void*)g_gateway_connections);
+    }
+    return has_conns;
 }
 
 // Check if any gateway connections are active
@@ -156,7 +160,8 @@ GatewayConnection* gateway_create(const char* url, GatewayConfig* config, Interp
     gateway->next = g_gateway_connections;
     g_gateway_connections = gateway;
     
-    fprintf(stderr, "[DEBUG GATEWAY] Gateway added to registry, total connections: %p\n", (void*)g_gateway_connections);
+    fprintf(stderr, "[DEBUG GATEWAY] Gateway added to registry, gateway=%p, g_gateway_connections=%p, state=%d\n", 
+            (void*)gateway, (void*)g_gateway_connections, gateway->state);
     
     return gateway;
 }
@@ -612,11 +617,14 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
         }
     }
     
+    fprintf(stderr, "[DEBUG GATEWAY] builtin_gateway_create: About to call gateway_create, url=%s\n", args[0].data.string_value);
     GatewayConnection* gateway = gateway_create(args[0].data.string_value, &config, interpreter);
     if (!gateway) {
+        fprintf(stderr, "[DEBUG GATEWAY] builtin_gateway_create: gateway_create returned NULL\n");
         std_error_report(ERROR_INTERNAL_ERROR, "gateway", "create", "Failed to create gateway connection", line, column);
         return value_create_null();
     }
+    fprintf(stderr, "[DEBUG GATEWAY] builtin_gateway_create: gateway_create succeeded, gateway=%p\n", (void*)gateway);
     
     Value gateway_obj = value_create_object(10);
     value_object_set(&gateway_obj, "__gateway_conn__", value_create_number((double)(intptr_t)gateway));

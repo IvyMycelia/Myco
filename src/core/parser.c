@@ -1362,16 +1362,26 @@ ASTNode* parser_parse_primary(Parser* parser) {
     // Check for different types of primary expressions
     
     // Parse null literal FIRST (before number parsing to avoid precedence issues)
-    if (parser_check(parser, TOKEN_KEYWORD) && strcmp(parser_peek(parser)->text, "Null") == 0) {
+    // Check for both "Null" (capitalized) and "null" (lowercase)
+    Token* null_token = parser_peek(parser);
+    int is_null = 0;
+    if (null_token) {
+        if (null_token->type == TOKEN_KEYWORD && null_token->text) {
+            is_null = (strcmp(null_token->text, "Null") == 0 || strcmp(null_token->text, "null") == 0);
+        } else if (null_token->type == TOKEN_IDENTIFIER && null_token->text) {
+            is_null = (strcmp(null_token->text, "null") == 0);
+        }
+    }
+    if (is_null) {
         // Parse null literal
-        Token* token = parser_peek(parser);
+        Token* token = null_token;
         parser_advance(parser);
         
         
         // Create null AST node
         ASTNode* literal = ast_create_null(token->line, token->column);
         if (literal) {
-            // Check for member access: Null.method
+            // Check for member access: Null.method or null.method
             if (parser_check(parser, TOKEN_DOT)) {
                 return parser_parse_member_access_chain(parser, literal);
             } else {
@@ -1560,21 +1570,44 @@ ASTNode* parser_parse_primary(Parser* parser) {
     
     // Check for async function expressions: async function(...): ... end
     // This MUST come BEFORE the regular function check
+    // IMPORTANT: Check both TOKEN_KEYWORD and TOKEN_IDENTIFIER for "async"
+    // because the lexer might tokenize it differently in different contexts
     Token* peeked = parser_peek(parser);
-    int is_async_keyword = (parser_check(parser, TOKEN_KEYWORD) && peeked && peeked->text && 
-                            strcmp(peeked->text, "async") == 0);
-    int is_async_identifier = (parser_check(parser, TOKEN_IDENTIFIER) && peeked && peeked->text && 
-                               strcmp(peeked->text, "async") == 0);
+    int is_async = 0;
     
-    if (is_async_keyword || is_async_identifier) {
+    if (peeked) {
+        // Check if it's a keyword token with text "async"
+        if (peeked->type == TOKEN_KEYWORD && peeked->text && strcmp(peeked->text, "async") == 0) {
+            is_async = 1;
+        }
+        // Also check if it's an identifier token with text "async" (fallback)
+        else if (peeked->type == TOKEN_IDENTIFIER && peeked->text && strcmp(peeked->text, "async") == 0) {
+            is_async = 1;
+        }
+        
+        if (is_async) {
+            fprintf(stderr, "[DEBUG PARSER] Found 'async' token (type=%d, text='%s'), checking for 'function' after it\n", 
+                    peeked->type, peeked->text ? peeked->text : "NULL");
+        }
+    }
+    
+    if (is_async) {
         // Check if next token is 'function' by peeking ahead
         // We need to check the token at current_position + 1 without consuming 'async'
         Token* next_peeked = NULL;
         if (parser->current_position + 1 < parser->lexer->token_count) {
             next_peeked = lexer_get_token(parser->lexer, parser->current_position + 1);
         }
-        int is_function_after_async = (next_peeked && next_peeked->text && 
-                                       (strcmp(next_peeked->text, "function") == 0 || strcmp(next_peeked->text, "func") == 0));
+        int is_function_after_async = 0;
+        if (next_peeked && next_peeked->text) {
+            is_function_after_async = (strcmp(next_peeked->text, "function") == 0 || strcmp(next_peeked->text, "func") == 0);
+            if (is_function_after_async && peeked->line >= 200 && peeked->line <= 360) {
+                fprintf(stderr, "[DEBUG PARSER] Found 'function' after 'async' at line %d, proceeding to parse async function\n", peeked->line);
+            }
+        } else if (peeked->line >= 200 && peeked->line <= 360) {
+            fprintf(stderr, "[DEBUG PARSER] No 'function' found after 'async' at line %d, next token: type=%d, text='%s'\n", 
+                    peeked->line, next_peeked ? next_peeked->type : -1, next_peeked && next_peeked->text ? next_peeked->text : "NULL");
+        }
         
         if (is_function_after_async) {
             // Parse async function expression: async function(...): ... end
@@ -1597,7 +1630,12 @@ ASTNode* parser_parse_primary(Parser* parser) {
             if (!parser_check(parser, TOKEN_RIGHT_PAREN)) {
                 while (1) {
                     // Parse parameter: identifier : type
+                    Token* before_param = parser_peek(parser);
                     if (!parser_check(parser, TOKEN_IDENTIFIER)) {
+                        if (before_param && before_param->line >= 290 && before_param->line <= 300) {
+                            fprintf(stderr, "[DEBUG PARSER] Expected parameter name but found: type=%d, text='%s' at line %d\n", 
+                                    before_param->type, before_param->text ? before_param->text : "NULL", before_param->line);
+                        }
                         parser_error(parser, "Expected parameter name");
                         break;
                     }
@@ -1606,17 +1644,54 @@ ASTNode* parser_parse_primary(Parser* parser) {
                     char* param_name = shared_strdup(param_token->text);
                     parser_advance(parser); // consume parameter name
                     
+                    // Debug: log parameter parsing for send_message
+                    if (param_token->line >= 290 && param_token->line <= 300) {
+                        fprintf(stderr, "[DEBUG PARSER] Parsing parameter '%s' in async function at line %d\n", param_name, param_token->line);
+                    }
+                    
                     // Parse optional type annotation
                     ASTNode* param_type = NULL;
                     if (parser_check(parser, TOKEN_COLON)) {
                         parser_advance(parser); // consume ':'
                         // Parse type (identifier)
+                        Token* type_before = parser_peek(parser);
                         if (parser_check(parser, TOKEN_IDENTIFIER) || parser_check(parser, TOKEN_KEYWORD)) {
                             Token* type_token = parser_peek(parser);
                             char* type_name = shared_strdup(type_token->text);
                             parser_advance(parser);
                             param_type = ast_create_identifier(type_name, type_token->line, type_token->column);
                             shared_free_safe(type_name, "parser", "unknown_function", 0);
+                            if (type_token->line >= 290 && type_token->line <= 300) {
+                                fprintf(stderr, "[DEBUG PARSER] Parsed type '%s' for parameter '%s', next token after type: type=%d, text='%s'\n", 
+                                        type_name, param_name, parser->current_token ? parser->current_token->type : -1,
+                                        parser->current_token && parser->current_token->text ? parser->current_token->text : "NULL");
+                            }
+                        } else if (type_before && type_before->line >= 290 && type_before->line <= 300) {
+                            fprintf(stderr, "[DEBUG PARSER] Expected type after ':' but found: type=%d, text='%s' for parameter '%s'\n", 
+                                    type_before->type, type_before->text ? type_before->text : "NULL", param_name);
+                        }
+                    }
+                    
+                    // Debug: check what token we're at before checking for default value
+                    Token* before_default_check = parser_peek(parser);
+                    if (before_default_check && before_default_check->line >= 290 && before_default_check->line <= 300) {
+                        fprintf(stderr, "[DEBUG PARSER] Before checking for default value for parameter '%s', current token: type=%d, text='%s'\n", 
+                                param_name, before_default_check->type, before_default_check->text ? before_default_check->text : "NULL");
+                    }
+                    
+                    // Parse optional default value: = expression
+                    // Note: We parse and discard the default value expression since AST doesn't support it yet
+                    // This allows the parser to continue without errors when default values are present
+                    // Use TOKEN_ASSIGN for '=' (not TOKEN_EQUAL which is '==')
+                    if (parser_check(parser, TOKEN_ASSIGN)) {
+                        fprintf(stderr, "[DEBUG PARSER] Found default value '=' for parameter '%s' in async function, parsing default value\n", param_name);
+                        parser_advance(parser); // consume '='
+                        ASTNode* default_value = parser_parse_expression(parser);
+                        if (default_value) {
+                            fprintf(stderr, "[DEBUG PARSER] Successfully parsed default value for parameter '%s', type=%d\n", param_name, default_value->type);
+                            ast_free(default_value); // Discard the default value for now
+                        } else {
+                            fprintf(stderr, "[DEBUG PARSER] Failed to parse default value for parameter '%s'\n", param_name);
                         }
                     }
                     
@@ -1697,10 +1772,19 @@ ASTNode* parser_parse_primary(Parser* parser) {
             if (parser_check(parser, TOKEN_KEYWORD) && parser->current_token && parser->current_token->text && 
                 strcmp(parser->current_token->text, "end") == 0) {
                 parser_advance(parser);
+                // Debug: log what token comes after 'end' in hash map context
+                Token* after_end = parser_peek(parser);
+                if (after_end && after_end->line >= 200 && after_end->line <= 360) {
+                    fprintf(stderr, "[DEBUG PARSER] After consuming 'end' for async function, next token: type=%d, text='%s' at line %d\n", 
+                            after_end->type, after_end->text ? after_end->text : "NULL", after_end->line);
+                }
             }
             
             // Create async function expression AST node (NULL name for expressions)
             ASTNode* async_func = ast_create_async_function(NULL, parameters, param_count, return_type_name, body, async_token->line, async_token->column);
+            if (async_func) {
+                fprintf(stderr, "[DEBUG PARSER] Created AST_NODE_ASYNC_FUNCTION (type=%d) for async function expression\n", async_func->type);
+            }
             if (!async_func) {
                 // Clean up
                 for (size_t i = 0; i < param_count; i++) {
@@ -4830,6 +4914,10 @@ static ASTNode* parser_collect_block(Parser* parser, int stop_on_else, int* saw_
     while (parser->current_token && parser->current_token->type != TOKEN_EOF) {
         if (parser->current_token->type == TOKEN_KEYWORD && parser->current_token->text) {
             if (strcmp(parser->current_token->text, "end") == 0) {
+                // Debug: log when we find 'end' in hash map context
+                if (parser->current_token->line >= 200 && parser->current_token->line <= 360) {
+                    fprintf(stderr, "[DEBUG PARSER] parser_collect_block found 'end' at line %d, stopping\n", parser->current_token->line);
+                }
                 break;
             }
             if (stop_on_else && strcmp(parser->current_token->text, "else") == 0) {
@@ -5527,6 +5615,10 @@ static ASTNode* parser_parse_hash_map_literal(Parser* parser) {
         return NULL;
     }
     
+    // Debug: log hash map literal parsing
+    fprintf(stderr, "[DEBUG PARSER] Parsing hash map literal at line %d\n", 
+            parser->current_token ? parser->current_token->line : 0);
+    
     // Consume the opening brace
     parser_advance(parser);
     
@@ -5540,22 +5632,58 @@ static ASTNode* parser_parse_hash_map_literal(Parser* parser) {
     // Parse first key-value pair
     ASTNode* first_key = parser_parse_hash_map_key(parser);
     if (!first_key) {
+        fprintf(stderr, "[DEBUG PARSER] Hash map literal parsing failed: failed to parse first key at line %d\n", 
+                parser->current_token ? parser->current_token->line : 0);
         parser_error(parser, "Expected key expression in hash map literal");
         return NULL;
     }
     
     // Expect colon
     if (!parser_match(parser, TOKEN_COLON)) {
+        fprintf(stderr, "[DEBUG PARSER] Hash map literal parsing failed: expected ':' after first key at line %d\n", 
+                parser->current_token ? parser->current_token->line : 0);
         parser_error(parser, "Expected ':' after key in hash map literal");
         ast_free(first_key);
         return NULL;
     }
     
+    // Debug: check what token we're about to parse for the value
+    Token* value_start_token = parser_peek(parser);
+    const char* key_name = NULL;
+    if (first_key && (first_key->type == AST_NODE_IDENTIFIER || first_key->type == AST_NODE_STRING)) {
+        key_name = first_key->type == AST_NODE_IDENTIFIER ? 
+            first_key->data.identifier_value : 
+            (first_key->data.string_value ? first_key->data.string_value : NULL);
+    }
+    if (value_start_token && value_start_token->text) {
+        // Check if this might be an async function (for debugging)
+        if (strcmp(value_start_token->text, "async") == 0) {
+            fprintf(stderr, "[DEBUG PARSER] Hash map value for key='%s' starts with 'async' token (type=%d)\n", 
+                    key_name ? key_name : "unknown", value_start_token->type);
+        }
+    }
+    
     ASTNode* first_value = parser_parse_expression(parser);
     if (!first_value) {
+        fprintf(stderr, "[DEBUG PARSER] Hash map literal parsing failed: failed to parse first value for key='%s' at line %d\n", 
+                key_name ? key_name : "unknown", parser->current_token ? parser->current_token->line : 0);
         parser_error(parser, "Expected value expression after ':' in hash map literal");
         ast_free(first_key);
         return NULL;
+    }
+    
+    // Debug: check what type of node was created for important keys
+    if (key_name && (strcmp(key_name, "connect") == 0 || strcmp(key_name, "send_message") == 0 || strcmp(key_name, "close") == 0)) {
+        fprintf(stderr, "[DEBUG PARSER] Hash map value for key='%s' created as type=%d (LAMBDA=%d, ASYNC_FUNC=%d)\n", 
+                key_name, first_value->type, 
+                (first_value->type == AST_NODE_LAMBDA),
+                (first_value->type == AST_NODE_ASYNC_FUNCTION));
+        // Check next token after parsing the value
+        Token* next_token = parser_peek(parser);
+        if (next_token) {
+            fprintf(stderr, "[DEBUG PARSER] After parsing value for key='%s', next token: type=%d, text='%s'\n", 
+                    key_name, next_token->type, next_token->text ? next_token->text : "NULL");
+        }
     }
     
     // Allocate arrays for keys and values
@@ -5578,23 +5706,46 @@ static ASTNode* parser_parse_hash_map_literal(Parser* parser) {
     // After parsing the first value, check if there's a comma or if we're at the closing brace
     while (1) {
         // Check if we're at the closing brace (end of hash map)
+        Token* peeked = parser_peek(parser);
         if (parser_check(parser, TOKEN_RIGHT_BRACE)) {
+            // Debug: log when we find closing brace
+            if (parser->current_token && parser->current_token->line >= 200 && parser->current_token->line <= 360) {
+                fprintf(stderr, "[DEBUG PARSER] Found closing brace for hash map at line %d, parsed %zu pairs\n", 
+                        parser->current_token->line, pair_count);
+            }
             break;
         }
         
         // Expect comma before next pair (except for the first pair which we already parsed)
+        Token* comma_check = parser_peek(parser);
         if (!parser_check(parser, TOKEN_COMMA)) {
             // No comma and not closing brace - might be end of hash map or error
             // Check if next token looks like a key (identifier) - if so, missing comma
             if (parser_check(parser, TOKEN_IDENTIFIER) || 
                 (parser_check(parser, TOKEN_KEYWORD) && parser->current_token && parser->current_token->text)) {
                 // Missing comma, but try to continue anyway (be lenient)
+                // Debug: log missing comma
+                if (parser->current_token && parser->current_token->line >= 200 && parser->current_token->line <= 360) {
+                    fprintf(stderr, "[DEBUG PARSER] Missing comma before next key in hash map at line %d, continuing anyway (next token: type=%d, text='%s')\n", 
+                            parser->current_token->line, comma_check ? comma_check->type : -1, 
+                            comma_check && comma_check->text ? comma_check->text : "NULL");
+                }
                 // Don't break, just continue to parse the next key
             } else {
                 // Not a key and not a comma - probably end of hash map
+                // Debug: log why we're breaking
+                if (parser->current_token && parser->current_token->line >= 200 && parser->current_token->line <= 360) {
+                    fprintf(stderr, "[DEBUG PARSER] Breaking hash map parsing at line %d: next token is not a key, comma, or closing brace (type=%d, text='%s'), parsed %zu pairs\n", 
+                            parser->current_token->line, peeked ? peeked->type : -1, 
+                            peeked && peeked->text ? peeked->text : "NULL", pair_count);
+                }
                 break;
             }
         } else {
+            // Debug: log comma consumption
+            if (parser->current_token && parser->current_token->line >= 200 && parser->current_token->line <= 360) {
+                fprintf(stderr, "[DEBUG PARSER] Found comma after pair %zu, consuming it\n", pair_count);
+            }
             parser_advance(parser);  // Consume the comma
         }
         
@@ -5625,8 +5776,26 @@ static ASTNode* parser_parse_hash_map_literal(Parser* parser) {
             return NULL;
         }
         
+        // Debug: log what token we're about to parse for the value
+        Token* value_token = parser_peek(parser);
+        const char* key_str = NULL;
+        if (key && (key->type == AST_NODE_IDENTIFIER || key->type == AST_NODE_STRING)) {
+            key_str = key->type == AST_NODE_IDENTIFIER ? 
+                key->data.identifier_value : 
+                (key->data.string_value ? key->data.string_value : NULL);
+        }
+        // Debug: log ALL keys when parsing hash map at line 203
+        if (parser->current_token && parser->current_token->line >= 200 && parser->current_token->line <= 360) {
+            fprintf(stderr, "[DEBUG PARSER] About to parse value for key='%s' (pair %zu), next token: type=%d, text='%s'\n", 
+                    key_str ? key_str : "unknown", pair_count + 1, value_token ? value_token->type : -1, value_token && value_token->text ? value_token->text : "NULL");
+        }
+        
         ASTNode* value = parser_parse_expression(parser);
         if (!value) {
+            fprintf(stderr, "[DEBUG PARSER] Hash map literal parsing failed: failed to parse value for key='%s' at line %d, current token: type=%d, text='%s'\n", 
+                    key_str ? key_str : "unknown", parser->current_token ? parser->current_token->line : 0,
+                    parser->current_token ? parser->current_token->type : -1,
+                    parser->current_token && parser->current_token->text ? parser->current_token->text : "NULL");
             parser_error(parser, "Expected value expression after ':' in hash map literal");
             ast_free(key);
             // Clean up and return what we have
@@ -5637,6 +5806,18 @@ static ASTNode* parser_parse_hash_map_literal(Parser* parser) {
             shared_free_safe(keys, "parser", "unknown_function", 4423);
             shared_free_safe(values, "parser", "unknown_function", 4424);
             return NULL;
+        }
+        
+        // Debug: log successful value parsing for hash map at line 203
+        if (parser->current_token && parser->current_token->line >= 200 && parser->current_token->line <= 360) {
+            Token* next_after_value = parser_peek(parser);
+            Token* current_token = parser->current_token;
+            fprintf(stderr, "[DEBUG PARSER] Successfully parsed value for key='%s' (pair %zu), value type=%d, current_token: type=%d, text='%s', peeked token: type=%d, text='%s'\n", 
+                    key_str ? key_str : "unknown", pair_count + 1, value->type, 
+                    current_token ? current_token->type : -1,
+                    current_token && current_token->text ? current_token->text : "NULL",
+                    next_after_value ? next_after_value->type : -1,
+                    next_after_value && next_after_value->text ? next_after_value->text : "NULL");
         }
         
         // Expand arrays if needed
@@ -5665,7 +5846,13 @@ static ASTNode* parser_parse_hash_map_literal(Parser* parser) {
     }
     
     // Expect closing brace
+    Token* before_brace = parser_peek(parser);
     if (!parser_match(parser, TOKEN_RIGHT_BRACE)) {
+        fprintf(stderr, "[DEBUG PARSER] Hash map literal parsing failed: expected '}' but didn't find it at line %d, current token: type=%d, text='%s', parsed %zu pairs\n", 
+                parser->current_token ? parser->current_token->line : 0,
+                before_brace ? before_brace->type : -1,
+                before_brace && before_brace->text ? before_brace->text : "NULL",
+                pair_count);
         parser_error(parser, "Expected '}' to close hash map literal");
         // Clean up and return what we have
         for (size_t i = 0; i < pair_count; i++) {
@@ -5677,7 +5864,15 @@ static ASTNode* parser_parse_hash_map_literal(Parser* parser) {
         return NULL;
     }
     
-    return ast_create_hash_map_literal(keys, values, pair_count, parser->previous_token->line, parser->previous_token->column);
+    ASTNode* hash_map = ast_create_hash_map_literal(keys, values, pair_count, parser->previous_token->line, parser->previous_token->column);
+    if (hash_map) {
+        fprintf(stderr, "[DEBUG PARSER] Created hash map literal with %zu pairs at line %d\n", 
+                pair_count, parser->previous_token->line);
+    } else {
+        fprintf(stderr, "[DEBUG PARSER] Failed to create hash map literal with %zu pairs at line %d\n", 
+                pair_count, parser->previous_token->line);
+    }
+    return hash_map;
 }
 
 /**

@@ -859,17 +859,122 @@ static void* async_worker_thread(void* arg) {
         } else {
             // Execute task
             BytecodeProgram* program = (BytecodeProgram*)task->program;
+            fprintf(stderr, "[DEBUG ASYNC] Executing async task: func_id=%d, program=%p, function_count=%zu\n", 
+                    task->function_id, (void*)program, program ? program->function_count : 0);
             if (program && task->function_id >= 0 && task->function_id < (int)program->function_count && program->functions) {
                 BytecodeFunction* func = &program->functions[task->function_id];
+                fprintf(stderr, "[DEBUG ASYNC] Function found, name=%s, code_count=%zu, executing...\n", 
+                        func->name ? func->name : "<unnamed>", func->code_count);
                 
                 // Create a local interpreter context for this thread
                 // Note: We need to be careful about shared state
                 Environment* old_env = interpreter->current_environment;
-                interpreter->current_environment = task->environment ? task->environment : interpreter->global_environment;
+                // Use task->environment if available, otherwise create an environment that inherits from global
+                // This ensures async functions have access to global modules like 'gateway'
+                Environment* async_env = task->environment;
+                if (!async_env) {
+                    // Create environment that inherits from global to access modules
+                    async_env = environment_create(interpreter->global_environment);
+                } else {
+                    // Check if the captured environment has __module_path__ to access module environment
+                    // If so, we need to ensure the module environment is in the parent chain
+                    // Also check if the async function itself has __module_path__ in its captured environment
+                    Value module_path_val = environment_get(async_env, "__module_path__");
+                    // If not found in async_env, check the function's captured environment
+                    if (module_path_val.type != VALUE_STRING && func && program) {
+                        // Try to get module path from the function's captured environment
+                        // For bytecode functions, we need to check if there's a way to get the captured environment
+                        // For now, try to find the module by checking the program's file path or module cache
+                        // The program might be from a module - check module cache for matching bytecode program
+                        if (interpreter && interpreter->module_cache) {
+                            fprintf(stderr, "[DEBUG ASYNC] Checking module cache for program %p (cache_count=%zu)\n", 
+                                    (void*)program, interpreter->module_cache_count);
+                            for (size_t i = 0; i < interpreter->module_cache_count; i++) {
+                                if (interpreter->module_cache[i].is_valid && 
+                                    interpreter->module_cache[i].module_bytecode_program == program) {
+                                    fprintf(stderr, "[DEBUG ASYNC] Found module in cache[%zu], file_path=%s, module_env=%p\n",
+                                            i, interpreter->module_cache[i].file_path ? interpreter->module_cache[i].file_path : "NULL",
+                                            (void*)interpreter->module_cache[i].module_env);
+                                    // Found the module - use its environment
+                                    if (interpreter->module_cache[i].module_env) {
+                                        // Check if module environment is already in the chain
+                                        Environment* check_env = async_env;
+                                        bool has_module_in_chain = false;
+                                        while (check_env) {
+                                            if (check_env == interpreter->module_cache[i].module_env) {
+                                                has_module_in_chain = true;
+                                                break;
+                                            }
+                                            check_env = check_env->parent;
+                                        }
+                                        // If module environment is not in chain, create new environment with module as parent
+                                        if (!has_module_in_chain) {
+                                            Environment* new_async_env = environment_create(interpreter->module_cache[i].module_env);
+                                            // Copy values from old async_env to new_async_env (like "self")
+                                            if (new_async_env && async_env) {
+                                                for (size_t j = 0; j < async_env->count; j++) {
+                                                    if (async_env->names[j]) {
+                                                        Value val = environment_get(async_env, async_env->names[j]);
+                                                        if (val.type != VALUE_NULL) {
+                                                            environment_define(new_async_env, async_env->names[j], value_clone(&val));
+                                                            value_free(&val);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            async_env = new_async_env;
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    } else if (module_path_val.type == VALUE_STRING && module_path_val.data.string_value && interpreter && interpreter->module_cache) {
+                        // Find module in cache to get module environment
+                        ModuleCacheEntry* module_entry = find_cached_module(interpreter, module_path_val.data.string_value);
+                        if (module_entry && module_entry->is_valid && module_entry->module_env) {
+                            // Ensure the async environment has the module environment in its parent chain
+                            // Check if module environment is already in the chain
+                            Environment* check_env = async_env;
+                            bool has_module_in_chain = false;
+                            while (check_env) {
+                                if (check_env == module_entry->module_env) {
+                                    has_module_in_chain = true;
+                                    break;
+                                }
+                                check_env = check_env->parent;
+                            }
+                            // If module environment is not in chain, we need to add it
+                            // For now, create a new environment that inherits from module environment
+                            // and has the async environment's values
+                            if (!has_module_in_chain) {
+                                // Create new environment with module environment as parent
+                                Environment* new_async_env = environment_create(module_entry->module_env);
+                                // Copy values from old async_env to new_async_env (like "self")
+                                if (new_async_env && async_env) {
+                                    for (size_t i = 0; i < async_env->count; i++) {
+                                        if (async_env->names[i]) {
+                                            Value val = environment_get(async_env, async_env->names[i]);
+                                            if (val.type != VALUE_NULL) {
+                                                environment_define(new_async_env, async_env->names[i], value_clone(&val));
+                                                value_free(&val);
+                                            }
+                                        }
+                                    }
+                                }
+                                async_env = new_async_env;
+                            }
+                        }
+                    }
+                    value_free(&module_path_val);
+                }
+                interpreter->current_environment = async_env;
                 
                 // Execute function
+                fprintf(stderr, "[DEBUG ASYNC] About to execute function bytecode, func_id=%d, arg_count=%zu\n", task->function_id, task->arg_count);
                 Value result = bytecode_execute_function_bytecode(
                     interpreter, func, task->args, (int)task->arg_count, program);
+                fprintf(stderr, "[DEBUG ASYNC] Function execution completed, result.type=%d, has_return=%d\n", result.type, interpreter->has_return);
                 
                 // Handle return value
                 if (result.type == VALUE_NULL) {
@@ -1009,7 +1114,10 @@ void async_event_loop_run(Interpreter* interpreter) {
     // Otherwise, fall back to synchronous processing
     if (interpreter->worker_thread_count == 0) {
         // Fallback: synchronous processing (for compatibility)
-        if (!interpreter->task_queue || interpreter->task_queue_size == 0) return;
+        if (!interpreter->task_queue || interpreter->task_queue_size == 0) {
+            return;
+        }
+        fprintf(stderr, "[DEBUG ASYNC] Processing %zu tasks in event loop\n", interpreter->task_queue_size);
         
         while (interpreter->task_queue && interpreter->task_queue_size > 0) {
             AsyncTask* task = async_task_queue_pop(interpreter);
@@ -1152,7 +1260,6 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
     
     // Debug: Log when executing module bytecode
     if (program->count > 100) {
-        fprintf(stderr, "[DEBUG] bytecode_execute: program count=%zu\n", program->count);
     }
     
     // Initialize memory optimizations
@@ -1199,8 +1306,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 program->constants && program->constants[name_idx].type == VALUE_STRING) {
                 const char* func_name = program->constants[name_idx].data.string_value;
                 if (func_name && (strcmp(func_name, "Client") == 0 || strcmp(func_name, "Intents") == 0)) {
-                    fprintf(stderr, "[DEBUG] Executing BC_DEFINE_FUNCTION for '%s' at PC=%zu, program->count=%zu, op=%d\n", 
-                            func_name, pc, program->count, instr->op);
+                    // Debug output removed
                 }
             }
         }
@@ -1537,11 +1643,11 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         
                         // If not found in current, try global environment (where modules are stored)
                         if (loaded_val.type == VALUE_NULL && var_name && interpreter && interpreter->global_environment) {
-                        if (strcmp(var_name, "client") == 0 || strcmp(var_name, "Client") == 0) {
-                            fprintf(stderr, "[DEBUG] BC_LOAD_GLOBAL '%s': Checking global environment...\n", var_name);
-                        }
+                            if (strcmp(var_name, "DISCORD_GATEWAY_URL") == 0 || strcmp(var_name, "gateway") == 0) {
+                                fprintf(stderr, "[DEBUG] BC_LOAD_GLOBAL '%s': Checking global environment...\n", var_name);
+                            }
                             loaded_val = environment_get(interpreter->global_environment, var_name);
-                            if (strcmp(var_name, "client") == 0 || strcmp(var_name, "Client") == 0) {
+                            if (strcmp(var_name, "DISCORD_GATEWAY_URL") == 0 || strcmp(var_name, "gateway") == 0) {
                                 fprintf(stderr, "[DEBUG] BC_LOAD_GLOBAL '%s': Global environment result type=%d\n", var_name, loaded_val.type);
                             }
                         }
@@ -1874,14 +1980,22 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             case BC_METHOD_CALL: {
+                // Debug: log method calls for connect, send_message, close
+                if (instr->a < program->const_count && program->constants[instr->a].type == VALUE_STRING) {
+                    const char* method_name = program->constants[instr->a].data.string_value;
+                    if (method_name && (strcmp(method_name, "connect") == 0 || strcmp(method_name, "send_message") == 0 || strcmp(method_name, "close") == 0)) {
+                        fprintf(stderr, "[DEBUG ASYNC] BC_METHOD_CALL for method '%s' with %d args\n", method_name, instr->b);
+                    }
+                }
                 // Declare variables outside the if block
                 int arg_count = instr->b;
                 Value* args = NULL;
                 Value object = value_create_null();
                 
                 // Get method name from constant pool
+                const char* method_name = NULL;
                 if (instr->a < program->const_count && program->constants[instr->a].type == VALUE_STRING) {
-                    const char* method_name = program->constants[instr->a].data.string_value;
+                    method_name = program->constants[instr->a].data.string_value;
                     // Stack order: compiler pushes object first (line 1831), then argument (line 1983)
                     // So stack is: [object, arg1] with arg1 on top
                     // Match BC_ARRAY_PUSH exactly: pop argument first (top), then object (below)
@@ -1915,6 +2029,11 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     // Pop object (it's below the arguments)
                     object = value_stack_pop();
                     
+                    // Debug: log object immediately after popping
+                    if (method_name && (strcmp(method_name, "connect") == 0 || strcmp(method_name, "send_message") == 0 || strcmp(method_name, "close") == 0)) {
+                        fprintf(stderr, "[DEBUG ASYNC] Popped object for '%s': type=%d\n", method_name, object.type);
+                    }
+                    
                     // Handle null object case
                     if (object.type == VALUE_NULL) {
                         // Object is null - method call fails, return null
@@ -1928,6 +2047,12 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         }
                         pc++;
                         break;
+                    }
+                    
+                    // Debug: log object type for connect method
+                    if (method_name && (strcmp(method_name, "connect") == 0 || strcmp(method_name, "send_message") == 0 || strcmp(method_name, "close") == 0)) {
+                        fprintf(stderr, "[DEBUG ASYNC] Object type for '%s' method: %d (VALUE_HASH_MAP=%d, VALUE_OBJECT=%d, VALUE_ARRAY=%d, VALUE_SET=%d, VALUE_NULL=%d)\n", 
+                                method_name, object.type, VALUE_HASH_MAP, VALUE_OBJECT, VALUE_ARRAY, VALUE_SET, VALUE_NULL);
                     }
                     
                     // Handle different object types
@@ -1964,6 +2089,11 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         pc++;
                         break;
                     } else if (object.type == VALUE_HASH_MAP) {
+                        // Debug: log hash map method calls
+                        if (method_name && (strcmp(method_name, "connect") == 0 || strcmp(method_name, "send_message") == 0 || strcmp(method_name, "close") == 0)) {
+                            fprintf(stderr, "[DEBUG ASYNC] Hash map method call for '%s' (object type=%d, VALUE_HASH_MAP=%d)\n", 
+                                    method_name, object.type, VALUE_HASH_MAP);
+                        }
                         // Handle map methods
                         if (strcmp(method_name, "set") == 0) {
                             Value result = builtin_map_set(NULL, (Value[]){object, args[0], args[1]}, 3, 0, 0);
@@ -1987,7 +2117,243 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             Value result = builtin_map_size(NULL, (Value[]){object}, 1, 0, 0);
                             value_stack_push(result);
                         } else {
-                            value_stack_push(value_create_null());
+                            // Not a built-in method - try to get it from the hash map
+                            Value method_key = value_create_string(method_name);
+                            Value method = value_hash_map_get(&object, method_key);
+                            value_free(&method_key);
+                            
+                            if (strcmp(method_name, "connect") == 0 || strcmp(method_name, "send_message") == 0 || strcmp(method_name, "close") == 0) {
+                                fprintf(stderr, "[DEBUG ASYNC] Method '%s' retrieved from hash map, type=%d (VALUE_FUNCTION=%d, VALUE_ASYNC_FUNCTION=%d, VALUE_NULL=%d)\n", 
+                                        method_name, method.type, VALUE_FUNCTION, VALUE_ASYNC_FUNCTION, VALUE_NULL);
+                                if (method.type == VALUE_NULL) {
+                                    fprintf(stderr, "[DEBUG ASYNC] Method '%s' not found in hash map!\n", method_name);
+                                }
+                            }
+                            
+                            if (strcmp(method_name, "connect") == 0 || strcmp(method_name, "send_message") == 0 || strcmp(method_name, "close") == 0) {
+                                fprintf(stderr, "[DEBUG ASYNC] Checking method '%s': type=%d, is_function=%d, is_async=%d\n", 
+                                        method_name, method.type, 
+                                        (method.type == VALUE_FUNCTION), 
+                                        (method.type == VALUE_ASYNC_FUNCTION));
+                            }
+                            
+                            if (method.type == VALUE_FUNCTION || method.type == VALUE_ASYNC_FUNCTION) {
+                                if (method.type == VALUE_ASYNC_FUNCTION) {
+                                    if (strcmp(method_name, "connect") == 0 || strcmp(method_name, "send_message") == 0 || strcmp(method_name, "close") == 0) {
+                                        fprintf(stderr, "[DEBUG ASYNC] Async function detected for method '%s'\n", method_name);
+                                    }
+                                    // Async function - handle via async execution path
+                                    ASTNode* body_ptr = (ASTNode*)method.data.async_function_value.body;
+                                    uintptr_t body_addr = (uintptr_t)body_ptr;
+                                    fprintf(stderr, "[DEBUG ASYNC] Method '%s' body_addr=%lu, checking if < 100000\n", method_name, (unsigned long)body_addr);
+                                    if (body_addr < 100000) {
+                                        // Bytecode async function
+                                        int func_id = (int)body_addr;
+                                        fprintf(stderr, "[DEBUG ASYNC] Method '%s' is bytecode function, func_id=%d\n", method_name, func_id);
+                                        // The func_id refers to a function in the main program
+                                        // Try to find the program that contains this function
+                                        // Search through cached program, current program, and module cache
+                                        BytecodeProgram* func_program = NULL;
+                                        
+                                        // First try cached program
+                                        if (interpreter && interpreter->bytecode_program_cache) {
+                                            func_program = interpreter->bytecode_program_cache;
+                                            if (func_id >= 0 && func_id < (int)func_program->function_count) {
+                                                fprintf(stderr, "[DEBUG ASYNC] Method '%s' func_id=%d found in cached program (function_count=%zu)\n", method_name, func_id, func_program->function_count);
+                                            } else {
+                                                func_program = NULL;
+                                            }
+                                        }
+                                        
+                                        // If not found, try current program
+                                        if (!func_program && program) {
+                                            if (func_id >= 0 && func_id < (int)program->function_count) {
+                                                func_program = program;
+                                                fprintf(stderr, "[DEBUG ASYNC] Method '%s' func_id=%d found in current program (function_count=%zu)\n", method_name, func_id, func_program->function_count);
+                                            }
+                                        }
+                                        
+                                        // If still not found, search module cache
+                                        if (!func_program && interpreter && interpreter->module_cache) {
+                                            for (size_t i = 0; i < interpreter->module_cache_count; i++) {
+                                                if (interpreter->module_cache[i].is_valid && interpreter->module_cache[i].module_bytecode_program) {
+                                                    BytecodeProgram* mod_program = (BytecodeProgram*)interpreter->module_cache[i].module_bytecode_program;
+                                                    if (func_id >= 0 && func_id < (int)mod_program->function_count) {
+                                                        func_program = mod_program;
+                                                        fprintf(stderr, "[DEBUG ASYNC] Method '%s' func_id=%d found in module cache[%zu] (function_count=%zu)\n", method_name, func_id, i, func_program->function_count);
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        
+                                        // If still not found, use the program with the most functions (likely the main program)
+                                        if (!func_program) {
+                                            size_t max_functions = 0;
+                                            BytecodeProgram* cached_prog = (BytecodeProgram*)(interpreter && interpreter->bytecode_program_cache ? interpreter->bytecode_program_cache : NULL);
+                                            if (cached_prog && cached_prog->function_count > max_functions) {
+                                                func_program = cached_prog;
+                                                max_functions = func_program->function_count;
+                                            }
+                                            if (program && program->function_count > max_functions) {
+                                                func_program = program;
+                                                max_functions = func_program->function_count;
+                                            }
+                                            if (interpreter && interpreter->module_cache) {
+                                                for (size_t i = 0; i < interpreter->module_cache_count; i++) {
+                                                    if (interpreter->module_cache[i].is_valid && interpreter->module_cache[i].module_bytecode_program) {
+                                                        BytecodeProgram* mod_program = (BytecodeProgram*)interpreter->module_cache[i].module_bytecode_program;
+                                                        if (mod_program->function_count > max_functions) {
+                                                            func_program = mod_program;
+                                                            max_functions = func_program->function_count;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            if (func_program) {
+                                                fprintf(stderr, "[DEBUG ASYNC] Method '%s' using program with most functions (function_count=%zu) for func_id=%d\n", method_name, func_program->function_count, func_id);
+                                            }
+                                        }
+                                        
+                                        if (func_program && func_id >= 0 && func_id < (int)func_program->function_count) {
+                                            fprintf(stderr, "[DEBUG ASYNC] Method '%s' func_id is valid, creating promise\n", method_name);
+                                            // Create pending promise and register it
+                                            Value promise = value_create_pending_promise();
+                                            uint64_t promise_id = promise_registry_add(interpreter, promise);
+                                            fprintf(stderr, "[DEBUG ASYNC] Method '%s' promise_id=%lu\n", method_name, (unsigned long)promise_id);
+                                            if (promise_id > 0) {
+                                                Value* registry_promise = promise_registry_get(interpreter, promise_id);
+                                                if (registry_promise) {
+                                                    fprintf(stderr, "[DEBUG ASYNC] Method '%s' registry_promise found, creating task\n", method_name);
+                                                    registry_promise->data.promise_value.promise_id = promise_id;
+                                                    // Create async task
+                                                    AsyncTask* task = (AsyncTask*)shared_malloc_safe(sizeof(AsyncTask), "bytecode_vm", "BC_METHOD_CALL", 25);
+                                                    if (task) {
+                                                        // Clone args for async task
+                                                        Value* task_args = NULL;
+                                                        if (arg_count > 0) {
+                                                            task_args = shared_malloc_safe(arg_count * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL", 26);
+                                                            if (task_args) {
+                                                                for (int i = 0; i < arg_count; i++) {
+                                                                    task_args[i] = value_clone(&args[i]);
+                                                                }
+                                                            }
+                                                        }
+                                                        task->promise_ptr = registry_promise;
+                                                        task->promise_copy = *registry_promise;
+                                                        task->program = func_program;
+                                                        task->function_id = func_id;
+                                                        task->args = task_args;
+                                                        task->arg_count = arg_count;
+                                                        // Set self context in environment for async function
+                                                        // IMPORTANT: Ensure the environment chain reaches global environment for module access
+                                                        Environment* base_env = interpreter ? interpreter->current_environment : NULL;
+                                                        // If base_env doesn't have global in its parent chain, use global as base
+                                                        Environment* check_env = base_env;
+                                                        bool has_global_in_chain = false;
+                                                        while (check_env && interpreter && interpreter->global_environment) {
+                                                            if (check_env == interpreter->global_environment) {
+                                                                has_global_in_chain = true;
+                                                                break;
+                                                            }
+                                                            check_env = check_env->parent;
+                                                        }
+                                                        if (!has_global_in_chain && interpreter && interpreter->global_environment) {
+                                                            base_env = interpreter->global_environment;
+                                                        }
+                                                        Environment* func_env = environment_create(base_env);
+                                                        if (func_env) {
+                                                            environment_define(func_env, "self", value_clone(&object));
+                                                            task->environment = func_env;
+                                                        } else {
+                                                            task->environment = interpreter ? interpreter->global_environment : NULL;
+                                                        }
+                                                        task->is_resolved = 0;
+                                                        task->result = value_create_null();
+                                                        async_task_queue_add(interpreter, task);
+                                                        // Return promise
+                                                        Value result = *registry_promise;
+                                                        result.data.promise_value.promise_id = promise_id;
+                                                        value_stack_push(result);
+                                                        value_free(&method);
+                                                        // Clean up arguments
+                                                        if (args) {
+                                                            for (int i = 0; i < arg_count; i++) {
+                                                                value_free(&args[i]);
+                                                            }
+                                                            shared_free_safe(args, "bytecode_vm", "BC_METHOD_CALL", 16);
+                                                        }
+                                                        pc++;
+                                                        break;
+                                                    } else {
+                                                        promise_registry_remove(interpreter, promise_id);
+                                                        if (args) {
+                                                            for (int i = 0; i < arg_count; i++) value_free(&args[i]);
+                                                        }
+                                                        value_stack_push(value_create_null());
+                                                    }
+                                                } else {
+                                                    promise_registry_remove(interpreter, promise_id);
+                                                    value_stack_push(value_create_null());
+                                                }
+                                            } else {
+                                                value_stack_push(value_create_null());
+                                            }
+                                        } else {
+                                            value_stack_push(value_create_null());
+                                        }
+                                    } else {
+                                        // AST async function - execute synchronously and wrap in resolved promise
+                                        // This is a workaround - ideally AST async functions should be queued as async tasks
+                                        interpreter_set_self_context(interpreter, &object);
+                                        Value result = value_function_call_with_self(&method, args, arg_count, interpreter, &object, 0, 0);
+                                        interpreter_set_self_context(interpreter, NULL);
+                                        // Wrap in resolved promise
+                                        Value promise_result = value_create_promise(result, 1, value_create_null());
+                                        value_free(&result);
+                                        value_stack_push(promise_result);
+                                        value_free(&method);
+                                        // Clean up arguments
+                                        if (args) {
+                                            for (int i = 0; i < arg_count; i++) {
+                                                value_free(&args[i]);
+                                            }
+                                            shared_free_safe(args, "bytecode_vm", "BC_METHOD_CALL", 16);
+                                        }
+                                        pc++;
+                                        break;
+                                    }
+                                } else {
+                                    // Regular function from hash map
+                                    interpreter_set_self_context(interpreter, &object);
+                                    Value result = value_function_call_with_self(&method, args, arg_count, interpreter, &object, 0, 0);
+                                    interpreter_set_self_context(interpreter, NULL);
+                                    Value cloned_result = value_clone(&result);
+                                    value_free(&result);
+                                    value_stack_push(cloned_result);
+                                    value_free(&method);
+                                    // Clean up arguments
+                                    if (args) {
+                                        for (int i = 0; i < arg_count; i++) {
+                                            value_free(&args[i]);
+                                        }
+                                        shared_free_safe(args, "bytecode_vm", "BC_METHOD_CALL", 16);
+                                    }
+                                    pc++;
+                                    break;
+                                }
+                            } else {
+                                // Method not found in hash map or not a function
+                                if (strcmp(method_name, "connect") == 0 || strcmp(method_name, "send_message") == 0 || strcmp(method_name, "close") == 0) {
+                                    fprintf(stderr, "[DEBUG ASYNC] Method '%s' not found in hash map or not a function (type=%d)\n", method_name, method.type);
+                                    // If method is null, this explains why await resolves immediately
+                                    if (method.type == VALUE_NULL) {
+                                        fprintf(stderr, "[DEBUG ASYNC] Method '%s' is NULL - await will resolve immediately without executing\n", method_name);
+                                    }
+                                }
+                                value_free(&method);
+                                value_stack_push(value_create_null());
+                            }
                         }
                     } else if (object.type == VALUE_SET) {
                         // Handle set methods
@@ -2019,6 +2385,10 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             value_stack_push(value_create_null());
                         }
                     } else if (object.type == VALUE_OBJECT) {
+                        // Debug: log object method calls
+                        if (method_name && (strcmp(method_name, "connect") == 0 || strcmp(method_name, "send_message") == 0 || strcmp(method_name, "close") == 0)) {
+                            fprintf(stderr, "[DEBUG ASYNC] VALUE_OBJECT method call for '%s'\n", method_name);
+                        }
                         // Check if it's a module object first
                         Value object_type = value_object_get(&object, "__type__");
                         bool method_handled = false;
@@ -2264,7 +2634,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                                     // Check if this is a bytecode async function
                                     ASTNode* body_ptr = (ASTNode*)method.data.async_function_value.body;
                                     uintptr_t body_addr = (uintptr_t)body_ptr;
-                                    if (body_addr < 10000) {
+                                    if (body_addr < 100000) {
                                         // Bytecode async function
                                         int func_id = (int)body_addr;
                                         BytecodeProgram* func_program = interpreter && interpreter->bytecode_program_cache ? 
@@ -2650,40 +3020,64 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             case BC_RETURN: {
-                // Check if this is actually a BC_LEFT_SHIFT that was compiled with wrong opcode
-                // (legacy bytecode compatibility - op=145 was BC_LEFT_SHIFT before enum reordering)
-                // If we're in module bytecode (count > 100) and this looks like a bit shift operation
-                // (stack has 2 numbers), treat it as BC_LEFT_SHIFT
-                // In module bytecode, op=145 with a=0 is likely BC_LEFT_SHIFT (legacy bytecode compatibility)
-                // BC_RETURN with a=0 (void return) doesn't make sense in the middle of object literal compilation
-                if (program->count > 100 && pc >= 80 && pc <= 200 && instr->a == 0) {
-                    fprintf(stderr, "[DEBUG] Treating BC_RETURN (op=145) as BC_LEFT_SHIFT at PC=%zu, stack_size=%zu\n", pc, value_stack_size);
-                    if (value_stack_size >= 2) {
-                        Value b = value_stack_pop();
-                        Value a = value_stack_pop();
-                        // Handle both number and null operands (null might be from failed loads)
-                        if (a.type == VALUE_NUMBER && b.type == VALUE_NUMBER) {
-                            int64_t a_int = (int64_t)a.data.number_value;
-                            int64_t b_int = (int64_t)b.data.number_value;
-                            value_stack_push(value_create_number((double)(a_int << b_int)));
-                        } else {
-                            // If operands are null, use 0 as fallback
-                            int64_t a_int = (a.type == VALUE_NUMBER) ? (int64_t)a.data.number_value : 0;
-                            int64_t b_int = (b.type == VALUE_NUMBER) ? (int64_t)b.data.number_value : 0;
-                            value_stack_push(value_create_number((double)(a_int << b_int)));
-                        }
-                        value_free(&a);
-                        value_free(&b);
+                // IMPORTANT: Check if we're executing module-level bytecode (not function bytecode)
+                // Module-level bytecode has program->count > 100 and we're not in a function execution context
+                // Function bytecode is executed via bytecode_execute_function_bytecode, which creates a temp_program
+                // We can detect function bytecode execution by checking if program->code points to function->code
+                if (program->count > 100) {
+                    // Check if this is function bytecode by seeing if the program structure matches a function
+                    // Function bytecode programs have code pointing to func->code, not the main program code
+                    // For now, check if we're in a function context AND the program is large (module bytecode)
+                    // If we're in a function context but executing module bytecode, ignore the return
+                    bool is_function_context = interpreter && interpreter->current_environment && interpreter->global_environment && 
+                                              (interpreter->current_environment != interpreter->global_environment);
+                    // If we're executing module bytecode (count > 100) and not in a function execution,
+                    // this BC_RETURN is from module-level code and should be ignored
+                    if (!is_function_context) {
+                        fprintf(stderr, "[DEBUG] BC_RETURN at module level (PC=%zu), ignoring return, continuing execution\n", pc);
                         pc++;
                         break;
-                    } else {
-                        // Stack too small - push 0 as fallback
-                        value_stack_push(value_create_number(0.0));
+                    }
+                    // If we're in a function context but executing module bytecode, this is likely
+                    // a return statement from a function body that was incorrectly compiled to module bytecode
+                    // Ignore it to allow module execution to continue
+                    if (is_function_context && !interpreter->has_return) {
+                        fprintf(stderr, "[DEBUG] BC_RETURN in function context but module bytecode (PC=%zu), ignoring to allow module execution to continue\n", pc);
+                        pc++;
+                        break;
+                    }
+                }
+                
+                // Check if this is actually a BC_LEFT_SHIFT that was compiled with wrong opcode
+                // (legacy bytecode compatibility - op=145 was BC_LEFT_SHIFT before enum reordering)
+                // Only apply this workaround in very specific conditions:
+                // 1. During object literal compilation (not in function execution)
+                // 2. When we're in the main program bytecode (not async function execution)
+                // 3. When stack has exactly 2 numbers (bit shift operation)
+                // This workaround should NOT apply during async function execution or module-level code
+                bool is_function_context_for_workaround = interpreter && interpreter->current_environment && interpreter->global_environment && 
+                                                         (interpreter->current_environment != interpreter->global_environment);
+                if (program->count > 100 && pc >= 80 && pc <= 200 && instr->a == 0 && 
+                    value_stack_size >= 2 && !interpreter->has_return && is_function_context_for_workaround) {
+                    // Check if both stack values are numbers (bit shift operation)
+                    // Peek at the top two values without popping
+                    Value* top = value_stack_size >= 2 ? &value_stack[value_stack_size - 1] : NULL;
+                    Value* second = value_stack_size >= 2 ? &value_stack[value_stack_size - 2] : NULL;
+                    if (top && second && top->type == VALUE_NUMBER && second->type == VALUE_NUMBER) {
+                        fprintf(stderr, "[DEBUG] Treating BC_RETURN (op=145) as BC_LEFT_SHIFT at PC=%zu, stack_size=%zu\n", pc, value_stack_size);
+                        Value b = value_stack_pop();
+                        Value a = value_stack_pop();
+                        int64_t a_int = (int64_t)a.data.number_value;
+                        int64_t b_int = (int64_t)b.data.number_value;
+                        value_stack_push(value_create_number((double)(a_int << b_int)));
+                        value_free(&a);
+                        value_free(&b);
                         pc++;
                         break;
                     }
                 }
                 // Set return flag and value for function execution
+                
                 if (instr->a == 0) {
                     // Void return
                     interpreter->has_return = 1;
@@ -2775,7 +3169,8 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 Value func_value = value_stack_pop();
                 
                 if (func_value.type == VALUE_FUNCTION || func_value.type == VALUE_NULL) {
-                    fprintf(stderr, "[DEBUG] BC_CALL_FUNCTION_VALUE: func_value.type=%d, arg_count=%d\n", func_value.type, arg_count);
+                    fprintf(stderr, "[DEBUG] BC_CALL_FUNCTION_VALUE: func_value.type=%d (VALUE_FUNCTION=%d), arg_count=%d\n", 
+                            func_value.type, VALUE_FUNCTION, arg_count);
                 }
                 
                 // Get arguments from stack (in reverse order)
@@ -2980,7 +3375,10 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     // Note: function ID 0 is valid (NULL pointer), so we check body_addr first
                     ASTNode* body_ptr = (ASTNode*)func_value.data.function_value.body;
                     uintptr_t body_addr = (uintptr_t)body_ptr;
-                    if (body_addr < 10000) {
+                    // Check if this is a function ID (small integer cast as pointer)
+                    // Use a larger threshold to allow more functions (100000 should be enough for most programs)
+                    // Function IDs are small integers, while AST node pointers are large addresses (typically > 1MB)
+                    if (body_addr < 100000) {
                         // This looks like a function ID (small integer cast as pointer)
                         // Extract the function ID
                         int func_id = (int)body_addr;
@@ -2993,7 +3391,13 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         if (target_program && func_id >= 0 && func_id < (int)target_program->function_count) {
                             // Found bytecode function - execute it directly
                             BytecodeFunction* bc_func = &target_program->functions[func_id];
+                            if (bc_func->name && strcmp(bc_func->name, "Client") == 0) {
+                                fprintf(stderr, "[DEBUG] Executing Client() function, func_id=%d\n", func_id);
+                            }
                             result = bytecode_execute_function_bytecode(interpreter, bc_func, args, arg_count, target_program);
+                            if (bc_func->name && strcmp(bc_func->name, "Client") == 0) {
+                                fprintf(stderr, "[DEBUG] Client() execution completed, result type=%d\n", result.type);
+                            }
                         } else {
                             // No valid program or invalid function ID - fall through to value_function_call
                             // But first, ensure the program cache is set if we have a program
@@ -3010,6 +3414,23 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         // Regular AST function or NULL body - use value_function_call
                         // This should handle bytecode functions that weren't detected above
                         result = value_function_call(&func_value, args, arg_count, interpreter, 0, 0);
+                    }
+                }
+                
+                // Debug: log result for all function calls
+                if (func_value.type == VALUE_FUNCTION) {
+                    ASTNode* body_ptr = (ASTNode*)func_value.data.function_value.body;
+                    uintptr_t body_addr = (uintptr_t)body_ptr;
+                    if (body_addr < 100000) {
+                        int func_id = (int)body_addr;
+                        BytecodeProgram* target_program = interpreter ? interpreter->bytecode_program_cache : program;
+                        if (target_program && func_id >= 0 && func_id < (int)target_program->function_count) {
+                            BytecodeFunction* bc_func = &target_program->functions[func_id];
+                            if (bc_func->name) {
+                                fprintf(stderr, "[DEBUG] Function '%s'() returned: type=%d (VALUE_HASH_MAP=%d, VALUE_NULL=%d)\n", 
+                                        bc_func->name, result.type, VALUE_HASH_MAP, VALUE_NULL);
+                            }
+                        }
                     }
                 }
                 
@@ -3034,13 +3455,20 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 int func_id = instr->b;
                 
                 // Debug: Check if this is Client or Intents
+                const char* func_name_debug = NULL;
                 if (name_idx >= 0 && name_idx < (int)program->const_count && 
                     program->constants && program->constants[name_idx].type == VALUE_STRING) {
-                    const char* func_name = program->constants[name_idx].data.string_value;
-                    if (func_name && (strcmp(func_name, "Client") == 0 || strcmp(func_name, "Intents") == 0)) {
-                        fprintf(stderr, "[DEBUG] BC_DEFINE_FUNCTION executing for '%s', name_idx=%d, func_id=%d\n", 
-                                func_name, name_idx, func_id);
+                    func_name_debug = program->constants[name_idx].data.string_value;
+                    if (func_name_debug && (strcmp(func_name_debug, "Client") == 0 || strcmp(func_name_debug, "Intents") == 0 || strcmp(func_name_debug, "EmbedBuilder") == 0)) {
+                        fprintf(stderr, "[DEBUG] BC_DEFINE_FUNCTION executing for '%s', name_idx=%d, func_id=%d, const_count=%d, function_count=%d\n", 
+                                func_name_debug, name_idx, func_id, program->const_count, program->function_count);
                     }
+                } else if (name_idx == 125 || func_id == 8) {
+                    // Client should have name_idx=125, func_id=8
+                    fprintf(stderr, "[DEBUG] BC_DEFINE_FUNCTION: name_idx=%d (valid=%d), func_id=%d (valid=%d), const_count=%d, function_count=%d\n",
+                            name_idx, (name_idx >= 0 && name_idx < (int)program->const_count),
+                            func_id, (func_id >= 0 && func_id < (int)program->function_count),
+                            program->const_count, program->function_count);
                 }
                 
                 if (name_idx >= 0 && name_idx < (int)program->const_count && 
@@ -3050,8 +3478,14 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     
                     const char* func_name = program->constants[name_idx].data.string_value;
                     if (!func_name) {
+                        if (func_name_debug) {
+                            fprintf(stderr, "[DEBUG] BC_DEFINE_FUNCTION '%s': func_name is NULL, skipping\n", func_name_debug);
+                        }
                         pc++;
                         break;
+                    }
+                    if (func_name_debug && strcmp(func_name, func_name_debug) != 0) {
+                        fprintf(stderr, "[DEBUG] BC_DEFINE_FUNCTION: name mismatch, expected '%s', got '%s'\n", func_name_debug, func_name);
                     }
                     
                     BytecodeFunction* func = &program->functions[func_id];
@@ -3092,9 +3526,13 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     // Define in current environment (or global if no current) so it can be called from the correct scope
                     environment_define(target_env, func_name, function_value);
                     
-                    if (strcmp(func_name, "Client") == 0 || strcmp(func_name, "Intents") == 0) {
-                        fprintf(stderr, "[DEBUG] BC_DEFINE_FUNCTION '%s': stored in target_env=%p, current_env=%p, global_env=%p, flags=%d\n", 
-                                func_name, (void*)target_env, (void*)interpreter->current_environment, (void*)interpreter->global_environment, flags);
+                    if (strcmp(func_name, "Client") == 0 || strcmp(func_name, "Intents") == 0 || strcmp(func_name, "EmbedBuilder") == 0) {
+                        fprintf(stderr, "[DEBUG] BC_DEFINE_FUNCTION '%s': stored in target_env=%p, current_env=%p, global_env=%p, flags=%d, func_value.type=%d\n", 
+                                func_name, (void*)target_env, (void*)interpreter->current_environment, (void*)interpreter->global_environment, flags, function_value.type);
+                        // Verify it was stored
+                        Value check = environment_get(target_env, func_name);
+                        fprintf(stderr, "[DEBUG] BC_DEFINE_FUNCTION '%s': verification check.type=%d\n", func_name, check.type);
+                        value_free(&check);
                     }
                     
                     // Store export/private metadata if flags are present (instr->c)
@@ -3777,6 +4215,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 // Create hash map from key-value pairs on stack
                 // Pairs are pushed as (value, key) so we pop as (key, value)
                 size_t pair_count = instr->a;
+                fprintf(stderr, "[DEBUG HASH_MAP] BC_CREATE_MAP: creating map with %zu pairs\n", pair_count);
                 Value map_val = value_create_hash_map(pair_count > 0 ? pair_count : 4);
                 
                 // Pop key-value pairs from stack (in reverse order of push)
@@ -3788,13 +4227,19 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     
                     // Add key-value pair to hash map (only if key is string)
                     if (key.type == VALUE_STRING) {
+                        const char* key_str = key.data.string_value;
+                        fprintf(stderr, "[DEBUG HASH_MAP] Adding key '%s' to map (pair %zu), value type=%d\n", 
+                                key_str ? key_str : "NULL", i, value.type);
                         value_hash_map_set(&map_val, key, value);
+                    } else {
+                        fprintf(stderr, "[DEBUG HASH_MAP] Key is not string (type=%d), skipping pair %zu\n", key.type, i);
                     }
                     
                     value_free(&key);
                     value_free(&value);
                 }
                 
+                fprintf(stderr, "[DEBUG HASH_MAP] BC_CREATE_MAP: created map with %zu pairs, pushing to stack\n", map_val.data.hash_map_value.count);
                 value_stack_push(map_val);
                 pc++;
                 break;
@@ -4215,10 +4660,10 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         fprintf(stderr, "[DEBUG] Module environment count=%zu\n", module_env->count);
                         for (size_t i = 0; i < module_env->count; i++) {
                             if (module_env->names[i] && module_env->values[i].type != VALUE_NULL) {
+                                const char* symbol_name = module_env->names[i];
                                 // Skip internal symbols starting with __ (including metadata)
-                                if (strncmp(module_env->names[i], "__", 2) != 0) {
-                                    const char* symbol_name = module_env->names[i];
-                                    if (strcmp(symbol_name, "Client") == 0 || strcmp(symbol_name, "Intents") == 0) {
+                                if (strncmp(symbol_name, "__", 2) != 0) {
+                                    if (strcmp(symbol_name, "Client") == 0 || strcmp(symbol_name, "Intents") == 0 || strcmp(symbol_name, "EmbedBuilder") == 0) {
                                         fprintf(stderr, "[DEBUG] Found '%s' in module_env, type=%d\n", symbol_name, module_env->values[i].type);
                                     }
                                     
@@ -6438,6 +6883,8 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     int flags = instr->c;
                     int is_async = (flags & 4) != 0;
                     
+                    fprintf(stderr, "[DEBUG ASYNC] BC_CREATE_LAMBDA: flags=%d, is_async=%d, func_id=%d\n", flags, is_async, (int)instr->b);
+                    
                     // Get lambda parameters - find the lambda AST node by searching for one with this body
                     ASTNode** lambda_params = NULL;
                     size_t lambda_param_count = 0;
@@ -6466,6 +6913,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     // This allows value_create_function/value_create_async_function to detect it as a bytecode function ID
                     Value lambda_value;
                     if (is_async) {
+                        fprintf(stderr, "[DEBUG ASYNC] Creating async function value, func_id=%d\n", (int)instr->b);
                         lambda_value = value_create_async_function(
                             NULL, // No name for lambda expressions
                         lambda_params,
@@ -6474,6 +6922,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             (ASTNode*)(uintptr_t)instr->b, // Pass function ID as body (will be detected as bytecode function)
                         interpreter ? interpreter->current_environment : NULL
                     );
+                        fprintf(stderr, "[DEBUG ASYNC] Created async function value, type=%d\n", lambda_value.type);
                     } else {
                         lambda_value = value_create_function(
                             (ASTNode*)(uintptr_t)instr->b, // Pass function ID as body (will be detected as bytecode function)
@@ -6484,6 +6933,9 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         );
                     }
                     
+                    if (is_async) {
+                    } else {
+                    }
                     value_stack_push(lambda_value);
                 } else {
                     // Invalid lambda instruction - push null
@@ -7045,7 +7497,6 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
 cleanup:
     // Debug: Log when cleanup is reached
     if (program && program->count > 100) {
-        fprintf(stderr, "[DEBUG] bytecode_execute cleanup reached, pc=%zu, program->count=%zu\n", pc, program->count);
     }
     
     // Process any remaining async tasks before cleanup
@@ -7099,14 +7550,28 @@ Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunct
         return value_create_null();
     }
     
-    // Debug: Log function execution
-    if (program && program->count > 100) {
-        fprintf(stderr, "[DEBUG] bytecode_execute_function_bytecode: func_id=%d, code_count=%zu, program->count=%zu\n", 
-                func ? (int)(func - program->functions) : -1, func ? func->code_count : 0, program->count);
-    }
+    // Debug: Log function execution (removed)
     
     // Create new environment for function execution
-    Environment* func_env = environment_create(interpreter->current_environment);
+    // IMPORTANT: For async functions, the captured environment should have access to module-level constants
+    // If the current environment is a function environment, check if it has a parent that's the module environment
+    // For now, use current_environment which should already have the right parent chain
+    Environment* base_env = interpreter->current_environment;
+    // Ensure the environment chain reaches global environment for module access
+    Environment* check_env = base_env;
+    bool has_global_in_chain = false;
+    while (check_env && interpreter && interpreter->global_environment) {
+        if (check_env == interpreter->global_environment) {
+            has_global_in_chain = true;
+            break;
+        }
+        check_env = check_env->parent;
+    }
+    // If current environment doesn't have global in chain, use global as base
+    if (!has_global_in_chain && interpreter && interpreter->global_environment) {
+        base_env = interpreter->global_environment;
+    }
+    Environment* func_env = environment_create(base_env);
     if (!func_env) {
         return value_create_null();
     }
@@ -7128,6 +7593,9 @@ Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunct
     Value result = value_create_null();
     
     if (func->code_count > 0) {
+        // Debug: Log function execution
+        fprintf(stderr, "[DEBUG FUNCTION] Executing function '%s', code_count=%zu, func_id=%d\n", 
+                func->name ? func->name : "<unnamed>", func->code_count, func->name && strcmp(func->name, "connect") == 0 ? 9 : -1);
         // Create a temporary program with just this function's code
         // We need to pass the constants AND functions from the main program
         // so recursive calls can find themselves

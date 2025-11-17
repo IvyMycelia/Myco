@@ -612,6 +612,11 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
         
         BytecodeFunction* bc_func = &program->functions[func_id];
         
+        // Debug: log Client() function execution
+        if (bc_func->name && strcmp(bc_func->name, "Client") == 0) {
+            fprintf(stderr, "[DEBUG] value_function_call: Executing Client() function, func_id=%d\n", func_id);
+        }
+        
         // Create new environment for function execution
         Environment* captured_env = func->data.function_value.captured_environment;
         Environment* func_env = environment_create(captured_env ? captured_env : interpreter->current_environment);
@@ -660,6 +665,12 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
         if (interpreter->has_return) {
             result = interpreter->return_value;
             interpreter->has_return = 0;
+        }
+        
+        // Debug: log Client() function result
+        if (bc_func->name && strcmp(bc_func->name, "Client") == 0) {
+            fprintf(stderr, "[DEBUG] value_function_call: Client() returned type=%d (VALUE_HASH_MAP=%d, VALUE_NULL=%d)\n", 
+                    result.type, VALUE_HASH_MAP, VALUE_NULL);
         }
         
         // Restore environment

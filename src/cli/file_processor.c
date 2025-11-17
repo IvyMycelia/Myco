@@ -15,6 +15,31 @@
 #include <unistd.h>
 #include "../../include/utils/shared_utilities.h"
 
+// Helper function to check if there are pending async operations
+static int has_pending_async_operations(Interpreter* interp) {
+    if (!interp) return 0;
+    
+    // Check for pending async tasks
+    if (interp->task_queue && interp->task_queue_size > 0) {
+        return 1;
+    }
+    
+    // Check for unresolved promises
+    if (interp->promise_registry && interp->promise_registry_size > 0) {
+        for (size_t i = 0; i < interp->promise_registry_size; i++) {
+            if (interp->promise_registry[i].type == VALUE_PROMISE) {
+                Value* promise = &interp->promise_registry[i];
+                if (!promise->data.promise_value.is_resolved && 
+                    !promise->data.promise_value.is_rejected) {
+                    return 1;  // Found unresolved promise
+                }
+            }
+        }
+    }
+    
+    return 0;
+}
+
 // Process a file
 int process_file(const char* filename, int interpret, int compile, int build, int debug, int target, const char* architecture, const char* output_file, int optimization_level, int jit_enabled, int jit_mode) {
     if (!filename) return MYCO_ERROR_CLI;
@@ -209,18 +234,58 @@ int interpret_source(const char* source, const char* filename, int debug) {
         fprintf(stderr, "[DEBUG] Gateway connections detected: has_connections=%d, has_active=%d\n", has_gateway, has_active_gateway);
     }
     
-    // Keep script alive if servers exist or gateway connections exist (even if not active yet)
+    // Run event loop multiple times to process any pending async tasks that might create gateway connections
+    // This ensures gateway connections created by async functions are registered before we check
+    // Keep running until either we have a gateway connection or no pending async operations
+    for (int i = 0; i < 50; i++) {
+        async_event_loop_run(interpreter);
+        
+        // Check if gateway connection was created
+        if (gateway_has_connections()) {
+            break;
+        }
+        
+        // If no pending async operations, we can stop early
+        if (!has_pending_async_operations(interpreter)) {
+            break;
+        }
+        
+        usleep(50000); // 50ms delay between runs
+    }
+    
+    // Keep script alive if servers exist, gateway connections exist, or there are pending async operations
     // This ensures the program stays alive while gateway connections are being established
-    if (g_servers_running || gateway_has_connections()) {
-        fprintf(stderr, "[DEBUG] Keeping program alive for servers/gateway connections\n");
-        while (g_servers_running || gateway_has_connections()) {
-            // Process async event loop to handle websocket/gateway messages
+    // and while async tasks are being processed
+    bool has_servers = g_servers_running;
+    bool has_gateway_conns = gateway_has_connections();
+    bool has_pending_async = has_pending_async_operations(interpreter);
+    
+    // Debug: Print detailed status
+    fprintf(stderr, "[DEBUG] Final status check: servers=%d, gateway=%d, async=%d\n", 
+            has_servers, has_gateway_conns, has_pending_async);
+    if (interpreter) {
+        fprintf(stderr, "[DEBUG] Task queue: size=%zu, promise registry: size=%zu\n",
+                interpreter->task_queue_size, interpreter->promise_registry_size);
+    }
+    
+    if (has_servers || has_gateway_conns || has_pending_async) {
+        fprintf(stderr, "[DEBUG] Keeping program alive: servers=%d, gateway=%d, async=%d\n", 
+                has_servers, has_gateway_conns, has_pending_async);
+        while (has_servers || has_gateway_conns || has_pending_async) {
+            // Process async event loop to handle websocket/gateway messages and async tasks
             async_event_loop_run(interpreter);
-            usleep(100000); // 100ms delay to prevent busy waiting
+            
+            // Re-check conditions
+            has_servers = g_servers_running;
+            has_gateway_conns = gateway_has_connections();
+            has_pending_async = has_pending_async_operations(interpreter);
+            
+            // Small delay to prevent busy waiting, but shorter for async tasks
+            usleep(has_pending_async ? 10000 : 100000); // 10ms for async, 100ms for servers/gateway
         }
         fprintf(stderr, "[DEBUG] Exiting keep-alive loop\n");
     } else {
-        fprintf(stderr, "[DEBUG] No servers or gateway connections, exiting immediately\n");
+        fprintf(stderr, "[DEBUG] No servers, gateway connections, or pending async operations, exiting immediately\n");
     }
     
     // Clean up (after servers have stopped)

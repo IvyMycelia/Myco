@@ -147,6 +147,7 @@ GatewayConnection* gateway_create(const char* url, GatewayConfig* config, Interp
     gateway->state = GATEWAY_STATE_DISCONNECTED;
     gateway->interpreter = interpreter;
     gateway->session_id = NULL;
+    gateway->token_copy = NULL;
     gateway->sequence_number = 0;
     gateway->can_resume = false;
     gateway->waiting_for_ack = false;
@@ -185,6 +186,11 @@ void gateway_free(GatewayConnection* gateway) {
     // Free session ID
     if (gateway->session_id) {
         shared_free_safe(gateway->session_id, "gateway", "gateway_free", 0);
+    }
+    
+    // Free token copy
+    if (gateway->token_copy) {
+        shared_free_safe(gateway->token_copy, "gateway", "gateway_free", 0);
     }
     
     // Free callbacks
@@ -648,8 +654,9 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
         }
         
         Value token = value_object_get(&config_obj, "token");
-        if (token.type == VALUE_STRING) {
-            config.token = token.data.string_value;
+        if (token.type == VALUE_STRING && token.data.string_value) {
+            config.token = token.data.string_value;  // Temporary pointer, will be copied
+            fprintf(stderr, "[DEBUG GATEWAY] Token found in config, length=%zu\n", strlen(token.data.string_value));
         }
         
         Value version = value_object_get(&config_obj, "version");
@@ -672,6 +679,22 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
         return value_create_null();
     }
     fprintf(stderr, "[DEBUG GATEWAY] builtin_gateway_create: gateway_create succeeded, gateway=%p\n", (void*)gateway);
+    
+    // Copy token if provided in config (must persist after config object is freed)
+    if (arg_count >= 2 && args[1].type == VALUE_OBJECT) {
+        Value config_obj = args[1];
+        Value token = value_object_get(&config_obj, "token");
+        if (token.type == VALUE_STRING && token.data.string_value) {
+            size_t token_len = strlen(token.data.string_value);
+            gateway->token_copy = shared_malloc_safe(token_len + 1, "gateway", "gateway_create", 0);
+            if (gateway->token_copy) {
+                strcpy(gateway->token_copy, token.data.string_value);
+                gateway->config.token = gateway->token_copy;
+                fprintf(stderr, "[DEBUG GATEWAY] Token copied and stored, length=%zu\n", token_len);
+            }
+        }
+        value_free(&token);
+    }
     
     // Store intents if provided in config
     if (arg_count >= 2 && args[1].type == VALUE_OBJECT) {

@@ -64,6 +64,7 @@ typedef struct GatewayConnection {
     
     // Session management
     char* session_id;                    // Current session ID
+    char* token_copy;                    // Copy of authentication token (owned by gateway)
     uint64_t sequence_number;           // Current sequence number
     bool can_resume;                     // Whether session can be resumed
     

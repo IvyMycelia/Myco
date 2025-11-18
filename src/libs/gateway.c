@@ -623,14 +623,14 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
     
     GatewayConfig config = gateway_create_default_config();
     
-    // Parse optional config object (can be VALUE_OBJECT or VALUE_HASH_MAP)
-    if (arg_count >= 2 && (args[1].type == VALUE_OBJECT || args[1].type == VALUE_HASH_MAP)) {
+    // Parse optional config object (can be VALUE_OBJECT, VALUE_HASH_MAP, or VALUE_SET)
+    if (arg_count >= 2 && (args[1].type == VALUE_OBJECT || args[1].type == VALUE_HASH_MAP || args[1].type == VALUE_SET)) {
         Value config_obj = args[1];
         
-        // Helper macro to get value from config (handles both object and hash map)
+        // Helper macro to get value from config (handles object, hash map, and set)
         #define GET_CONFIG_VALUE(key_name, var_name) \
             Value var_name; \
-            if (config_obj.type == VALUE_HASH_MAP) { \
+            if (config_obj.type == VALUE_HASH_MAP || config_obj.type == VALUE_SET) { \
                 Value key_val_##var_name = value_create_string(key_name); \
                 var_name = value_hash_map_get(&config_obj, key_val_##var_name); \
                 value_free(&key_val_##var_name); \
@@ -710,11 +710,17 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
     fprintf(stderr, "[DEBUG GATEWAY] builtin_gateway_create: gateway_create succeeded, gateway=%p\n", (void*)gateway);
     
     // Copy token if provided in config (must persist after config object is freed)
-    // Config can be VALUE_OBJECT or VALUE_HASH_MAP
-    if (arg_count >= 2 && (args[1].type == VALUE_OBJECT || args[1].type == VALUE_HASH_MAP)) {
+    // Config can be VALUE_OBJECT, VALUE_HASH_MAP, or VALUE_SET (empty hash map literals may be created as sets)
+    if (arg_count >= 2 && (args[1].type == VALUE_OBJECT || args[1].type == VALUE_HASH_MAP || args[1].type == VALUE_SET)) {
         Value config_obj = args[1];
         Value token;
         if (config_obj.type == VALUE_HASH_MAP) {
+            Value token_key = value_create_string("token");
+            token = value_hash_map_get(&config_obj, token_key);
+            value_free(&token_key);
+        } else if (config_obj.type == VALUE_SET) {
+            // VALUE_SET might be used for empty hash maps - try to get token using hash map operations
+            // For now, treat it as a hash map (they're similar structures)
             Value token_key = value_create_string("token");
             token = value_hash_map_get(&config_obj, token_key);
             value_free(&token_key);
@@ -744,10 +750,10 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
     }
     
     // Store intents if provided in config
-    if (arg_count >= 2 && (args[1].type == VALUE_OBJECT || args[1].type == VALUE_HASH_MAP)) {
+    if (arg_count >= 2 && (args[1].type == VALUE_OBJECT || args[1].type == VALUE_HASH_MAP || args[1].type == VALUE_SET)) {
         Value config_obj = args[1];
         Value intents;
-        if (config_obj.type == VALUE_HASH_MAP) {
+        if (config_obj.type == VALUE_HASH_MAP || config_obj.type == VALUE_SET) {
             Value intents_key = value_create_string("intents");
             intents = value_hash_map_get(&config_obj, intents_key);
             value_free(&intents_key);

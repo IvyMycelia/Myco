@@ -626,6 +626,25 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
     // Parse optional config object (can be VALUE_OBJECT, VALUE_HASH_MAP, or VALUE_SET)
     if (arg_count >= 2 && (args[1].type == VALUE_OBJECT || args[1].type == VALUE_HASH_MAP || args[1].type == VALUE_SET)) {
         Value config_obj = args[1];
+        fprintf(stderr, "[DEBUG GATEWAY] Config object type: %d (VALUE_OBJECT=6, VALUE_HASH_MAP=7, VALUE_SET=8)\n", config_obj.type);
+        
+        // Debug: Print all keys in the config object
+        if (config_obj.type == VALUE_HASH_MAP) {
+            fprintf(stderr, "[DEBUG GATEWAY] Hash map has %zu pairs\n", config_obj.data.hash_map_value.count);
+            for (size_t i = 0; i < config_obj.data.hash_map_value.count; i++) {
+                Value* key = (Value*)config_obj.data.hash_map_value.keys[i];
+                if (key && key->type == VALUE_STRING) {
+                    fprintf(stderr, "[DEBUG GATEWAY] Hash map key[%zu]: '%s'\n", i, key->data.string_value);
+                }
+            }
+        } else if (config_obj.type == VALUE_OBJECT) {
+            fprintf(stderr, "[DEBUG GATEWAY] Object has %zu members\n", config_obj.data.object_value.count);
+            for (size_t i = 0; i < config_obj.data.object_value.count; i++) {
+                if (config_obj.data.object_value.keys[i]) {
+                    fprintf(stderr, "[DEBUG GATEWAY] Object key[%zu]: '%s'\n", i, config_obj.data.object_value.keys[i]);
+                }
+            }
+        }
         
         // Helper macro to get value from config (handles object, hash map, and set)
         #define GET_CONFIG_VALUE(key_name, var_name) \
@@ -713,19 +732,25 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
     // Config can be VALUE_OBJECT, VALUE_HASH_MAP, or VALUE_SET (empty hash map literals may be created as sets)
     if (arg_count >= 2 && (args[1].type == VALUE_OBJECT || args[1].type == VALUE_HASH_MAP || args[1].type == VALUE_SET)) {
         Value config_obj = args[1];
+        fprintf(stderr, "[DEBUG GATEWAY] Config object type: %d (VALUE_OBJECT=6, VALUE_HASH_MAP=7, VALUE_SET=8)\n", config_obj.type);
+        
         Value token;
         if (config_obj.type == VALUE_HASH_MAP) {
+            fprintf(stderr, "[DEBUG GATEWAY] Using value_hash_map_get for hash map\n");
             Value token_key = value_create_string("token");
             token = value_hash_map_get(&config_obj, token_key);
+            fprintf(stderr, "[DEBUG GATEWAY] value_hash_map_get result: token.type=%d\n", token.type);
             value_free(&token_key);
         } else if (config_obj.type == VALUE_SET) {
-            // VALUE_SET might be used for empty hash maps - try to get token using hash map operations
-            // For now, treat it as a hash map (they're similar structures)
-            Value token_key = value_create_string("token");
-            token = value_hash_map_get(&config_obj, token_key);
-            value_free(&token_key);
+            fprintf(stderr, "[DEBUG GATEWAY] Config is VALUE_SET - sets don't support key-value lookups\n");
+            fprintf(stderr, "[DEBUG GATEWAY] Note: Property assignment on empty hash map {} may convert it to a set\n");
+            fprintf(stderr, "[DEBUG GATEWAY] Try using an object literal instead: let config = {token: token, ...}\n");
+            // Sets don't support key-value lookups, so we can't get the token
+            token = value_create_null();
         } else {
+            fprintf(stderr, "[DEBUG GATEWAY] Using value_object_get for object\n");
             token = value_object_get(&config_obj, "token");
+            fprintf(stderr, "[DEBUG GATEWAY] value_object_get result: token.type=%d\n", token.type);
         }
         fprintf(stderr, "[DEBUG GATEWAY] Token extraction: token.type=%d, string_value=%p\n", 
                 token.type, token.type == VALUE_STRING ? token.data.string_value : NULL);

@@ -219,11 +219,13 @@ export func Client(intents: Number = null) -> Object:
             print("[DEBUG] Creating gateway configuration...");
             
             # Create gateway configuration
-            let config = {};
-            config.token = token;
-            config.version = 10;
-            config.encoding = "json";
-            config.intents = intents;
+            # Use object literal syntax to ensure it's an object, not a set
+            let config = {
+                token: token,
+                version: 10,
+                encoding: "json",
+                intents: intents
+            };
             
             print("[DEBUG] Calling gateway.create()...");
             # Create gateway connection

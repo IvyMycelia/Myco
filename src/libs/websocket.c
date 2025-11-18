@@ -160,7 +160,6 @@ static bool parse_websocket_url(const char* url, char* host, int* port, char* pa
 // Client handshake
 bool websocket_client_handshake(WebSocketConnection* conn, const char* url) {
     if (!conn || !url) {
-        fprintf(stderr, "[DEBUG WEBSOCKET] websocket_client_handshake: invalid parameters\n");
         return false;
     }
     
@@ -170,22 +169,18 @@ bool websocket_client_handshake(WebSocketConnection* conn, const char* url) {
     bool is_ssl;
     
     if (!parse_websocket_url(url, host, &port, path, &is_ssl)) {
-        fprintf(stderr, "[DEBUG WEBSOCKET] websocket_client_handshake: failed to parse URL: %s\n", url);
         return false;
     }
-    fprintf(stderr, "[DEBUG WEBSOCKET] Parsed URL: host=%s, port=%d, path=%s, is_ssl=%d\n", host, port, path, is_ssl);
     
     // Create socket
     struct sockaddr_in server_addr;
     struct hostent* he = gethostbyname(host);
     if (!he) {
-        fprintf(stderr, "[DEBUG WEBSOCKET] websocket_client_handshake: gethostbyname failed for %s\n", host);
         return false;
     }
     
     conn->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (conn->socket_fd < 0) {
-        fprintf(stderr, "[DEBUG WEBSOCKET] websocket_client_handshake: socket() failed\n");
         return false;
     }
     
@@ -194,14 +189,11 @@ bool websocket_client_handshake(WebSocketConnection* conn, const char* url) {
     server_addr.sin_port = htons(port);
     memcpy(&server_addr.sin_addr, he->h_addr_list[0], he->h_length);
     
-    fprintf(stderr, "[DEBUG WEBSOCKET] Attempting to connect to %s:%d\n", host, port);
     if (connect(conn->socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        perror("[DEBUG WEBSOCKET] connect() failed");
         close(conn->socket_fd);
         conn->socket_fd = -1;
         return false;
     }
-    fprintf(stderr, "[DEBUG WEBSOCKET] TCP connection established\n");
     
     // Generate handshake key
     char* key = websocket_generate_key();
@@ -226,16 +218,13 @@ bool websocket_client_handshake(WebSocketConnection* conn, const char* url) {
     // For WSS, we need to do SSL first, then handshake over SSL
     // So we only do TCP connection here, SSL and handshake will be done separately
     if (is_ssl) {
-        fprintf(stderr, "[DEBUG WEBSOCKET] WSS connection - TCP established, SSL and handshake will be done separately\n");
         shared_free_safe(key, "websocket", "client_handshake", 0);
         return true;  // Return success - TCP connection is established
     }
     
     // For non-SSL, do the full handshake now
     // Send handshake
-    fprintf(stderr, "[DEBUG WEBSOCKET] Sending WebSocket handshake request\n");
     if (send(conn->socket_fd, request, strlen(request), 0) < 0) {
-        perror("[DEBUG WEBSOCKET] send() failed");
         shared_free_safe(key, "websocket", "client_handshake", 0);
         close(conn->socket_fd);
         conn->socket_fd = -1;
@@ -246,7 +235,6 @@ bool websocket_client_handshake(WebSocketConnection* conn, const char* url) {
     char response[4096];
     ssize_t received = recv(conn->socket_fd, response, sizeof(response) - 1, 0);
     if (received <= 0) {
-        perror("[DEBUG WEBSOCKET] recv() failed");
         shared_free_safe(key, "websocket", "client_handshake", 0);
         close(conn->socket_fd);
         conn->socket_fd = -1;
@@ -254,11 +242,9 @@ bool websocket_client_handshake(WebSocketConnection* conn, const char* url) {
     }
     
     response[received] = '\0';
-    fprintf(stderr, "[DEBUG WEBSOCKET] Received handshake response (first 200 chars): %.200s\n", response);
     
     // Check for 101 Switching Protocols
     if (strstr(response, "101") == NULL && strstr(response, "Switching Protocols") == NULL) {
-        fprintf(stderr, "[DEBUG WEBSOCKET] Handshake failed - no 101 Switching Protocols in response\n");
         shared_free_safe(key, "websocket", "client_handshake", 0);
         close(conn->socket_fd);
         conn->socket_fd = -1;
@@ -267,7 +253,6 @@ bool websocket_client_handshake(WebSocketConnection* conn, const char* url) {
     
     shared_free_safe(key, "websocket", "client_handshake", 0);
     conn->state = WS_STATE_OPEN;
-    fprintf(stderr, "[DEBUG WEBSOCKET] WebSocket handshake completed successfully\n");
     return true;
 }
 
@@ -473,15 +458,12 @@ WebSocketConnection* websocket_connect(const char* url) {
         char path[256];
         bool is_ssl;
         if (parse_websocket_url(url, host, &port, path, &is_ssl)) {
-            fprintf(stderr, "[DEBUG WEBSOCKET] Establishing SSL connection for WSS\n");
             if (!websocket_ssl_connect(conn, host)) {
-                fprintf(stderr, "[DEBUG WEBSOCKET] websocket_ssl_connect failed\n");
                 shared_free_safe(conn->url, "websocket", "connect", 0);
                 close(conn->socket_fd);
                 shared_free_safe(conn, "websocket", "connect", 0);
                 return NULL;
             }
-            fprintf(stderr, "[DEBUG WEBSOCKET] SSL connection established, now doing WebSocket handshake over SSL\n");
             
             // Now do WebSocket handshake over SSL
             char* key = websocket_generate_key();
@@ -508,10 +490,8 @@ WebSocketConnection* websocket_connect(const char* url) {
                 path, host, port, key);
             
             // Send handshake over SSL
-            fprintf(stderr, "[DEBUG WEBSOCKET] Sending WebSocket handshake over SSL\n");
             int sent = SSL_write(conn->ssl, request, strlen(request));
             if (sent <= 0) {
-                fprintf(stderr, "[DEBUG WEBSOCKET] SSL_write() failed\n");
                 shared_free_safe(key, "websocket", "connect", 0);
                 SSL_shutdown(conn->ssl);
                 SSL_free(conn->ssl);
@@ -526,7 +506,6 @@ WebSocketConnection* websocket_connect(const char* url) {
             char response[4096];
             int received = SSL_read(conn->ssl, response, sizeof(response) - 1);
             if (received <= 0) {
-                fprintf(stderr, "[DEBUG WEBSOCKET] SSL_read() failed\n");
                 shared_free_safe(key, "websocket", "connect", 0);
                 SSL_shutdown(conn->ssl);
                 SSL_free(conn->ssl);
@@ -538,11 +517,9 @@ WebSocketConnection* websocket_connect(const char* url) {
             }
             
             response[received] = '\0';
-            fprintf(stderr, "[DEBUG WEBSOCKET] Received handshake response over SSL (first 200 chars): %.200s\n", response);
             
             // Check for 101 Switching Protocols
             if (strstr(response, "101") == NULL && strstr(response, "Switching Protocols") == NULL) {
-                fprintf(stderr, "[DEBUG WEBSOCKET] Handshake failed - no 101 Switching Protocols in response\n");
                 shared_free_safe(key, "websocket", "connect", 0);
                 SSL_shutdown(conn->ssl);
                 SSL_free(conn->ssl);
@@ -555,9 +532,7 @@ WebSocketConnection* websocket_connect(const char* url) {
             
             shared_free_safe(key, "websocket", "connect", 0);
             conn->state = WS_STATE_OPEN;
-            fprintf(stderr, "[DEBUG WEBSOCKET] WebSocket handshake over SSL completed successfully\n");
         } else {
-            fprintf(stderr, "[DEBUG WEBSOCKET] Failed to parse URL for SSL connection\n");
             shared_free_safe(conn->url, "websocket", "connect", 0);
             close(conn->socket_fd);
             shared_free_safe(conn, "websocket", "connect", 0);

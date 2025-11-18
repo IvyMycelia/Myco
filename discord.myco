@@ -193,7 +193,7 @@ export func EmbedBuilder() -> Object:
     return embed;
 end;
 
-# Client class - discord.py-like API
+# Client class
 export func Client(intents: Number = null) -> Object:
     if intents == null:
         intents = Intents.default();
@@ -209,14 +209,12 @@ export func Client(intents: Number = null) -> Object:
         
         # Connect to Discord
         connect: async function(token: String) -> Null:
-            print("[DEBUG] connect() called with token length: " + (token != null ? token.length.toString() : "null"));
             if token == null or token == "":
                 print("Error: Bot token is required");
                 return;
             end
             
             client.token = token;
-            print("[DEBUG] Creating gateway configuration...");
             
             # Create gateway configuration
             # Use object literal syntax to ensure it's an object, not a set
@@ -227,15 +225,12 @@ export func Client(intents: Number = null) -> Object:
                 intents: intents
             };
             
-            print("[DEBUG] Calling gateway.create()...");
             # Create gateway connection
             let gw = gateway.create(DISCORD_GATEWAY_URL, config);
-            print("[DEBUG] gateway.create() returned: " + (gw != null ? "not null" : "null"));
             if gw == null:
                 print("Error: Failed to create gateway connection");
                 return;
             end
-            print("[DEBUG] Gateway created successfully");
             
             client.__gateway__ = gw;
             
@@ -245,9 +240,19 @@ export func Client(intents: Number = null) -> Object:
                 if event.data != null and event.data.user != null:
                     client.user = event.data.user;
                 end
-                # Store guilds (Discord sends guilds in the READY event)
+                # Store guilds (Discord sends guilds in the READY event as an array)
                 if event.data != null and event.data.guilds != null:
-                    client.guilds = event.data.guilds;
+                    # Convert guilds array to object for easier access
+                    let guilds_obj = {};
+                    if event.data.guilds.length != null:
+                        for let i = 0; i < event.data.guilds.length; i++:
+                            let guild = event.data.guilds[i];
+                            if guild != null and guild.id != null:
+                                guilds_obj[guild.id] = guild;
+                            end
+                        end
+                    end
+                    client.guilds = guilds_obj;
                 end
                 # Call user callback (this is when the bot is actually ready)
                 if client.eventHandlers["ready"] != null:
@@ -261,17 +266,23 @@ export func Client(intents: Number = null) -> Object:
                 let eventType = event.name;
                 
                 # Handle MESSAGE_CREATE -> on_message
-                if eventType == EVENT_MESSAGE_CREATE and client.eventHandlers["message"] != null:
-                    if event.data != null:
+                if eventType == EVENT_MESSAGE_CREATE:
+                    if client.eventHandlers["message"] != null and event.data != null:
                         client.eventHandlers["message"](event.data);
                     end
                 end
                 
                 # Handle GUILD_MEMBER_ADD -> on_member_join
-                if eventType == EVENT_MEMBER_JOIN and client.eventHandlers["member_join"] != null:
-                    if event.data != null:
+                if eventType == EVENT_MEMBER_JOIN:
+                    if client.eventHandlers["member_join"] != null and event.data != null:
                         client.eventHandlers["member_join"](event.data);
                     end
+                end
+                
+                # Generic event handler support (for future extensibility)
+                # Users can register handlers for any event type
+                if client.eventHandlers[eventType] != null and event.data != null:
+                    client.eventHandlers[eventType](event.data);
                 end
             end);
             
@@ -295,10 +306,21 @@ export func Client(intents: Number = null) -> Object:
             client.eventHandlers["member_join"] = callback;
         end,
         
-        # Send message (snake_case for discord.py compatibility)
+        # Generic event handler (for custom events)
+        on: function(event_name: String, callback: Function) -> Null:
+            if event_name == null or callback == null:
+                return;
+            end
+            client.eventHandlers[event_name] = callback;
+        end,
+        
+        # Send message
         send_message: async function(channel_id: String, content: String, options: Object = null) -> Object:
             if channel_id == null:
-                print("Error: channel ID is required");
+                return null;
+            end
+            
+            if client.token == null:
                 return null;
             end
             
@@ -328,12 +350,20 @@ export func Client(intents: Number = null) -> Object:
             # Discord API endpoint
             let url = "https://discord.com/api/v10/channels/" + channel_id + "/messages";
             
-            # Send POST request
-            # Note: HTTP library may need custom headers for auth
-            let response = http.post(url, jsonPayload);
+            # Create headers with Authorization
+            let headers = {
+                "Authorization": "Bot " + client.token,
+                "Content-Type": "application/json"
+            };
+            
+            # Send POST request with headers
+            let response = http.post(url, jsonPayload, headers);
             
             if response == null or not response.success:
                 print("Error: Failed to send message. Status: " + (response != null ? response.status_code.toString() : "unknown"));
+                if response != null and response.body != null:
+                    print("Response body: " + response.body);
+                end
                 return null;
             end
             
@@ -364,11 +394,15 @@ func createBot(token: String) -> Object:
         return null;
     end
     
+    print("[createBot] Creating gateway configuration...");
+    
     # Create gateway configuration
     let config = {};
     config.token = token;
     config.version = 10;
     config.encoding = "json";
+    
+    print("[createBot] Calling gateway.create()...");
     
     # Create gateway connection
     let gw = gateway.create(DISCORD_GATEWAY_URL, config);
@@ -377,22 +411,38 @@ func createBot(token: String) -> Object:
         return null;
     end
     
-    # Create bot object
-    let bot = {};
-    bot.__gateway__ = gw;
-    bot.token = token;
-    bot.user = null;
-    bot.guilds = {};
-    bot.eventHandlers = {};
+    print("[createBot] Gateway created successfully");
+    
+    # Create bot object with all properties at once to ensure it's a hash map, not a set
+    print("[createBot] Creating bot object...");
+    let bot = {
+        __gateway__: gw,
+        token: token,
+        user: null,
+        guilds: {},
+        eventHandlers: {}
+    };
+    print("[createBot] Bot object created, type: " + bot.type);
     
     # Wrapper methods
-    bot.connect = async func():
+    print("[createBot] Defining bot.connect method...");
+    print("[createBot] Bot object before connect assignment, bot == null: " + (bot == null).toString());
+    
+    # Create a wrapper function that doesn't execute immediately
+    let connect_func = async function():
+        print("[bot.connect] Starting connection...");
         await gw.connect();
+        print("[bot.connect] Connect call completed");
     end;
     
-    bot.disconnect = async func():
+    bot.connect = connect_func;
+    print("[createBot] bot.connect method defined");
+    print("[createBot] Bot object after connect assignment, bot == null: " + (bot == null).toString());
+    
+    let disconnect_func = async function():
         await gw.disconnect();
     end;
+    bot.disconnect = disconnect_func;
     
     bot.getState = func() -> String:
         return gw.getState();
@@ -401,7 +451,6 @@ func createBot(token: String) -> Object:
     # Event handler registration
     bot.on = func(eventName: String, callback: Function):
         if eventName == null or callback == null:
-            print("Error: event name and callback are required");
             return;
         end
         
@@ -434,7 +483,6 @@ func createBot(token: String) -> Object:
     # Send a message to a channel via Discord HTTP API
     bot.sendMessage = func(channelId: String, content: String, embed: Object = null) -> Object:
         if channelId == null or content == null:
-            print("Error: channel ID and content are required");
             return null;
         end
         
@@ -455,15 +503,14 @@ func createBot(token: String) -> Object:
         # Discord API endpoint
         let url = "https://discord.com/api/v10/channels/" + channelId + "/messages";
         
-        # Create headers
-        let headers = "Authorization: Bot " + bot.token + "\r\nContent-Type: application/json";
+        # Create headers with Authorization
+        let headers = {
+            "Authorization": "Bot " + bot.token,
+            "Content-Type": "application/json"
+        };
         
-        # Send POST request
-        # Note: The http.post function doesn't support custom headers directly,
-        # so we'll need to use a workaround or extend the HTTP library
-        # For now, we'll use http.post which may not include auth headers
-        # This is a limitation that would need to be addressed in the HTTP library
-        let response = http.post(url, jsonPayload);
+        # Send POST request with headers
+        let response = http.post(url, jsonPayload, headers);
         
         if response == null or not response.success:
             print("Error: Failed to send message. Status: " + (response != null ? response.status_code.toString() : "unknown"));
@@ -482,7 +529,6 @@ func createBot(token: String) -> Object:
     # React to a message via Discord HTTP API
     bot.react = func(channelId: String, messageId: String, emoji: String) -> Boolean:
         if channelId == null or messageId == null or emoji == null:
-            print("Error: channel ID, message ID, and emoji are required");
             return false;
         end
         
@@ -492,9 +538,14 @@ func createBot(token: String) -> Object:
         # Discord API endpoint for reactions
         let url = "https://discord.com/api/v10/channels/" + channelId + "/messages/" + messageId + "/reactions/" + encodedEmoji + "/@me";
         
-        # Send PUT request (Discord uses PUT for reactions)
-        # Note: PUT request with empty body for reactions
-        let response = http.put(url, "");
+        # Create headers with Authorization
+        let headers = {
+            "Authorization": "Bot " + bot.token,
+            "Content-Type": "application/json"
+        };
+        
+        # Send PUT request with headers (Discord uses PUT for reactions)
+        let response = http.put(url, "", headers);
         
         if response == null or not response.success:
             print("Error: Failed to add reaction. Status: " + (response != null ? response.status_code.toString() : "unknown"));
@@ -509,7 +560,17 @@ func createBot(token: String) -> Object:
         return gw;
     end;
     
-    return bot;
+    print("[createBot] About to return bot object");
+    print("[createBot] bot == null: " + (bot == null).toString());
+    if bot != null:
+        print("[createBot] bot.type: " + bot.type);
+        print("[createBot] bot has __gateway__: " + (bot.__gateway__ != null).toString());
+        print("[createBot] bot has token: " + (bot.token != null).toString());
+    end
+    print("[createBot] Returning bot object now...");
+    let result = bot;
+    print("[createBot] Result before return, result == null: " + (result == null).toString());
+    return result;
 end;
 
 # Helper function to create a Discord embed
@@ -637,10 +698,4 @@ end;
 #     
 #     bot.connect();
 # end;
-
-# Note: The HTTP library may need to be extended to support custom headers
-# for proper Discord API authentication. Currently, http.post() and http.put()
-# may not include the Authorization header required by Discord.
-# This is a known limitation that would need to be addressed in the HTTP library
-# to fully support Discord's API requirements.
 

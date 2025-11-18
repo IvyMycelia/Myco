@@ -445,19 +445,9 @@ Value value_hash_map_get(Value* map, Value key) {
     const char* key_str = (key.type == VALUE_STRING && key.data.string_value) ? key.data.string_value : NULL;
     int is_connect_key = (key_str && strcmp(key_str, "connect") == 0);
     
-    if (is_connect_key) {
-        fprintf(stderr, "[DEBUG HASH_MAP] Looking for key 'connect' in hash map with %zu pairs\n", map->data.hash_map_value.count);
-    }
-    
     for (size_t i = 0; i < map->data.hash_map_value.count; i++) {
         Value* existing_key = (Value*)map->data.hash_map_value.keys[i];
         if (existing_key) {
-            // Debug: log all keys when looking for "connect"
-            if (is_connect_key) {
-                const char* existing_key_str = (existing_key->type == VALUE_STRING && existing_key->data.string_value) ? 
-                    existing_key->data.string_value : "?";
-                fprintf(stderr, "[DEBUG HASH_MAP] Checking key[%zu]: type=%d, str='%s'\n", i, existing_key->type, existing_key_str);
-            }
             
             // Compare keys - check both string comparison and value_equals
             int keys_match = 0;
@@ -471,17 +461,9 @@ Value value_hash_map_get(Value* map, Value key) {
             
             if (keys_match) {
                 Value* value = (Value*)map->data.hash_map_value.values[i];
-                if (is_connect_key) {
-                    fprintf(stderr, "[DEBUG HASH_MAP] Found key 'connect', value type=%d (VALUE_FUNCTION=%d, VALUE_ASYNC_FUNCTION=%d)\n", 
-                            value ? value->type : -1, VALUE_FUNCTION, VALUE_ASYNC_FUNCTION);
-                }
                 return value ? value_clone(value) : value_create_null();
             }
         }
-    }
-    
-    if (is_connect_key) {
-        fprintf(stderr, "[DEBUG HASH_MAP] Key 'connect' not found in hash map (count=%zu)\n", map->data.hash_map_value.count);
     }
     
     return value_create_null();

@@ -391,8 +391,6 @@ Value builtin_graphics_poll_events(Interpreter* interpreter, Value* args, size_t
     static size_t last_stack_capacity = 0;
     if (g_memory_report_count > 0 && g_memory_report_count % 5 == 0) {
         if (value_stack_size != last_stack_size || value_stack_capacity != last_stack_capacity) {
-            fprintf(stderr, "[DEBUG] Stack: size=%zu, capacity=%zu (was size=%zu, capacity=%zu)\n",
-                    value_stack_size, value_stack_capacity, last_stack_size, last_stack_capacity);
             last_stack_size = value_stack_size;
             last_stack_capacity = value_stack_capacity;
         }

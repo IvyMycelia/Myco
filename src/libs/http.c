@@ -274,7 +274,41 @@ Value builtin_http_post(Interpreter* interpreter, Value* args, size_t arg_count,
         return value_create_null();
     }
     
-    HttpResponse* response = http_post(url_value.data.string_value, data_value.data.string_value, NULL, 30);
+    // Build headers string if headers object is provided (optional 3rd argument)
+    char* headers_str = NULL;
+    if (arg_count >= 3 && args[2].type == VALUE_OBJECT) {
+        Value headers_obj = args[2];
+        size_t headers_len = 256; // Initial size
+        headers_str = shared_malloc_safe(headers_len, "http", "builtin_http_post", 0);
+        if (headers_str) {
+            headers_str[0] = '\0';
+            
+            // Get all keys from headers object
+            if (headers_obj.data.object_value.keys && headers_obj.data.object_value.count > 0) {
+                for (size_t i = 0; i < headers_obj.data.object_value.count; i++) {
+                    const char* header_name = headers_obj.data.object_value.keys[i];
+                    if (header_name) {
+                        Value header_value = value_object_get(&headers_obj, header_name);
+                        if (header_value.type == VALUE_STRING && header_value.data.string_value) {
+                            size_t current_len = strlen(headers_str);
+                            size_t needed = strlen(header_name) + strlen(header_value.data.string_value) + 4; // ": \r\n"
+                            if (current_len + needed >= headers_len) {
+                                headers_len = (current_len + needed) * 2;
+                                headers_str = shared_realloc_safe(headers_str, headers_len, "http", "builtin_http_post", 0);
+                            }
+                            if (headers_str) {
+                                snprintf(headers_str + current_len, headers_len - current_len, 
+                                        "%s: %s\r\n", header_name, header_value.data.string_value);
+                            }
+                        }
+                        value_free(&header_value);
+                    }
+                }
+            }
+        }
+    }
+    
+    HttpResponse* response = http_post(url_value.data.string_value, data_value.data.string_value, headers_str, 30);
     if (!response) {
         return value_create_null();
     }
@@ -314,7 +348,39 @@ Value builtin_http_put(Interpreter* interpreter, Value* args, size_t arg_count, 
         return value_create_null();
     }
     
-    HttpResponse* response = http_put(url_value.data.string_value, data_value.data.string_value, NULL, 30);
+    // Build headers string if headers object is provided (optional 3rd argument)
+    char* headers_str = NULL;
+    if (arg_count >= 3 && args[2].type == VALUE_OBJECT) {
+        Value headers_obj = args[2];
+        size_t headers_len = 256;
+        headers_str = shared_malloc_safe(headers_len, "http", "builtin_http_put", 0);
+        if (headers_str) {
+            headers_str[0] = '\0';
+            if (headers_obj.data.object_value.keys && headers_obj.data.object_value.count > 0) {
+                for (size_t i = 0; i < headers_obj.data.object_value.count; i++) {
+                    const char* header_name = headers_obj.data.object_value.keys[i];
+                    if (header_name) {
+                        Value header_value = value_object_get(&headers_obj, header_name);
+                        if (header_value.type == VALUE_STRING && header_value.data.string_value) {
+                            size_t current_len = strlen(headers_str);
+                            size_t needed = strlen(header_name) + strlen(header_value.data.string_value) + 4;
+                            if (current_len + needed >= headers_len) {
+                                headers_len = (current_len + needed) * 2;
+                                headers_str = shared_realloc_safe(headers_str, headers_len, "http", "builtin_http_put", 0);
+                            }
+                            if (headers_str) {
+                                snprintf(headers_str + current_len, headers_len - current_len, 
+                                        "%s: %s\r\n", header_name, header_value.data.string_value);
+                            }
+                        }
+                        value_free(&header_value);
+                    }
+                }
+            }
+        }
+    }
+    
+    HttpResponse* response = http_put(url_value.data.string_value, data_value.data.string_value, headers_str, 30);
     if (!response) {
         return value_create_null();
     }
@@ -330,6 +396,10 @@ Value builtin_http_put(Interpreter* interpreter, Value* args, size_t arg_count, 
     value_object_set(&response_obj, "content_length", value_create_number(response->body ? strlen(response->body) : 0));
     
     // No error message in simplified structure
+    
+    if (headers_str) {
+        shared_free_safe(headers_str, "http", "builtin_http_put", 0);
+    }
     
     http_free_response(response);
     return response_obj;

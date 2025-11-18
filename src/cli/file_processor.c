@@ -232,7 +232,6 @@ int interpret_source(const char* source, const char* filename, int debug) {
     bool has_gateway = gateway_has_connections();
     bool has_active_gateway = gateway_has_active_connections();
     if (has_gateway || has_active_gateway) {
-        fprintf(stderr, "[DEBUG] Gateway connections detected: has_connections=%d, has_active=%d\n", has_gateway, has_active_gateway);
     }
     
     // Run event loop multiple times to process any pending async tasks that might create gateway connections
@@ -261,17 +260,7 @@ int interpret_source(const char* source, const char* filename, int debug) {
     bool has_gateway_conns = gateway_has_connections();
     bool has_pending_async = has_pending_async_operations(interpreter);
     
-    // Debug: Print detailed status
-    fprintf(stderr, "[DEBUG] Final status check: servers=%d, gateway=%d, async=%d\n", 
-            has_servers, has_gateway_conns, has_pending_async);
-    if (interpreter) {
-        fprintf(stderr, "[DEBUG] Task queue: size=%zu, promise registry: size=%zu\n",
-                interpreter->task_queue_size, interpreter->promise_registry_size);
-    }
-    
     if (has_servers || has_gateway_conns || has_pending_async) {
-        fprintf(stderr, "[DEBUG] Keeping program alive: servers=%d, gateway=%d, async=%d\n", 
-                has_servers, has_gateway_conns, has_pending_async);
         while (has_servers || has_gateway_conns || has_pending_async) {
             // Process async event loop to handle websocket/gateway messages and async tasks
             async_event_loop_run(interpreter);
@@ -290,9 +279,7 @@ int interpret_source(const char* source, const char* filename, int debug) {
             // Small delay to prevent busy waiting, but shorter for async tasks
             usleep(has_pending_async ? 10000 : 100000); // 10ms for async, 100ms for servers/gateway
         }
-        fprintf(stderr, "[DEBUG] Exiting keep-alive loop\n");
     } else {
-        fprintf(stderr, "[DEBUG] No servers, gateway connections, or pending async operations, exiting immediately\n");
     }
     
     // Clean up (after servers have stopped)

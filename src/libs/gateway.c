@@ -31,7 +31,6 @@ static GatewayConnection* g_gateway_connections = NULL;
 bool gateway_has_connections(void) {
     bool has_conns = g_gateway_connections != NULL;
     if (has_conns) {
-        fprintf(stderr, "[DEBUG GATEWAY] gateway_has_connections() = true, gateway=%p\n", (void*)g_gateway_connections);
     }
     return has_conns;
 }
@@ -135,11 +134,9 @@ GatewayConnection* gateway_create(const char* url, GatewayConfig* config, Interp
     // Create WebSocket connection
     gateway->ws_conn = websocket_connect_async(url, interpreter);
     if (!gateway->ws_conn) {
-        fprintf(stderr, "[DEBUG GATEWAY] websocket_connect_async failed for URL: %s\n", url);
         shared_free_safe(gateway, "gateway", "gateway_create", 0);
         return NULL;
     }
-    fprintf(stderr, "[DEBUG GATEWAY] Gateway created successfully, WebSocket state: %d\n", gateway->ws_conn->state);
     
     // Set WebSocket to non-blocking mode for message processing
     websocket_set_non_blocking(gateway->ws_conn, true);
@@ -168,8 +165,6 @@ GatewayConnection* gateway_create(const char* url, GatewayConfig* config, Interp
     gateway->next = g_gateway_connections;
     g_gateway_connections = gateway;
     
-    fprintf(stderr, "[DEBUG GATEWAY] Gateway added to registry, gateway=%p, g_gateway_connections=%p, state=%d\n", 
-            (void*)gateway, (void*)g_gateway_connections, gateway->state);
     
     return gateway;
 }
@@ -292,7 +287,6 @@ void gateway_send_identify(GatewayConnection* gateway, const char* token, Value*
     // Add intents if available (Discord-specific)
     if (gateway->intents.type == VALUE_NUMBER) {
         value_object_set(&identify, "intents", value_clone(&gateway->intents));
-        fprintf(stderr, "[DEBUG GATEWAY] Adding intents to IDENTIFY: %g\n", gateway->intents.data.number_value);
     }
     
     // Send identify
@@ -345,12 +339,10 @@ void gateway_send_opcode(GatewayConnection* gateway, GatewayOpcode opcode, Value
 static void gateway_handle_message(GatewayConnection* gateway, const char* message) {
     if (!gateway || !message) return;
     
-    fprintf(stderr, "[DEBUG GATEWAY] Received message (first 200 chars): %.200s\n", message);
     
     // Parse JSON message
     Value parsed = json_parse_silent(message);
     if (parsed.type != VALUE_OBJECT) {
-        fprintf(stderr, "[DEBUG GATEWAY] Failed to parse message as object (type=%d)\n", parsed.type);
         value_free(&parsed);
         return;
     }
@@ -358,13 +350,11 @@ static void gateway_handle_message(GatewayConnection* gateway, const char* messa
     // Extract opcode
     Value opcode_val = value_object_get(&parsed, "op");
     if (opcode_val.type != VALUE_NUMBER) {
-        fprintf(stderr, "[DEBUG GATEWAY] Opcode is not a number (type=%d)\n", opcode_val.type);
         value_free(&opcode_val);
         value_free(&parsed);
         return;
     }
     
-    fprintf(stderr, "[DEBUG GATEWAY] Opcode: %g\n", opcode_val.data.number_value);
     
     GatewayOpcode opcode = gateway_parse_opcode((int)opcode_val.data.number_value);
     Value data = value_object_get(&parsed, "d");
@@ -379,13 +369,11 @@ static void gateway_handle_message(GatewayConnection* gateway, const char* messa
     // Handle opcodes
     switch (opcode) {
         case GATEWAY_OPCODE_HELLO: {
-            fprintf(stderr, "[DEBUG GATEWAY] Received HELLO opcode\n");
             // Extract heartbeat interval
             if (data.type == VALUE_OBJECT) {
                 Value heartbeat_interval = value_object_get(&data, "heartbeat_interval");
                 if (heartbeat_interval.type == VALUE_NUMBER) {
                     gateway->config.heartbeat_interval_ms = (int)heartbeat_interval.data.number_value;
-                    fprintf(stderr, "[DEBUG GATEWAY] Heartbeat interval: %d ms\n", gateway->config.heartbeat_interval_ms);
                 }
                 value_free(&heartbeat_interval);
             }
@@ -393,12 +381,8 @@ static void gateway_handle_message(GatewayConnection* gateway, const char* messa
             // Send identify if we have a token (prefer token_copy over config.token)
             const char* token_to_use = gateway->token_copy ? gateway->token_copy : gateway->config.token;
             if (token_to_use) {
-                fprintf(stderr, "[DEBUG GATEWAY] Sending IDENTIFY with token (token_copy=%p, config.token=%p)\n", 
-                        (void*)gateway->token_copy, (void*)gateway->config.token);
                 gateway_send_identify(gateway, token_to_use, NULL);
             } else {
-                fprintf(stderr, "[DEBUG GATEWAY] No token available for IDENTIFY (token_copy=%p, config.token=%p)\n",
-                        (void*)gateway->token_copy, (void*)gateway->config.token);
             }
             
             gateway->state = GATEWAY_STATE_CONNECTED;
@@ -422,7 +406,6 @@ static void gateway_handle_message(GatewayConnection* gateway, const char* messa
                 const char* event = event_name.data.string_value;
                 
                 if (strcmp(event, "READY") == 0) {
-                    fprintf(stderr, "[DEBUG GATEWAY] Received READY event\n");
                     // Extract session ID
                     if (data.type == VALUE_OBJECT) {
                         Value session = value_object_get(&data, "session_id");
@@ -433,7 +416,6 @@ static void gateway_handle_message(GatewayConnection* gateway, const char* messa
                             gateway->session_id = shared_malloc_safe(strlen(session.data.string_value) + 1, "gateway", "handle_message", 0);
                             if (gateway->session_id) {
                                 strcpy(gateway->session_id, session.data.string_value);
-                                fprintf(stderr, "[DEBUG GATEWAY] Session ID: %s\n", gateway->session_id);
                             }
                         }
                         value_free(&session);
@@ -444,14 +426,12 @@ static void gateway_handle_message(GatewayConnection* gateway, const char* messa
                     
                     // Call ready callback
                     if (gateway->on_ready_callback.type == VALUE_FUNCTION && gateway->interpreter) {
-                        fprintf(stderr, "[DEBUG GATEWAY] Calling on_ready callback\n");
                         Value event_obj = value_create_object(1);
                         value_object_set(&event_obj, "data", value_clone(&data));
                         Value result = value_function_call(&gateway->on_ready_callback, &event_obj, 1, gateway->interpreter, 0, 0);
                         value_free(&result);
                         value_free(&event_obj);
                     } else {
-                        fprintf(stderr, "[DEBUG GATEWAY] on_ready callback not set (type=%d)\n", gateway->on_ready_callback.type);
                     }
                 }
                 
@@ -462,8 +442,6 @@ static void gateway_handle_message(GatewayConnection* gateway, const char* messa
                     value_object_set(&event_data, "data", value_clone(&data));
                     value_object_set(&event_data, "sequence", value_clone(&sequence));
                     
-                    fprintf(stderr, "[DEBUG GATEWAY] Calling on_event callback for event: %s\n", 
-                            event_name.type == VALUE_STRING ? event_name.data.string_value : "unknown");
                     Value result = value_function_call(&gateway->on_event_callback, &event_data, 1, gateway->interpreter, 0, 0);
                     value_free(&result);
                     value_free(&event_data);
@@ -626,22 +604,17 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
     // Parse optional config object (can be VALUE_OBJECT, VALUE_HASH_MAP, or VALUE_SET)
     if (arg_count >= 2 && (args[1].type == VALUE_OBJECT || args[1].type == VALUE_HASH_MAP || args[1].type == VALUE_SET)) {
         Value config_obj = args[1];
-        fprintf(stderr, "[DEBUG GATEWAY] Config object type: %d (VALUE_OBJECT=6, VALUE_HASH_MAP=7, VALUE_SET=8)\n", config_obj.type);
         
         // Debug: Print all keys in the config object
         if (config_obj.type == VALUE_HASH_MAP) {
-            fprintf(stderr, "[DEBUG GATEWAY] Hash map has %zu pairs\n", config_obj.data.hash_map_value.count);
             for (size_t i = 0; i < config_obj.data.hash_map_value.count; i++) {
                 Value* key = (Value*)config_obj.data.hash_map_value.keys[i];
                 if (key && key->type == VALUE_STRING) {
-                    fprintf(stderr, "[DEBUG GATEWAY] Hash map key[%zu]: '%s'\n", i, key->data.string_value);
                 }
             }
         } else if (config_obj.type == VALUE_OBJECT) {
-            fprintf(stderr, "[DEBUG GATEWAY] Object has %zu members\n", config_obj.data.object_value.count);
             for (size_t i = 0; i < config_obj.data.object_value.count; i++) {
                 if (config_obj.data.object_value.keys[i]) {
-                    fprintf(stderr, "[DEBUG GATEWAY] Object key[%zu]: '%s'\n", i, config_obj.data.object_value.keys[i]);
                 }
             }
         }
@@ -696,10 +669,7 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
         GET_CONFIG_VALUE("token", token)
         if (token.type == VALUE_STRING && token.data.string_value) {
             config.token = token.data.string_value;  // Temporary pointer, will be copied after gateway creation
-            fprintf(stderr, "[DEBUG GATEWAY] Token found in config (before gateway creation), length=%zu, ptr=%p\n", 
-                    strlen(token.data.string_value), (void*)token.data.string_value);
         } else {
-            fprintf(stderr, "[DEBUG GATEWAY] Token not found in config (token.type=%d)\n", token.type);
         }
         value_free(&token);
         
@@ -719,59 +689,40 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
         #undef GET_CONFIG_VALUE
     }
     
-    fprintf(stderr, "[DEBUG GATEWAY] builtin_gateway_create: About to call gateway_create, url=%s\n", args[0].data.string_value);
     GatewayConnection* gateway = gateway_create(args[0].data.string_value, &config, interpreter);
     if (!gateway) {
-        fprintf(stderr, "[DEBUG GATEWAY] builtin_gateway_create: gateway_create returned NULL\n");
         std_error_report(ERROR_INTERNAL_ERROR, "gateway", "create", "Failed to create gateway connection", line, column);
         return value_create_null();
     }
-    fprintf(stderr, "[DEBUG GATEWAY] builtin_gateway_create: gateway_create succeeded, gateway=%p\n", (void*)gateway);
     
     // Copy token if provided in config (must persist after config object is freed)
     // Config can be VALUE_OBJECT, VALUE_HASH_MAP, or VALUE_SET (empty hash map literals may be created as sets)
     if (arg_count >= 2 && (args[1].type == VALUE_OBJECT || args[1].type == VALUE_HASH_MAP || args[1].type == VALUE_SET)) {
         Value config_obj = args[1];
-        fprintf(stderr, "[DEBUG GATEWAY] Config object type: %d (VALUE_OBJECT=6, VALUE_HASH_MAP=7, VALUE_SET=8)\n", config_obj.type);
         
         Value token;
         if (config_obj.type == VALUE_HASH_MAP) {
-            fprintf(stderr, "[DEBUG GATEWAY] Using value_hash_map_get for hash map\n");
             Value token_key = value_create_string("token");
             token = value_hash_map_get(&config_obj, token_key);
-            fprintf(stderr, "[DEBUG GATEWAY] value_hash_map_get result: token.type=%d\n", token.type);
             value_free(&token_key);
         } else if (config_obj.type == VALUE_SET) {
-            fprintf(stderr, "[DEBUG GATEWAY] Config is VALUE_SET - sets don't support key-value lookups\n");
-            fprintf(stderr, "[DEBUG GATEWAY] Note: Property assignment on empty hash map {} may convert it to a set\n");
-            fprintf(stderr, "[DEBUG GATEWAY] Try using an object literal instead: let config = {token: token, ...}\n");
             // Sets don't support key-value lookups, so we can't get the token
             token = value_create_null();
         } else {
-            fprintf(stderr, "[DEBUG GATEWAY] Using value_object_get for object\n");
             token = value_object_get(&config_obj, "token");
-            fprintf(stderr, "[DEBUG GATEWAY] value_object_get result: token.type=%d\n", token.type);
         }
-        fprintf(stderr, "[DEBUG GATEWAY] Token extraction: token.type=%d, string_value=%p\n", 
-                token.type, token.type == VALUE_STRING ? token.data.string_value : NULL);
         if (token.type == VALUE_STRING && token.data.string_value) {
             size_t token_len = strlen(token.data.string_value);
-            fprintf(stderr, "[DEBUG GATEWAY] Token string found, length=%zu\n", token_len);
             gateway->token_copy = shared_malloc_safe(token_len + 1, "gateway", "gateway_create", 0);
             if (gateway->token_copy) {
                 strcpy(gateway->token_copy, token.data.string_value);
                 gateway->config.token = gateway->token_copy;
-                fprintf(stderr, "[DEBUG GATEWAY] Token copied and stored, length=%zu\n", token_len);
             } else {
-                fprintf(stderr, "[DEBUG GATEWAY] Failed to allocate memory for token copy\n");
             }
         } else {
-            fprintf(stderr, "[DEBUG GATEWAY] Token not found or invalid in config object\n");
         }
         value_free(&token);
     } else {
-        fprintf(stderr, "[DEBUG GATEWAY] No config object provided (arg_count=%zu, args[1].type=%d)\n", 
-                arg_count, arg_count >= 2 ? args[1].type : -1);
     }
     
     // Store intents if provided in config
@@ -787,13 +738,11 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
         }
         if (intents.type == VALUE_NUMBER) {
             gateway->intents = value_clone(&intents);
-            fprintf(stderr, "[DEBUG GATEWAY] Stored intents (Number): %g\n", intents.data.number_value);
         } else if (intents.type == VALUE_FUNCTION && interpreter) {
             // Intents might be a function that needs to be called (e.g., Intents.default())
             Value result = value_function_call(&intents, NULL, 0, interpreter, 0, 0);
             if (result.type == VALUE_NUMBER) {
                 gateway->intents = value_clone(&result);
-                fprintf(stderr, "[DEBUG GATEWAY] Stored intents (from function): %g\n", result.data.number_value);
             }
             value_free(&result);
         } else if (intents.type == VALUE_OBJECT) {
@@ -802,7 +751,6 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
             Value intents_value = value_object_get(&intents, "value");
             if (intents_value.type == VALUE_NUMBER) {
                 gateway->intents = value_clone(&intents_value);
-                fprintf(stderr, "[DEBUG GATEWAY] Stored intents (from object.value): %g\n", intents_value.data.number_value);
             } else {
                 // Try calling as function if it has a callable property
                 gateway->intents = value_clone(&intents);
@@ -912,34 +860,28 @@ Value builtin_gateway_on(Interpreter* interpreter, Value* args, size_t arg_count
             event_name_idx = 1;
             callback_idx = 2;
         } else {
-            fprintf(stderr, "[DEBUG GATEWAY] builtin_gateway_on: self context is invalid\n");
             return value_create_null();
         }
     }
     // else: self_context is set, so args[0] is event_name, args[1] is callback
     
     if (arg_count < callback_idx + 1 || args[event_name_idx].type != VALUE_STRING) {
-        fprintf(stderr, "[DEBUG GATEWAY] builtin_gateway_on: validation failed - arg_count=%zu, event_name_idx=%zu, args[%zu].type=%d\n", 
-                arg_count, event_name_idx, event_name_idx, arg_count > event_name_idx ? args[event_name_idx].type : -1);
         std_error_report(ERROR_TYPE_MISMATCH, "gateway", "on", "gateway.on() requires event name and callback", line, column);
         return value_create_null();
     }
     
     Value gateway_val = value_object_get(self, "__gateway_conn__");
     if (gateway_val.type != VALUE_NUMBER) {
-        fprintf(stderr, "[DEBUG GATEWAY] builtin_gateway_on: __gateway_conn__ is not a number (type=%d)\n", gateway_val.type);
         return value_create_null();
     }
     
     GatewayConnection* gateway = (GatewayConnection*)(intptr_t)gateway_val.data.number_value;
     if (!gateway) {
-        fprintf(stderr, "[DEBUG GATEWAY] builtin_gateway_on: gateway pointer is NULL\n");
         return value_create_null();
     }
     
     const char* event_name = args[event_name_idx].data.string_value;
     Value callback = args[callback_idx];
-    fprintf(stderr, "[DEBUG GATEWAY] builtin_gateway_on: event_name=%s, callback.type=%d\n", event_name, callback.type);
     
     if (strcmp(event_name, "ready") == 0) {
         gateway_set_on_ready(gateway, callback);

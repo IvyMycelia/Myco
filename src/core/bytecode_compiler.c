@@ -330,7 +330,6 @@ static void bc_emit_super(BytecodeProgram* p, BytecodeOp op, int a, int b, int c
         p->constants[a].type == VALUE_STRING) {
         const char* func_name = p->constants[a].data.string_value;
         if (func_name && (strcmp(func_name, "Client") == 0 || strcmp(func_name, "Intents") == 0)) {
-            // fprintf(stderr, "[DEBUG] Emitting BC_DEFINE_FUNCTION for '%s' at bytecode index %zu, name_idx=%d, func_id=%d, flags=%d\n", 
             //        func_name, p->count, a, b, c);
         }
     }
@@ -562,7 +561,6 @@ static int bc_is_ast_stored(BytecodeProgram* p, ASTNode* n) {
     static int debug_check_count = 0;
     int should_debug = (debug_check_count < 10 && n->type == AST_NODE_BLOCK);
     if (should_debug) {
-        // fprintf(stderr, "[DEBUG bc_is_ast_stored] Checking block %p, ast_count=%zu\n", (void*)n, p->ast_count);
         debug_check_count++;
     }
     
@@ -571,7 +569,6 @@ static int bc_is_ast_stored(BytecodeProgram* p, ASTNode* n) {
         ASTNode* stored = p->ast_nodes[i];
         if (stored == n) {
             if (should_debug) {
-                // fprintf(stderr, "[DEBUG bc_is_ast_stored] Found direct match at index %zu\n", i);
             }
             return 1;
         }
@@ -579,7 +576,6 @@ static int bc_is_ast_stored(BytecodeProgram* p, ASTNode* n) {
         if (stored && stored->type == AST_NODE_LAMBDA && 
             stored->data.lambda.body == n) {
             if (should_debug) {
-                // fprintf(stderr, "[DEBUG bc_is_ast_stored] Found as lambda body at index %zu\n", i);
             }
             return 1;
         }
@@ -587,14 +583,12 @@ static int bc_is_ast_stored(BytecodeProgram* p, ASTNode* n) {
         if (stored && stored->type == AST_NODE_ASYNC_FUNCTION && 
             stored->data.async_function_definition.body == n) {
             if (should_debug) {
-                // fprintf(stderr, "[DEBUG bc_is_ast_stored] Found as async function body at index %zu\n", i);
             }
             return 1;
         }
     }
     
     if (should_debug) {
-        // fprintf(stderr, "[DEBUG bc_is_ast_stored] NOT found in %zu stored nodes\n", p->ast_count);
     }
     
     return 0;
@@ -843,11 +837,6 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
             func->code[jmp_end_pos].a = end_pos;
         } break;
         case AST_NODE_RETURN: {
-            // Debug: log Client return statement
-            if (func && func->name && strcmp(func->name, "Client") == 0) {
-                fprintf(stderr, "[DEBUG COMPILER] Compiling return statement in Client(), return value type=%d\n", 
-                        n->data.return_statement.value ? n->data.return_statement.value->type : -1);
-            }
             if (n->data.return_statement.value) {
                 // Compile the return value
                 compile_node_to_function(p, func, n->data.return_statement.value);
@@ -873,25 +862,16 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
                 // Debug: Log when we skip a stored block in Client function
                 if (func && func->param_count == 1 && func->param_names && func->param_names[0] && 
                     strcmp(func->param_names[0], "intents") == 0) {
-                    // fprintf(stderr, "[DEBUG] Skipping stored block %p in Client function, code_count=%zu\n", 
                     //        (void*)n, func->code_count);
                 }
                 break;
             }
             
             // Compile all statements in the block
-            // Debug: log Client function block compilation
-            if (func && func->name && strcmp(func->name, "Client") == 0) {
-                fprintf(stderr, "[DEBUG COMPILER] Compiling Client() block: statement_count=%zu\n", 
-                        n->data.block.statement_count);
-            }
             if (n->data.block.statements && n->data.block.statement_count > 0) {
                 for (size_t i = 0; i < n->data.block.statement_count; i++) {
                     ASTNode* stmt = n->data.block.statements[i];
                     if (stmt) {
-                        if (func && func->name && strcmp(func->name, "Client") == 0) {
-                            fprintf(stderr, "[DEBUG COMPILER] Compiling Client() statement[%zu]: type=%d\n", i, stmt->type);
-                        }
                         compile_node_to_function(p, func, stmt);
                     }
                 }
@@ -1071,16 +1051,13 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
             
             // Debug: log Client hash map compilation
             if (func && func->name && strcmp(func->name, "Client") == 0) {
-                fprintf(stderr, "[DEBUG COMPILER] Compiling hash map literal in Client() function: pair_count=%zu\n", pair_count);
             }
             
             // CRITICAL: Pre-store async function/lambda body blocks BEFORE compiling the values
             // This prevents them from being compiled to the current function's bytecode
-            // fprintf(stderr, "[DEBUG] Hash map literal in compile_node_to_function: pair_count=%zu\n", pair_count);
             for (size_t i = 0; i < pair_count; i++) {
                 if (n->data.hash_map_literal.values && n->data.hash_map_literal.values[i]) {
                     ASTNode* value = n->data.hash_map_literal.values[i];
-                    // fprintf(stderr, "[DEBUG] Hash map pair %zu: value.type=%d\n", i, value->type);
                     if (value->type == AST_NODE_ASYNC_FUNCTION && value->data.async_function_definition.function_name == NULL) {
                         // Store the async function node itself AND its body block
                         // This allows bc_is_ast_stored to find the body by checking stored async function nodes
@@ -1088,7 +1065,6 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
                         if (value->data.async_function_definition.body) {
                             int body_idx = bc_add_ast(p, value->data.async_function_definition.body);
                             // Debug: Log when we store async function in hash map pre-storage
-                            // fprintf(stderr, "[DEBUG] Pre-stored async function %p (body %p) at indices %d,%d in hash map (pair %zu), func=%s\n", 
                             //        (void*)value, (void*)value->data.async_function_definition.body, async_func_idx, body_idx, i,
                             //        (func && func->param_count > 0 && func->param_names && func->param_names[0]) ? func->param_names[0] : "unknown");
                         }
@@ -1099,7 +1075,6 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
                             // Debug: Log when we store lambda body in hash map pre-storage
                             if (func && func->param_count == 1 && func->param_names && func->param_names[0] && 
                                 strcmp(func->param_names[0], "intents") == 0) {
-                                // fprintf(stderr, "[DEBUG] Pre-stored lambda body %p at index %d in hash map (pair %zu)\n", 
                                 //        (void*)value->data.lambda.body, idx, i);
                             }
                         }
@@ -1122,7 +1097,6 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
             
             // Emit map creation instruction
             if (func && func->name && strcmp(func->name, "Client") == 0) {
-                fprintf(stderr, "[DEBUG COMPILER] Emitting BC_CREATE_MAP in Client() function: pair_count=%zu\n", pair_count);
             }
             bc_emit_to_function(func, BC_CREATE_MAP, (int)pair_count, 0, 0);
         } break;
@@ -1188,18 +1162,12 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
         case AST_NODE_VARIABLE_DECLARATION: {
             // Variable declaration: let x = value
             // Debug: log ALL variable declarations in Client function
-            if (func && func->name && strcmp(func->name, "Client") == 0) {
-                fprintf(stderr, "[DEBUG COMPILER] Compiling variable declaration in Client(): var_name='%s', initial_value type=%d\n", 
-                        n->data.variable_declaration.variable_name ? n->data.variable_declaration.variable_name : "NULL",
-                        n->data.variable_declaration.initial_value ? n->data.variable_declaration.initial_value->type : -1);
-            }
             if (n->data.variable_declaration.initial_value) {
                 // Debug: log hash map literal compilation in variable declaration
                 if (func && func->name && strcmp(func->name, "Client") == 0 && 
                     n->data.variable_declaration.variable_name && 
                     strcmp(n->data.variable_declaration.variable_name, "client") == 0 &&
                     n->data.variable_declaration.initial_value->type == AST_NODE_HASH_MAP_LITERAL) {
-                    fprintf(stderr, "[DEBUG COMPILER] Compiling hash map literal in 'let client = {...}' statement\n");
                 }
                 compile_node_to_function(p, func, n->data.variable_declaration.initial_value);
                 // Debug: check if hash map was pushed to stack
@@ -1207,7 +1175,6 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
                     n->data.variable_declaration.variable_name && 
                     strcmp(n->data.variable_declaration.variable_name, "client") == 0 &&
                     n->data.variable_declaration.initial_value->type == AST_NODE_HASH_MAP_LITERAL) {
-                    fprintf(stderr, "[DEBUG COMPILER] Hash map literal compiled, about to store in 'client' variable\n");
                 }
             } else {
                 int null_idx = bc_add_const(p, value_create_null());
@@ -1618,9 +1585,7 @@ static int bc_add_function(BytecodeProgram* p, ASTNode* func) {
     if (body) {
         // Debug: log Client function body compilation
         if (bc_func->name && strcmp(bc_func->name, "Client") == 0) {
-            fprintf(stderr, "[DEBUG COMPILER] Compiling Client() function body, body type=%d\n", body->type);
             if (body->type == AST_NODE_BLOCK && body->data.block.statements) {
-                fprintf(stderr, "[DEBUG COMPILER] Client() body has %zu statements\n", body->data.block.statement_count);
                 for (size_t i = 0; i < body->data.block.statement_count && i < 20; i++) {
                     ASTNode* stmt = body->data.block.statements[i];
                     if (stmt) {
@@ -1634,7 +1599,6 @@ static int bc_add_function(BytecodeProgram* p, ASTNode* func) {
                         } else if (stmt->type == AST_NODE_LAMBDA) {
                             stmt_desc = "lambda";
                         }
-                        fprintf(stderr, "[DEBUG COMPILER] Client() body statement[%zu]: type=%d (%s)\n", i, stmt->type, stmt_desc);
                     }
                 }
             }
@@ -1646,7 +1610,6 @@ static int bc_add_function(BytecodeProgram* p, ASTNode* func) {
         // when the async function/lambda expression is compiled in a hash map literal
         compile_node_to_function(p, bc_func, body);
         if (bc_func->name && strcmp(bc_func->name, "Client") == 0) {
-            fprintf(stderr, "[DEBUG COMPILER] Client() function body compilation completed, code_count=%zu\n", bc_func->code_count);
         }
     }
     
@@ -2777,7 +2740,6 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             const char* var_name = n->data.variable_declaration.variable_name;
             
             if (var_name && (strcmp(var_name, "Client") == 0 || strcmp(var_name, "Intents") == 0)) {
-                // fprintf(stderr, "[DEBUG] Compiling variable '%s', is_export=%d\n", 
                 //        var_name, n->data.variable_declaration.is_export);
             }
             
@@ -2809,7 +2771,6 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                     flags |= 2; // bit 1 = private
                 }
                 if (var_name && (strcmp(var_name, "Client") == 0 || strcmp(var_name, "Intents") == 0)) {
-                    // fprintf(stderr, "[DEBUG] Emitting BC_SET_SYMBOL_FLAGS for '%s', flags=%d\n", var_name, flags);
                 }
                 bc_emit(p, BC_SET_SYMBOL_FLAGS, name_idx, flags);
             }
@@ -3024,13 +2985,6 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             if (n->data.function_definition.is_private) {
                 flags |= 2; // bit 1 = private
             }
-            if (n->data.function_definition.function_name && 
-                (strcmp(n->data.function_definition.function_name, "Client") == 0 || 
-                 strcmp(n->data.function_definition.function_name, "Intents") == 0 ||
-                 strcmp(n->data.function_definition.function_name, "EmbedBuilder") == 0)) {
-                fprintf(stderr, "[DEBUG COMPILER] Emitting BC_DEFINE_FUNCTION for '%s', name_idx=%d, func_id=%d, is_export=%d, flags=%d\n",
-                        n->data.function_definition.function_name, name_idx, func_id, n->data.function_definition.is_export, flags);
-            }
             bc_emit_super(p, BC_DEFINE_FUNCTION, name_idx, func_id, flags);
         } break;
         
@@ -3076,8 +3030,6 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                 
                 // Emit BC_CREATE_LAMBDA instruction with async flag (bit 2 = async)
                 int async_flag = 4; // bit 2 = async
-                fprintf(stderr, "[DEBUG COMPILER] Emitting BC_CREATE_LAMBDA for async function: body_idx=%d, func_id=%d, async_flag=%d\n", 
-                        async_func_body_idx >= 0 ? async_func_body_idx : 0, async_func_id, async_flag);
                 bc_emit_super(p, BC_CREATE_LAMBDA, async_func_body_idx >= 0 ? async_func_body_idx : 0, async_func_id, async_flag);
             } else {
                 // Async function declaration - similar to regular function but returns Promise
@@ -3200,10 +3152,6 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                             // Debug: show all keys to find Client hash map
                             if (key_name && (strcmp(key_name, "connect") == 0 || strcmp(key_name, "send_message") == 0 || strcmp(key_name, "close") == 0 || 
                                              strcmp(key_name, "token") == 0 || strcmp(key_name, "intents") == 0)) {
-                                fprintf(stderr, "[DEBUG COMPILER] Hash map value[%zu] (key='%s') type=%d (AST_NODE_LAMBDA=%d, AST_NODE_ASYNC_FUNCTION=%d)\n", 
-                                        i, key_name, value->type, 
-                                        (value->type == 35), // AST_NODE_LAMBDA
-                                        (value->type == 34)); // AST_NODE_ASYNC_FUNCTION
                             }
                         }
                     }
@@ -3248,8 +3196,6 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                         // mark ALL lambdas as async (they're all async functions)
                         if (has_token && has_intents && has_eventHandlers && has_connect && pair_count > 10) {
                             should_be_async = 1;
-                            fprintf(stderr, "[DEBUG COMPILER] Client-like hash map detected (%zu pairs), marking lambda for key='%s' as async\n", 
-                                    pair_count, key_name ? key_name : "unknown");
                         }
                         // Also check for known async method names
                         else if (key_name && (strcmp(key_name, "connect") == 0 || 
@@ -3261,8 +3207,6 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                                              strcmp(key_name, "edit") == 0 ||
                                              strcmp(key_name, "delete") == 0)) {
                             should_be_async = 1;
-                            fprintf(stderr, "[DEBUG COMPILER] Hash map value[%zu] (key='%s') is lambda with async method name, marking as async\n", 
-                                    i, key_name);
                         }
                         
                         if (should_be_async) {
@@ -3282,7 +3226,6 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                 // Try to get current function name from environment or context
                 // This is a best-effort check
             }
-            fprintf(stderr, "[DEBUG COMPILER] Compiling hash map literal in main context: pair_count=%zu\n", pair_count);
             
             for (size_t i = 0; i < pair_count; i++) {
                 // Compile value first (will be popped last)
@@ -3303,7 +3246,6 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             }
             
             // Create map from the pairs on the stack
-            fprintf(stderr, "[DEBUG COMPILER] Emitting BC_CREATE_MAP in main context: pair_count=%zu\n", pair_count);
             bc_emit(p, BC_CREATE_MAP, (int)pair_count, 0);
         } break;
         case AST_NODE_SET_LITERAL: {
@@ -4201,11 +4143,9 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             // or if it contains await expressions
             int is_async_lambda = is_lambda_marked_as_async(n);
             if (is_async_lambda) {
-                fprintf(stderr, "[DEBUG COMPILER] Lambda was marked as async (marked_count=%zu), setting async flag\n", g_async_lambdas_count);
             } else {
                 // Debug: check if marking array exists
                 if (g_async_lambdas_count > 0) {
-                    fprintf(stderr, "[DEBUG COMPILER] Lambda not marked as async, but %zu lambdas are marked\n", g_async_lambdas_count);
                 }
             }
             
@@ -4261,7 +4201,6 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
             // instr->c = flags (bit 2 = async)
             int async_flag = is_async_lambda ? 4 : 0;
             if (is_async_lambda) {
-                fprintf(stderr, "[DEBUG COMPILER] Lambda detected as async (contains await), setting async flag\n");
             }
             bc_emit_super(p, BC_CREATE_LAMBDA, lambda_body_idx >= 0 ? lambda_body_idx : 0, lambda_id, async_flag);
         } break;

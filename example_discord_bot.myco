@@ -1,0 +1,42 @@
+use "discord.myco" as discord;
+
+print("Starting Discord bot...");
+
+let bot = discord.createBot("YOUR_BOT_TOKEN");
+
+if bot == null:
+    print("ERROR: Failed to create bot!");
+else:
+    print("Bot object created successfully");
+end
+
+print("Setting up event handlers...");
+
+bot.on("ready", func(event):
+    print("Bot is ready! Logged in as: " + bot.user.username);
+end);
+  
+bot.on("messageCreate", func(event):
+    let msg = event.data;
+    let user = discord.getUserFromEvent(event);
+    let channel = discord.getChannelFromEvent(event);
+         
+    if msg.content == "!ping":
+        bot.sendMessage(channel.id, "Pong!");
+    end
+         
+    if msg.content == "!hello":
+        bot.sendMessage(channel.id, "Hello, " + discord.mentionUser(user.id) + "!");
+    end
+         
+    if msg.content == "!react":
+        bot.react(channel.id, msg.id, "👍");
+    end
+end);
+
+print("Event handlers registered");
+print("Connecting to Discord...");
+
+bot.connect();
+
+print("Connect() called - program should stay alive now...");

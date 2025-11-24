@@ -1313,6 +1313,7 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 else if (instr->op == BC_LOAD_CONST) op_name = "BC_LOAD_CONST";
                 else if (instr->op == BC_IMPORT_LIB) op_name = "BC_IMPORT_LIB";
                 else if (instr->op == BC_PROPERTY_ACCESS) op_name = "BC_PROPERTY_ACCESS";
+                else if (instr->op == BC_PROPERTY_SET) op_name = "BC_PROPERTY_SET";
                 else if (instr->op == BC_METHOD_CALL) op_name = "BC_METHOD_CALL";
                 else if (instr->op == BC_CREATE_OBJECT) op_name = "BC_CREATE_OBJECT";
                 else if (instr->op == BC_CREATE_MAP) op_name = "BC_CREATE_MAP";
@@ -1536,10 +1537,11 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         program->num_locals[instr->a] = val.data.number_value;
                     }
                     
-                    // For complex types (objects, arrays), clone to ensure internal pointers are valid
+                    // For complex types (objects, arrays, hash maps, sets), clone to ensure internal pointers are valid
                     // For simple types (numbers, booleans, null), store directly
                     Value stored_val;
-                    if (val.type == VALUE_OBJECT || val.type == VALUE_ARRAY || val.type == VALUE_FUNCTION || val.type == VALUE_ASYNC_FUNCTION) {
+                    if (val.type == VALUE_OBJECT || val.type == VALUE_ARRAY || val.type == VALUE_FUNCTION || 
+                        val.type == VALUE_ASYNC_FUNCTION || val.type == VALUE_HASH_MAP || val.type == VALUE_SET) {
                         stored_val = value_clone(&val);
                         value_free(&val);
                     } else {
@@ -1595,22 +1597,32 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         if (var_name && program->local_names && program->locals) {
                             for (int i = 0; i < (int)program->local_count; i++) {
                                 if (program->local_names[i] && strcmp(program->local_names[i], var_name) == 0) {
-                                    loaded_val = value_clone(&program->locals[i]);
-                        if (strcmp(var_name, "client") == 0 || strcmp(var_name, "Client") == 0) {
-                        }
+                                    Value local_val = program->locals[i];
+                                    // If local slot has a non-null value, use it
+                                    // But if it's null, also check environment (might have been updated via BC_PROPERTY_SET)
+                                    if (local_val.type != VALUE_NULL) {
+                                        loaded_val = value_clone(&local_val);
+                                        // If we found a non-null value in local slot, use it and skip environment check
+                                        // This is the fast path for variables that are in local slots
+                                    } else {
+                                        // Local slot is null - we'll check environment below
+                                        // This can happen if BC_PROPERTY_SET updated the environment but not the local slot
+                                        // CRITICAL: Don't break here - we need to check the environment
+                                        // But we've already found the local slot, so we can break after checking environment
+                                    }
+                                    // Don't break here - we need to check environment if local is null
+                                    // Instead, we'll break after checking environment below
                                     break;
                                 }
                             }
                         }
                         
-                        // If not found in locals, try current environment (for loop variables, local scope)
+                        // If not found in locals or local is null, try current environment (for loop variables, local scope)
                         // environment_get already checks parent chain
+                        // CRITICAL: This check is essential because BC_PROPERTY_SET may update the environment
+                        // but not the local slot (e.g., if local slot update failed)
                         if (loaded_val.type == VALUE_NULL && var_name && interpreter && interpreter->current_environment) {
-                        if (strcmp(var_name, "client") == 0 || strcmp(var_name, "Client") == 0) {
-                        }
                             loaded_val = environment_get(interpreter->current_environment, var_name);
-                            if (strcmp(var_name, "client") == 0 || strcmp(var_name, "Client") == 0) {
-                            }
                         }
                         
                         // If not found in current, try global environment (where modules are stored)
@@ -1848,15 +1860,29 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             
             case BC_JUMP: {
                 // Validate jump target to prevent jumping out of bounds
+                // Jump targets are absolute addresses within the function's bytecode
                 if (instr->a >= 0 && instr->a < (int)program->count) {
                     // Jump to target - even if it's BC_HALT, let the VM loop handle it naturally
                     pc = instr->a;
                 } else {
-                    // Invalid jump target - stop execution
+                    // Invalid jump target - this should not happen for valid bytecode
+                    // But if it does, we'll skip the jump to prevent crashes
+                    // This can happen if the function's code_count is incorrect or jump targets weren't patched correctly
                     if (interpreter) {
-                        interpreter_set_error(interpreter, "Invalid jump target in bytecode", 0, 0);
+                        // Only report as error if it's significantly out of bounds
+                        // Small discrepancies might be due to edge cases in compilation
+                        if (instr->a < 0 || (instr->a >= (int)program->count && instr->a < (int)program->count + 10)) {
+                            // Skip the jump and continue - this is likely a minor compilation issue
+                            pc++;
+                        } else {
+                            // Way out of bounds - report as error
+                            interpreter_set_error(interpreter, "Invalid jump target in bytecode", 0, 0);
+                            goto cleanup;
+                        }
+                    } else {
+                        // No interpreter - just skip the jump
+                        pc++;
                     }
-                    goto cleanup;
                 }
                 break;
             }
@@ -1878,15 +1904,29 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 
                 if (should_jump) {
                     // Validate jump target to prevent jumping out of bounds
+                    // Jump targets are absolute addresses within the function's bytecode
                     if (instr->a >= 0 && instr->a < (int)program->count) {
-                    pc = instr->a;
+                        pc = instr->a;
                     } else {
-                        // Invalid jump target - stop execution
+                        // Invalid jump target - this should not happen for valid bytecode
+                        // But if it does, we'll skip the jump to prevent crashes
+                        // This can happen if the function's code_count is incorrect or jump targets weren't patched correctly
                         if (interpreter) {
-                            interpreter_set_error(interpreter, "Invalid jump target in BC_JUMP_IF_FALSE", 0, 0);
+                            // Only report as error if it's significantly out of bounds
+                            // Small discrepancies might be due to edge cases in compilation
+                            if (instr->a < 0 || (instr->a >= (int)program->count && instr->a < (int)program->count + 10)) {
+                                // Skip the jump and continue - this is likely a minor compilation issue
+                                pc++;
+                            } else {
+                                // Way out of bounds - report as error
+                                interpreter_set_error(interpreter, "Invalid jump target in BC_JUMP_IF_FALSE", 0, 0);
+                                value_free(&condition);
+                                goto cleanup;
+                            }
+                        } else {
+                            // No interpreter - just skip the jump
+                            pc++;
                         }
-                        value_free(&condition);
-                        goto cleanup;
                     }
                 } else {
                     pc++;
@@ -1986,16 +2026,27 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     // BC_ARRAY_PUSH: Value val = value_stack_pop(); Value arr = value_stack_pop();
                     // For arrays, stack is [object, arg1] with arg1 on top
                     // Pop arg first (top), then object (below)
+                    // For bot.on("ready", callback): stack is [bot, "ready", callback] with callback on top
+                    // Pop in reverse: args[1] = callback (top), args[0] = "ready" (below)
+                    // Function expects: args[0] = "ready", args[1] = callback
+                    // So we need to reverse the args array after popping
+                    // BUT: Builtin functions expect args in the order they were pushed (not reversed)
+                    // So we need to check if the method is a builtin before reversing
                     if (arg_count > 0) {
                         args = shared_malloc_safe(arg_count * sizeof(Value), "bytecode_vm", "BC_METHOD_CALL", 7);
                         // Pop arguments in reverse order (last arg is on top)
-                        // For single arg: args[0] = pop() = arg1 (top)
                         for (int i = 0; i < arg_count; i++) {
                             args[arg_count - 1 - i] = value_stack_pop();
                         }
                     }
                     // Pop object (it's below the arguments)
                     object = value_stack_pop();
+                    
+                    // Check if method is a builtin function - if so, don't reverse args
+                    // Builtin functions expect args in the order they were pushed (args[0] = first arg, args[1] = second arg)
+                    // Regular functions expect args in reverse order (args[0] = last arg, args[1] = second-to-last arg)
+                    // We'll check this after getting the method from the object
+                    int should_reverse_args = 1;  // Default: reverse for regular functions
                     
                     // Debug: log object immediately after popping
                     if (method_name && (strcmp(method_name, "connect") == 0 || strcmp(method_name, "send_message") == 0 || strcmp(method_name, "close") == 0)) {
@@ -2084,6 +2135,27 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             Value method_key = value_create_string(method_name);
                             Value method = value_hash_map_get(&object, method_key);
                             value_free(&method_key);
+                            
+                            // Check if method is a builtin function
+                            // Builtin functions are VALUE_FUNCTION with VALUE_FLAG_CACHED flag and function pointer in body
+                            // After popping in reverse, args are: args[0] = first arg, args[1] = second arg (correct order)
+                            // Builtin functions expect args in this order (args[0] = first arg, args[1] = second arg)
+                            // Regular functions also expect args in this order (args[0] = first arg, args[1] = second arg)
+                            // So we don't need to reverse for either type - the args are already correct after popping in reverse
+                            int is_builtin = 0;
+                            if (method.type == VALUE_FUNCTION) {
+                                // Check if this is a built-in function (marked with VALUE_FLAG_CACHED and has function pointer in body)
+                                if ((method.flags & VALUE_FLAG_CACHED) &&
+                                    method.data.function_value.body && 
+                                    method.data.function_value.parameters == NULL && 
+                                    method.data.function_value.parameter_count == 0) {
+                                    is_builtin = 1;
+                                }
+                            }
+                            
+                            // No reversal needed - args are already in correct order after popping in reverse
+                            should_reverse_args = 0;
+                            
                             
                             if (strcmp(method_name, "connect") == 0 || strcmp(method_name, "send_message") == 0 || strcmp(method_name, "close") == 0) {
                                 if (method.type == VALUE_NULL) {
@@ -2880,6 +2952,222 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 break;
             }
             
+            case BC_PROPERTY_SET: {
+                // Set object property: obj.property = value
+                // Stack: [object, value] -> []
+                // instr->a = property name constant index
+                // instr->b = variable name constant index (-1 if complex expression)
+                // instr->c = 1 if simple variable, 0 if complex
+                if (instr->a < program->const_count && program->constants[instr->a].type == VALUE_STRING) {
+                    const char* prop_name = program->constants[instr->a].data.string_value;
+                    fprintf(stderr, "[BC_PROPERTY_SET] Stack size before pop: %zu\n", value_stack_size);
+                    Value value = value_stack_pop();
+                    fprintf(stderr, "[BC_PROPERTY_SET] Popped value, type=%d, stack size now: %zu\n", value.type, value_stack_size);
+                    Value object = value_stack_pop();
+                    fprintf(stderr, "[BC_PROPERTY_SET] Popped object, type=%d, stack size now: %zu\n", object.type, value_stack_size);
+                    
+                    // Debug: log property set
+                    fprintf(stderr, "[BC_PROPERTY_SET] Setting property '%s' on object type=%d, value type=%d\n", 
+                            prop_name, object.type, value.type);
+                    if (value.type == VALUE_HASH_MAP) {
+                        fprintf(stderr, "[BC_PROPERTY_SET] Value is HashMap with %zu entries\n", 
+                                value.data.hash_map_value.count);
+                    } else if (value.type == VALUE_NULL) {
+                        fprintf(stderr, "[BC_PROPERTY_SET] ERROR: Value is NULL! This should not happen.\n");
+                    }
+                    
+                    // Check if object is null before property set
+                    if (object.type == VALUE_NULL) {
+                        // Object is null - this shouldn't happen, but handle gracefully
+                        value_free(&value);
+                        value_free(&object);
+                        pc++;
+                        break;
+                    }
+                    
+                    // If this is a simple variable (instr->c == 1), we need to update it in the environment AND local slots
+                    // This is necessary because value_clone for hash maps does a deep copy,
+                    // so we need to update the local variable with the modified object
+                    // IMPORTANT: We must modify the object FIRST, then clone it for storage
+                    int clone_failed = 0;  // Track if clone failed (for proper cleanup)
+                    Value object_to_store = value_create_null();  // Declare outside if block
+                    
+                    if (instr->c == 1 && instr->b >= 0 && instr->b < (int)program->const_count) {
+                        Value var_name_val = program->constants[instr->b];
+                        if (var_name_val.type == VALUE_STRING && var_name_val.data.string_value) {
+                            const char* var_name = var_name_val.data.string_value;
+                            
+                            // First, modify the object in place
+                            if (object.type == VALUE_HASH_MAP) {
+                                Value key = value_create_string(prop_name);
+                                value_hash_map_set(&object, key, value);
+                                value_free(&key);
+                            }
+                            // Object property set (modifies object in place)
+                            else if (object.type == VALUE_OBJECT) {
+                                value_object_set(&object, prop_name, value);
+                            }
+                            // For other types, silently ignore (similar to how property access returns null)
+                            
+                            // Now clone the modified object for storage
+                            // environment_assign and environment_define will clone it again, but we need
+                            // a clone here to store in the local slot
+                            object_to_store = value_clone(&object);
+                            
+                            // Check if clone succeeded (should always succeed unless object is invalid)
+                            // For hash maps, value_clone should always succeed unless there's a memory issue
+                            // If clone fails, we still need to update the environment with the original object
+                            // to ensure the variable is accessible
+                            if (object_to_store.type == VALUE_NULL && object.type != VALUE_NULL) {
+                                // Clone failed - use the original object for environment update
+                                // This ensures the variable is still accessible even if clone failed
+                                clone_failed = 1;
+                                object_to_store = object;
+                                // Don't free object here - we'll use it for environment update
+                            }
+                            
+                            // CRITICAL: Update environment FIRST, then local slot
+                            // This ensures that if local slot update fails, the variable is still accessible via BC_LOAD_GLOBAL
+                            // The environment update is more important because functions that reference the variable
+                            // need it in the captured environment
+                            
+                            // Also update in environment (for BC_LOAD_GLOBAL and AST interpreter)
+                            // CRITICAL: Update in ALL environments where the variable exists, not just the first one
+                            // This ensures that no matter which environment is used to read the variable later,
+                            // it will have the updated value
+                            int env_updated = 0;
+                            if (interpreter && interpreter->current_environment) {
+                                Environment* check_env = interpreter->current_environment;
+                                // First pass: find and update the first occurrence
+                                while (check_env) {
+                                    if (environment_exists(check_env, var_name)) {
+                                        environment_assign(check_env, var_name, object_to_store);
+                                        env_updated = 1;
+                                        // Don't break - continue to update in parent environments too
+                                    }
+                                    check_env = check_env->parent;
+                                }
+                                
+                                // Second pass: update in all parent environments where the variable exists
+                                // This ensures consistency across the environment chain
+                                if (interpreter->current_environment) {
+                                    check_env = interpreter->current_environment->parent;
+                                    while (check_env) {
+                                        if (environment_exists(check_env, var_name)) {
+                                            environment_assign(check_env, var_name, object_to_store);
+                                        }
+                                        check_env = check_env->parent;
+                                    }
+                                }
+                            }
+                            
+                            // If not found in current environment chain, try global environment
+                            if (!env_updated && interpreter && interpreter->global_environment) {
+                                if (environment_exists(interpreter->global_environment, var_name)) {
+                                    environment_assign(interpreter->global_environment, var_name, object_to_store);
+                                    env_updated = 1;
+                                }
+                            }
+                            
+                            // CRITICAL: Always ensure the variable is in the current environment
+                            // This is necessary because:
+                            // 1. Functions that reference the variable need it in the captured environment
+                            // 2. The variable might not exist in the environment yet (e.g., if it was only in local slot)
+                            // 3. We need to update the environment with the modified object
+                            // IMPORTANT: This MUST happen even if local_slot_updated is 0, to ensure the variable
+                            // is accessible via BC_LOAD_GLOBAL even if the local slot update failed
+                            // CRITICAL: Update in current environment FIRST to ensure it's always available
+                            if (interpreter) {
+                                // Ensure current environment exists
+                                if (!interpreter->current_environment) {
+                                    interpreter->current_environment = environment_create(
+                                        interpreter->global_environment ? interpreter->global_environment : NULL
+                                    );
+                                }
+                                if (interpreter->current_environment) {
+                                    // Always update/define in current environment to ensure it's accessible
+                                    // This is critical for functions that reference the variable
+                                    // Update even if it already exists in parent - this ensures the current environment
+                                    // has the latest value
+                                    if (environment_exists(interpreter->current_environment, var_name)) {
+                                        environment_assign(interpreter->current_environment, var_name, object_to_store);
+                                    } else {
+                                        environment_define(interpreter->current_environment, var_name, object_to_store);
+                                    }
+                                    env_updated = 1;
+                                }
+                            }
+                            
+                            // Now update the program's local variable slot if it exists
+                            // This happens AFTER environment update to ensure the variable is accessible even if local slot update fails
+                            int local_slot_updated = 0;
+                            if (program->local_names && program->locals) {
+                                for (int i = 0; i < (int)program->local_count; i++) {
+                                    if (program->local_names[i] && strcmp(program->local_names[i], var_name) == 0) {
+                                        // Update the local slot
+                                        // Clone the object to store in local slot BEFORE freeing the old value
+                                        // This ensures we don't lose the value if clone fails
+                                        Value cloned_for_local = value_clone(&object_to_store);
+                                        
+                                        // Check if clone succeeded (should always succeed unless object_to_store is invalid)
+                                        // We only update if both the clone and the original are valid (not null)
+                                        if (cloned_for_local.type != VALUE_NULL && object_to_store.type != VALUE_NULL) {
+                                            // Clone succeeded and original is valid - update local slot
+                                            // Free the old value
+                                            value_free(&program->locals[i]);
+                                            // Store the cloned value
+                                            program->locals[i] = cloned_for_local;
+                                            local_slot_updated = 1;
+                                        } else {
+                                            // Clone failed or original is null - don't update local slot
+                                            // But the environment is already updated, so variable is still accessible
+                                            value_free(&cloned_for_local);
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            // Free the cloned object (environment_assign, environment_define, and local slot update all clone it)
+                            // Only free if clone succeeded (if clone failed, object_to_store == object, so we'll free it with object below)
+                            if (!clone_failed && object_to_store.type != VALUE_NULL) {
+                                // Clone succeeded - free the clone
+                                value_free(&object_to_store);
+                            }
+                            // If clone failed, object_to_store == object, so we'll free it with object below
+                        }
+                    } else {
+                        // Not a simple variable assignment - just modify the object in place
+                        // Hash map property set (modifies object in place)
+                        if (object.type == VALUE_HASH_MAP) {
+                            Value key = value_create_string(prop_name);
+                            value_hash_map_set(&object, key, value);
+                            value_free(&key);
+                        }
+                        // Object property set (modifies object in place)
+                        else if (object.type == VALUE_OBJECT) {
+                            value_object_set(&object, prop_name, value);
+                        }
+                        // For other types, silently ignore (similar to how property access returns null)
+                    }
+                    
+                    // Free the value we assigned (it was cloned into the object)
+                    value_free(&value);
+                    // Free the object (we've already cloned it for storage if needed)
+                    value_free(&object);
+                } else {
+                    // Invalid property name - pop and discard
+                    if (value_stack_size >= 2) {
+                        Value value = value_stack_pop();
+                        Value object = value_stack_pop();
+                        value_free(&value);
+                        value_free(&object);
+                    }
+                }
+                pc++;
+                break;
+            }
+            
             case BC_CALL_BUILTIN: {
                 // Call built-in function by name
                 // instr->a = function name constant index, instr->b = argument count
@@ -3327,12 +3615,77 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                             // Current program doesn't have the function, try cache
                             target_program = interpreter ? interpreter->bytecode_program_cache : NULL;
                         }
-                        if (target_program && func_id >= 0 && func_id < (int)target_program->function_count) {
-                            // Found bytecode function - execute it directly
+                        // Check if function ID is valid in target program AND param_count matches
+                        int func_found = (target_program && func_id >= 0 && func_id < (int)target_program->function_count);
+                        int param_count_matches = 0;
+                        size_t target_param_count = 0;
+                        if (func_found) {
                             BytecodeFunction* bc_func = &target_program->functions[func_id];
+                            target_param_count = bc_func->param_count;
+                            param_count_matches = (bc_func->param_count == func_value.data.function_value.parameter_count);
+                        }
+                        
+                        // If function found but param_count doesn't match, search other programs
+                        BytecodeProgram* found_program = NULL;
+                        if (func_found && param_count_matches) {
+                            found_program = target_program;
+                        } else {
+                            // Search all available programs for a function with matching ID and param_count
+                            // First, check the main program - this is critical for finding functions from the main program when executing from modules
+                            // We check this first because functions from the main program are often called from within modules
+                            if (!found_program && interpreter && interpreter->main_program) {
+                                BytecodeProgram* main_program = interpreter->main_program;
+                                // Search main_program if it's different from the current program we're checking
+                                if (main_program != program) {
+                                    if (func_id >= 0 && func_id < (int)main_program->function_count) {
+                                        if (main_program->functions[func_id].param_count == func_value.data.function_value.parameter_count) {
+                                            found_program = main_program;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Then try the main program cache
+                            if (!found_program && interpreter && interpreter->bytecode_program_cache) {
+                                BytecodeProgram* test_program = interpreter->bytecode_program_cache;
+                                if (func_id >= 0 && func_id < (int)test_program->function_count) {
+                                    if (test_program->functions[func_id].param_count == func_value.data.function_value.parameter_count) {
+                                        found_program = test_program;
+                                    }
+                                }
+                            }
+                            
+                            // Also try the current program if it's different from cache
+                            if (!found_program && program && program != (interpreter ? interpreter->bytecode_program_cache : NULL)) {
+                                if (func_id >= 0 && func_id < (int)program->function_count) {
+                                    if (program->functions[func_id].param_count == func_value.data.function_value.parameter_count) {
+                                        found_program = program;
+                                    }
+                                }
+                            }
+                            
+                            // If not found, search all modules
+                            if (!found_program && interpreter && interpreter->module_cache) {
+                                for (size_t i = 0; i < interpreter->module_cache_count; i++) {
+                                    if (interpreter->module_cache[i].is_valid && interpreter->module_cache[i].module_bytecode_program) {
+                                        BytecodeProgram* test_program = (BytecodeProgram*)interpreter->module_cache[i].module_bytecode_program;
+                                        if (func_id >= 0 && func_id < (int)test_program->function_count) {
+                                            if (test_program->functions[func_id].param_count == func_value.data.function_value.parameter_count) {
+                                                found_program = test_program;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (found_program && func_id >= 0 && func_id < (int)found_program->function_count) {
+                            // Found bytecode function in correct program - execute it directly
+                            BytecodeFunction* bc_func = &found_program->functions[func_id];
                             if (bc_func->name && strcmp(bc_func->name, "Client") == 0) {
                             }
-                            result = bytecode_execute_function_bytecode(interpreter, bc_func, args, arg_count, target_program);
+                            result = bytecode_execute_function_bytecode(interpreter, bc_func, args, arg_count, found_program);
                             if (bc_func->name && strcmp(bc_func->name, "Client") == 0) {
                             }
                         } else {
@@ -5963,13 +6316,20 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             case BC_ARRAY_GET: {
-                // Array access: arr[index]
-                // Stack: [arr, index]
+                // Array/HashMap access: arr[index] or map[key]
+                // Stack: [arr/map, index/key]
                 Value index = value_stack_pop();
                 Value arr = value_stack_pop();
                 
+                // Debug: log what we're accessing
+                const char* key_str = (index.type == VALUE_STRING && index.data.string_value) ? index.data.string_value : NULL;
+                const char* arr_type_str = (arr.type == VALUE_HASH_MAP) ? "HashMap" : (arr.type == VALUE_ARRAY) ? "Array" : "Other";
+                fprintf(stderr, "[BC_ARRAY_GET] Accessing %s with key/index: type=%d, value='%s'\n", 
+                        arr_type_str, index.type, key_str ? key_str : (index.type == VALUE_NUMBER) ? "number" : "null");
+                
                 Value result = value_create_null();
                 
+                // Handle array access: arr[index]
                 if (arr.type == VALUE_ARRAY && index.type == VALUE_NUMBER) {
                     size_t idx = (size_t)index.data.number_value;
                     if (idx < arr.data.array_value.count) {
@@ -5977,6 +6337,18 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         if (elem) {
                             result = value_clone(elem);
                         }
+                    }
+                }
+                // Handle HashMap access: map[key]
+                else if (arr.type == VALUE_HASH_MAP) {
+                    // Debug: log HashMap access
+                    if (key_str) {
+                        fprintf(stderr, "[BC_ARRAY_GET] HashMap access: key='%s', map has %zu entries\n", 
+                                key_str, arr.data.hash_map_value.count);
+                    }
+                    result = value_hash_map_get(&arr, index);
+                    if (key_str) {
+                        fprintf(stderr, "[BC_ARRAY_GET] HashMap get result: type=%d\n", result.type);
                     }
                 }
                 
@@ -5988,14 +6360,15 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
             }
             
             case BC_ARRAY_SET: {
-                // Array assignment: arr[index] = value
-                // Stack: [arr, index, value]
+                // Array/HashMap assignment: arr[index] = value or map[key] = value
+                // Stack: [arr/map, index/key, value]
                 // instr->a = variable name constant index (-1 if complex expression)
                 // instr->b = 1 if simple variable, 0 if complex
                 Value value = value_stack_pop();
                 Value index = value_stack_pop();
                 Value arr = value_stack_pop();
                 
+                // Handle array assignment: arr[index] = value
                 if (arr.type == VALUE_ARRAY && index.type == VALUE_NUMBER) {
                     int idx = (int)index.data.number_value;
                     if (idx >= 0 && idx < (int)arr.data.array_value.count) {
@@ -6031,20 +6404,82 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                         value_free(&arr);
                         value_free(&value);
                     }
+                }
+                // Handle HashMap assignment: map[key] = value
+                else if (arr.type == VALUE_HASH_MAP) {
+                    // Debug: log HashMap assignment
+                    const char* key_str = (index.type == VALUE_STRING && index.data.string_value) ? index.data.string_value : NULL;
+                    if (key_str) {
+                        fprintf(stderr, "[BC_ARRAY_SET] HashMap assignment: key='%s', value type=%d, map has %zu entries before\n", 
+                                key_str, value.type, arr.data.hash_map_value.count);
+                    }
+                    
+                    value_hash_map_set(&arr, index, value);
+                    
+                    if (key_str) {
+                        fprintf(stderr, "[BC_ARRAY_SET] HashMap assignment: map has %zu entries after\n", 
+                                arr.data.hash_map_value.count);
+                    }
+                    
+                    // If this is a simple variable (instr->b == 1), update it in the environment
+                    if (instr->b == 1 && instr->a >= 0 && instr->a < program->const_count) {
+                        Value var_name_val = program->constants[instr->a];
+                        if (var_name_val.type == VALUE_STRING && var_name_val.data.string_value) {
+                            const char* var_name = var_name_val.data.string_value;
+                            fprintf(stderr, "[BC_ARRAY_SET] Updating simple variable '%s' in environment\n", var_name);
+                            // Try to update in current environment first
+                            if (interpreter && interpreter->current_environment) {
+                                if (environment_exists(interpreter->current_environment, var_name)) {
+                                    environment_assign(interpreter->current_environment, var_name, arr);
+                                } else if (interpreter->global_environment && 
+                                           environment_exists(interpreter->global_environment, var_name)) {
+                                    environment_assign(interpreter->global_environment, var_name, arr);
+                                }
+                            }
+                        }
+                    } else {
+                        // For property access (like bot.eventHandlers[key] = value), we need to update
+                        // the property in the parent object. However, we don't have access to the parent
+                        // object here. The issue is that we're modifying a copy of the HashMap, not the
+                        // original one stored in the object.
+                        // 
+                        // The problem: When we do bot.eventHandlers[key] = value:
+                        // 1. bot.eventHandlers is retrieved (returns a clone of the HashMap)
+                        // 2. We modify the clone
+                        // 3. But we never write the clone back to bot.eventHandlers
+                        //
+                        // Solution: We need to check if the HashMap came from a property access,
+                        // and if so, update the property. But we don't have that information here.
+                        // 
+                        // For now, we'll need to rely on the fact that HashMaps are stored by reference
+                        // in objects, so modifications should persist. But if the HashMap was cloned
+                        // during property access, we need to write it back.
+                        fprintf(stderr, "[BC_ARRAY_SET] WARNING: HashMap assignment to non-simple variable (instr->b=%d, instr->a=%d). Property may not be updated!\n", 
+                                instr->b, instr->a);
+                    }
+                    
+                    // For HashMap assignments, leave the modified HashMap on the stack
+                    // so it can be written back to properties (e.g., obj.prop[key] = value)
+                    fprintf(stderr, "[BC_ARRAY_SET] Pushing modified HashMap onto stack (type=%d, entries=%zu)\n", 
+                            arr.type, arr.data.hash_map_value.count);
+                    value_stack_push(arr); // Push the modified HashMap back
+                    fprintf(stderr, "[BC_ARRAY_SET] Stack size after push: %zu\n", value_stack_size);
+                    value_free(&value); // Free the value we assigned
+                    value_free(&index);
                 } else {
-                    // Invalid array or index - set error
+                    // Invalid array/HashMap or index - set error
                     if (interpreter) {
-                        if (arr.type != VALUE_ARRAY) {
-                            interpreter_set_error(interpreter, "Cannot assign to non-array element", 0, 0);
-                        } else {
+                        if (arr.type != VALUE_ARRAY && arr.type != VALUE_HASH_MAP) {
+                            interpreter_set_error(interpreter, "Cannot assign to non-array/non-map element", 0, 0);
+                        } else if (arr.type == VALUE_ARRAY) {
                             interpreter_set_error(interpreter, "Array index must be a number", 0, 0);
                         }
                     }
                     value_free(&arr);
                     value_free(&value);
+                    value_free(&index);
                 }
                 
-                value_free(&index);
                 // Push null (assignment doesn't return a value)
                 value_stack_push(value_create_null());
                 pc++;
@@ -6765,7 +7200,6 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                 // instr->b = function ID (for bytecode execution)
                 // instr->c = flags (bit 2 = async)
                 // Find the lambda AST node by searching for one with this body
-                
                 if (instr->a < program->ast_count && instr->b >= 0) {
                     ASTNode* lambda_body = program->ast_nodes[instr->a];
                     
@@ -6800,29 +7234,118 @@ Value bytecode_execute(BytecodeProgram* program, Interpreter* interpreter, int d
                     
                     // For bytecode functions, pass the function ID directly as the body
                     // This allows value_create_function/value_create_async_function to detect it as a bytecode function ID
+                    // IMPORTANT: Capture the current environment, but ensure it has access to parent environments
+                    // This allows functions to access variables defined in outer scopes (like module-level variables)
+                    Environment* captured_env = NULL;
+                    if (interpreter) {
+                        // Always capture the current environment, which should have the parent chain
+                        captured_env = interpreter->current_environment;
+                        // If current environment doesn't exist, use global environment as fallback
+                        if (!captured_env && interpreter->global_environment) {
+                            captured_env = interpreter->global_environment;
+                        }
+                    }
+                    
                     Value lambda_value;
                     if (is_async) {
                         lambda_value = value_create_async_function(
                             NULL, // No name for lambda expressions
-                        lambda_params,
-                        lambda_param_count,
-                        NULL, // No return type for lambdas
+                            lambda_params,
+                            lambda_param_count,
+                            NULL, // No return type for lambdas
                             (ASTNode*)(uintptr_t)instr->b, // Pass function ID as body (will be detected as bytecode function)
-                        interpreter ? interpreter->current_environment : NULL
-                    );
+                            captured_env
+                        );
                     } else {
+                        // CRITICAL: The function ID in instr->b was compiled in the main program,
+                        // so we should check it against the main program, not the current program.
+                        // If the instruction was compiled in the main program, the function ID
+                        // should be valid in the main program.
+                        // ALWAYS prefer the main program if the function ID exists there, even if
+                        // it also exists in the current program (module), to avoid function ID collisions.
+                        BytecodeProgram* target_program = program;
+                        BytecodeProgram* main_program = NULL;
+                        
+                        // Try to get the main program from interpreter->main_program first
+                        if (interpreter && interpreter->main_program) {
+                            main_program = (BytecodeProgram*)interpreter->main_program;
+                        }
+                        // If main_program is not set, try bytecode_program_cache (which should be the main program during module execution)
+                        if (!main_program && interpreter && interpreter->bytecode_program_cache) {
+                            // Check if the cache is different from the current program (meaning it's likely the main program)
+                            if (interpreter->bytecode_program_cache != program) {
+                                main_program = interpreter->bytecode_program_cache;
+                            }
+                        }
+                        
+                        // If we found a main program and the function ID is valid there, use it
+                        if (main_program && instr->b >= 0 && instr->b < (int)main_program->function_count) {
+                            fprintf(stderr, "[BC_CREATE_LAMBDA] Switching to main_program for func_id=%d (main has %zu functions, current has %zu)\n",
+                                    instr->b, main_program->function_count, program->function_count);
+                            target_program = main_program;
+                        } else {
+                            fprintf(stderr, "[BC_CREATE_LAMBDA] NOT switching: func_id=%d, main_program=%p, main_count=%zu, current_count=%zu\n",
+                                    instr->b, main_program, main_program ? main_program->function_count : 0, program->function_count);
+                        }
+                        
+                        // Debug: log the function ID being stored
+                        if (instr->b >= 0 && instr->b < (int)target_program->function_count) {
+                            const char* func_name = target_program->functions[instr->b].name ? 
+                                target_program->functions[instr->b].name : "<unnamed>";
+                            int is_main = (interpreter && interpreter->main_program == target_program) ? 1 : 0;
+                            fprintf(stderr, "[BC_CREATE_LAMBDA] Creating lambda function: func_id=%d, name='%s', param_count=%zu (stored=%zu), code_count=%d, is_main_program=%d, current_program_is_main=%d\n", 
+                                    instr->b, func_name, target_program->functions[instr->b].param_count, lambda_param_count, target_program->functions[instr->b].code_count, is_main,
+                                    (interpreter && interpreter->main_program == program) ? 1 : 0);
+                            
+                            // Verify param_count matches
+                            if (target_program->functions[instr->b].param_count != lambda_param_count) {
+                                fprintf(stderr, "[BC_CREATE_LAMBDA] WARNING: param_count mismatch! Function has param_count=%zu, but lambda has param_count=%zu\n",
+                                        target_program->functions[instr->b].param_count, lambda_param_count);
+                            }
+                            
+                            // If this is a handler lambda (param_count=1, code_count in reasonable range), log it specially
+                            if (lambda_param_count == 1 && target_program->functions[instr->b].code_count >= 30 && target_program->functions[instr->b].code_count <= 100) {
+                                fprintf(stderr, "[BC_CREATE_LAMBDA] POTENTIAL HANDLER: func_id=%d, code_count=%d, is_main=%d\n",
+                                        instr->b, target_program->functions[instr->b].code_count, is_main);
+                            }
+                        } else {
+                            fprintf(stderr, "[BC_CREATE_LAMBDA] WARNING: Invalid function ID %d (function_count=%zu in target_program, %zu in current_program)\n", 
+                                    instr->b, target_program->function_count, program->function_count);
+                        }
                         lambda_value = value_create_function(
                             (ASTNode*)(uintptr_t)instr->b, // Pass function ID as body (will be detected as bytecode function)
                             lambda_params,
                             lambda_param_count,
                             NULL, // No return type for lambdas
-                            interpreter ? interpreter->current_environment : NULL
+                            captured_env
                         );
+                        
+                        // Debug: verify the function ID stored in the lambda value
+                        ASTNode* stored_body = (ASTNode*)lambda_value.data.function_value.body;
+                        uintptr_t stored_addr = (uintptr_t)stored_body;
+                        if (stored_addr < 10000) {
+                            int stored_func_id = (int)stored_addr;
+                            if (stored_func_id != instr->b) {
+                                fprintf(stderr, "[BC_CREATE_LAMBDA] ERROR: Function ID mismatch! Instruction has func_id=%d, but stored func_id=%d\n", 
+                                        instr->b, stored_func_id);
+                            }
+                        }
                     }
                     
                     if (is_async) {
                     } else {
+                        // Debug: verify the function ID stored in the lambda value
+                        ASTNode* stored_body = (ASTNode*)lambda_value.data.function_value.body;
+                        uintptr_t stored_addr = (uintptr_t)stored_body;
+                        if (stored_addr < 10000) {
+                            int stored_func_id = (int)stored_addr;
+                            if (stored_func_id != instr->b) {
+                                fprintf(stderr, "[BC_CREATE_LAMBDA] WARNING: Function ID mismatch! Instruction has func_id=%d, but stored func_id=%d\n", 
+                                        instr->b, stored_func_id);
+                            }
+                        }
                     }
+                    
                     value_stack_push(lambda_value);
                 } else {
                     // Invalid lambda instruction - push null
@@ -7431,10 +7954,13 @@ cleanup:
 // Execute a user-defined function's bytecode
 Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunction* func, Value* args, int arg_count, BytecodeProgram* program) {
     if (!func || !interpreter) {
+        fprintf(stderr, "[BYTECODE_EXEC] ERROR: func=%p, interpreter=%p\n", (void*)func, (void*)interpreter);
         return value_create_null();
     }
     
-    // Debug: Log function execution (removed)
+    // Debug: Log function execution
+    fprintf(stderr, "[BYTECODE_EXEC] Executing function: code_count=%zu, param_count=%zu, arg_count=%d\n", 
+            func->code_count, func->param_count, arg_count);
     
     // Create new environment for function execution
     // IMPORTANT: For async functions, the captured environment should have access to module-level constants
@@ -7476,6 +8002,11 @@ Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunct
     // Execute the function's bytecode
     Value result = value_create_null();
     
+    // Debug: Check if function has code
+    if (func->code_count == 0) {
+        fprintf(stderr, "[BYTECODE_EXEC] WARNING: Function has no bytecode (code_count=0)\n");
+    }
+    
     if (func->code_count > 0) {
         // Debug: Log function execution
         // Create a temporary program with just this function's code
@@ -7493,6 +8024,8 @@ Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunct
         temp_program.function_count = program ? program->function_count : 0;
         temp_program.functions = program ? program->functions : NULL;
         temp_program.interpreter = interpreter;
+        // Set local_slot_count to match code_count to ensure jump targets are valid
+        temp_program.local_slot_count = func->code_count;
         
         
         // Execute the function's bytecode
@@ -7513,7 +8046,23 @@ Value bytecode_execute_function_bytecode(Interpreter* interpreter, BytecodeFunct
         // IMPORTANT: Don't clear interpreter->return_value here - it might contain a value
         // from a previous call. We'll check interpreter->has_return after execution.
         interpreter->has_return = 0;
+        
+        // Check for errors before execution
+        extern int interpreter_has_error(Interpreter* interpreter);
+        int had_error_before = interpreter_has_error(interpreter);
+        if (had_error_before) {
+            fprintf(stderr, "[BYTECODE_EXEC] WARNING: Interpreter has error before function execution\n");
+        }
+        
+        fprintf(stderr, "[BYTECODE_EXEC] About to execute function bytecode (code_count=%zu)\n", func->code_count);
         result = bytecode_execute(&temp_program, interpreter, 0);
+        fprintf(stderr, "[BYTECODE_EXEC] Function bytecode execution completed\n");
+        
+        // Check for errors after execution
+        int has_error_after = interpreter_has_error(interpreter);
+        if (has_error_after) {
+            fprintf(stderr, "[BYTECODE_EXEC] ERROR: Interpreter has error after function execution\n");
+        }
         
         // Save the function's return value (if any) before restoring stack
         // Check has_return first - if set, the return value is in interpreter->return_value

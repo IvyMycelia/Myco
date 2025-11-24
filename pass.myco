@@ -5128,14 +5128,57 @@ catch e:
     tests_failed = tests_failed.push("Complex module error");
 end
 
+end
+
+print("\n23.11. Cross-Program Lambda Passing (Main Program Lambda to Module)...");
+total_tests = total_tests + 1;
+try:
+    # Create a module that accepts a lambda callback and stores it
+    # This tests the Discord bot scenario: main program lambda passed to module function
+    let callback_module_content = "let stored_callback: Function = Null;\n\nfunc registerCallback(callback: Function) -> Null:\n    # Store the callback (like bot.eventHandlers[eventName] = callback)\n    stored_callback = callback;\nend\n\nfunc callCallback(value: Number) -> Number:\n    # Call the stored callback from main program\n    if stored_callback != Null:\n        return stored_callback(value);\n    else:\n        return Null;\n    end\nend";
+    
+    use file as file;
+    let write_result = file.write("callback_module.myco", callback_module_content);
+    if write_result != Null and write_result > 0:
+        use "callback_module.myco" as callback_mod;
+        
+        # Create a lambda in the main program (like bot.on("messageCreate", func(event): ...))
+        let main_lambda = func(event: Number) -> Number:
+            # This lambda is created in main program context
+            return event * 2;
+        end;
+        
+        # Pass the main program lambda to the module function
+        # This simulates: bot.on("messageCreate", main_lambda)
+        callback_mod.registerCallback(main_lambda);
+        
+        # Test calling the callback through the module
+        let result = callback_mod.callCallback(21);
+        if result == 42:
+            print("✓ Cross-program lambda passing works: main program lambda correctly called through module");
+            tests_passed = tests_passed + 1;
+        else:
+            print("✗ Cross-program lambda passing failed - wrong result: " + (result != Null ? result.toString() : "null") + " (expected 42)");
+            tests_failed = tests_failed.push("Cross-program lambda passing - wrong result");
+        end
+    else:
+        print("✗ Failed to create callback module file");
+        tests_failed = tests_failed.push("Create callback module file");
+    end
+catch e:
+    print("✗ Cross-program lambda passing error: " + e.toString());
+    tests_failed = tests_failed.push("Cross-program lambda passing error");
+end
+
 # Cleanup test files
-print("\n23.11. Module Test Cleanup...");
+print("\n23.12. Module Test Cleanup...");
 try:
     use file as file;
     file.delete("test_module.myco");
     file.delete("point_module.myco");
     file.delete("isolation_module.myco");
     file.delete("complex_module.myco");
+    file.delete("callback_module.myco");
     print("✓ Test files cleaned up");
 catch e:
     print("⚠ Cleanup warning: " + e.toString());

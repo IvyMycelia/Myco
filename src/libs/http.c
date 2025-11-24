@@ -5,6 +5,7 @@
 #include "../../include/core/standardized_errors.h"
 #include "../../include/utils/shared_utilities.h"
 #include "../../include/libs/http_client.h"
+#include "../../include/core/interpreter/value_operations.h"
 
 // Global HTTP client initialization flag
 static bool http_client_initialized = false;
@@ -274,41 +275,67 @@ Value builtin_http_post(Interpreter* interpreter, Value* args, size_t arg_count,
         return value_create_null();
     }
     
-    // Build headers string if headers object is provided (optional 3rd argument)
+    // Build headers string if headers object/hashmap is provided (optional 3rd argument)
     char* headers_str = NULL;
-    if (arg_count >= 3 && args[2].type == VALUE_OBJECT) {
+    if (arg_count >= 3 && (args[2].type == VALUE_OBJECT || args[2].type == VALUE_HASH_MAP)) {
         Value headers_obj = args[2];
         size_t headers_len = 256; // Initial size
         headers_str = shared_malloc_safe(headers_len, "http", "builtin_http_post", 0);
         if (headers_str) {
             headers_str[0] = '\0';
             
-            // Get all keys from headers object
-            if (headers_obj.data.object_value.keys && headers_obj.data.object_value.count > 0) {
-                for (size_t i = 0; i < headers_obj.data.object_value.count; i++) {
-                    const char* header_name = headers_obj.data.object_value.keys[i];
-                    if (header_name) {
-                        Value header_value = value_object_get(&headers_obj, header_name);
-                        if (header_value.type == VALUE_STRING && header_value.data.string_value) {
-                            size_t current_len = strlen(headers_str);
-                            size_t needed = strlen(header_name) + strlen(header_value.data.string_value) + 4; // ": \r\n"
-                            if (current_len + needed >= headers_len) {
-                                headers_len = (current_len + needed) * 2;
-                                headers_str = shared_realloc_safe(headers_str, headers_len, "http", "builtin_http_post", 0);
-                            }
-                            if (headers_str) {
-                                snprintf(headers_str + current_len, headers_len - current_len, 
-                                        "%s: %s\r\n", header_name, header_value.data.string_value);
-                            }
-                        }
-                        value_free(&header_value);
+            // Get all keys from headers object/hashmap
+            size_t key_count = 0;
+            void** keys = NULL;
+            if (headers_obj.type == VALUE_OBJECT) {
+                key_count = headers_obj.data.object_value.count;
+                keys = (void**)headers_obj.data.object_value.keys;
+            } else if (headers_obj.type == VALUE_HASH_MAP) {
+                key_count = headers_obj.data.hash_map_value.count;
+                keys = (void**)headers_obj.data.hash_map_value.keys;
+            }
+            
+            if (keys && key_count > 0) {
+                for (size_t i = 0; i < key_count; i++) {
+                    Value* key_value = (Value*)keys[i];
+                    if (!key_value || key_value->type != VALUE_STRING || !key_value->data.string_value) {
+                        continue;
                     }
+                    const char* header_name = key_value->data.string_value;
+                    
+                    // Get header value
+                    Value header_value;
+                    if (headers_obj.type == VALUE_OBJECT) {
+                        header_value = value_object_get(&headers_obj, header_name);
+                    } else {
+                        header_value = value_hash_map_get(&headers_obj, *key_value);
+                    }
+                    
+                    if (header_value.type == VALUE_STRING && header_value.data.string_value) {
+                        size_t current_len = strlen(headers_str);
+                        size_t needed = strlen(header_name) + strlen(header_value.data.string_value) + 4; // ": \r\n"
+                        if (current_len + needed >= headers_len) {
+                            headers_len = (current_len + needed) * 2;
+                            headers_str = shared_realloc_safe(headers_str, headers_len, "http", "builtin_http_post", 0);
+                        }
+                        if (headers_str) {
+                            snprintf(headers_str + current_len, headers_len - current_len, 
+                                    "%s: %s\r\n", header_name, header_value.data.string_value);
+                        }
+                    }
+                    value_free(&header_value);
                 }
             }
         }
     }
     
     HttpResponse* response = http_post(url_value.data.string_value, data_value.data.string_value, headers_str, 30);
+    
+    // Free headers string after use
+    if (headers_str) {
+        shared_free_safe(headers_str, "http", "builtin_http_post", 0);
+    }
+    
     if (!response) {
         return value_create_null();
     }
@@ -348,33 +375,55 @@ Value builtin_http_put(Interpreter* interpreter, Value* args, size_t arg_count, 
         return value_create_null();
     }
     
-    // Build headers string if headers object is provided (optional 3rd argument)
+    // Build headers string if headers object/hashmap is provided (optional 3rd argument)
     char* headers_str = NULL;
-    if (arg_count >= 3 && args[2].type == VALUE_OBJECT) {
+    if (arg_count >= 3 && (args[2].type == VALUE_OBJECT || args[2].type == VALUE_HASH_MAP)) {
         Value headers_obj = args[2];
         size_t headers_len = 256;
         headers_str = shared_malloc_safe(headers_len, "http", "builtin_http_put", 0);
         if (headers_str) {
             headers_str[0] = '\0';
-            if (headers_obj.data.object_value.keys && headers_obj.data.object_value.count > 0) {
-                for (size_t i = 0; i < headers_obj.data.object_value.count; i++) {
-                    const char* header_name = headers_obj.data.object_value.keys[i];
-                    if (header_name) {
-                        Value header_value = value_object_get(&headers_obj, header_name);
-                        if (header_value.type == VALUE_STRING && header_value.data.string_value) {
-                            size_t current_len = strlen(headers_str);
-                            size_t needed = strlen(header_name) + strlen(header_value.data.string_value) + 4;
-                            if (current_len + needed >= headers_len) {
-                                headers_len = (current_len + needed) * 2;
-                                headers_str = shared_realloc_safe(headers_str, headers_len, "http", "builtin_http_put", 0);
-                            }
-                            if (headers_str) {
-                                snprintf(headers_str + current_len, headers_len - current_len, 
-                                        "%s: %s\r\n", header_name, header_value.data.string_value);
-                            }
-                        }
-                        value_free(&header_value);
+            
+            // Get all keys from headers object/hashmap
+            size_t key_count = 0;
+            void** keys = NULL;
+            if (headers_obj.type == VALUE_OBJECT) {
+                key_count = headers_obj.data.object_value.count;
+                keys = (void**)headers_obj.data.object_value.keys;
+            } else if (headers_obj.type == VALUE_HASH_MAP) {
+                key_count = headers_obj.data.hash_map_value.count;
+                keys = (void**)headers_obj.data.hash_map_value.keys;
+            }
+            
+            if (keys && key_count > 0) {
+                for (size_t i = 0; i < key_count; i++) {
+                    Value* key_value = (Value*)keys[i];
+                    if (!key_value || key_value->type != VALUE_STRING || !key_value->data.string_value) {
+                        continue;
                     }
+                    const char* header_name = key_value->data.string_value;
+                    
+                    // Get header value
+                    Value header_value;
+                    if (headers_obj.type == VALUE_OBJECT) {
+                        header_value = value_object_get(&headers_obj, header_name);
+                    } else {
+                        header_value = value_hash_map_get(&headers_obj, *key_value);
+                    }
+                    
+                    if (header_value.type == VALUE_STRING && header_value.data.string_value) {
+                        size_t current_len = strlen(headers_str);
+                        size_t needed = strlen(header_name) + strlen(header_value.data.string_value) + 4;
+                        if (current_len + needed >= headers_len) {
+                            headers_len = (current_len + needed) * 2;
+                            headers_str = shared_realloc_safe(headers_str, headers_len, "http", "builtin_http_put", 0);
+                        }
+                        if (headers_str) {
+                            snprintf(headers_str + current_len, headers_len - current_len, 
+                                    "%s: %s\r\n", header_name, header_value.data.string_value);
+                        }
+                    }
+                    value_free(&header_value);
                 }
             }
         }

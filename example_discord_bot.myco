@@ -2,7 +2,7 @@ use "discord.myco" as discord;
 
 print("Starting Discord bot...");
 
-let bot = discord.createBot("YOUR_BOT_TOKEN");
+let bot = discord.createBot("YOUR_BOT_TOKEN_HERE");
 
 if bot == null:
     print("ERROR: Failed to create bot!");
@@ -12,26 +12,87 @@ end
 
 print("Setting up event handlers...");
 
+# Debug: Check if bot.on is a function
+if bot.on != null:
+    print("bot.on is not null, about to call it");
+else:
+    print("ERROR: bot.on is null!");
+end
+
 bot.on("ready", func(event):
-    print("Bot is ready! Logged in as: " + bot.user.username);
+    # Use username and user_id extracted by gateway (bypasses nested property access issue)
+    if event != null:
+        if event.username != null and event.user_id != null:
+            print("Bot is ready! Logged in as " + event.username + " (" + event.user_id + ")");
+        else:
+            print("Bot is ready! (user info not available)");
+        end
+    else:
+        print("Bot is ready! (event is null)");
+    end
 end);
   
+print("About to call bot.on('messageCreate', ...)");
 bot.on("messageCreate", func(event):
+    print("messageCreate handler called!");
     let msg = event.data;
+    print("Message data type: " + msg.type.toString());
+    if msg.content != null:
+        print("Message content: '" + msg.content + "'");
+    end
+    
+    print("Getting user from event...");
     let user = discord.getUserFromEvent(event);
+    if user == null:
+        print("WARNING: user is null");
+    else:
+        print("User retrieved");
+    end
+    
+    print("Getting channel from event...");
     let channel = discord.getChannelFromEvent(event);
-         
-    if msg.content == "!ping":
-        bot.sendMessage(channel.id, "Pong!");
+    if channel == null:
+        print("ERROR: channel is null!");
+        return;
     end
-         
-    if msg.content == "!hello":
-        bot.sendMessage(channel.id, "Hello, " + discord.mentionUser(user.id) + "!");
+    
+    print("Channel retrieved");
+    
+    if channel.id == null:
+        print("ERROR: channel.id is null!");
+        return;
     end
-         
-    if msg.content == "!react":
-        bot.react(channel.id, msg.id, "👍");
+    
+    print("Channel ID: " + channel.id);
+    print("Checking message content...");
+    
+    if msg.content != null:
+        print("Content is not null, checking commands...");
+        if msg.content == "!ping":
+            print("Sending Pong!");
+            bot.sendMessage(channel.id, "Pong!");
+        end
+             
+        if msg.content == "!hello":
+            print("Sending Hello!");
+            if user != null and user.id != null:
+                bot.sendMessage(channel.id, "Hello, " + discord.mentionUser(user.id) + "!");
+            else:
+                bot.sendMessage(channel.id, "Hello!");
+            end
+        end
+             
+        if msg.content == "!react":
+            print("Sending reaction!");
+            if msg.id != null:
+                bot.react(channel.id, msg.id, "👍");
+            end
+        end
+    else:
+        print("Content is null, skipping command check");
     end
+    
+    print("Handler finished");
 end);
 
 print("Event handlers registered");

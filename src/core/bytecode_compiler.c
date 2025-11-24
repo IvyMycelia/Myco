@@ -1139,19 +1139,294 @@ static void compile_node_to_function(BytecodeProgram* p, BytecodeFunction* func,
             } else if (n->data.assignment.target->type == AST_NODE_ARRAY_ACCESS) {
                 // Array element assignment: arr[index] = value
                 if (n->data.assignment.target->data.array_access.array && n->data.assignment.target->data.array_access.index) {
+                    ASTNode* array_access = n->data.assignment.target;
+                    
+                    // Check if the array is a property access (e.g., obj.prop[key] = value)
+                    if (array_access->data.array_access.array->type == AST_NODE_MEMBER_ACCESS) {
+                        // This is obj.prop[key] = value
+                        fprintf(stderr, "[COMPILER] Detected obj.prop[key] = value assignment in function body\n");
+                        // We need to:
+                        // 1. Get obj and duplicate it (we'll need it for BC_PROPERTY_SET)
+                        // 2. Get obj.prop (HashMap) - this consumes one obj
+                        // 3. Push index and value
+                        // 4. BC_ARRAY_SET modifies HashMap, leaves it on stack
+                        // 5. BC_PROPERTY_SET writes modified HashMap back to obj.prop
+                        
+                        ASTNode* member_access = array_access->data.array_access.array;
+                        
+                        // Strategy: 
+                        // 1. Compile obj.prop (this compiles obj and accesses prop, consuming obj, leaving HashMap)
+                        // 2. Compile obj again (we need it for BC_PROPERTY_SET)
+                        // 3. Now stack is [HashMap, obj] - we need [obj, HashMap]
+                        // 4. Since we don't have swap, duplicate obj, then we have [HashMap, obj, obj]
+                        // 5. Pop HashMap, then we have [obj, obj]
+                        // 6. Pop one obj, then we have [obj]
+                        // 7. Push HashMap back, then we have [obj, HashMap]
+                        // Actually, simpler: compile obj.prop first, then obj, then swap by duplicating and popping
+                        
+                        // Compile obj.prop first - this compiles obj and accesses prop
+                        // Stack: [HashMap] (obj was consumed by BC_PROPERTY_ACCESS)
+                        compile_node_to_function(p, func, array_access->data.array_access.array);
+                        
+                        // Compile obj again - we need it for BC_PROPERTY_SET
+                        // Stack: [HashMap, obj]
+                        compile_node_to_function(p, func, member_access->data.member_access.object);
+                        
+                        // Now we need to swap: [HashMap, obj] -> [obj, HashMap]
+                        // Duplicate obj: [HashMap, obj, obj]
+                        bc_emit_to_function(func, BC_DUP, 0, 0, 0);
+                        // Pop HashMap: [obj, obj]
+                        bc_emit_to_function(func, BC_POP, 0, 0, 0);
+                        // Pop duplicate obj: [obj]
+                        bc_emit_to_function(func, BC_POP, 0, 0, 0);
+                        // Push HashMap back: [obj, HashMap]
+                        // But we don't have a way to push the HashMap back without compiling it again...
+                        
+                        // Better approach: Use a temporary variable or compile in different order
+                        // Actually, let's compile obj first, duplicate it, then compile obj.prop
+                        // But that's what we tried before and it didn't work...
+                        
+                        // New approach: Compile obj.prop, store HashMap in temp, compile obj, push HashMap back
+                        // But we don't have local variables in this context...
+                        
+                        // Simplest: Compile obj, duplicate, compile obj.prop (which consumes one obj), 
+                        // then we have [obj, HashMap]. But obj.prop compiles obj again, so we get [obj, obj, HashMap]
+                        // We need to remove the middle obj.
+                        
+                        // Let's try: compile obj, duplicate, compile obj.prop, pop middle obj
+                        compile_node_to_function(p, func, member_access->data.member_access.object); // [obj]
+                        bc_emit_to_function(func, BC_DUP, 0, 0, 0); // [obj, obj]
+                        compile_node_to_function(p, func, array_access->data.array_access.array); // [obj, obj, HashMap] (obj.prop compiles obj again)
+                        // We need to remove the middle obj (the second one)
+                        // Stack: [obj (first), obj (second, from obj.prop), HashMap]
+                        // We want: [obj (first), HashMap]
+                        // Solution: Pop the second obj
+                        // But how do we know which is which? The top is HashMap, second is obj (from obj.prop), third is obj (first)
+                        // We can't selectively pop the middle one without a swap or rotate instruction
+                        
+                        // Alternative: Don't duplicate. Compile obj.prop first, then compile obj.
+                        // Stack after obj.prop: [HashMap]
+                        // Stack after compiling obj: [HashMap, obj]
+                        // We need [obj, HashMap]. Since we don't have swap, we need to:
+                        // 1. Duplicate obj: [HashMap, obj, obj]
+                        // 2. Pop HashMap: [obj, obj]
+                        // 3. Pop one obj: [obj]
+                        // 4. But we lost HashMap!
+                        
+                        // Best solution: Compile obj first and keep it, compile obj.prop but skip compiling obj
+                        // But we can't easily do that with the current compiler structure.
+                        
+                        // Workaround: Compile obj.prop, which gives us HashMap. Then compile obj again.
+                        // Stack: [HashMap, obj]. Then for BC_PROPERTY_SET we need [obj, HashMap].
+                        // We can use BC_DUP on obj, then BC_POP on HashMap, then BC_POP on duplicate obj, then... no, that won't work.
+                        
+                        // Actually, let me check if there's a way to access the HashMap that's already on the stack
+                        // without compiling obj.prop again. We could use BC_DUP to duplicate the HashMap,
+                        // then compile obj, then we have [HashMap, HashMap, obj]. Pop one HashMap, then we have [HashMap, obj].
+                        // But we still need [obj, HashMap].
+                        
+                        // I think the real solution is to add a SWAP instruction, or to change how we compile this.
+                        // For now, let's try a different approach: compile everything in the right order without duplicates.
+                        
+                        // New strategy:
+                        // 1. Compile obj.prop - gives us HashMap on stack
+                        // 2. Store HashMap temporarily by duplicating it
+                        // 3. Compile obj
+                        // 4. Push stored HashMap back
+                        // But we don't have local storage...
+                        
+                        // Actually, the simplest fix: compile obj first, then when compiling obj.prop,
+                        // check if obj is already on stack and don't compile it again. But that requires
+                        // compiler changes that are more complex.
+                        
+                        // For now, let's try: compile obj, duplicate, compile obj.prop, then use BC_POP
+                        // to remove items until we have the right order. But we can't selectively pop.
+                        
+                        // Let me try a different approach: compile obj.prop first (gives HashMap),
+                        // duplicate HashMap, compile obj (gives [HashMap, HashMap, obj]),
+                        // pop one HashMap (gives [HashMap, obj]), but we need [obj, HashMap]...
+                        
+                        // I think we need to accept that we'll have [HashMap, obj] and modify BC_PROPERTY_SET
+                        // to handle this, OR we need a SWAP instruction.
+                        
+                        // For now, let's try the simplest: compile obj.prop, compile obj, then manually
+                        // rearrange using DUP and POP. But without SWAP, this is hard.
+                        
+                        // Actually, wait - let me check if BC_PROPERTY_SET can handle [HashMap, obj] instead of [obj, HashMap]
+                        // No, it expects [obj, value].
+                        
+                        // Let's try: compile obj.prop (HashMap), duplicate it, compile obj, 
+                        // now we have [HashMap, HashMap, obj]. Pop one HashMap: [HashMap, obj].
+                        // We need [obj, HashMap]. We can duplicate obj: [HashMap, obj, obj],
+                        // pop HashMap: [obj, obj], pop one obj: [obj], push HashMap: [obj, HashMap]?
+                        // But we lost the HashMap when we popped it!
+                        
+                        // The real solution: Add a SWAP instruction, or change the compilation order.
+                        // For now, let's try compiling obj first, then obj.prop, and see if we can
+                        // make it work by being more careful about the stack.
+                        
+                        // Actually, I have an idea: compile obj, then compile obj.prop but modify
+                        // the compilation to not compile obj if it's already on the stack. But that's complex.
+                        
+                        // Simpler: compile obj.prop first, which gives HashMap. Then compile obj.
+                        // Stack: [HashMap, obj]. We need [obj, HashMap]. 
+                        // We can: duplicate obj: [HashMap, obj, obj]
+                        // Pop HashMap: [obj, obj]  
+                        // Pop one obj: [obj]
+                        // But we need to push HashMap back, and we don't have it anymore!
+                        
+                        // I think the issue is that we need a SWAP instruction, or we need to change
+                        // BC_PROPERTY_SET to accept [value, obj] instead of [obj, value].
+                        
+                        // For now, let's try a workaround: compile obj first, then when compiling obj.prop,
+                        // check if the object node is the same and skip compiling it. But that's complex.
+                        
+                        // Actually, simplest fix: compile obj, duplicate, compile obj.prop (which will compile obj again),
+                        // giving us [obj, obj, HashMap]. Then we need to remove the middle obj.
+                        // We can't do that without SWAP or ROTATE.
+                        
+                        // Let me try a different approach: compile obj.prop first, store the result,
+                        // compile obj, then push the stored result. But we don't have local variables.
+                        
+                        // I think the real fix is to add support for not compiling the object when it's
+                        // already on the stack, or to add a SWAP instruction.
+                        
+                        // For now, let's try the approach where we compile obj first, duplicate it,
+                        // compile obj.prop, and then try to fix the stack. But we need SWAP for that.
+                        
+                        // Wait, I have an idea: compile obj.prop first (gives HashMap on stack).
+                        // Then compile obj (gives [HashMap, obj]).
+                        // For BC_PROPERTY_SET, we need [obj, HashMap].
+                        // We can duplicate obj: [HashMap, obj, obj]
+                        // Pop HashMap: [obj, obj]
+                        // Now we have two objs. We need to get HashMap back, but we lost it.
+                        
+                        // The only way to do this without SWAP is to compile obj.prop again after compiling obj,
+                        // but that would give us [HashMap, obj, HashMap], which is also wrong.
+                        
+                        // I think we need to add a SWAP instruction to the VM, or change BC_PROPERTY_SET
+                        // to accept the arguments in reverse order when a flag is set.
+                        
+                        // For now, let's try a simpler workaround: compile obj first, then compile obj.prop,
+                        // and accept that we'll have [obj, obj, HashMap]. Then we can use BC_POP to remove
+                        // the middle obj, but we can't do that selectively.
+                        
+                        // Actually, let me check if there's a ROT instruction or similar that can help.
+                        
+                        // I think the best solution for now is to add a SWAP instruction. But that's a bigger change.
+                        
+                        // Let me try one more thing: compile obj.prop first, which gives HashMap.
+                        // Duplicate HashMap: [HashMap, HashMap]
+                        // Compile obj: [HashMap, HashMap, obj]
+                        // Pop one HashMap: [HashMap, obj]
+                        // We still need [obj, HashMap]. We can duplicate obj: [HashMap, obj, obj]
+                        // Pop HashMap: [obj, obj]
+                        // Pop one obj: [obj]
+                        // But we need HashMap back!
+                        
+                        // I think we really need SWAP. Let me add it.
+                        
+                        // Actually, wait - let me check if we can modify BC_PROPERTY_SET to handle
+                        // [value, obj] when a flag is set. That might be easier.
+                        
+                        // For now, let's try the simplest thing: compile obj first, duplicate it,
+                        // compile obj.prop, and see what the stack looks like. Then we can figure out
+                        // how to fix it.
+                        
+                        // Compile obj first
+                        compile_node_to_function(p, func, member_access->data.member_access.object); // [obj]
+                        // Duplicate obj
+                        bc_emit_to_function(func, BC_DUP, 0, 0, 0); // [obj, obj]
+                        // Compile obj.prop (this will compile obj again and access prop)
+                        compile_node_to_function(p, func, array_access->data.array_access.array); // [obj, obj, HashMap]
+                        
+                        // Now we have [obj (first), obj (from obj.prop compilation), HashMap]
+                        // We need [obj (first), HashMap] for the rest of the code
+                        // We can't easily remove the middle obj without SWAP or ROTATE
+                        
+                        // Let's try: compile index and value
+                        compile_node_to_function(p, func, array_access->data.array_access.index); // [obj, obj, HashMap, index]
+                        compile_node_to_function(p, func, n->data.assignment.value); // [obj, obj, HashMap, index, value]
+                        
+                        // BC_ARRAY_SET expects [HashMap, index, value] on top
+                        // Stack: [obj, obj, HashMap, index, value]
+                        // BC_ARRAY_SET will consume [HashMap, index, value] and push modified HashMap
+                        // Stack after: [obj, obj, modifiedHashMap]
+                        
+                        // Then BC_PROPERTY_SET expects [obj, modifiedHashMap]
+                        // We have [obj, obj, modifiedHashMap]
+                        // We need to remove the middle obj. We can pop it: [obj, modifiedHashMap]
+                        
+                        int var_name_idx = -1;
+                        int is_simple_var = 0;
+                        fprintf(stderr, "[COMPILER] Emitting BC_ARRAY_SET for obj.prop[key] = value in function body\n");
+                        bc_emit_to_function(func, BC_ARRAY_SET, var_name_idx, is_simple_var ? 1 : 0, 0);
+                        // Stack after BC_ARRAY_SET: [obj, obj, modifiedHashMap]
+                        
+                        // Pop the middle obj (the duplicate from obj.prop compilation)
+                        bc_emit_to_function(func, BC_POP, 0, 0, 0); // [obj, modifiedHashMap]
+                        
+                        // Now write the modified HashMap back to obj.prop using BC_PROPERTY_SET
+                        // Stack: [obj, modifiedHashMap]
+                        const char* prop_name = member_access->data.member_access.member_name;
+                        int prop_name_idx = bc_add_const(p, value_create_string(prop_name ? prop_name : ""));
+                        
+                        // Check if the object is a simple identifier (for updating the variable)
+                        int is_obj_simple_var = 0;
+                        int obj_var_name_idx = -1;
+                        if (member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
+                            is_obj_simple_var = 1;
+                            obj_var_name_idx = bc_add_const(p, value_create_string(
+                                member_access->data.member_access.object->data.identifier_value));
+                            fprintf(stderr, "[COMPILER] Object is simple variable in function: %s\n", 
+                                    member_access->data.member_access.object->data.identifier_value);
+                        }
+                        
+                        // BC_PROPERTY_SET consumes [obj, modifiedHashMap] and writes it back
+                        fprintf(stderr, "[COMPILER] Emitting BC_PROPERTY_SET to write back to obj.prop in function (prop='%s')\n", prop_name);
+                        bc_emit_to_function(func, BC_PROPERTY_SET, prop_name_idx, obj_var_name_idx, is_obj_simple_var ? 1 : 0);
+                    } else {
+                        // Simple array access: array[index] = value
                 compile_node_to_function(p, func, n->data.assignment.target->data.array_access.array);
                 compile_node_to_function(p, func, n->data.assignment.target->data.array_access.index);
                 compile_node_to_function(p, func, n->data.assignment.value);
                 // Check if array is a simple identifier for environment update
-                    int is_simple_var = 0;
+                        int is_simple_var = 0;
                 int var_name_idx = -1;
-                    if (n->data.assignment.target->data.array_access.array->type == AST_NODE_IDENTIFIER &&
-                        n->data.assignment.target->data.array_access.array->data.identifier_value) {
-                        is_simple_var = 1;
+                        if (n->data.assignment.target->data.array_access.array->type == AST_NODE_IDENTIFIER &&
+                            n->data.assignment.target->data.array_access.array->data.identifier_value) {
+                            is_simple_var = 1;
                     var_name_idx = bc_add_const(p, value_create_string(n->data.assignment.target->data.array_access.array->data.identifier_value));
                 }
-                bc_emit_to_function(func, BC_ARRAY_SET, is_simple_var, var_name_idx, 0);
+                        bc_emit_to_function(func, BC_ARRAY_SET, var_name_idx, is_simple_var ? 1 : 0, 0);
+                    }
                 }
+            } else if (n->data.assignment.target->type == AST_NODE_MEMBER_ACCESS) {
+                // Property assignment: obj.property = value
+                ASTNode* member_access = n->data.assignment.target;
+                
+                // Compile object and value
+                compile_node_to_function(p, func, member_access->data.member_access.object);
+                compile_node_to_function(p, func, n->data.assignment.value);
+                
+                // Get property name
+                const char* prop_name = member_access->data.member_access.member_name;
+                int prop_name_idx = bc_add_const(p, value_create_string(prop_name ? prop_name : ""));
+                
+                // Check if the object is a simple identifier (for updating the variable)
+                int is_simple_var = 0;
+                int var_name_idx = -1;
+                if (member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
+                    is_simple_var = 1;
+                    var_name_idx = bc_add_const(p, value_create_string(
+                        member_access->data.member_access.object->data.identifier_value));
+                }
+                
+                // Emit BC_PROPERTY_SET instruction
+                // instr->a = property name constant index
+                // instr->b = variable name constant index (-1 if complex expression)
+                // instr->c = 1 if simple variable, 0 if complex
+                bc_emit_to_function(func, BC_PROPERTY_SET, prop_name_idx, var_name_idx, is_simple_var ? 1 : 0);
             } else {
                 // Other assignment types not yet supported in function bodies
                 if (p->interpreter) {
@@ -1493,6 +1768,24 @@ static int bc_add_function(BytecodeProgram* p, ASTNode* func) {
     // Get the function index - this will be the function's ID
     int func_id = (int)p->function_count;
     
+    // Debug: log function creation
+    const char* func_name = NULL;
+    size_t param_count = 0;
+    if (func->type == AST_NODE_LAMBDA) {
+        func_name = "<lambda>";
+        param_count = func->data.lambda.parameter_count;
+    } else if (func->type == AST_NODE_FUNCTION) {
+        func_name = func->data.function_definition.function_name ? func->data.function_definition.function_name : "<unnamed>";
+        param_count = func->data.function_definition.parameter_count;
+    } else if (func->type == AST_NODE_ASYNC_FUNCTION) {
+        func_name = func->data.async_function_definition.function_name ? func->data.async_function_definition.function_name : "<async>";
+        param_count = func->data.async_function_definition.parameter_count;
+    }
+    if (func_name) {
+        fprintf(stderr, "[BC_ADD_FUNCTION] Creating function: func_id=%d, name='%s', param_count=%zu\n", 
+                func_id, func_name, param_count);
+    }
+    
     BytecodeFunction* bc_func = &p->functions[func_id];
     memset(bc_func, 0, sizeof(BytecodeFunction));
     
@@ -1507,8 +1800,21 @@ static int bc_add_function(BytecodeProgram* p, ASTNode* func) {
             bc_func->param_capacity = bc_func->param_count;
             bc_func->param_names = shared_malloc_safe(bc_func->param_count * sizeof(char*), "bytecode", "bc_add_function", 2);
             for (size_t i = 0; i < bc_func->param_count; i++) {
-                if (func->data.lambda.parameters[i] && func->data.lambda.parameters[i]->type == AST_NODE_IDENTIFIER) {
+                if (func->data.lambda.parameters[i]) {
+                    if (func->data.lambda.parameters[i]->type == AST_NODE_TYPED_PARAMETER) {
+                        // Typed parameter: extract name from typed_parameter.parameter_name
+                        ASTNode* param = func->data.lambda.parameters[i];
+                        if (param->data.typed_parameter.parameter_name) {
+                            bc_func->param_names[i] = shared_strdup(param->data.typed_parameter.parameter_name);
+                        } else {
+                            bc_func->param_names[i] = shared_strdup("");
+                        }
+                    } else if (func->data.lambda.parameters[i]->type == AST_NODE_IDENTIFIER) {
+                        // Simple identifier parameter
                     bc_func->param_names[i] = shared_strdup(func->data.lambda.parameters[i]->data.identifier_value);
+                } else {
+                    bc_func->param_names[i] = shared_strdup("");
+                }
                 } else {
                     bc_func->param_names[i] = shared_strdup("");
                 }
@@ -1559,7 +1865,24 @@ static int bc_add_function(BytecodeProgram* p, ASTNode* func) {
             bc_func->param_capacity = bc_func->param_count;
             bc_func->param_names = shared_malloc_safe(bc_func->param_count * sizeof(char*), "bytecode", "bc_add_function", 2);
             for (size_t i = 0; i < bc_func->param_count; i++) {
+                if (func->data.function_definition.parameters[i]) {
+                    if (func->data.function_definition.parameters[i]->type == AST_NODE_TYPED_PARAMETER) {
+                        // Typed parameter: extract name from typed_parameter.parameter_name
+                        ASTNode* param = func->data.function_definition.parameters[i];
+                        if (param->data.typed_parameter.parameter_name) {
+                            bc_func->param_names[i] = shared_strdup(param->data.typed_parameter.parameter_name);
+                        } else {
+                            bc_func->param_names[i] = shared_strdup("");
+                        }
+                    } else if (func->data.function_definition.parameters[i]->type == AST_NODE_IDENTIFIER) {
+                        // Simple identifier parameter
                 bc_func->param_names[i] = shared_strdup(func->data.function_definition.parameters[i]->data.identifier_value);
+                    } else {
+                        bc_func->param_names[i] = shared_strdup("");
+                    }
+                } else {
+                    bc_func->param_names[i] = shared_strdup("");
+                }
             }
         }
     }
@@ -2782,6 +3105,72 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                 // This is array[index] = value
                 ASTNode* array_access = n->data.assignment.target;
                 
+                // Check if the array is a property access (e.g., obj.prop[key] = value)
+                if (array_access->data.array_access.array->type == AST_NODE_MEMBER_ACCESS) {
+                    // This is obj.prop[key] = value
+                    fprintf(stderr, "[COMPILER] Detected obj.prop[key] = value assignment\n");
+                    // We need to:
+                    // 1. Get obj and duplicate it (we'll need it for BC_PROPERTY_SET)
+                    // 2. Get obj.prop (HashMap) - this consumes one obj
+                    // 3. Push index and value
+                    // 4. BC_ARRAY_SET modifies HashMap, leaves it on stack
+                    // 5. BC_PROPERTY_SET writes modified HashMap back to obj.prop
+                    
+                    ASTNode* member_access = array_access->data.array_access.array;
+                    
+                    // Strategy:
+                    // 1. Compile obj, duplicate it
+                    // 2. Compile obj.prop (this will compile obj again, giving us [obj, obj, HashMap])
+                    // 3. Compile index and value: [obj, obj, HashMap, index, value]
+                    // 4. BC_ARRAY_SET consumes [HashMap, index, value], pushes modified HashMap: [obj, obj, modifiedHashMap]
+                    // 5. Pop the middle obj (duplicate from obj.prop): [obj, modifiedHashMap]
+                    // 6. BC_PROPERTY_SET writes it back
+                    
+                    // Compile obj first
+                    compile_node(p, member_access->data.member_access.object); // [obj]
+                    // Duplicate obj (we'll need it for BC_PROPERTY_SET)
+                    bc_emit(p, BC_DUP, 0, 0); // [obj, obj]
+                    
+                    // Compile obj.prop (this will compile obj again, then access prop)
+                    compile_node(p, array_access->data.array_access.array); // [obj, obj, HashMap]
+                    
+                    // Compile index and value
+                    // Stack: [obj, obj, HashMap, index, value]
+                    compile_node(p, array_access->data.array_access.index);
+                    compile_node(p, n->data.assignment.value);
+                    
+                    // BC_ARRAY_SET consumes [HashMap, index, value] and leaves modified HashMap
+                    // Stack after BC_ARRAY_SET: [obj, obj, modifiedHashMap]
+                    int var_name_idx = -1;
+                    int is_simple_var = 0;
+                    fprintf(stderr, "[COMPILER] Emitting BC_ARRAY_SET for obj.prop[key] = value\n");
+                    bc_emit_super(p, BC_ARRAY_SET, var_name_idx, is_simple_var ? 1 : 0, 0);
+                    
+                    // Pop the middle obj (the duplicate from obj.prop compilation)
+                    // Stack: [obj, modifiedHashMap]
+                    bc_emit(p, BC_POP, 0, 0);
+                    
+                    // Now write the modified HashMap back to obj.prop using BC_PROPERTY_SET
+                    // Stack: [obj, modifiedHashMap]
+                    const char* prop_name = member_access->data.member_access.member_name;
+                    int prop_name_idx = bc_add_const(p, value_create_string(prop_name ? prop_name : ""));
+                    
+                    // Check if the object is a simple identifier (for updating the variable)
+                    int is_obj_simple_var = 0;
+                    int obj_var_name_idx = -1;
+                    if (member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
+                        is_obj_simple_var = 1;
+                        obj_var_name_idx = bc_add_const(p, value_create_string(
+                            member_access->data.member_access.object->data.identifier_value));
+                        fprintf(stderr, "[COMPILER] Object is simple variable: %s\n", 
+                                member_access->data.member_access.object->data.identifier_value);
+                    }
+                    
+                    // BC_PROPERTY_SET consumes [obj, modifiedHashMap] and writes it back
+                    fprintf(stderr, "[COMPILER] Emitting BC_PROPERTY_SET to write back to obj.prop (prop='%s')\n", prop_name);
+                    bc_emit_super(p, BC_PROPERTY_SET, prop_name_idx, obj_var_name_idx, is_obj_simple_var ? 1 : 0);
+                } else {
+                    // Simple array access: array[index] = value
                 // Compile array, index, and value
                 compile_node(p, array_access->data.array_access.array);
                 compile_node(p, array_access->data.array_access.index);
@@ -2798,8 +3187,37 @@ static void compile_node(BytecodeProgram* p, ASTNode* n) {
                 
                 // Emit BC_ARRAY_SET instruction
                 // instr->a = variable name constant index (-1 if complex expression)
-                // instr->b = 0 (reserved for future use)
-                bc_emit(p, BC_ARRAY_SET, var_name_idx, is_simple_var ? 1 : 0);
+                    // instr->b = 1 if simple variable, 0 if complex
+                    bc_emit_super(p, BC_ARRAY_SET, var_name_idx, is_simple_var ? 1 : 0, 0);
+                }
+            } else if (n->data.assignment.target && 
+                       n->data.assignment.target->type == AST_NODE_MEMBER_ACCESS) {
+                // This is obj.property = value
+                ASTNode* member_access = n->data.assignment.target;
+                
+                // Compile object, property name, and value
+                compile_node(p, member_access->data.member_access.object);
+                compile_node(p, n->data.assignment.value);
+                
+                // Get property name
+                const char* prop_name = member_access->data.member_access.member_name;
+                int prop_name_idx = bc_add_const(p, value_create_string(prop_name ? prop_name : ""));
+                
+                // Check if the object is a simple identifier (for updating the variable)
+                int is_simple_var = 0;
+                int var_name_idx = -1;
+                if (member_access->data.member_access.object->type == AST_NODE_IDENTIFIER) {
+                    is_simple_var = 1;
+                    var_name_idx = bc_add_const(p, value_create_string(
+                        member_access->data.member_access.object->data.identifier_value));
+                }
+                
+                // Emit BC_PROPERTY_SET instruction
+                // Stack: [object, value] -> []
+                // instr->a = property name constant index
+                // instr->b = variable name constant index (-1 if complex expression)
+                // instr->c = 1 if simple variable, 0 if complex
+                bc_emit_super(p, BC_PROPERTY_SET, prop_name_idx, var_name_idx, is_simple_var ? 1 : 0);
             } else {
                 // Regular variable assignment
                 const char* var = n->data.assignment.variable_name;

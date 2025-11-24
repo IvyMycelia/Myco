@@ -235,18 +235,14 @@ void gateway_disconnect(GatewayConnection* gateway) {
 void gateway_send_heartbeat(GatewayConnection* gateway) {
     if (!gateway || !gateway->ws_conn) return;
     
-    // Create heartbeat payload
+    // Create heartbeat payload (sequence number or null)
     Value heartbeat_data = value_create_null();
     if (gateway->sequence_number > 0) {
         heartbeat_data = value_create_number((double)gateway->sequence_number);
     }
     
-    // Send as JSON
-    Value json_val = builtin_json_stringify(NULL, (Value[]){heartbeat_data}, 1, 0, 0);
-    if (json_val.type == VALUE_STRING) {
-        websocket_send(gateway->ws_conn, json_val.data.string_value, false);
-    }
-    value_free(&json_val);
+    // Send as Gateway message with opcode 1 (HEARTBEAT)
+    gateway_send_opcode(gateway, GATEWAY_OPCODE_HEARTBEAT, &heartbeat_data);
     
     gateway->last_heartbeat_time = get_time_ms();
     gateway->waiting_for_ack = true;
@@ -256,44 +252,56 @@ void gateway_send_heartbeat(GatewayConnection* gateway) {
 
 // Send identify payload
 void gateway_send_identify(GatewayConnection* gateway, const char* token, Value* properties) {
-    if (!gateway || !gateway->ws_conn) return;
+    if (!gateway || !gateway->ws_conn) {
+        fprintf(stderr, "[GATEWAY] Cannot send IDENTIFY: gateway=%p, ws_conn=%p\n", gateway, gateway ? gateway->ws_conn : NULL);
+        return;
+    }
     
-    // Create identify payload
-    Value identify = value_create_object(4);
+    fprintf(stderr, "[GATEWAY] Creating IDENTIFY payload\n");
     
+    // Create identify payload - use minimal required fields only
+    // Required: token, properties, intents
+    Value identify = value_create_object(3);
+    
+    // 1. Token (required)
     if (token) {
         value_object_set(&identify, "token", value_create_string(token));
     }
     
+    // 2. Properties (required) - minimal set
     if (properties) {
         value_object_set(&identify, "properties", value_clone(properties));
     } else {
-        // Default properties
+        // Default properties (Discord requires $ prefix on property keys)
         Value props = value_create_object(3);
-        value_object_set(&props, "os", value_create_string("linux"));
-        value_object_set(&props, "browser", value_create_string("myco"));
-        value_object_set(&props, "device", value_create_string("myco"));
+        value_object_set(&props, "$os", value_create_string("linux"));
+        value_object_set(&props, "$browser", value_create_string("myco"));
+        value_object_set(&props, "$device", value_create_string("myco"));
         value_object_set(&identify, "properties", props);
     }
     
-    if (gateway->config.gateway_version > 0) {
-        value_object_set(&identify, "v", value_create_number((double)gateway->config.gateway_version));
-    }
-    
-    if (gateway->config.compression) {
-        value_object_set(&identify, "compress", value_create_string(gateway->config.compression));
-    }
-    
-    // Add intents if available (Discord-specific)
+    // 3. Intents (required for bots)
+    // Discord requires intents to be an integer, not a float
     if (gateway->intents.type == VALUE_NUMBER) {
-        value_object_set(&identify, "intents", value_clone(&gateway->intents));
+        // Ensure intents is an integer (Discord is strict about this)
+        uint64_t intents_int = (uint64_t)gateway->intents.data.number_value;
+        fprintf(stderr, "[GATEWAY] Adding intents: %llu (as integer)\n", (unsigned long long)intents_int);
+        value_object_set(&identify, "intents", value_create_number((double)intents_int));
+    } else {
+        fprintf(stderr, "[GATEWAY] WARNING: No intents set (type=%d)\n", gateway->intents.type);
+        // Set default intents if not provided (GUILDS only)
+        value_object_set(&identify, "intents", value_create_number(1.0));
     }
+    
+    // Note: Not including optional fields like 'v', 'compress', 'large_threshold' to minimize payload
     
     // Send identify
+    fprintf(stderr, "[GATEWAY] Sending IDENTIFY opcode\n");
     gateway_send_opcode(gateway, GATEWAY_OPCODE_IDENTIFY, &identify);
     
     value_free(&identify);
     gateway->state = GATEWAY_STATE_AUTHENTICATING;
+    fprintf(stderr, "[GATEWAY] IDENTIFY sent, state=AUTHENTICATING\n");
 }
 
 // Send resume payload
@@ -327,18 +335,73 @@ void gateway_send_opcode(GatewayConnection* gateway, GatewayOpcode opcode, Value
     
     // Convert to JSON and send
     Value json_val = builtin_json_stringify(NULL, (Value[]){message}, 1, 0, 0);
-    if (json_val.type == VALUE_STRING) {
-        websocket_send(gateway->ws_conn, json_val.data.string_value, false);
+    if (json_val.type == VALUE_STRING && json_val.data.string_value) {
+        const char* json_str = json_val.data.string_value;
+        size_t json_len = strlen(json_str);
+        fprintf(stderr, "[GATEWAY] Sending WebSocket message, length=%zu, opcode=%d\n", json_len, opcode);
+        if (opcode == GATEWAY_OPCODE_IDENTIFY) {
+            fprintf(stderr, "[GATEWAY] IDENTIFY payload: %s\n", json_str);
+            // Debug: Print first 50 bytes as hex to check encoding
+            fprintf(stderr, "[GATEWAY] Payload hex (first 50 bytes): ");
+            for (size_t i = 0; i < 50 && i < json_len; i++) {
+                fprintf(stderr, "%02x ", (unsigned char)json_str[i]);
+            }
+            fprintf(stderr, "\n");
+            // Validate JSON by trying to parse it back
+            extern Value builtin_json_parse(Interpreter* interpreter, Value* args, size_t arg_count, int line, int column);
+            Value parse_test = builtin_json_parse(NULL, (Value[]){json_val}, 1, 0, 0);
+            if (parse_test.type == VALUE_NULL) {
+                fprintf(stderr, "[GATEWAY] WARNING: Generated JSON failed to parse back - may be invalid!\n");
+            } else {
+                fprintf(stderr, "[GATEWAY] JSON validation: OK (parsed back successfully)\n");
+                value_free(&parse_test);
+            }
+        }
+        websocket_send(gateway->ws_conn, json_str, false);
+        fprintf(stderr, "[GATEWAY] WebSocket send completed\n");
+    } else {
+        fprintf(stderr, "[GATEWAY] ERROR: Failed to stringify message (type=%d)\n", json_val.type);
     }
     value_free(&json_val);
     
     value_free(&message);
 }
 
+// Handle WebSocket close for gateway connections
+void gateway_handle_close(WebSocketConnection* ws_conn, uint16_t status_code, const char* reason) {
+    if (!ws_conn) return;
+    
+    // Find the gateway connection for this WebSocket
+    GatewayConnection* gateway = g_gateway_connections;
+    while (gateway) {
+        if (gateway->ws_conn == ws_conn) {
+            gateway->state = GATEWAY_STATE_ERROR;
+            fprintf(stderr, "[GATEWAY] Connection closed by Discord: status=%d, reason=%s\n", status_code, reason ? reason : "unknown");
+            
+            // Call error callback if set
+            if (gateway->on_error_callback.type == VALUE_FUNCTION && gateway->interpreter) {
+                Value error_obj = value_create_object(3);
+                value_object_set(&error_obj, "code", value_create_number((double)status_code));
+                if (reason) {
+                    value_object_set(&error_obj, "message", value_create_string(reason));
+                } else {
+                    value_object_set(&error_obj, "message", value_create_string("Connection closed by Discord"));
+                }
+                value_object_set(&error_obj, "type", value_create_string("close"));
+                value_function_call(&gateway->on_error_callback, &error_obj, 1, gateway->interpreter, 0, 0);
+                value_free(&error_obj);
+            }
+            break;
+        }
+        gateway = gateway->next;
+    }
+}
+
 // Handle incoming gateway message
 static void gateway_handle_message(GatewayConnection* gateway, const char* message) {
     if (!gateway || !message) return;
     
+    fprintf(stderr, "[GATEWAY] Handling message, length=%zu\n", strlen(message));
     
     // Parse JSON message
     Value parsed = json_parse_silent(message);
@@ -369,6 +432,7 @@ static void gateway_handle_message(GatewayConnection* gateway, const char* messa
     // Handle opcodes
     switch (opcode) {
         case GATEWAY_OPCODE_HELLO: {
+            fprintf(stderr, "[GATEWAY] HELLO received\n");
             // Extract heartbeat interval
             if (data.type == VALUE_OBJECT) {
                 Value heartbeat_interval = value_object_get(&data, "heartbeat_interval");
@@ -380,9 +444,19 @@ static void gateway_handle_message(GatewayConnection* gateway, const char* messa
             
             // Send identify if we have a token (prefer token_copy over config.token)
             const char* token_to_use = gateway->token_copy ? gateway->token_copy : gateway->config.token;
-            if (token_to_use) {
+            fprintf(stderr, "[GATEWAY] Token available: %s\n", token_to_use ? "yes" : "no");
+            
+            // Verify WebSocket connection is fully open before sending IDENTIFY
+            if (gateway->ws_conn && gateway->ws_conn->state != WS_STATE_OPEN) {
+                fprintf(stderr, "[GATEWAY] WARNING: WebSocket not fully open (state=%d), waiting...\n", gateway->ws_conn->state);
+            }
+            
+            if (token_to_use && gateway->ws_conn && gateway->ws_conn->state == WS_STATE_OPEN) {
+                fprintf(stderr, "[GATEWAY] WebSocket is open, sending IDENTIFY\n");
                 gateway_send_identify(gateway, token_to_use, NULL);
             } else {
+                fprintf(stderr, "[GATEWAY] ERROR: Cannot send IDENTIFY - token=%p, ws_conn=%p, state=%d\n",
+                        token_to_use, gateway->ws_conn, gateway->ws_conn ? gateway->ws_conn->state : -1);
             }
             
             gateway->state = GATEWAY_STATE_CONNECTED;
@@ -406,6 +480,7 @@ static void gateway_handle_message(GatewayConnection* gateway, const char* messa
                 const char* event = event_name.data.string_value;
                 
                 if (strcmp(event, "READY") == 0) {
+                    fprintf(stderr, "[GATEWAY] READY event received!\n");
                     // Extract session ID
                     if (data.type == VALUE_OBJECT) {
                         Value session = value_object_get(&data, "session_id");
@@ -419,6 +494,7 @@ static void gateway_handle_message(GatewayConnection* gateway, const char* messa
                             }
                         }
                         value_free(&session);
+                        
                     }
                     
                     gateway->state = GATEWAY_STATE_READY;
@@ -426,23 +502,108 @@ static void gateway_handle_message(GatewayConnection* gateway, const char* messa
                     
                     // Call ready callback
                     if (gateway->on_ready_callback.type == VALUE_FUNCTION && gateway->interpreter) {
-                        Value event_obj = value_create_object(1);
+                        Value event_obj = value_create_object(3);
                         value_object_set(&event_obj, "data", value_clone(&data));
+                        
+                        // Extract username and id from user object for easier access
+                        if (data.type == VALUE_OBJECT) {
+                            Value user_obj = value_object_get(&data, "user");
+                            if (user_obj.type == VALUE_OBJECT) {
+                                Value username_val = value_object_get(&user_obj, "username");
+                                Value userid_val = value_object_get(&user_obj, "id");
+                                if (username_val.type == VALUE_STRING) {
+                                    value_object_set(&event_obj, "username", value_clone(&username_val));
+                                }
+                                if (userid_val.type == VALUE_STRING) {
+                                    value_object_set(&event_obj, "user_id", value_clone(&userid_val));
+                                }
+                                value_free(&username_val);
+                                value_free(&userid_val);
+                            }
+                            value_free(&user_obj);
+                        }
+                        
                         Value result = value_function_call(&gateway->on_ready_callback, &event_obj, 1, gateway->interpreter, 0, 0);
                         value_free(&result);
                         value_free(&event_obj);
-                    } else {
+                    }
+                } else {
+                    fprintf(stderr, "[GATEWAY] Event: %s (data type=%d)\n", event, data.type);
+                    // Check for error events in DISPATCH
+                    if (strcmp(event, "ERROR") == 0) {
+                        fprintf(stderr, "[GATEWAY] ERROR event received in DISPATCH!\n");
+                        gateway->state = GATEWAY_STATE_ERROR;
+                        if (data.type == VALUE_OBJECT) {
+                            Value code = value_object_get(&data, "code");
+                            Value message = value_object_get(&data, "message");
+                            if (code.type == VALUE_NUMBER) {
+                                fprintf(stderr, "[GATEWAY] Error code: %g\n", code.data.number_value);
+                            }
+                            if (message.type == VALUE_STRING) {
+                                fprintf(stderr, "[GATEWAY] Error message: %s\n", message.data.string_value);
+                            }
+                            // Call error callback if set
+                            if (gateway->on_error_callback.type == VALUE_FUNCTION && gateway->interpreter) {
+                                Value error_obj = value_create_object(2);
+                                if (code.type == VALUE_NUMBER) {
+                                    value_object_set(&error_obj, "code", value_clone(&code));
+                                }
+                                if (message.type == VALUE_STRING) {
+                                    value_object_set(&error_obj, "message", value_clone(&message));
+                                }
+                                value_function_call(&gateway->on_error_callback, &error_obj, 1, gateway->interpreter, 0, 0);
+                                value_free(&error_obj);
+                            }
+                            value_free(&code);
+                            value_free(&message);
+                        }
                     }
                 }
                 
                 // Call event callback
                 if (gateway->on_event_callback.type == VALUE_FUNCTION && gateway->interpreter) {
-                    Value event_data = value_create_object(3);
+                    Value event_data = value_create_object(5);
                     value_object_set(&event_data, "name", value_clone(&event_name));
                     value_object_set(&event_data, "data", value_clone(&data));
                     value_object_set(&event_data, "sequence", value_clone(&sequence));
                     
+                    // For READY event, also extract username and user_id for easier access
+                    if (strcmp(event, "READY") == 0 && data.type == VALUE_OBJECT) {
+                        Value user_obj = value_object_get(&data, "user");
+                        if (user_obj.type == VALUE_OBJECT) {
+                            Value username_val = value_object_get(&user_obj, "username");
+                            Value userid_val = value_object_get(&user_obj, "id");
+                            if (username_val.type == VALUE_STRING) {
+                                value_object_set(&event_data, "username", value_clone(&username_val));
+                            }
+                            if (userid_val.type == VALUE_STRING) {
+                                value_object_set(&event_data, "user_id", value_clone(&userid_val));
+                            }
+                            value_free(&username_val);
+                            value_free(&userid_val);
+                        }
+                        value_free(&user_obj);
+                    }
+                    
+                    // Check for errors before calling
+                    extern int interpreter_has_error(Interpreter* interpreter);
+                    extern void interpreter_clear_error(Interpreter* interpreter);
+                    int had_error_before = interpreter_has_error(gateway->interpreter);
+                    if (had_error_before) {
+                        fprintf(stderr, "[GATEWAY] WARNING: Interpreter has error before calling event callback, clearing it\n");
+                        interpreter_clear_error(gateway->interpreter);
+                    }
+                    
+                    fprintf(stderr, "[GATEWAY] Calling event callback (function type=%d, arg type=%d)\n", 
+                            gateway->on_event_callback.type, event_data.type);
                     Value result = value_function_call(&gateway->on_event_callback, &event_data, 1, gateway->interpreter, 0, 0);
+                    
+                    // Check for errors after calling
+                    int has_error_after = interpreter_has_error(gateway->interpreter);
+                    if (has_error_after) {
+                        fprintf(stderr, "[GATEWAY] ERROR: Interpreter error after calling event callback\n");
+                    }
+                    
                     value_free(&result);
                     value_free(&event_data);
                 }
@@ -461,13 +622,31 @@ static void gateway_handle_message(GatewayConnection* gateway, const char* messa
         }
         
         case GATEWAY_OPCODE_INVALID_SESSION: {
-            // Session invalid, need to re-identify
+            fprintf(stderr, "[GATEWAY] INVALID_SESSION received - Token may be invalid!\n");
+            // Check if data contains error information
+            if (data.type == VALUE_OBJECT) {
+                Value code = value_object_get(&data, "code");
+                Value message = value_object_get(&data, "message");
+                if (code.type == VALUE_NUMBER) {
+                    fprintf(stderr, "[GATEWAY] Error code: %g\n", code.data.number_value);
+                }
+                if (message.type == VALUE_STRING) {
+                    fprintf(stderr, "[GATEWAY] Error message: %s\n", message.data.string_value);
+                }
+                value_free(&code);
+                value_free(&message);
+            }
+            gateway->state = GATEWAY_STATE_ERROR;
             gateway->can_resume = false;
             gateway->session_id = NULL;
             gateway->sequence_number = 0;
             
-            if (gateway->config.token) {
-                gateway_send_identify(gateway, gateway->config.token, NULL);
+            // Call error callback if set
+            if (gateway->on_error_callback.type == VALUE_FUNCTION && gateway->interpreter) {
+                Value error_obj = value_create_object(1);
+                value_object_set(&error_obj, "message", value_create_string("Invalid session - token may be invalid or expired"));
+                value_function_call(&gateway->on_error_callback, &error_obj, 1, gateway->interpreter, 0, 0);
+                value_free(&error_obj);
             }
             break;
         }
@@ -502,8 +681,11 @@ void gateway_process_messages(GatewayConnection* gateway) {
     }
     
     // Send heartbeat if needed
+    // NOTE: Do NOT send heartbeat immediately after IDENTIFY - wait for READY event
+    // Discord requires IDENTIFY to be sent first, then we wait for READY before starting heartbeats
     uint64_t now = get_time_ms();
-    if (gateway->state == GATEWAY_STATE_READY || gateway->state == GATEWAY_STATE_CONNECTED) {
+    if (gateway->state == GATEWAY_STATE_READY) {
+        // Only send heartbeat after we've received READY event
         if (now - gateway->last_heartbeat_time >= (uint64_t)gateway->config.heartbeat_interval_ms) {
             gateway_send_heartbeat(gateway);
         }
@@ -527,9 +709,16 @@ void gateway_set_on_ready(GatewayConnection* gateway, Value callback) {
 }
 
 void gateway_set_on_event(GatewayConnection* gateway, Value callback) {
-    if (!gateway) return;
+    if (!gateway) {
+        fprintf(stderr, "[GATEWAY] gateway_set_on_event: gateway is NULL\n");
+        return;
+    }
+    fprintf(stderr, "[GATEWAY] gateway_set_on_event: callback.type=%d\n", callback.type);
     value_free(&gateway->on_event_callback);
     gateway->on_event_callback = value_clone(&callback);
+    // Interpreter should already be set when gateway was created
+    fprintf(stderr, "[GATEWAY] Event callback set (type=%d, interpreter=%p)\n", 
+            gateway->on_event_callback.type, (void*)gateway->interpreter);
 }
 
 void gateway_set_on_error(GatewayConnection* gateway, Value callback) {
@@ -558,20 +747,13 @@ void gateway_set_config(GatewayConnection* gateway, GatewayConfig* config) {
 
 // Process all gateway connections (called from async event loop)
 void gateway_process_all_connections(Interpreter* interpreter) {
+    // Note: websocket_process_connections() is already called in async_event_loop_run()
+    // before this function, so we don't need to call it again here
+    
+    // Process gateway-specific logic (heartbeats, etc.)
     GatewayConnection* gateway = g_gateway_connections;
     while (gateway) {
         gateway_process_messages(gateway);
-        
-        // Check WebSocket connection for messages
-        if (gateway->ws_conn && gateway->ws_conn->state == WS_STATE_OPEN) {
-            // Check if WebSocket has a message callback - if not, set one up
-            if (gateway->ws_conn->on_message_callback.type == VALUE_NULL) {
-                // We need to intercept WebSocket messages
-                // For now, we'll check the WebSocket connection's message buffer
-                // This is a simplified approach - in a full implementation,
-                // we'd want to hook into the WebSocket message callback system
-            }
-        }
         
         gateway = gateway->next;
     }
@@ -717,9 +899,7 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
             if (gateway->token_copy) {
                 strcpy(gateway->token_copy, token.data.string_value);
                 gateway->config.token = gateway->token_copy;
-            } else {
             }
-        } else {
         }
         value_free(&token);
     } else {
@@ -729,14 +909,37 @@ Value builtin_gateway_create(Interpreter* interpreter, Value* args, size_t arg_c
     if (arg_count >= 2 && (args[1].type == VALUE_OBJECT || args[1].type == VALUE_HASH_MAP || args[1].type == VALUE_SET)) {
         Value config_obj = args[1];
         Value intents;
-        if (config_obj.type == VALUE_HASH_MAP || config_obj.type == VALUE_SET) {
+        fprintf(stderr, "[GATEWAY] Extracting intents from config (type=%d)\n", config_obj.type);
+        if (config_obj.type == VALUE_HASH_MAP) {
+            fprintf(stderr, "[GATEWAY] Config is hash map, count=%zu\n", config_obj.data.hash_map_value.count);
             Value intents_key = value_create_string("intents");
             intents = value_hash_map_get(&config_obj, intents_key);
             value_free(&intents_key);
+            fprintf(stderr, "[GATEWAY] Intents from hash map: type=%d\n", intents.type);
+            if (intents.type == VALUE_NULL) {
+                // value_hash_map_get is not working correctly, manually search for intents
+                for (size_t i = 0; i < config_obj.data.hash_map_value.count; i++) {
+                    Value* key = (Value*)config_obj.data.hash_map_value.keys[i];
+                    if (key && key->type == VALUE_STRING && key->data.string_value) {
+                        if (strcmp(key->data.string_value, "intents") == 0) {
+                            Value* value = (Value*)config_obj.data.hash_map_value.values[i];
+                            if (value && value->type == VALUE_NUMBER) {
+                                gateway->intents = value_clone(value);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (config_obj.type == VALUE_SET) {
+            fprintf(stderr, "[GATEWAY] Config is SET, cannot extract intents\n");
+            intents = value_create_null();
         } else {
             intents = value_object_get(&config_obj, "intents");
+            fprintf(stderr, "[GATEWAY] Intents from object: type=%d\n", intents.type);
         }
         if (intents.type == VALUE_NUMBER) {
+            fprintf(stderr, "[GATEWAY] Storing intents: %g\n", intents.data.number_value);
             gateway->intents = value_clone(&intents);
         } else if (intents.type == VALUE_FUNCTION && interpreter) {
             // Intents might be a function that needs to be called (e.g., Intents.default())
@@ -883,14 +1086,22 @@ Value builtin_gateway_on(Interpreter* interpreter, Value* args, size_t arg_count
     const char* event_name = args[event_name_idx].data.string_value;
     Value callback = args[callback_idx];
     
+    fprintf(stderr, "[GATEWAY] builtin_gateway_on called: event_name='%s', callback.type=%d, gateway=%p\n",
+            event_name, callback.type, (void*)gateway);
+    
     if (strcmp(event_name, "ready") == 0) {
+        fprintf(stderr, "[GATEWAY] Setting ready callback\n");
         gateway_set_on_ready(gateway, callback);
     } else if (strcmp(event_name, "event") == 0) {
+        fprintf(stderr, "[GATEWAY] Registering event callback (type=%d, is_function=%d)\n", 
+                callback.type, (callback.type == VALUE_FUNCTION ? 1 : 0));
         gateway_set_on_event(gateway, callback);
     } else if (strcmp(event_name, "error") == 0) {
         gateway_set_on_error(gateway, callback);
     } else if (strcmp(event_name, "close") == 0) {
         gateway_set_on_close(gateway, callback);
+    } else {
+        fprintf(stderr, "[GATEWAY] Unknown event name: %s\n", event_name);
     }
     
     return value_create_null();

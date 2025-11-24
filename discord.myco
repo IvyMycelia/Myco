@@ -218,6 +218,7 @@ export func Client(intents: Number = null) -> Object:
             
             # Create gateway configuration
             # Use object literal syntax to ensure it's an object, not a set
+            # Create config with all properties at once to ensure it's a hash map, not a set
             let config = {
                 token: token,
                 version: 10,
@@ -394,15 +395,16 @@ func createBot(token: String) -> Object:
         return null;
     end
     
-    print("[createBot] Creating gateway configuration...");
-    
-    # Create gateway configuration
-    let config = {};
-    config.token = token;
-    config.version = 10;
-    config.encoding = "json";
-    
-    print("[createBot] Calling gateway.create()...");
+    # Create gateway configuration with all properties at once to ensure it's a hash map, not a set
+    # Include intents for receiving messages and guild events
+    # GUILDS (1 << 0) = 1, GUILD_MESSAGES (1 << 9) = 512, MESSAGE_CONTENT (1 << 15) = 32768
+    # Combined: 1 | 512 | 32768 = 33281
+    let config = {
+        token: token,
+        version: 10,
+        encoding: "json",
+        intents: 33281
+    };
     
     # Create gateway connection
     let gw = gateway.create(DISCORD_GATEWAY_URL, config);
@@ -411,33 +413,49 @@ func createBot(token: String) -> Object:
         return null;
     end
     
-    print("[createBot] Gateway created successfully");
+    # Set up error handler
+    gw.on("error", func(error):
+        if error == null:
+            return;
+        end
+        let code = 0;
+        if error.code != null:
+            code = error.code;
+        end
+        let message = "Unknown error";
+        if error.message != null:
+            message = error.message;
+        end
+        print("Discord Gateway Error: " + message + " (code: " + code.toString() + ")");
+        if code == 4002:
+            print("This usually means the bot token is invalid or the payload format is incorrect.");
+        end
+    end);
     
     # Create bot object with all properties at once to ensure it's a hash map, not a set
-    print("[createBot] Creating bot object...");
+    # Note: The gateway object uses __gateway_conn__ internally, but we store it as __gateway__ for convenience
     let bot = {
         __gateway__: gw,
         token: token,
         user: null,
         guilds: {},
-        eventHandlers: {}
+        eventHandlers: {},
+        eventCallbackRegistered: false
     };
-    print("[createBot] Bot object created, type: " + bot.type);
+    
+    # Debug: Check if gateway object has the correct property
+    if gw != null:
+        print("Gateway object created, checking properties...");
+        # The gateway object should have __gateway_conn__ set by gateway.create()
+    end
     
     # Wrapper methods
-    print("[createBot] Defining bot.connect method...");
-    print("[createBot] Bot object before connect assignment, bot == null: " + (bot == null).toString());
-    
     # Create a wrapper function that doesn't execute immediately
     let connect_func = async function():
-        print("[bot.connect] Starting connection...");
         await gw.connect();
-        print("[bot.connect] Connect call completed");
     end;
     
     bot.connect = connect_func;
-    print("[createBot] bot.connect method defined");
-    print("[createBot] Bot object after connect assignment, bot == null: " + (bot == null).toString());
     
     let disconnect_func = async function():
         await gw.disconnect();
@@ -449,18 +467,46 @@ func createBot(token: String) -> Object:
     end;
     
     # Event handler registration
+    # Use BC_PROPERTY_SET to assign the function
+    # Access gateway through bot.__gateway__ to avoid closure issues
     bot.on = func(eventName: String, callback: Function):
         if eventName == null or callback == null:
             return;
         end
         
         # Store event handler
+        print("Storing handler for event: " + eventName);
+        print("Callback type before storing: " + callback.type.toString());
+        
+        # Debug: Check if callback is a bytecode function and log its ID
+        # For bytecode functions, the body field contains the function ID (cast as pointer)
+        # We can't easily access this from Myco, but we can at least verify the type
+        
         bot.eventHandlers[eventName] = callback;
+        print("Handler stored, retrieving to verify...");
+        let stored = bot.eventHandlers[eventName];
+        print("Stored handler type: " + stored.type.toString());
+        if stored.type != callback.type:
+            print("ERROR: Handler type mismatch! Expected " + callback.type.toString() + ", got " + stored.type.toString());
+        end
+        
+        # Verify the stored function is actually callable
+        if stored.type.toString() == "Function":
+            print("Stored handler is a Function - verification passed");
+        else:
+            print("WARNING: Stored handler is not a Function, it's: " + stored.type.toString());
+        end
+        
+        # Get gateway from bot object to avoid closure issues
+        let gw = bot.__gateway__;
+        if gw == null:
+            return;
+        end
         
         # Register with gateway
         if eventName == "ready":
             gw.on("ready", func(event):
-                # Store bot user info
+                # Store bot user info (if event.data.user is accessible)
                 if event.data != null and event.data.user != null:
                     bot.user = event.data.user;
                 end
@@ -468,15 +514,107 @@ func createBot(token: String) -> Object:
                 if bot.eventHandlers["ready"] != null:
                     bot.eventHandlers["ready"](event);
                 end
+                # Print login message (only if user callback didn't print it)
+                # Use username and user_id extracted by gateway (bypasses nested property access issue)
+                if event.username != null and event.user_id != null:
+                    print("Logged in as " + event.username + " (" + event.user_id + ")");
+                end
             end);
         else:
             # For all other events, use the generic event handler
-            gw.on("event", func(event):
-                let eventType = event.name;
-                if eventType == eventName and bot.eventHandlers[eventName] != null:
-                    bot.eventHandlers[eventName](event);
-                end
-            end);
+            # Only register the event callback once (it will check all handlers)
+            if not bot.eventCallbackRegistered:
+                bot.eventCallbackRegistered = true;
+                gw.on("event", func(event):
+                    let eventType = event.name;
+                    print("Event received: " + eventType);
+                    
+                    # Check each registered event handler
+                    # Map camelCase event names to Discord's uppercase format and check if they match
+                    print("Checking for messageCreate handler...");
+                    print("eventHandlers type: " + bot.eventHandlers.type.toString());
+                    if bot.eventHandlers["messageCreate"] != null:
+                        print("messageCreate handler exists, checking if event matches...");
+                        if eventType == "messageCreate" or eventType == "MESSAGE_CREATE":
+                            print("Calling messageCreate handler!");
+                            let handler = bot.eventHandlers["messageCreate"];
+                            print("Handler retrieved, type: " + handler.type.toString());
+                            if handler.type.toString() == "Function":
+                                print("Handler is a function, about to invoke with event...");
+                                print("Event type: " + event.type.toString());
+                                print("Event name: " + (event.name != null ? event.name : "null"));
+                                print("Event data type: " + (event.data != null ? event.data.type.toString() : "null"));
+                                print("About to call handler(event)...");
+                                # The handler should immediately print "messageCreate handler called!"
+                                # If we don't see that, the wrong function is being called
+                                let result = handler(event);
+                                print("Handler returned, result type: " + result.type.toString());
+                            else:
+                                print("ERROR: Handler is not a function! Type: " + handler.type.toString());
+                            end
+                        else:
+                            print("Event type mismatch: expected 'messageCreate' or 'MESSAGE_CREATE', got '" + eventType + "'");
+                        end
+                    else:
+                        print("messageCreate handler is null!");
+                    end
+                    if bot.eventHandlers["messageUpdate"] != null:
+                        if eventType == "messageUpdate" or eventType == "MESSAGE_UPDATE":
+                            bot.eventHandlers["messageUpdate"](event);
+                        end
+                    end
+                    if bot.eventHandlers["messageDelete"] != null:
+                        if eventType == "messageDelete" or eventType == "MESSAGE_DELETE":
+                            bot.eventHandlers["messageDelete"](event);
+                        end
+                    end
+                    if bot.eventHandlers["guildCreate"] != null:
+                        if eventType == "guildCreate" or eventType == "GUILD_CREATE":
+                            bot.eventHandlers["guildCreate"](event);
+                        end
+                    end
+                    if bot.eventHandlers["guildUpdate"] != null:
+                        if eventType == "guildUpdate" or eventType == "GUILD_UPDATE":
+                            bot.eventHandlers["guildUpdate"](event);
+                        end
+                    end
+                    if bot.eventHandlers["guildDelete"] != null:
+                        if eventType == "guildDelete" or eventType == "GUILD_DELETE":
+                            bot.eventHandlers["guildDelete"](event);
+                        end
+                    end
+                    if bot.eventHandlers["channelCreate"] != null:
+                        if eventType == "channelCreate" or eventType == "CHANNEL_CREATE":
+                            bot.eventHandlers["channelCreate"](event);
+                        end
+                    end
+                    if bot.eventHandlers["channelUpdate"] != null:
+                        if eventType == "channelUpdate" or eventType == "CHANNEL_UPDATE":
+                            bot.eventHandlers["channelUpdate"](event);
+                        end
+                    end
+                    if bot.eventHandlers["channelDelete"] != null:
+                        if eventType == "channelDelete" or eventType == "CHANNEL_DELETE":
+                            bot.eventHandlers["channelDelete"](event);
+                        end
+                    end
+                    if bot.eventHandlers["memberJoin"] != null:
+                        if eventType == "memberJoin" or eventType == "GUILD_MEMBER_ADD":
+                            bot.eventHandlers["memberJoin"](event);
+                        end
+                    end
+                    if bot.eventHandlers["memberUpdate"] != null:
+                        if eventType == "memberUpdate" or eventType == "GUILD_MEMBER_UPDATE":
+                            bot.eventHandlers["memberUpdate"](event);
+                        end
+                    end
+                    if bot.eventHandlers["memberLeave"] != null:
+                        if eventType == "memberLeave" or eventType == "GUILD_MEMBER_REMOVE":
+                            bot.eventHandlers["memberLeave"](event);
+                        end
+                    end
+                end);
+            end
         end
     end;
     
@@ -560,17 +698,7 @@ func createBot(token: String) -> Object:
         return gw;
     end;
     
-    print("[createBot] About to return bot object");
-    print("[createBot] bot == null: " + (bot == null).toString());
-    if bot != null:
-        print("[createBot] bot.type: " + bot.type);
-        print("[createBot] bot has __gateway__: " + (bot.__gateway__ != null).toString());
-        print("[createBot] bot has token: " + (bot.token != null).toString());
-    end
-    print("[createBot] Returning bot object now...");
-    let result = bot;
-    print("[createBot] Result before return, result == null: " + (result == null).toString());
-    return result;
+    return bot;
 end;
 
 # Helper function to create a Discord embed

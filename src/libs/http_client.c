@@ -5,6 +5,8 @@
 #include <time.h>
 #include <stdint.h>
 #include "../../include/utils/shared_utilities.h"
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -200,90 +202,48 @@ static uint8_t* create_client_hello(size_t* length) {
     return client_hello;
 }
 
-// Perform TLS handshake
-static int perform_tls_handshake(int sock, const char* hostname) {
-    // Complete TLS 1.2 handshake implementation
+// SSL context for HTTPS
+static SSL_CTX* g_http_ssl_ctx = NULL;
+static bool g_http_ssl_initialized = false;
+
+static bool http_init_ssl(void) {
+    if (g_http_ssl_initialized) return true;
     
-    // Send Client Hello
-    size_t client_hello_length;
-    uint8_t* client_hello = create_client_hello(&client_hello_length);
-    if (!client_hello) {
-        return -1;
+    SSL_library_init();
+    SSL_load_error_strings();
+    OpenSSL_add_all_algorithms();
+    
+    g_http_ssl_ctx = SSL_CTX_new(TLS_client_method());
+    if (!g_http_ssl_ctx) {
+        return false;
     }
     
-    TLSRecord* client_hello_record = create_tls_record(TLS_CONTENT_TYPE_HANDSHAKE, TLS_VERSION_1_2, client_hello, client_hello_length);
-    if (!client_hello_record) {
-        shared_free_safe(client_hello, "http_client", "perform_tls_handshake", 0);
-        return -1;
+    SSL_CTX_set_options(g_http_ssl_ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3);
+    g_http_ssl_initialized = true;
+    return true;
+}
+
+// Perform TLS handshake using OpenSSL
+static SSL* perform_tls_handshake(int sock, const char* hostname) {
+    if (!http_init_ssl()) {
+        return NULL;
     }
     
-    if (send_tls_record(sock, client_hello_record) < 0) {
-            shared_free_safe(client_hello, "http_client", "perform_tls_handshake", 0);
-        shared_free_safe(client_hello_record->data, "http_client", "perform_tls_handshake", 0);
-        shared_free_safe(client_hello_record, "http_client", "perform_tls_handshake", 0);
-        return -1;
+    SSL* ssl = SSL_new(g_http_ssl_ctx);
+    if (!ssl) {
+        return NULL;
     }
     
-    // Receive and parse server response
-    uint8_t response_buffer[8192];
-    ssize_t received = recv(sock, response_buffer, sizeof(response_buffer), 0);
-    if (received <= 0) {
-        shared_free_safe(client_hello, "http_client", "perform_tls_handshake", 0);
-        shared_free_safe(client_hello_record->data, "http_client", "perform_tls_handshake", 0);
-        shared_free_safe(client_hello_record, "http_client", "perform_tls_handshake", 0);
-        return -1;
+    SSL_set_fd(ssl, sock);
+    SSL_set_tlsext_host_name(ssl, hostname);
+    
+    int result = SSL_connect(ssl);
+    if (result <= 0) {
+        SSL_free(ssl);
+        return NULL;
     }
     
-    // Parse TLS record header
-    if (received < 5) {
-        shared_free_safe(client_hello, "http_client", "perform_tls_handshake", 0);
-        shared_free_safe(client_hello_record->data, "http_client", "perform_tls_handshake", 0);
-        shared_free_safe(client_hello_record, "http_client", "perform_tls_handshake", 0);
-        return -1;
-    }
-    
-    uint8_t content_type = response_buffer[0];
-    uint16_t version = (response_buffer[1] << 8) | response_buffer[2];
-    uint16_t length = (response_buffer[3] << 8) | response_buffer[4];
-    
-    // Check if this is a handshake response
-    if (content_type != TLS_CONTENT_TYPE_HANDSHAKE) {
-        shared_free_safe(client_hello, "http_client", "perform_tls_handshake", 0);
-        shared_free_safe(client_hello_record->data, "http_client", "perform_tls_handshake", 0);
-        shared_free_safe(client_hello_record, "http_client", "perform_tls_handshake", 0);
-        return -1;
-    }
-    
-    // Parse handshake message
-    if (received < 6) {
-        shared_free_safe(client_hello, "http_client", "perform_tls_handshake", 0);
-        shared_free_safe(client_hello_record->data, "http_client", "perform_tls_handshake", 0);
-        shared_free_safe(client_hello_record, "http_client", "perform_tls_handshake", 0);
-        return -1;
-    }
-    
-    uint8_t handshake_type = response_buffer[5];
-    
-    // Check for Server Hello
-    if (handshake_type == TLS_HANDSHAKE_TYPE_SERVER_HELLO) {
-        // In a complete implementation, we would parse the server hello
-        // and extract the server's random data and cipher suite
-    } else if (handshake_type == TLS_HANDSHAKE_TYPE_CERTIFICATE) {
-        // In a complete implementation, we would validate the certificate
-    }
-    
-    // For now, assume the handshake succeeded if we got a response
-    // In a complete implementation, we would:
-    // 1. Parse the Server Hello
-    // 2. Validate the server certificate
-    // 3. Generate and exchange keys
-    // 4. Establish the encrypted connection
-    
-    shared_free_safe(client_hello, "http_client", "perform_tls_handshake", 0);
-    shared_free_safe(client_hello_record->data, "http_client", "perform_tls_handshake", 0);
-    shared_free_safe(client_hello_record, "http_client", "perform_tls_handshake", 0);
-    
-    return 0;
+    return ssl;
 }
 
 // Parse URL into components
@@ -443,7 +403,7 @@ static HttpResponse* parse_http_response(const char* response_data, size_t data_
         } else {
             // No second space - status code might be at end of line
             // Try to parse from first space to end of status line
-            const char* status_line_end = strchr(response_data, '\r');
+    const char* status_line_end = strchr(response_data, '\r');
             if (status_line_end && status_line_end > first_space + 1) {
                 char status_code_str[4] = {0};
                 size_t code_len = status_line_end - first_space - 1;
@@ -504,22 +464,6 @@ HttpResponse* http_client_request(const char* url, const char* method,
     // Check if this is HTTPS
     bool is_https = (strncmp(url, "https://", 8) == 0);
     
-    // For HTTPS, return a mock response to prevent segfaults
-    // This prevents issues with incomplete TLS implementation in CI environments
-    if (is_https) {
-        HttpResponse* response = shared_malloc_safe(sizeof(HttpResponse), "http_client", "http_client_request", 0);
-        if (!response) {
-            return NULL;
-        }
-        
-        response->status_code = 200;
-        response->headers = shared_strdup("Content-Type: application/json\r\n");
-        response->body = shared_strdup("{\"message\": \"HTTPS request successful (mock response)\", \"url\": \"https://httpbin.org/get\"}");
-        response->success = true;
-        
-        return response;
-    }
-    
     // Create socket
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) return NULL;
@@ -553,9 +497,11 @@ HttpResponse* http_client_request(const char* url, const char* method,
     }
     
     // Handle HTTPS requests
+    SSL* ssl = NULL;
     if (is_https) {
     // Perform TLS handshake
-    if (perform_tls_handshake(sock, host) < 0) {
+        ssl = perform_tls_handshake(sock, host);
+        if (!ssl) {
             close(sock);
             
             HttpResponse* response = (HttpResponse*)shared_malloc_safe(sizeof(HttpResponse), "http_client", "http_client_request", 0);
@@ -568,23 +514,35 @@ HttpResponse* http_client_request(const char* url, const char* method,
             
             return response;
         }
-        
     }
     
     // Create HTTP request
     char* request = create_http_request(method, path, host, headers, body);
     if (!request) {
+        if (ssl) {
+            SSL_shutdown(ssl);
+            SSL_free(ssl);
+        }
         close(sock);
         return NULL;
     }
     
     // Send request
-    if (send(sock, request, strlen(request), 0) < 0) {
+    int sent;
+    if (is_https) {
+        sent = SSL_write(ssl, request, strlen(request));
+    } else {
+        sent = send(sock, request, strlen(request), 0);
+    }
+    if (sent < 0) {
         shared_free_safe(request, "http_client", "http_client_request", 0);
+        if (ssl) {
+            SSL_shutdown(ssl);
+            SSL_free(ssl);
+        }
         close(sock);
         return NULL;
     }
-    
     
     // Receive response
     char response_buffer[8192];
@@ -592,37 +550,44 @@ HttpResponse* http_client_request(const char* url, const char* method,
     ssize_t received;
     
     if (is_https) {
-        // For HTTPS, we need to handle TLS records
-        // Read TLS records and decrypt them
-        uint8_t tls_buffer[8192];
-        size_t tls_total = 0;
-        
-        while ((received = recv(sock, tls_buffer + tls_total, 
-                              sizeof(tls_buffer) - tls_total - 1, 0)) > 0) {
-            tls_total += received;
-            if (tls_total >= sizeof(tls_buffer) - 1) break;
-        }
-        
-        // For now, try to find HTTP response in the TLS data
-        // This is a simplified approach - in a real implementation, we would decrypt the TLS records
-        const char* http_start = NULL;
-        for (size_t i = 0; i < tls_total - 4; i++) {
-            if (tls_buffer[i] == 'H' && tls_buffer[i+1] == 'T' && 
-                tls_buffer[i+2] == 'T' && tls_buffer[i+3] == 'P') {
-                http_start = (const char*)(tls_buffer + i);
-                break;
+        // For HTTPS, use SSL_read
+        int header_complete = 0;
+        while (!header_complete && total_received < sizeof(response_buffer) - 1) {
+            received = SSL_read(ssl, response_buffer + total_received, 
+                              sizeof(response_buffer) - total_received - 1);
+            if (received <= 0) {
+                if (total_received > 0 && strstr(response_buffer, "HTTP/") != NULL) {
+                    break;
+                }
+                shared_free_safe(request, "http_client", "http_client_request", 0);
+                SSL_shutdown(ssl);
+                SSL_free(ssl);
+                close(sock);
+                return NULL;
             }
-        }
-        
-        if (http_start) {
-            strncpy(response_buffer, http_start, 8191);
-            response_buffer[8191] = '\0';
-            total_received = strlen(response_buffer);
-        } else {
-            // Create a mock response for now
-            strncpy(response_buffer, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"message\": \"HTTPS request successful\"}", 8191);
-            response_buffer[8191] = '\0';
-            total_received = strlen(response_buffer);
+            total_received += received;
+            response_buffer[total_received] = '\0';
+            
+            if (strstr(response_buffer, "\r\n\r\n") != NULL) {
+                header_complete = 1;
+                
+                const char* content_length_str = strstr(response_buffer, "Content-Length:");
+                if (content_length_str) {
+                    int content_length = atoi(content_length_str + 15);
+                    const char* body_start = strstr(response_buffer, "\r\n\r\n");
+                    if (body_start) {
+                        size_t body_received = total_received - (body_start - response_buffer) - 4;
+                        while (body_received < (size_t)content_length && 
+                               total_received < sizeof(response_buffer) - 1) {
+                            received = SSL_read(ssl, response_buffer + total_received, 
+                                              sizeof(response_buffer) - total_received - 1);
+                            if (received <= 0) break;
+                            total_received += received;
+                            body_received = total_received - (body_start - response_buffer) - 4;
+                        }
+                    }
+                }
+            }
         }
     } else {
         // For HTTP, read until we get complete response
@@ -693,6 +658,10 @@ HttpResponse* http_client_request(const char* url, const char* method,
     // Validate we have at least a status line before parsing
     if (total_received == 0 || strstr(response_buffer, "HTTP/") == NULL) {
         shared_free_safe(request, "http_client", "http_client_request", 0);
+        if (ssl) {
+            SSL_shutdown(ssl);
+            SSL_free(ssl);
+        }
         close(sock);
         return NULL;
     }
@@ -702,6 +671,10 @@ HttpResponse* http_client_request(const char* url, const char* method,
     
     // Cleanup
     shared_free_safe(request, "http_client", "http_client_request", 0);
+    if (ssl) {
+        SSL_shutdown(ssl);
+        SSL_free(ssl);
+    }
     close(sock);
     
     return response;

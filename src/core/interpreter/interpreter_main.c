@@ -92,6 +92,7 @@ Interpreter* interpreter_create(void) {
     interpreter->current_function_return_type = NULL;
     interpreter->self_context = NULL;
     interpreter->bytecode_program_cache = NULL;
+    interpreter->main_program = NULL;
     
     // Module cache initialization (Phase 4)
     interpreter->module_cache = NULL;
@@ -403,6 +404,12 @@ Value interpreter_execute_program(Interpreter* interpreter, ASTNode* node) {
         // We'll let the caller handle cleanup, or use reference counting
         // For now, just don't free it - it will be freed when the main program finishes
     }
+    
+    // If main_program is not set, this is the main program (first program executed)
+    if (!interpreter->main_program) {
+        interpreter->main_program = bytecode;
+    }
+    
     interpreter->bytecode_program_cache = bytecode; // Keep program alive for function calls
     
     // Errors are reported but execution continues

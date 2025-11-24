@@ -844,8 +844,16 @@ static void json_stringify_myco_value(JsonStringBuilder* builder, Value* value) 
             
         case VALUE_NUMBER:
             {
-                    char num_str[64];
-                snprintf(num_str, sizeof(num_str), "%.15g", value->data.number_value);
+                char num_str[64];
+                double num = value->data.number_value;
+                // Check if number is an integer (Discord requires intents to be integers)
+                if (num == (double)(int64_t)num && num >= -9007199254740992.0 && num <= 9007199254740992.0) {
+                    // Number is an integer in safe range - format as integer
+                    snprintf(num_str, sizeof(num_str), "%.0f", num);
+                } else {
+                    // Number is a float - use scientific notation if needed
+                    snprintf(num_str, sizeof(num_str), "%.15g", num);
+                }
                 json_string_builder_append(builder, num_str);
             }
             break;

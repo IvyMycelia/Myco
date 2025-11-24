@@ -1827,6 +1827,18 @@ ASTNode* parser_parse_primary(Parser* parser) {
                     }
                 }
                 
+                // Parse optional default value: = expression
+                // Note: We parse and discard the default value expression since AST doesn't support it yet
+                // This allows the parser to continue without errors when default values are present
+                // Use TOKEN_ASSIGN for '=' (not TOKEN_EQUAL which is '==')
+                if (parser_check(parser, TOKEN_ASSIGN)) {
+                    parser_advance(parser); // consume '='
+                    ASTNode* default_value = parser_parse_expression(parser);
+                    if (default_value) {
+                        ast_free(default_value); // Discard the default value for now
+                    }
+                }
+                
                 // Add parameter
                 if (param_count == param_capacity) {
                     size_t new_cap = param_capacity == 0 ? 4 : param_capacity * 2;
@@ -2128,6 +2140,105 @@ ASTNode* parser_parse_primary(Parser* parser) {
                 return parser_parse_member_access_chain(parser, call);
             }
             
+            // Check for bracket notation after member access: obj.property[key]
+            if (parser_check(parser, TOKEN_LEFT_BRACKET)) {
+                parser_advance(parser); // consume '['
+                
+                // Parse the index expression
+                ASTNode* index = parser_parse_expression(parser);
+                if (!index) {
+                    parser_error(parser, "Expected index expression in array access");
+                    ast_free(member_access);
+                    return NULL;
+                }
+                
+                // Expect ']'
+                if (!parser_match(parser, TOKEN_RIGHT_BRACKET)) {
+                    parser_error(parser, "Expected ']' to close array index");
+                    ast_free(member_access);
+                    ast_free(index);
+                    return NULL;
+                }
+                
+                // Create array access node with member access as the base
+                ASTNode* access = ast_create_array_access(member_access, index, ident_token->line, ident_token->column);
+                if (!access) {
+                    ast_free(member_access);
+                    ast_free(index);
+                    return NULL;
+                }
+                
+                // Check for assignment: obj.property[key] = value
+                if (parser_check(parser, TOKEN_ASSIGN)) {
+                    parser_advance(parser);  // Consume '='
+                    
+                    // Parse the right side (value)
+                    ASTNode* value = parser_parse_expression(parser);
+                    if (!value) {
+                        parser_error(parser, "Expected expression after '=' in array element assignment");
+                        ast_free(access);
+                        return NULL;
+                    }
+                    
+                    // Create assignment node with array access as the target
+                    ASTNode* assignment = shared_malloc_safe(sizeof(ASTNode), "parser", "unknown_function", 1432);
+                    if (!assignment) {
+                        ast_free(access);
+                        ast_free(value);
+                        return NULL;
+                    }
+                    
+                    assignment->type = AST_NODE_ASSIGNMENT;
+                    assignment->data.assignment.variable_name = NULL;  // Not used for array assignments
+                    assignment->data.assignment.target = access;       // Store the array access as target
+                    assignment->data.assignment.value = value;
+                    assignment->line = ident_token->line;
+                    assignment->column = ident_token->column;
+                    assignment->next = NULL;
+                    
+                    return assignment;
+                }
+                
+                // Check for member access after array access: obj.property[key].method
+                if (parser_check(parser, TOKEN_DOT)) {
+                    return parser_parse_member_access_chain(parser, access);
+                }
+                
+                return access;
+            }
+            
+            // Check for assignment: obj.property = value
+            if (parser_check(parser, TOKEN_ASSIGN)) {
+                parser_advance(parser);  // Consume '='
+                
+                // Parse the right side (value)
+                ASTNode* value = parser_parse_expression(parser);
+                
+                if (!value) {
+                    parser_error(parser, "Expected expression after '=' in property assignment");
+                    ast_free(member_access);
+                    return NULL;
+                }
+                
+                // Create assignment node with member access as the target
+                ASTNode* assignment = shared_malloc_safe(sizeof(ASTNode), "parser", "unknown_function", 2131);
+                if (!assignment) {
+                    ast_free(member_access);
+                    ast_free(value);
+                    return NULL;
+                }
+                
+                assignment->type = AST_NODE_ASSIGNMENT;
+                assignment->data.assignment.variable_name = NULL;  // Not used for property assignments
+                assignment->data.assignment.target = member_access;  // Store the member access as target
+                assignment->data.assignment.value = value;
+                assignment->line = ident_token->line;
+                assignment->column = ident_token->column;
+                assignment->next = NULL;
+                
+                return assignment;
+            }
+            
             return member_access;
         }
         
@@ -2152,10 +2263,11 @@ ASTNode* parser_parse_primary(Parser* parser) {
         int current_pos = parser->current_position;
         parser_advance(parser); // consume opening brace
         
-        // Handle empty braces {} - default to set
+        // Handle empty braces {} - default to hash map (object) for key-value storage
+        // Sets are for collections of unique values, objects/hash maps are for key-value pairs
         if (parser_check(parser, TOKEN_RIGHT_BRACE)) {
             parser_advance(parser); // consume closing brace
-            return ast_create_set_literal(NULL, 0, parser->previous_token->line, parser->previous_token->column);
+            return ast_create_hash_map_literal(NULL, NULL, 0, parser->previous_token->line, parser->previous_token->column);
         }
         
         // Parse first expression to determine type

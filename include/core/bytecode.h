@@ -39,6 +39,7 @@ typedef enum {
     BC_PRINT_MULTIPLE,// Print multiple values on one line
     BC_METHOD_CALL,   // Call method on object: obj.method(args...)
     BC_PROPERTY_ACCESS, // Access object property: obj.name
+    BC_PROPERTY_SET,  // Set object property: obj.name = value
     BC_CALL_BUILTIN,  // Call built-in function by name
     BC_CALL_USER_FUNCTION, // Call user-defined function: func(args...)
     BC_CALL_FUNCTION_VALUE, // Call function value from stack: func(args...) where func is on stack

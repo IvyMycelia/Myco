@@ -108,6 +108,7 @@ GatewayState gateway_get_state(GatewayConnection* gateway);
 void gateway_set_config(GatewayConnection* gateway, GatewayConfig* config);
 GatewayConfig gateway_create_default_config(void);
 void gateway_handle_websocket_message(WebSocketConnection* ws_conn, const char* message);
+void gateway_handle_close(WebSocketConnection* ws_conn, uint16_t status_code, const char* reason);
 void gateway_process_all_connections(Interpreter* interpreter);
 
 // Builtin functions for Myco

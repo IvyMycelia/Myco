@@ -84,6 +84,11 @@ typedef struct WebSocketConnection {
     bool non_blocking;
     Interpreter* interpreter;  // For async event loop integration
     
+    // Receive buffer for accumulating data across multiple reads
+    uint8_t* receive_buffer;
+    size_t receive_buffer_size;
+    size_t receive_buffer_capacity;
+    
     struct WebSocketConnection* next;
 } WebSocketConnection;
 

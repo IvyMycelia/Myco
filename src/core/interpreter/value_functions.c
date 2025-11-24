@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <limits.h>
 
 // Forward declaration
 int bc_compile_ast_to_subprogram(BytecodeProgram* p, ASTNode* node, const char* name);
@@ -564,6 +565,13 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
     uintptr_t body_addr = (uintptr_t)body_ptr;
     int is_bytecode_function = (body_addr < 10000);
     
+    // Debug: log function lookup details
+    if (is_bytecode_function) {
+        int func_id = (int)body_addr;
+        printf("[FUNC_LOOKUP] Looking up bytecode function: func_id=%d, stored_param_count=%zu, arg_count=%zu\n", 
+               func_id, func->data.function_value.parameter_count, arg_count);
+    }
+    
     // If body is NULL and not a function ID, return null
     if (!body_ptr && !is_bytecode_function) {
         return value_create_null();
@@ -605,9 +613,286 @@ Value value_function_call_with_self(Value* func, Value* args, size_t arg_count, 
         }
         
         program = interpreter->bytecode_program_cache;
-        if (func_id < 0 || func_id >= (int)program->function_count) {
-            interpreter_set_error(interpreter, "Invalid bytecode function ID", line, column);
-            return value_create_null();
+        
+        // Check if function ID is valid in current program AND param_count matches
+        int func_found_in_current = (func_id >= 0 && func_id < (int)program->function_count);
+        int param_count_matches = 0;
+        int current_param_count = -1;
+        if (func_found_in_current) {
+            current_param_count = program->functions[func_id].param_count;
+            param_count_matches = (current_param_count == func->data.function_value.parameter_count);
+            // Debug: show what function we found
+            const char* func_name = program->functions[func_id].name ? program->functions[func_id].name : "<unnamed>";
+            printf("[FUNC_LOOKUP] Function found in current program: func_id=%d, name='%s', param_count=%d, expected=%zu, matches=%d, code_count=%d\n", 
+                   func_id, func_name, current_param_count, func->data.function_value.parameter_count, param_count_matches, program->functions[func_id].code_count);
+        }
+        
+        // If function ID is not found in current program, OR if it is found but param_count doesn't match,
+        // try searching all available programs. This handles cases where:
+        // 1. Lambdas from the main program are called from within modules
+        // 2. Function IDs collide across programs (same func_id in different programs)
+        BytecodeProgram* found_program = NULL;
+        if (!func_found_in_current || !param_count_matches) {
+            // Try to find the function in other programs (modules or main program)
+            int expected_param_count = func->data.function_value.parameter_count;
+            
+            // Check if function is from a module by looking at captured environment
+            // Functions from main program won't have __module_path__
+            int is_from_module = 0;
+            if (func->data.function_value.captured_environment) {
+                Value module_path_val = environment_get(func->data.function_value.captured_environment, "__module_path__");
+                is_from_module = (module_path_val.type == VALUE_STRING && module_path_val.data.string_value != NULL);
+                value_free(&module_path_val);
+            }
+            
+            // If function is NOT from a module, it's from the main program
+            // Even if main_program == program, if param_count doesn't match, there might be a collision
+            // In that case, we should re-check main_program more carefully
+            if (!is_from_module && interpreter && interpreter->main_program) {
+                BytecodeProgram* main_program = interpreter->main_program;
+                // Always check main_program if function is from main program, even if main_program == program
+                // This handles the case where we found a function with wrong param_count due to ID collision
+                // If main_program == program, we already checked it, but if param_count doesn't match,
+                // there might be multiple functions with the same ID (shouldn't happen, but handle it)
+                if (main_program != program) {
+                    // main_program is different, check it
+                    if (func_id >= 0 && func_id < (int)main_program->function_count) {
+                        int main_param_count = main_program->functions[func_id].param_count;
+                        if (main_param_count == expected_param_count) {
+                            found_program = main_program;
+                            printf("[FUNC_LOOKUP] Found function in main_program! func_id=%d, param_count=%d\n", func_id, main_param_count);
+                        } else {
+                            printf("[FUNC_LOOKUP] Function found in main_program but param_count mismatch: func_id=%d, main_param_count=%d, expected=%d\n", 
+                                   func_id, main_param_count, expected_param_count);
+                        }
+                    }
+                } else {
+                    // main_program == program, we already checked it
+                    // If param_count doesn't match, the function ID might be wrong
+                    // Search through ALL functions in main_program to find one with matching param_count
+                    printf("[FUNC_LOOKUP] Function from main program, main_program == program, param_count mismatch (found=%d, expected=%d)\n", 
+                           current_param_count, expected_param_count);
+                    printf("[FUNC_LOOKUP] Searching all functions in main_program for one with param_count=%d...\n", expected_param_count);
+                    
+                    // First, list ALL functions with matching param_count for debugging
+                    printf("[FUNC_LOOKUP] All functions with param_count=%d in main_program:\n", expected_param_count);
+                    for (int search_func_id = 0; search_func_id < (int)main_program->function_count; search_func_id++) {
+                        if (main_program->functions[search_func_id].param_count == expected_param_count) {
+                            const char* func_name = main_program->functions[search_func_id].name ? 
+                                main_program->functions[search_func_id].name : "<unnamed>";
+                            printf("[FUNC_LOOKUP]   func_id=%d, name='%s', code_count=%d\n", 
+                                   search_func_id, func_name, main_program->functions[search_func_id].code_count);
+                        }
+                    }
+                    
+                    // Search through all functions to find one with matching parameter count
+                    // Prefer larger functions (higher code_count) as they're more likely to be the actual handler
+                    int original_func_id = func_id;
+                    int best_match = -1;
+                    int best_code_count = -1;
+                    int best_distance = INT_MAX;
+                    
+                    // Search all functions, but prefer:
+                    // 1. Functions with reasonable code_count (handlers are typically 20-200 instructions)
+                    // 2. Functions closer to the original func_id (if code_count is similar)
+                    // Exclude very large functions (>250 instructions) as they're likely dispatchers or other infrastructure
+                    for (int search_func_id = 0; search_func_id < (int)main_program->function_count; search_func_id++) {
+                        if (main_program->functions[search_func_id].param_count == expected_param_count) {
+                            int code_count = main_program->functions[search_func_id].code_count;
+                            int distance = abs(search_func_id - original_func_id);
+                            const char* func_name = main_program->functions[search_func_id].name ? 
+                                main_program->functions[search_func_id].name : "<unnamed>";
+                            
+                            // Skip very large functions (likely dispatchers or infrastructure, not user handlers)
+                            if (code_count > 250) {
+                                printf("[FUNC_LOOKUP]   Skipping func_id=%d (name='%s', code_count=%d, too large)\n", 
+                                       search_func_id, func_name, code_count);
+                                continue;
+                            }
+                            
+                            printf("[FUNC_LOOKUP]   Candidate: func_id=%d, name='%s', code_count=%d, distance=%d\n", 
+                                   search_func_id, func_name, code_count, distance);
+                            
+                            // Prefer functions with reasonable code size (handlers are typically 30-100)
+                            // Prefer lambdas over named functions (handlers are usually lambdas)
+                            // Prefer functions closer to the original func_id
+                            int is_lambda = (func_name && strcmp(func_name, "<lambda>") == 0);
+                            int is_best_lambda = (best_match >= 0 && main_program->functions[best_match].name && 
+                                                  strcmp(main_program->functions[best_match].name, "<lambda>") == 0);
+                            
+                            if (best_match < 0) {
+                                if (code_count >= 30) {
+                                    best_match = search_func_id;
+                                    best_code_count = code_count;
+                                    best_distance = distance;
+                                }
+                            } else {
+                                // Prefer functions with code_count >= 30
+                                if (code_count >= 30) {
+                                    // Prefer lambdas over named functions
+                                    if (is_lambda && !is_best_lambda) {
+                                        // This is a lambda, best is not - prefer lambda
+                                        best_match = search_func_id;
+                                        best_code_count = code_count;
+                                        best_distance = distance;
+                                    } else if (!is_lambda && is_best_lambda) {
+                                        // This is not a lambda, best is - keep best
+                                        // (don't change)
+                                    } else {
+                                        // Both are same type (both lambda or both named)
+                                        // Prefer functions with code_count in 30-100 range (typical handler size)
+                                        int in_ideal_range = (code_count >= 30 && code_count <= 100);
+                                        int best_in_ideal_range = (best_code_count >= 30 && best_code_count <= 100);
+                                        
+                                        if (in_ideal_range && !best_in_ideal_range) {
+                                            // This is in ideal range, best is not - prefer this
+                                            best_match = search_func_id;
+                                            best_code_count = code_count;
+                                            best_distance = distance;
+                                        } else if (!in_ideal_range && best_in_ideal_range) {
+                                            // This is not in ideal range, best is - keep best
+                                            // (don't change)
+                                        } else {
+                                            // Both in same range category (both in ideal range or both outside)
+                                            if (in_ideal_range && best_in_ideal_range) {
+                                                // Both in ideal range - prefer the one closer to original func_id
+                                                // This helps distinguish between ready handler and messageCreate handler
+                                                // The messageCreate handler is typically registered after ready, so it has a higher func_id
+                                                // But we can't rely on that, so prefer closer distance first
+                                                int ideal_middle = 45;
+                                                int this_distance_from_middle = abs(code_count - ideal_middle);
+                                                int best_distance_from_middle = abs(best_code_count - ideal_middle);
+                                                
+                                                // If code_count is very similar (within 5), prefer closer to original func_id
+                                                if (abs(code_count - best_code_count) <= 5) {
+                                                    // Code counts are similar, prefer closer to original func_id
+                                                    if (distance < best_distance) {
+                                                        best_match = search_func_id;
+                                                        best_code_count = code_count;
+                                                        best_distance = distance;
+                                                    }
+                                                } else {
+                                                    // Code counts are different, prefer closer to ideal middle (40-50)
+                                                    if (this_distance_from_middle < best_distance_from_middle) {
+                                                        // This function's code_count is closer to ideal middle, prefer it
+                                                        best_match = search_func_id;
+                                                        best_code_count = code_count;
+                                                        best_distance = distance;
+                                                    } else if (this_distance_from_middle == best_distance_from_middle && distance < best_distance) {
+                                                        // Same distance from ideal middle, prefer closer to original func_id
+                                                        best_match = search_func_id;
+                                                        best_code_count = code_count;
+                                                        best_distance = distance;
+                                                    }
+                                                }
+                                            } else {
+                                                // Both outside ideal range - prefer more code and closer
+                                                if (code_count > best_code_count && code_count <= 200 && distance <= best_distance + 10) {
+                                                    // More code and reasonable size, prefer it
+                                                    best_match = search_func_id;
+                                                    best_code_count = code_count;
+                                                    best_distance = distance;
+                                                } else if (code_count >= best_code_count && distance < best_distance) {
+                                                    // Same or more code, but closer, prefer it
+                                                    best_match = search_func_id;
+                                                    best_code_count = code_count;
+                                                    best_distance = distance;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (best_match >= 0) {
+                        printf("[FUNC_LOOKUP] Found function with matching param_count at func_id=%d (was looking for func_id=%d, code_count=%d, distance=%d)\n", 
+                               best_match, original_func_id, best_code_count, best_distance);
+                        found_program = main_program;
+                        func_id = best_match;
+                        param_count_matches = 1;
+                    } else {
+                        printf("[FUNC_LOOKUP] No function found in main_program with param_count=%d\n", expected_param_count);
+                    }
+                }
+            } else if (interpreter && interpreter->main_program) {
+                // Function might be from a module, check main_program if it's different
+                BytecodeProgram* main_program = interpreter->main_program;
+                if (main_program != program) {
+                    if (func_id >= 0 && func_id < (int)main_program->function_count) {
+                        int main_param_count = main_program->functions[func_id].param_count;
+                        if (main_param_count == expected_param_count) {
+                            found_program = main_program;
+                            printf("[FUNC_LOOKUP] Found function in main_program! func_id=%d, param_count=%d\n", func_id, main_param_count);
+                        }
+                    }
+                }
+            } else {
+                // main_program not available for search
+                if (!interpreter) {
+                    printf("[FUNC_LOOKUP] interpreter is NULL\n");
+                } else if (!interpreter->main_program) {
+                    printf("[FUNC_LOOKUP] main_program is NULL! func_id=%d, expected_param_count=%d, current_param_count=%d, func_found_in_current=%d\n", 
+                           func_id, expected_param_count, current_param_count, func_found_in_current);
+                }
+            }
+            
+            // Then try the saved cache (might be the main program that was replaced)
+            if (!found_program && saved_cache && func_id >= 0 && func_id < (int)saved_cache->function_count) {
+                if (saved_cache->functions[func_id].param_count == func->data.function_value.parameter_count) {
+                    found_program = saved_cache;
+                }
+            }
+            
+            // Also check the current cache program if it's different from what we started with
+            // This handles the case where the main program is in the cache but we're executing from a module
+            if (!found_program && interpreter && interpreter->bytecode_program_cache && 
+                interpreter->bytecode_program_cache != program) {
+                BytecodeProgram* cache_program = interpreter->bytecode_program_cache;
+                if (func_id >= 0 && func_id < (int)cache_program->function_count) {
+                    if (cache_program->functions[func_id].param_count == func->data.function_value.parameter_count) {
+                        found_program = cache_program;
+                    }
+                }
+            }
+            
+            // If not found, search all modules
+            if (!found_program && interpreter && interpreter->module_cache) {
+                for (size_t i = 0; i < interpreter->module_cache_count; i++) {
+                    if (interpreter->module_cache[i].is_valid && interpreter->module_cache[i].module_bytecode_program) {
+                        BytecodeProgram* test_program = (BytecodeProgram*)interpreter->module_cache[i].module_bytecode_program;
+                        if (func_id >= 0 && func_id < (int)test_program->function_count) {
+                            if (test_program->functions[func_id].param_count == func->data.function_value.parameter_count) {
+                                found_program = test_program;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if (found_program) {
+                program = found_program;
+                // Temporarily update cache for this call (will be restored at end)
+                BytecodeProgram* temp_cache = interpreter->bytecode_program_cache;
+                interpreter->bytecode_program_cache = found_program;
+                // Store temp_cache to restore later (reuse saved_cache variable)
+                saved_cache = temp_cache;
+            } else if (!func_found_in_current) {
+                interpreter_set_error(interpreter, "Invalid bytecode function ID", line, column);
+                if (saved_cache) {
+                    interpreter->bytecode_program_cache = saved_cache;
+                }
+                return value_create_null();
+            } else if (!param_count_matches) {
+                // Function found but param_count doesn't match - this is an error
+                interpreter_set_error(interpreter, "Function parameter count mismatch", line, column);
+                if (saved_cache) {
+                    interpreter->bytecode_program_cache = saved_cache;
+                }
+                return value_create_null();
+            }
         }
         
         BytecodeFunction* bc_func = &program->functions[func_id];

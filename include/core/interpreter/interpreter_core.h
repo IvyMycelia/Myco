@@ -312,6 +312,10 @@ typedef struct Interpreter {
     // The program is actually kept alive as long as functions reference it
     struct BytecodeProgram* bytecode_program_cache;
     
+    // Main program - stores the original main program separately from module cache
+    // This allows functions from the main program to be found even when executing from modules
+    struct BytecodeProgram* main_program;
+    
     // Module cache - Phase 4: cache parsed modules to avoid re-parsing
     struct ModuleCacheEntry* module_cache;
     size_t module_cache_count;

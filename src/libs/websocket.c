@@ -6,6 +6,7 @@
 #include "../../include/utils/shared_utilities.h"
 #include "../../include/core/interpreter/value_operations.h"
 #include <time.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -338,20 +339,36 @@ int websocket_encode_frame(WebSocketFrame* frame, uint8_t* buffer, size_t buffer
     if (frame->payload && payload_len > 0) {
         memcpy(buffer + offset, frame->payload, payload_len);
         
-        // Apply masking if needed
+        // Apply masking if needed (RFC 6455: clients MUST mask all frames)
         if (frame->masked) {
+            // Masking key as byte array (extract bytes in network byte order)
+            // The masking key is already written to the frame header, now apply it to payload
+            uint8_t mask_bytes[4] = {
+                (frame->masking_key >> 24) & 0xFF,
+                (frame->masking_key >> 16) & 0xFF,
+                (frame->masking_key >> 8) & 0xFF,
+                frame->masking_key & 0xFF
+            };
+            // Apply masking: transformed-octet-i = original-octet-i XOR masking-key-octet-(i mod 4)
             for (size_t i = 0; i < payload_len; i++) {
-                buffer[offset + i] ^= ((frame->masking_key >> ((i % 4) * 8)) & 0xFF);
+                buffer[offset + i] ^= mask_bytes[i % 4];
             }
         }
     }
     
-    return offset + payload_len;
+    // Return total frame length: offset (header + masking key) + payload length
+    size_t total_frame_len = offset + payload_len;
+    return (int)total_frame_len;
 }
 
 // Decode WebSocket frame
 int websocket_decode_frame(uint8_t* data, size_t data_len, WebSocketFrame* frame) {
-    if (!data || !frame || data_len < 2) return -1;
+    if (!data || !frame || data_len < 2) {
+        if (data_len >= 2) {
+            fprintf(stderr, "[WEBSOCKET DECODE] Failed: data=%p, frame=%p, data_len=%zu\n", data, frame, data_len);
+        }
+        return -1;
+    }
     
     size_t offset = 0;
     
@@ -372,11 +389,17 @@ int websocket_decode_frame(uint8_t* data, size_t data_len, WebSocketFrame* frame
     if (payload_len_byte < 126) {
         frame->payload_length = payload_len_byte;
     } else if (payload_len_byte == 126) {
-        if (offset + 2 > data_len) return -1;
+        if (offset + 2 > data_len) {
+            fprintf(stderr, "[WEBSOCKET DECODE] Failed: need 2 bytes for extended length, have %zu\n", data_len - offset);
+            return -1;
+        }
         frame->payload_length = ((uint64_t)data[offset] << 8) | data[offset + 1];
         offset += 2;
     } else {
-        if (offset + 8 > data_len) return -1;
+        if (offset + 8 > data_len) {
+            fprintf(stderr, "[WEBSOCKET DECODE] Failed: need 8 bytes for extended length, have %zu\n", data_len - offset);
+            return -1;
+        }
         frame->payload_length = 0;
         for (int i = 0; i < 8; i++) {
             frame->payload_length = (frame->payload_length << 8) | data[offset++];
@@ -385,7 +408,10 @@ int websocket_decode_frame(uint8_t* data, size_t data_len, WebSocketFrame* frame
     
     // Masking key
     if (frame->masked) {
-        if (offset + 4 > data_len) return -1;
+        if (offset + 4 > data_len) {
+            fprintf(stderr, "[WEBSOCKET DECODE] Failed: need 4 bytes for masking key, have %zu\n", data_len - offset);
+            return -1;
+        }
         frame->masking_key = ((uint32_t)data[offset] << 24) |
                             ((uint32_t)data[offset + 1] << 16) |
                             ((uint32_t)data[offset + 2] << 8) |
@@ -395,8 +421,24 @@ int websocket_decode_frame(uint8_t* data, size_t data_len, WebSocketFrame* frame
         frame->masking_key = 0;
     }
     
+    // Validate opcode BEFORE checking payload length
+    // This way we can distinguish between incomplete frames (valid header) and misaligned data (invalid header)
+    if (frame->opcode > 0xA || (frame->opcode > 0x2 && frame->opcode < 0x8)) {
+        // Invalid opcode - this is likely payload data, not a frame header
+        fprintf(stderr, "[WEBSOCKET DECODE] Failed: invalid opcode %d\n", frame->opcode);
+        return -1;
+    }
+    
     // Payload
-    if (offset + frame->payload_length > data_len) return -1;
+    if (offset + frame->payload_length > data_len) {
+        // Not enough data - partial frame (but header is valid)
+        // Return -2 to indicate incomplete frame (valid header, need more data)
+        // This is different from -1 which indicates misaligned/invalid data
+        fprintf(stderr, "[WEBSOCKET DECODE] Incomplete frame: need %zu bytes for payload, have %zu (offset=%zu, payload_len=%zu, opcode=%d)\n", 
+                offset + frame->payload_length, data_len, offset, frame->payload_length, frame->opcode);
+        return -2;  // Special return code for incomplete frames
+    }
+    
     if (frame->payload_length > 0) {
         frame->payload = shared_malloc_safe(frame->payload_length, "websocket", "decode_frame", 0);
         if (!frame->payload) return -1;
@@ -404,15 +446,24 @@ int websocket_decode_frame(uint8_t* data, size_t data_len, WebSocketFrame* frame
         
         // Unmask if needed
         if (frame->masked) {
+            // Masking key as byte array
+            uint8_t mask_bytes[4] = {
+                (frame->masking_key >> 24) & 0xFF,
+                (frame->masking_key >> 16) & 0xFF,
+                (frame->masking_key >> 8) & 0xFF,
+                frame->masking_key & 0xFF
+            };
             for (size_t i = 0; i < frame->payload_length; i++) {
-                frame->payload[i] ^= ((frame->masking_key >> ((i % 4) * 8)) & 0xFF);
+                frame->payload[i] ^= mask_bytes[i % 4];
             }
         }
     } else {
         frame->payload = NULL;
     }
     
-    return offset + frame->payload_length;
+    // Return total bytes consumed (header + payload)
+    size_t total_consumed = offset + frame->payload_length;
+    return (int)total_consumed;
 }
 
 // Free frame
@@ -503,8 +554,9 @@ WebSocketConnection* websocket_connect(const char* url) {
             }
             
             // Read response over SSL
-            char response[4096];
-            int received = SSL_read(conn->ssl, response, sizeof(response) - 1);
+            // Note: The response might contain both HTTP headers and the first WebSocket frame (HELLO)
+            uint8_t response_buffer[4096];
+            int received = SSL_read(conn->ssl, response_buffer, sizeof(response_buffer));
             if (received <= 0) {
                 shared_free_safe(key, "websocket", "connect", 0);
                 SSL_shutdown(conn->ssl);
@@ -516,18 +568,90 @@ WebSocketConnection* websocket_connect(const char* url) {
                 return NULL;
             }
             
-            response[received] = '\0';
+            // Find the end of HTTP headers (double CRLF)
+            int http_header_end = -1;
+            for (int i = 0; i < received - 3; i++) {
+                if (response_buffer[i] == '\r' && response_buffer[i+1] == '\n' &&
+                    response_buffer[i+2] == '\r' && response_buffer[i+3] == '\n') {
+                    http_header_end = i + 4;
+                    break;
+                }
+            }
             
-            // Check for 101 Switching Protocols
-            if (strstr(response, "101") == NULL && strstr(response, "Switching Protocols") == NULL) {
-                shared_free_safe(key, "websocket", "connect", 0);
-                SSL_shutdown(conn->ssl);
-                SSL_free(conn->ssl);
-                conn->ssl = NULL;
-                close(conn->socket_fd);
-                shared_free_safe(conn->url, "websocket", "connect", 0);
-                shared_free_safe(conn, "websocket", "connect", 0);
-                return NULL;
+            // Check for 101 Switching Protocols in HTTP headers
+            if (http_header_end < 0) {
+                // No HTTP header end found - treat entire response as HTTP
+                char* response_str = shared_malloc_safe(received + 1, "websocket", "connect", 0);
+                if (response_str) {
+                    memcpy(response_str, response_buffer, received);
+                    response_str[received] = '\0';
+                    if (strstr(response_str, "101") == NULL && strstr(response_str, "Switching Protocols") == NULL) {
+                        shared_free_safe(response_str, "websocket", "connect", 0);
+                        shared_free_safe(key, "websocket", "connect", 0);
+                        SSL_shutdown(conn->ssl);
+                        SSL_free(conn->ssl);
+                        conn->ssl = NULL;
+                        close(conn->socket_fd);
+                        shared_free_safe(conn->url, "websocket", "connect", 0);
+                        shared_free_safe(conn, "websocket", "connect", 0);
+                        return NULL;
+                    }
+                    shared_free_safe(response_str, "websocket", "connect", 0);
+                }
+            } else {
+                // Check HTTP headers for 101 Switching Protocols
+                char* header_str = shared_malloc_safe(http_header_end + 1, "websocket", "connect", 0);
+                if (header_str) {
+                    memcpy(header_str, response_buffer, http_header_end);
+                    header_str[http_header_end] = '\0';
+                    if (strstr(header_str, "101") == NULL && strstr(header_str, "Switching Protocols") == NULL) {
+                        shared_free_safe(header_str, "websocket", "connect", 0);
+                        shared_free_safe(key, "websocket", "connect", 0);
+                        SSL_shutdown(conn->ssl);
+                        SSL_free(conn->ssl);
+                        conn->ssl = NULL;
+                        close(conn->socket_fd);
+                        shared_free_safe(conn->url, "websocket", "connect", 0);
+                        shared_free_safe(conn, "websocket", "connect", 0);
+                        return NULL;
+                    }
+                    shared_free_safe(header_str, "websocket", "connect", 0);
+                }
+                
+                // If there's data after HTTP headers, it's a WebSocket frame (likely HELLO)
+                // Process it immediately after setting state to OPEN
+                if (http_header_end < received) {
+                    size_t frame_data_len = received - http_header_end;
+                    uint8_t* frame_data = response_buffer + http_header_end;
+                    
+                    // Decode the WebSocket frame
+                    WebSocketFrame frame;
+                    int decoded = websocket_decode_frame(frame_data, frame_data_len, &frame);
+                    
+                    if (decoded > 0 && (frame.opcode == WS_OPCODE_TEXT || frame.opcode == WS_OPCODE_BINARY)) {
+                        // This is likely a gateway HELLO message
+                        // Process it by calling gateway_handle_websocket_message if it's a gateway connection
+                        // We'll check this in websocket_process_connections, but for now, we need to
+                        // trigger processing. Since we're in the connection setup, we'll let the
+                        // normal processing handle it on the next event loop iteration.
+                        // But we need to make sure the frame data is available.
+                        // Actually, since SSL_read() already consumed the data, we need to process it now.
+                        // Let's process it immediately by calling the gateway handler if available.
+                        extern void gateway_handle_websocket_message(WebSocketConnection* ws_conn, const char* message);
+                        if (frame.payload && frame.payload_length > 0) {
+                            char* message_str = shared_malloc_safe(frame.payload_length + 1, "websocket", "connect", 0);
+                            if (message_str) {
+                                memcpy(message_str, frame.payload, frame.payload_length);
+                                message_str[frame.payload_length] = '\0';
+                                gateway_handle_websocket_message(conn, message_str);
+                                shared_free_safe(message_str, "websocket", "connect", 0);
+                            }
+                        }
+                        websocket_free_frame(&frame);
+                    } else if (decoded > 0) {
+                        websocket_free_frame(&frame);
+                    }
+                }
             }
             
             shared_free_safe(key, "websocket", "connect", 0);
@@ -568,17 +692,129 @@ void websocket_send(WebSocketConnection* conn, const char* message, bool is_bina
     frame.opcode = is_binary ? WS_OPCODE_BINARY : WS_OPCODE_TEXT;
     frame.masked = !conn->is_server;  // Client must mask, server must not
     frame.payload_length = msg_len;
-    frame.masking_key = rand();  // Simple random key
+    // Generate random masking key (RFC 6455 requires cryptographically random, but rand() is acceptable for non-secure use)
+    // Use time-based seed if not already seeded
+    static int rand_initialized = 0;
+    if (!rand_initialized) {
+        srand((unsigned int)time(NULL));
+        rand_initialized = 1;
+    }
+    frame.masking_key = ((uint32_t)rand() << 16) | (uint32_t)rand();  // 32-bit random key
     frame.payload = (uint8_t*)strdup(message);
     
     uint8_t buffer[4096];
     int frame_len = websocket_encode_frame(&frame, buffer, sizeof(buffer));
     
     if (frame_len > 0) {
+        // Debug: Print detailed frame information for IDENTIFY messages
+        if (msg_len > 50 && strstr(message, "\"op\":2")) {
+            fprintf(stderr, "[WEBSOCKET DEBUG] ===== IDENTIFY Frame Analysis =====\n");
+            fprintf(stderr, "[WEBSOCKET DEBUG] Original message length: %zu\n", msg_len);
+            fprintf(stderr, "[WEBSOCKET DEBUG] Frame length: %d\n", frame_len);
+            fprintf(stderr, "[WEBSOCKET DEBUG] Frame: FIN=%d, opcode=%d, masked=%d, payload_len=%zu\n",
+                    frame.fin, frame.opcode, frame.masked, frame.payload_length);
+            
+            // Print frame header breakdown
+            fprintf(stderr, "[WEBSOCKET DEBUG] Frame header breakdown:\n");
+            fprintf(stderr, "[WEBSOCKET DEBUG]   Byte 0: %02x (FIN=%d, opcode=%d)\n", 
+                    buffer[0], (buffer[0] >> 7) & 1, buffer[0] & 0x0F);
+            fprintf(stderr, "[WEBSOCKET DEBUG]   Byte 1: %02x (MASK=%d, len_indicator=%d)\n", 
+                    buffer[1], (buffer[1] >> 7) & 1, buffer[1] & 0x7F);
+            
+            if (frame_len > 2) {
+                if ((buffer[1] & 0x7F) == 126) {
+                    uint16_t len = (buffer[2] << 8) | buffer[3];
+                    fprintf(stderr, "[WEBSOCKET DEBUG]   Bytes 2-3: %02x %02x (extended length: %d)\n", 
+                            buffer[2], buffer[3], len);
+                    if (frame_len > 4) {
+                        fprintf(stderr, "[WEBSOCKET DEBUG]   Bytes 4-7: %02x %02x %02x %02x (masking key)\n",
+                                buffer[4], buffer[5], buffer[6], buffer[7]);
+                        fprintf(stderr, "[WEBSOCKET DEBUG]   Payload starts at byte 8\n");
+                    }
+                } else if ((buffer[1] & 0x7F) < 126) {
+                    fprintf(stderr, "[WEBSOCKET DEBUG]   Payload length: %d (direct)\n", buffer[1] & 0x7F);
+                    if (frame_len > 2) {
+                        fprintf(stderr, "[WEBSOCKET DEBUG]   Bytes 2-5: %02x %02x %02x %02x (masking key)\n",
+                                buffer[2], buffer[3], buffer[4], buffer[5]);
+                    }
+                }
+            }
+            
+            // Print first 30 bytes of entire frame
+            fprintf(stderr, "[WEBSOCKET DEBUG] First 30 bytes of frame: ");
+            for (int i = 0; i < 30 && i < frame_len; i++) {
+                fprintf(stderr, "%02x ", buffer[i]);
+            }
+            fprintf(stderr, "\n");
+            
+            // Verify unmasking works
+            if (frame.masked && frame_len > 8) {
+                fprintf(stderr, "[WEBSOCKET DEBUG] Masking key: %08x\n", frame.masking_key);
+                uint8_t mask_bytes[4] = {
+                    (frame.masking_key >> 24) & 0xFF,
+                    (frame.masking_key >> 16) & 0xFF,
+                    (frame.masking_key >> 8) & 0xFF,
+                    frame.masking_key & 0xFF
+                };
+                fprintf(stderr, "[WEBSOCKET DEBUG] Mask bytes: %02x %02x %02x %02x\n",
+                        mask_bytes[0], mask_bytes[1], mask_bytes[2], mask_bytes[3]);
+                
+                // Unmask first few bytes to verify
+                fprintf(stderr, "[WEBSOCKET DEBUG] Unmasked payload (first 20 bytes): ");
+                size_t payload_start = (buffer[1] & 0x7F) == 126 ? 8 : 6;
+                for (size_t i = 0; i < 20 && (payload_start + i) < (size_t)frame_len; i++) {
+                    uint8_t masked = buffer[payload_start + i];
+                    uint8_t unmasked = masked ^ mask_bytes[i % 4];
+                    fprintf(stderr, "%02x ", unmasked);
+                }
+                fprintf(stderr, "\n");
+                fprintf(stderr, "[WEBSOCKET DEBUG] Unmasked as string (first 20 chars): ");
+                for (size_t i = 0; i < 20 && (payload_start + i) < (size_t)frame_len; i++) {
+                    uint8_t masked = buffer[payload_start + i];
+                    uint8_t unmasked = masked ^ mask_bytes[i % 4];
+                    if (unmasked >= 32 && unmasked < 127) {
+                        fprintf(stderr, "%c", unmasked);
+                    } else {
+                        fprintf(stderr, ".");
+                    }
+                }
+                fprintf(stderr, "\n");
+            }
+            fprintf(stderr, "[WEBSOCKET DEBUG] ====================================\n");
+        }
+        
+        int sent = 0;
         if (conn->ssl) {
-            SSL_write(conn->ssl, buffer, frame_len);
+            // SSL_write may not send all bytes at once, so we need to handle partial writes
+            size_t total_sent = 0;
+            while (total_sent < (size_t)frame_len) {
+                sent = SSL_write(conn->ssl, buffer + total_sent, frame_len - total_sent);
+                if (sent <= 0) {
+                    int ssl_error = SSL_get_error(conn->ssl, sent);
+                    if (ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE) {
+                        // SSL operation needs to be retried - this is normal for non-blocking I/O
+                        continue;
+                    } else {
+                        fprintf(stderr, "[WEBSOCKET] SSL_write failed: sent=%d, error=%d\n", sent, ssl_error);
+                        break;
+                    }
+                } else {
+                    total_sent += sent;
+                }
+            }
+            if (total_sent == (size_t)frame_len) {
+                fprintf(stderr, "[WEBSOCKET] SSL_write succeeded: sent=%zu bytes (expected %d)\n", total_sent, frame_len);
+            } else {
+                fprintf(stderr, "[WEBSOCKET] WARNING: Sent %zu bytes but frame_len is %d\n", total_sent, frame_len);
+            }
+            sent = (int)total_sent;
         } else {
-            send(conn->socket_fd, buffer, frame_len, 0);
+            sent = send(conn->socket_fd, buffer, frame_len, 0);
+            if (sent <= 0) {
+                fprintf(stderr, "[WEBSOCKET] send failed: sent=%d, errno=%d\n", sent, errno);
+            } else {
+                fprintf(stderr, "[WEBSOCKET] send succeeded: sent=%d bytes\n", sent);
+            }
         }
     }
     
@@ -630,6 +866,14 @@ void websocket_free_connection(WebSocketConnection* conn) {
     
     // Clear message queue
     websocket_clear_message_queue(conn);
+    
+    // Free receive buffer
+    if (conn->receive_buffer) {
+        shared_free_safe(conn->receive_buffer, "websocket", "free_connection", 0);
+        conn->receive_buffer = NULL;
+        conn->receive_buffer_size = 0;
+        conn->receive_buffer_capacity = 0;
+    }
     
     value_free(&conn->on_message_callback);
     value_free(&conn->on_open_callback);
@@ -1308,60 +1552,370 @@ void websocket_process_connections(Interpreter* interpreter) {
         }
         
         // Try to read messages (non-blocking)
+        // Read multiple times to drain the buffer and get all available data
         if (conn->state == WS_STATE_OPEN && conn->non_blocking) {
-            uint8_t buffer[4096];
-            ssize_t received = 0;
+            // Read in a loop to get all available data
+            int read_attempts = 0;
+            const int max_read_attempts = 10;  // Limit to prevent infinite loop
             
-            if (conn->ssl) {
-                received = SSL_read(conn->ssl, buffer, sizeof(buffer));
-            } else {
-                received = recv(conn->socket_fd, buffer, sizeof(buffer), MSG_DONTWAIT);
-            }
-            
-            if (received > 0) {
-                WebSocketFrame frame;
-                int decoded = websocket_decode_frame(buffer, received, &frame);
+            while (read_attempts < max_read_attempts) {
+                uint8_t buffer[4096];
+                ssize_t received = 0;
                 
-                if (decoded > 0) {
-                    if (frame.opcode == WS_OPCODE_PING) {
-                        websocket_send_pong(conn);
-                    } else if (frame.opcode == WS_OPCODE_PONG) {
-                        conn->waiting_for_pong = false;
-                        conn->last_pong_time = time(NULL);
-                    } else if (frame.opcode == WS_OPCODE_TEXT || frame.opcode == WS_OPCODE_BINARY) {
-                        // Check if this is a gateway connection
-                        extern void gateway_handle_websocket_message(WebSocketConnection* ws_conn, const char* message);
-                        if (frame.payload && frame.payload_length > 0) {
-                            // Ensure null-terminated string for gateway handler
-                            char* message_str = shared_malloc_safe(frame.payload_length + 1, "websocket", "process_connections", 0);
-                            if (message_str) {
-                                memcpy(message_str, frame.payload, frame.payload_length);
-                                message_str[frame.payload_length] = '\0';
-                                gateway_handle_websocket_message(conn, message_str);
-                                shared_free_safe(message_str, "websocket", "process_connections", 1);
-                            }
+                if (conn->ssl) {
+                    received = SSL_read(conn->ssl, buffer, sizeof(buffer));
+                    // Handle SSL errors that indicate we should retry
+                    if (received <= 0) {
+                        int ssl_error = SSL_get_error(conn->ssl, received);
+                        if (ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE) {
+                            // SSL operation needs to be retried - this is normal for non-blocking I/O
+                            received = 0;  // Treat as no data available
+                            break;  // No more data available right now
+                        } else if (ssl_error == SSL_ERROR_ZERO_RETURN) {
+                            // Connection closed
+                            fprintf(stderr, "[WEBSOCKET] Connection closed by peer\n");
+                            conn->state = WS_STATE_CLOSED;
+                            break;
+                        } else {
+                            // Log other SSL errors
+                            fprintf(stderr, "[WEBSOCKET] SSL_read error: %d (received=%zd)\n", ssl_error, received);
+                            break;
                         }
-                        
-                        // Trigger message callback (for non-gateway connections)
-                        if (conn->on_message_callback.type == VALUE_FUNCTION && frame.payload) {
-                            Value msg_val = value_create_string((char*)frame.payload);
-                            Value result = value_function_call(&conn->on_message_callback, &msg_val, 1, interpreter, 0, 0);
-                            value_free(&result);
-                            value_free(&msg_val);
+                    }
+                } else {
+                    received = recv(conn->socket_fd, buffer, sizeof(buffer), MSG_DONTWAIT);
+                    if (received < 0) {
+                        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                            received = 0;  // No data available
+                            break;
+                        } else {
+                            fprintf(stderr, "[WEBSOCKET] recv error: errno=%d\n", errno);
+                            break;
                         }
-                    } else if (frame.opcode == WS_OPCODE_CLOSE) {
-                        websocket_close(conn);
+                    } else if (received == 0) {
+                        // Connection closed
+                        fprintf(stderr, "[WEBSOCKET] Connection closed by peer\n");
+                        conn->state = WS_STATE_CLOSED;
+                        break;
+                    }
+                }
+                
+                if (received > 0) {
+                    fprintf(stderr, "[WEBSOCKET] Received %zd bytes (buffer_size before: %zu)\n", received, conn->receive_buffer_size);
+                    
+                    // Initialize receive buffer if needed
+                    if (!conn->receive_buffer) {
+                        conn->receive_buffer_capacity = 8192;  // Start with 8KB
+                        conn->receive_buffer = shared_malloc_safe(conn->receive_buffer_capacity, "websocket", "process_connections", 0);
+                        conn->receive_buffer_size = 0;
                     }
                     
-                    websocket_free_frame(&frame);
-                }
-            } else if (received == 0 || (errno != EAGAIN && errno != EWOULDBLOCK)) {
-                // Connection closed or error
-                websocket_close(conn);
-                if (conn->auto_reconnect) {
-                    websocket_attempt_reconnect(conn);
-                }
+                    // Debug: Print first few bytes of received data
+                    if (received >= 2) {
+                        fprintf(stderr, "[WEBSOCKET] First 2 bytes of received data: %02x %02x\n", 
+                                (unsigned char)buffer[0], (unsigned char)buffer[1]);
+                    }
+                    
+                    // Append new data to receive buffer, expanding if needed
+                    size_t new_size = conn->receive_buffer_size + received;
+                    if (new_size > conn->receive_buffer_capacity) {
+                        // Expand buffer (double capacity, but at least enough for new data)
+                        size_t new_capacity = conn->receive_buffer_capacity * 2;
+                        if (new_capacity < new_size) {
+                            new_capacity = new_size + 4096;  // Add some extra space
+                        }
+                        uint8_t* new_buffer = shared_realloc_safe(conn->receive_buffer, new_capacity, "websocket", "process_connections", 0);
+                        if (new_buffer) {
+                            conn->receive_buffer = new_buffer;
+                            conn->receive_buffer_capacity = new_capacity;
+                        } else {
+                            // Realloc failed - process what we have and discard new data
+                            fprintf(stderr, "[WEBSOCKET] WARNING: Failed to expand receive buffer, discarding %zd bytes\n", received);
+                            break;
+                        }
+                    }
+                    
+                    // Append new data to buffer
+                    memcpy(conn->receive_buffer + conn->receive_buffer_size, buffer, received);
+                    conn->receive_buffer_size += received;
+                    
+                    // Debug: Print first few bytes of buffer after append
+                    if (conn->receive_buffer_size >= 2) {
+                        fprintf(stderr, "[WEBSOCKET] First 2 bytes of buffer (size=%zu): %02x %02x\n", 
+                                conn->receive_buffer_size, 
+                                (unsigned char)conn->receive_buffer[0], 
+                                (unsigned char)conn->receive_buffer[1]);
+                    }
+                    
+                    // Process all frames in the buffer (may contain multiple frames)
+                    size_t buffer_offset = 0;
+                    while (buffer_offset < conn->receive_buffer_size) {
+                        WebSocketFrame frame;
+                        size_t remaining = conn->receive_buffer_size - buffer_offset;
+                        fprintf(stderr, "[WEBSOCKET] Attempting to decode frame at offset %zu, remaining=%zu bytes, first 2 bytes: %02x %02x\n", 
+                                buffer_offset, remaining, 
+                                remaining > 0 ? conn->receive_buffer[buffer_offset] : 0,
+                                remaining > 1 ? conn->receive_buffer[buffer_offset + 1] : 0);
+                        int decoded = websocket_decode_frame(conn->receive_buffer + buffer_offset, remaining, &frame);
+                        
+                        if (decoded > 0) {
+                            fprintf(stderr, "[WEBSOCKET] Decoded frame: opcode=%d, payload_len=%zu, consumed=%d bytes\n", 
+                                    frame.opcode, frame.payload_length, decoded);
+                            
+                            if (frame.opcode == WS_OPCODE_PING) {
+                                websocket_send_pong(conn);
+                            } else if (frame.opcode == WS_OPCODE_PONG) {
+                                conn->waiting_for_pong = false;
+                                conn->last_pong_time = time(NULL);
+                            } else if (frame.opcode == WS_OPCODE_TEXT || frame.opcode == WS_OPCODE_BINARY || 
+                                       frame.opcode == WS_OPCODE_CONTINUATION) {
+                                // Handle text, binary, and continuation frames
+                                // For continuation frames, we need to check if FIN is set to know if this is the last fragment
+                                if (frame.opcode == WS_OPCODE_CONTINUATION) {
+                                    fprintf(stderr, "[WEBSOCKET] Continuation frame (FIN=%d, payload_len=%zu)\n", frame.fin, frame.payload_length);
+                                    // Continuation frames are part of fragmented messages
+                                    // If FIN is not set, this is a middle fragment - we need to accumulate it
+                                    // For now, if FIN is set, treat it as the final fragment and process it
+                                    // If FIN is not set, skip it (fragmentation not fully implemented)
+                                    // BUT: We must still advance buffer_offset to avoid misalignment
+                                    if (!frame.fin) {
+                                        fprintf(stderr, "[WEBSOCKET] WARNING: Fragmented message not fully implemented, skipping continuation frame (but advancing buffer)\n");
+                                        websocket_free_frame(&frame);
+                                        buffer_offset += decoded;
+                                        continue;
+                                    }
+                                    // FIN is set - this is the final fragment, process it as a complete message
+                                    fprintf(stderr, "[WEBSOCKET] Final continuation frame, processing as complete message\n");
+                                }
+                                
+                                fprintf(stderr, "[WEBSOCKET] Text/Binary/Continuation frame, calling gateway handler\n");
+                                // Check if this is a gateway connection
+                                extern void gateway_handle_websocket_message(WebSocketConnection* ws_conn, const char* message);
+                                if (frame.payload && frame.payload_length > 0) {
+                                    // Ensure null-terminated string for gateway handler
+                                    char* message_str = shared_malloc_safe(frame.payload_length + 1, "websocket", "process_connections", 0);
+                                    if (message_str) {
+                                        memcpy(message_str, frame.payload, frame.payload_length);
+                                        message_str[frame.payload_length] = '\0';
+                                        gateway_handle_websocket_message(conn, message_str);
+                                        shared_free_safe(message_str, "websocket", "process_connections", 1);
+                                    }
+                                }
+                            } else if (frame.opcode == WS_OPCODE_CLOSE) {
+                                fprintf(stderr, "[WEBSOCKET] Close frame received, payload_len=%zu\n", frame.payload_length);
+                                uint16_t status_code = 0;
+                                char* reason = NULL;
+                                
+                                if (frame.payload && frame.payload_length > 0) {
+                                    // Debug: Print first few bytes of payload to verify it's a valid close frame
+                                    fprintf(stderr, "[WEBSOCKET] Close payload (first 10 bytes hex): ");
+                                    for (size_t i = 0; i < 10 && i < frame.payload_length; i++) {
+                                        fprintf(stderr, "%02x ", (unsigned char)frame.payload[i]);
+                                    }
+                                    fprintf(stderr, "\n");
+                                    fprintf(stderr, "[WEBSOCKET] Close payload (first 20 bytes ascii): ");
+                                    for (size_t i = 0; i < 20 && i < frame.payload_length; i++) {
+                                        char c = frame.payload[i];
+                                        fprintf(stderr, "%c", (c >= 32 && c < 127) ? c : '.');
+                                    }
+                                    fprintf(stderr, "\n");
+                                    
+                                    // Close frame payload: first 2 bytes are status code (network byte order), rest is reason
+                                    // Valid WebSocket close codes are 1000-1015, 3000-3999, 4000-4999
+                                    // If the first 2 bytes don't form a valid close code, this might be misaligned data
+                                    if (frame.payload_length >= 2) {
+                                        // Status code is in network byte order (big-endian)
+                                        status_code = ((uint16_t)frame.payload[0] << 8) | (uint16_t)frame.payload[1];
+                                        fprintf(stderr, "[WEBSOCKET] Close status code: %d (0x%04x)\n", status_code, status_code);
+                                        
+                                        // Validate status code - if it's not a valid close code, this is likely misaligned
+                                        if (status_code < 1000 || (status_code > 1015 && status_code < 3000) || status_code > 4999) {
+                                            fprintf(stderr, "[WEBSOCKET] WARNING: Invalid close code - frame decoder may be misaligned!\n");
+                                            fprintf(stderr, "[WEBSOCKET] This close frame is likely misaligned JSON data from a previous frame\n");
+                                            // Don't treat this as a real close frame - skip it
+                                            websocket_free_frame(&frame);
+                                            buffer_offset += decoded;
+                                            continue;
+                                        }
+                                        
+                                        if (frame.payload_length > 2) {
+                                            // Extract reason string (UTF-8)
+                                            reason = shared_malloc_safe(frame.payload_length - 2 + 1, "websocket", "process_connections", 0);
+                                            if (reason) {
+                                                memcpy(reason, frame.payload + 2, frame.payload_length - 2);
+                                                reason[frame.payload_length - 2] = '\0';
+                                                fprintf(stderr, "[WEBSOCKET] Close reason: %s\n", reason);
+                                            }
+                                        }
+                                    } else {
+                                        // No status code, just print raw payload for debugging
+                                        fprintf(stderr, "[WEBSOCKET] Close payload (raw, <2 bytes): ");
+                                        for (size_t i = 0; i < frame.payload_length && i < 100; i++) {
+                                            fprintf(stderr, "%02x ", (unsigned char)frame.payload[i]);
+                                        }
+                                        fprintf(stderr, "\n");
+                                    }
+                                } else {
+                                    // Empty close frame (no payload)
+                                    fprintf(stderr, "[WEBSOCKET] Close frame with no payload\n");
+                                }
+                                
+                                // Report error to gateway if this is a gateway connection
+                                extern void gateway_handle_close(WebSocketConnection* ws_conn, uint16_t status_code, const char* reason);
+                                gateway_handle_close(conn, status_code, reason);
+                                
+                                if (reason) {
+                                    shared_free_safe(reason, "websocket", "process_connections", 0);
+                                }
+                                
+                                conn->state = WS_STATE_CLOSED;
+                                websocket_close(conn);
+                                websocket_free_frame(&frame);
+                                break;  // Stop processing after close frame
+                            }
+                            
+                            // Trigger message callback (for non-gateway connections)
+                            if ((frame.opcode == WS_OPCODE_TEXT || frame.opcode == WS_OPCODE_BINARY) && 
+                                conn->on_message_callback.type == VALUE_FUNCTION && frame.payload) {
+                                Value msg_val = value_create_string((char*)frame.payload);
+                                Value result = value_function_call(&conn->on_message_callback, &msg_val, 1, interpreter, 0, 0);
+                                value_free(&result);
+                                value_free(&msg_val);
+                            }
+                            
+                            websocket_free_frame(&frame);
+                            
+                            // Advance buffer offset for next frame
+                            buffer_offset += decoded;
+                        } else if (decoded == -2) {
+                            // Incomplete frame - valid header but not enough payload data
+                            // Keep the data in buffer and wait for more
+                            fprintf(stderr, "[WEBSOCKET] Incomplete frame detected, keeping %zu bytes in buffer for next read\n", remaining);
+                            break;  // Exit loop, keep data in buffer
+                        } else {
+                            // Failed to decode - decoder is misaligned (decoded == -1)
+                            // Try to find the next valid frame header by searching for valid opcodes
+                            // Valid opcodes: 0x0 (continuation), 0x1 (text), 0x2 (binary), 0x8 (close), 0x9 (ping), 0xA (pong)
+                            // Frame headers start with: FIN bit (0x80) or not, then opcode in lower 4 bits
+                            // Look for bytes that could be valid frame headers (FIN=0 or 1, opcode 0-2, 8-10)
+                            size_t search_start = buffer_offset;
+                            size_t search_end = conn->receive_buffer_size;
+                            size_t found_offset = 0;
+                            int found = 0;
+                            
+                            // Search for a valid frame header pattern
+                            for (size_t i = search_start; i < search_end - 1; i++) {
+                                uint8_t byte0 = conn->receive_buffer[i];
+                                uint8_t byte1 = conn->receive_buffer[i + 1];
+                                uint8_t opcode = byte0 & 0x0F;
+                                uint8_t fin = (byte0 >> 7) & 1;
+                                
+                                // Check if this could be a valid frame header
+                                // Valid opcodes: 0x0, 0x1, 0x2, 0x8, 0x9, 0xA
+                                // RSV bits (bits 4-6) should be 0 for basic frames
+                                uint8_t rsv = (byte0 >> 4) & 0x07;
+                                
+                                if (rsv == 0 && (opcode <= 0x2 || (opcode >= 0x8 && opcode <= 0xA))) {
+                                    // This looks like a valid frame header - try to decode from here
+                                    WebSocketFrame test_frame;
+                                    int test_decoded = websocket_decode_frame(conn->receive_buffer + i, search_end - i, &test_frame);
+                                    if (test_decoded > 0) {
+                                        // Found a valid frame!
+                                        found_offset = i;
+                                        found = 1;
+                                        websocket_free_frame(&test_frame);
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            if (found) {
+                                fprintf(stderr, "[WEBSOCKET] Found valid frame header at offset %zu (skipped %zu bytes of misaligned data)\n", 
+                                        found_offset, found_offset - buffer_offset);
+                                buffer_offset = found_offset;
+                                // Continue loop to decode the frame we found
+                                continue;
+                            } else {
+                                // Failed to decode - could be incomplete frame or misaligned data
+                                // If we have very little data left (< 14 bytes, minimum frame size), 
+                                // it might be incomplete - keep it for next read
+                                // Otherwise, try to find a valid frame header
+                                if (remaining < 14) {
+                                    // Too little data - might be incomplete frame, keep it
+                                    fprintf(stderr, "[WEBSOCKET] Incomplete frame (only %zu bytes), keeping for next read\n", remaining);
+                                    break;  // Keep the data in buffer
+                                } else {
+                                    // Enough data for a frame - search for valid header
+                                    fprintf(stderr, "[WEBSOCKET] No valid frame header found, searching for alignment (remaining=%zu bytes)\n", remaining);
+                                    // Search for valid frame header starting from current offset
+                                    size_t search_start = buffer_offset;
+                                    size_t search_end = conn->receive_buffer_size;
+                                    size_t found_offset = 0;
+                                    int found = 0;
+                                    
+                                    // Search for a valid frame header pattern
+                                    for (size_t i = search_start; i < search_end - 1; i++) {
+                                        uint8_t byte0 = conn->receive_buffer[i];
+                                        uint8_t opcode = byte0 & 0x0F;
+                                        uint8_t rsv = (byte0 >> 4) & 0x07;
+                                        
+                                        // Check if this could be a valid frame header
+                                        if (rsv == 0 && (opcode <= 0x2 || (opcode >= 0x8 && opcode <= 0xA))) {
+                                            // This looks like a valid frame header - try to decode from here
+                                            WebSocketFrame test_frame;
+                                            int test_decoded = websocket_decode_frame(conn->receive_buffer + i, search_end - i, &test_frame);
+                                            if (test_decoded > 0) {
+                                                // Found a valid frame!
+                                                found_offset = i;
+                                                found = 1;
+                                                websocket_free_frame(&test_frame);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    
+                                    if (found) {
+                                        fprintf(stderr, "[WEBSOCKET] Found valid frame header at offset %zu (skipped %zu bytes of misaligned data)\n", 
+                                                found_offset, found_offset - buffer_offset);
+                                        buffer_offset = found_offset;
+                                        // Continue loop to decode the frame we found
+                                        continue;
+                                    } else {
+                                        // No valid frame header found - discard data up to current offset
+                                        // but keep a small amount in case it's the start of an incomplete frame
+                                        if (buffer_offset > 0) {
+                                            fprintf(stderr, "[WEBSOCKET] Discarding %zu bytes of misaligned data\n", buffer_offset);
+                                        }
+                                        break;  // Will update buffer below
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Remove processed data from buffer, keeping any remaining bytes
+                    if (buffer_offset > 0 && buffer_offset < conn->receive_buffer_size) {
+                        size_t remaining_bytes = conn->receive_buffer_size - buffer_offset;
+                        if (remaining_bytes > 0) {
+                            // Move remaining bytes to start of buffer
+                            memmove(conn->receive_buffer, conn->receive_buffer + buffer_offset, remaining_bytes);
+                        }
+                        conn->receive_buffer_size = remaining_bytes;
+                    } else if (buffer_offset >= conn->receive_buffer_size) {
+                        // All data was processed or discarded
+                        conn->receive_buffer_size = 0;
+                    }
+                    
+                    read_attempts++;
+                    // If we got less than the buffer size, we've read all available data
+                    if (received < (ssize_t)sizeof(buffer)) {
+                        break;
+                    }
+            } else {
+                // No data received, break out of read loop
+                break;
             }
+            }  // End of while loop
         }
         
         conn = conn->next;

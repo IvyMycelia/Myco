@@ -389,6 +389,20 @@ Value value_create_hash_map(size_t initial_capacity) {
 void value_hash_map_set(Value* map, Value key, Value value) {
     if (!map || map->type != VALUE_HASH_MAP) return;
     
+    // Debug: log function values being stored
+    if (value.type == VALUE_FUNCTION) {
+        ASTNode* body_ptr = (ASTNode*)value.data.function_value.body;
+        uintptr_t body_addr = (uintptr_t)body_ptr;
+        if (body_addr < 10000) {
+            int func_id = (int)body_addr;
+            const char* key_str = (key.type == VALUE_STRING && key.data.string_value) ? key.data.string_value : NULL;
+            if (key_str) {
+                fprintf(stderr, "[HASHMAP_SET] Storing function: key='%s', func_id=%d, param_count=%zu\n", 
+                        key_str, func_id, value.data.function_value.parameter_count);
+            }
+        }
+    }
+    
     // Check if key already exists
     for (size_t i = 0; i < map->data.hash_map_value.count; i++) {
         Value* existing_key = (Value*)map->data.hash_map_value.keys[i];
@@ -399,7 +413,23 @@ void value_hash_map_set(Value* map, Value key, Value value) {
                 value_free(existing_value);
                 shared_free_safe(existing_value, "interpreter", "value_hash_map_set", 0);
                 map->data.hash_map_value.values[i] = shared_malloc_safe(sizeof(Value), "interpreter", "value_hash_map_set", 1);
-                *(Value*)map->data.hash_map_value.values[i] = value_clone(&value);
+                Value cloned = value_clone(&value);
+                // Debug: verify cloned function ID
+                if (value.type == VALUE_FUNCTION && cloned.type == VALUE_FUNCTION) {
+                    ASTNode* orig_body = (ASTNode*)value.data.function_value.body;
+                    ASTNode* cloned_body = (ASTNode*)cloned.data.function_value.body;
+                    uintptr_t orig_addr = (uintptr_t)orig_body;
+                    uintptr_t cloned_addr = (uintptr_t)cloned_body;
+                    if (orig_addr < 10000 && cloned_addr < 10000) {
+                        int orig_id = (int)orig_addr;
+                        int cloned_id = (int)cloned_addr;
+                        if (orig_id != cloned_id) {
+                            fprintf(stderr, "[HASHMAP_SET] WARNING: Function ID mismatch! Original func_id=%d, Cloned func_id=%d\n", 
+                                    orig_id, cloned_id);
+                        }
+                    }
+                }
+                *(Value*)map->data.hash_map_value.values[i] = cloned;
             }
             return;
         }
@@ -431,7 +461,23 @@ void value_hash_map_set(Value* map, Value key, Value value) {
         shared_free_safe(new_key, "interpreter", "value_hash_map_set", 0);
         return;
     }
-    *new_value = value_clone(&value);
+    Value cloned = value_clone(&value);
+    // Debug: verify cloned function ID for new entries
+    if (value.type == VALUE_FUNCTION && cloned.type == VALUE_FUNCTION) {
+        ASTNode* orig_body = (ASTNode*)value.data.function_value.body;
+        ASTNode* cloned_body = (ASTNode*)cloned.data.function_value.body;
+        uintptr_t orig_addr = (uintptr_t)orig_body;
+        uintptr_t cloned_addr = (uintptr_t)cloned_body;
+        if (orig_addr < 10000 && cloned_addr < 10000) {
+            int orig_id = (int)orig_addr;
+            int cloned_id = (int)cloned_addr;
+            if (orig_id != cloned_id) {
+                fprintf(stderr, "[HASHMAP_SET] WARNING: Function ID mismatch on new entry! Original func_id=%d, Cloned func_id=%d\n", 
+                        orig_id, cloned_id);
+            }
+        }
+    }
+    *new_value = cloned;
     map->data.hash_map_value.values[map->data.hash_map_value.count] = new_value;
     map->data.hash_map_value.count++;
 }
@@ -441,14 +487,9 @@ Value value_hash_map_get(Value* map, Value key) {
         return value_create_null();
     }
     
-    // Debug: check for "connect" key
-    const char* key_str = (key.type == VALUE_STRING && key.data.string_value) ? key.data.string_value : NULL;
-    int is_connect_key = (key_str && strcmp(key_str, "connect") == 0);
-    
     for (size_t i = 0; i < map->data.hash_map_value.count; i++) {
         Value* existing_key = (Value*)map->data.hash_map_value.keys[i];
         if (existing_key) {
-            
             // Compare keys - check both string comparison and value_equals
             int keys_match = 0;
             if (existing_key->type == VALUE_STRING && key.type == VALUE_STRING) {
